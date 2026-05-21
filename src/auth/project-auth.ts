@@ -1,6 +1,8 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
+import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
 import { bearer, jwt } from "better-auth/plugins";
+import type { Pool } from "pg";
 
 import type { AuthProject } from "../config/projects";
 import type { ProjectDatabase } from "../db/project-db";
@@ -12,17 +14,53 @@ type ProjectAuthOptions = {
   secret: string;
 };
 
+type ProjectMigrationOptions = {
+  project: AuthProject;
+  pool: Pool;
+  publicBaseUrl: string;
+  secret: string;
+};
+
 export function createProjectAuth(options: ProjectAuthOptions) {
   const { project, projectDb, publicBaseUrl, secret } = options;
 
   return betterAuth({
+    ...createBaseProjectAuthOptions({
+      project,
+      publicBaseUrl,
+      secret
+    }),
+    database: drizzleAdapter(projectDb.db, {
+      provider: "pg"
+    })
+  });
+}
+
+export function createProjectMigrationAuthOptions(
+  options: ProjectMigrationOptions
+): BetterAuthOptions {
+  return {
+    ...createBaseProjectAuthOptions({
+      project: options.project,
+      publicBaseUrl: options.publicBaseUrl,
+      secret: options.secret
+    }),
+    database: options.pool
+  };
+}
+
+function createBaseProjectAuthOptions(options: {
+  project: AuthProject;
+  publicBaseUrl: string;
+  secret: string;
+}): Omit<BetterAuthOptions, "database"> {
+  const { project, publicBaseUrl, secret } = options;
+
+  return {
     appName: project.name,
     baseURL: `${publicBaseUrl}/${project.slug}`,
     basePath: "/api/auth",
     secret,
-    database: drizzleAdapter(projectDb.db, {
-      provider: "pg"
-    }),
     trustedOrigins: project.trustedOrigins,
     emailAndPassword: {
       enabled: true
@@ -55,5 +93,5 @@ export function createProjectAuth(options: ProjectAuthOptions) {
     telemetry: {
       enabled: false
     }
-  });
+  };
 }

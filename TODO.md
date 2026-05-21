@@ -2,14 +2,10 @@
 
 ## Application Readiness
 
-- Add a reliable schema lifecycle for project-scoped user pools.
-- Add Better Auth table migrations for every configured project schema.
-- Include plugin-managed tables such as JWT JWKS when generating or applying
-  project schema migrations.
 - Decide whether project configuration should stay in `AUTH_PROJECTS` or move to
   a database-backed registry.
-- Add a safe project onboarding command that creates the schema, applies
-  migrations, and validates trusted origins.
+- Add a project onboarding command that validates trusted origins and updates
+  `AUTH_PROJECTS` safely.
 - Add email verification and password reset delivery through a real provider.
 - Add rate limiting for signup, signin, password reset, and verification flows.
 - Review secure cookie behavior behind Cloudflare Tunnel and Kubernetes service

@@ -2,7 +2,7 @@ import { loadEnv } from "./config/env";
 import { createApp } from "./http/app";
 
 const env = loadEnv();
-const { app, registry } = createApp(env);
+const { app, registry } = await createApp(env);
 
 const server = Bun.serve({
   port: env.port,

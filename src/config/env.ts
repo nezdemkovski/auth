@@ -5,6 +5,7 @@ export type Env = {
   publicBaseUrl: string;
   databaseUrl: string;
   betterAuthSecret: string;
+  autoMigrate: boolean;
   projects: AuthProject[];
 };
 
@@ -31,6 +32,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     publicBaseUrl: trimTrailingSlash(publicBaseUrl),
     databaseUrl,
     betterAuthSecret,
+    autoMigrate: parseBoolean(source.AUTH_AUTO_MIGRATE, true),
     projects: parseProjects(source.AUTH_PROJECTS)
   };
 }
@@ -59,4 +61,20 @@ function buildDatabaseUrl(source: NodeJS.ProcessEnv): string {
   url.password = password;
 
   return url.toString();
+}
+
+function parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
+  if (value === undefined) {
+    return defaultValue;
+  }
+
+  if (["1", "true", "yes", "on"].includes(value.toLowerCase())) {
+    return true;
+  }
+
+  if (["0", "false", "no", "off"].includes(value.toLowerCase())) {
+    return false;
+  }
+
+  throw new Error("AUTH_AUTO_MIGRATE must be a boolean");
 }

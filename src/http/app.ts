@@ -3,12 +3,22 @@ import { cors } from "hono/cors";
 
 import type { Env } from "../config/env";
 import { AuthRegistry } from "../auth/registry";
+import { bootstrapProjects } from "../db/bootstrap";
 
 type AppVariables = {
   registry: AuthRegistry;
 };
 
-export function createApp(env: Env) {
+export async function createApp(env: Env) {
+  if (env.autoMigrate) {
+    await bootstrapProjects({
+      databaseUrl: env.databaseUrl,
+      publicBaseUrl: env.publicBaseUrl,
+      secret: env.betterAuthSecret,
+      projects: env.projects
+    });
+  }
+
   const registry = new AuthRegistry({
     databaseUrl: env.databaseUrl,
     publicBaseUrl: env.publicBaseUrl,

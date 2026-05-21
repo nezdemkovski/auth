@@ -69,6 +69,7 @@ Each project gets:
 
 - its own Better Auth instance
 - its own Postgres connection with `search_path` set to the project schema
+- idempotent startup bootstrap for the project schema and Better Auth tables
 - its own cookie prefix
 - its own trusted origins
 - its own JWT issuer and JWKS endpoint
