@@ -19,7 +19,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   }
 
   const publicBaseUrl = required(source.AUTH_PUBLIC_BASE_URL, "AUTH_PUBLIC_BASE_URL");
-  const databaseUrl = required(source.DATABASE_URL, "DATABASE_URL");
+  const databaseUrl = source.DATABASE_URL ?? buildDatabaseUrl(source);
   const betterAuthSecret = required(source.BETTER_AUTH_SECRET, "BETTER_AUTH_SECRET");
 
   if (betterAuthSecret.length < MIN_SECRET_LENGTH) {
@@ -45,4 +45,18 @@ function required(value: string | undefined, name: string): string {
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
+}
+
+function buildDatabaseUrl(source: NodeJS.ProcessEnv): string {
+  const host = required(source.POSTGRES_HOST, "POSTGRES_HOST");
+  const port = source.POSTGRES_PORT ?? "5432";
+  const database = required(source.POSTGRES_DB, "POSTGRES_DB");
+  const user = required(source.POSTGRES_USER, "POSTGRES_USER");
+  const password = required(source.POSTGRES_PASSWORD, "POSTGRES_PASSWORD");
+
+  const url = new URL(`postgres://${host}:${port}/${database}`);
+  url.username = user;
+  url.password = password;
+
+  return url.toString();
 }
