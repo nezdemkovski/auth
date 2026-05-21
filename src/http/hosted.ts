@@ -135,13 +135,16 @@ async function issueSession(options: {
   mode: string;
   email: string;
   password: string;
+  redirectUri: string;
 }): Promise<{ sessionCookie: string; email: string } | null> {
+  const callbackURL = callbackUrlFromRedirectUri(options.redirectUri);
   const body =
     options.mode === "signup"
       ? {
           email: options.email,
           password: options.password,
-          name: options.email.split("@")[0]
+          name: options.email.split("@")[0],
+          callbackURL
         }
       : {
           email: options.email,
@@ -217,6 +220,10 @@ export function renderHostedLogin(
   });
 }
 
+function callbackUrlFromRedirectUri(redirectUri: string): string {
+  return new URL(redirectUri).origin;
+}
+
 export async function submitHostedLogin(
   req: Request,
   project: string,
@@ -242,7 +249,8 @@ export async function submitHostedLogin(
     registered,
     mode,
     email,
-    password
+    password,
+    redirectUri
   });
 
   if (!session) {
