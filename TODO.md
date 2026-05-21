@@ -4,6 +4,8 @@
 
 - Add a reliable schema lifecycle for project-scoped user pools.
 - Add Better Auth table migrations for every configured project schema.
+- Include plugin-managed tables such as JWT JWKS when generating or applying
+  project schema migrations.
 - Decide whether project configuration should stay in `AUTH_PROJECTS` or move to
   a database-backed registry.
 - Add a safe project onboarding command that creates the schema, applies

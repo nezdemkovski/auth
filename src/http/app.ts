@@ -40,6 +40,22 @@ export function createApp(env: Env) {
     });
   });
 
+  app.get("/:project/.well-known/jwks.json", (c) => {
+    const projectSlug = c.req.param("project");
+    const registered = registry.get(projectSlug);
+
+    if (!registered) {
+      return c.json(
+        {
+          error: "unknown_project"
+        },
+        404
+      );
+    }
+
+    return registered.auth.handler(c.req.raw);
+  });
+
   app.use(
     "/:project/api/auth/*",
     cors({

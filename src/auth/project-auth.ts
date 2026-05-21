@@ -1,5 +1,6 @@
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { betterAuth } from "better-auth";
+import { bearer, jwt } from "better-auth/plugins";
 
 import type { AuthProject } from "../config/projects";
 import type { ProjectDatabase } from "../db/project-db";
@@ -26,6 +27,28 @@ export function createProjectAuth(options: ProjectAuthOptions) {
     emailAndPassword: {
       enabled: true
     },
+    plugins: [
+      bearer(),
+      jwt({
+        jwks: {
+          jwksPath: "/.well-known/jwks.json",
+          keyPairConfig: {
+            alg: "RS256",
+            modulusLength: 2048
+          }
+        },
+        jwt: {
+          issuer: `${publicBaseUrl}/${project.slug}`,
+          audience: project.slug,
+          expirationTime: "15 minutes",
+          definePayload: ({ user }) => ({
+            sub: user.id,
+            email: user.email,
+            project: project.slug
+          })
+        }
+      })
+    ],
     advanced: {
       cookiePrefix: `auth_${project.slug}`
     },

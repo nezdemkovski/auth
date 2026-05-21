@@ -10,6 +10,12 @@ projects.
 https://auth.nezdemkovski.cloud/<project>/api/auth/*
 ```
 
+JWT verification keys are exposed per project:
+
+```text
+https://auth.nezdemkovski.cloud/<project>/.well-known/jwks.json
+```
+
 ## Stack
 
 - Bun
@@ -65,6 +71,7 @@ Each project gets:
 - its own Postgres connection with `search_path` set to the project schema
 - its own cookie prefix
 - its own trusted origins
+- its own JWT issuer and JWKS endpoint
 
 Applications should store their own domain data in their own databases and only
 reference the project-local Better Auth `user.id`.
