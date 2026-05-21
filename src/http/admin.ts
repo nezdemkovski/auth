@@ -1,3 +1,5 @@
+import { sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
 import { Hono } from "hono";
 import type { Pool } from "pg";
 
@@ -25,6 +27,18 @@ type ChangePasswordBody = {
 };
 
 type RegisteredProject = NonNullable<ReturnType<AuthRegistry["get"]>>;
+
+type ProjectUserRow = {
+  id: string;
+  email: string;
+  name: string;
+  role: string | null;
+  banned: boolean | null;
+  emailVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  sessionCount: number;
+};
 
 export function createAdminApi(options: AdminApiOptions): Hono {
   const app = new Hono();
@@ -71,14 +85,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       newPassword: body.newPassword
     });
 
-    await admin.projectDb.pool.query(
-      `UPDATE auth_bootstrap_state
-       SET must_change_password = false,
-           changed_at = now()
-       WHERE key = 'initial_admin'
-         AND user_id = $1`,
-      [session.user.id]
-    );
+    await markPasswordChanged(admin.projectDb.pool, session.user.id);
 
     return c.json(response);
   });
@@ -123,32 +130,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       return c.json({ error: "unknown_project" }, 404);
     }
 
-    const result = await registered.projectDb.pool.query<{
-      id: string;
-      email: string;
-      name: string;
-      role: string | null;
-      banned: boolean | null;
-      emailVerified: boolean;
-      createdAt: Date;
-      updatedAt: Date;
-      sessionCount: string;
-    }>(
-      `SELECT u.id,
-              u.email,
-              u.name,
-              u.role,
-              u.banned,
-              u."emailVerified",
-              u."createdAt",
-              u."updatedAt",
-              COUNT(s.id)::int AS "sessionCount"
-       FROM "user" u
-       LEFT JOIN "session" s ON s."userId" = u.id AND s."expiresAt" > now()
-       GROUP BY u.id
-       ORDER BY u."createdAt" DESC
-       LIMIT 100`
-    );
+    const users = await readProjectUsers(registered.projectDb.pool);
 
     return c.json({
       project: {
@@ -156,7 +138,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
         name: registered.project.name,
         schema: registered.project.schema
       },
-      users: result.rows.map((user) => ({
+      users: users.map((user) => ({
         id: user.id,
         email: user.email,
         name: user.name,
@@ -234,32 +216,67 @@ async function changePassword(
 }
 
 async function mustChangePassword(pool: Pool, userId: string): Promise<boolean> {
-  const result = await pool.query(
-    `SELECT must_change_password
-     FROM auth_bootstrap_state
-     WHERE key = 'initial_admin'
-       AND user_id = $1
-     LIMIT 1`,
-    [userId]
-  );
+  const db = drizzle({ client: pool });
+  const result = await db.execute<{ must_change_password: boolean }>(sql`
+    SELECT must_change_password
+    FROM auth_bootstrap_state
+    WHERE key = 'initial_admin'
+      AND user_id = ${userId}
+    LIMIT 1
+  `);
 
   return result.rows[0]?.must_change_password ?? false;
+}
+
+async function markPasswordChanged(pool: Pool, userId: string): Promise<void> {
+  const db = drizzle({ client: pool });
+
+  await db.execute(sql`
+    UPDATE auth_bootstrap_state
+    SET must_change_password = false,
+        changed_at = now()
+    WHERE key = 'initial_admin'
+      AND user_id = ${userId}
+  `);
 }
 
 async function readProjectCounts(pool: Pool): Promise<{
   userCount: number;
   activeSessionCount: number;
 }> {
-  const result = await pool.query<{
+  const db = drizzle({ client: pool });
+  const result = await db.execute<{
     userCount: string;
     activeSessionCount: string;
-  }>(
-    `SELECT (SELECT COUNT(*)::int FROM "user") AS "userCount",
-            (SELECT COUNT(*)::int FROM "session" WHERE "expiresAt" > now()) AS "activeSessionCount"`
-  );
+  }>(sql`
+    SELECT (SELECT COUNT(*)::int FROM "user") AS "userCount",
+           (SELECT COUNT(*)::int FROM "session" WHERE "expiresAt" > now()) AS "activeSessionCount"
+  `);
 
   return {
     userCount: Number(result.rows[0]?.userCount ?? 0),
     activeSessionCount: Number(result.rows[0]?.activeSessionCount ?? 0)
   };
+}
+
+async function readProjectUsers(pool: Pool): Promise<ProjectUserRow[]> {
+  const db = drizzle({ client: pool });
+  const result = await db.execute<ProjectUserRow>(sql`
+    SELECT u.id,
+           u.email,
+           u.name,
+           u.role,
+           u.banned,
+           u."emailVerified",
+           u."createdAt",
+           u."updatedAt",
+           COUNT(s.id)::int AS "sessionCount"
+    FROM "user" u
+    LEFT JOIN "session" s ON s."userId" = u.id AND s."expiresAt" > now()
+    GROUP BY u.id
+    ORDER BY u."createdAt" DESC
+    LIMIT 100
+  `);
+
+  return result.rows;
 }
