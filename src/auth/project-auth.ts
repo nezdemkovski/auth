@@ -1,4 +1,3 @@
-import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
 import { bearer, jwt } from "better-auth/plugins";
@@ -30,9 +29,7 @@ export function createProjectAuth(options: ProjectAuthOptions) {
       publicBaseUrl,
       secret
     }),
-    database: drizzleAdapter(projectDb.db, {
-      provider: "pg"
-    })
+    database: projectDb.pool
   });
 }
 
