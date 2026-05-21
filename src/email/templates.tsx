@@ -109,7 +109,7 @@ async function renderActionEmail(input: ActionEmailProps): Promise<{
   };
 }
 
-function ActionEmail({
+export function ActionEmail({
   projectName,
   title,
   preview,
