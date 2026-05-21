@@ -5,12 +5,15 @@ import type { Pool } from "pg";
 
 import type { AuthProject } from "../config/projects";
 import type { ProjectDatabase } from "../db/project-db";
+import type { EmailSender } from "../email/cloudflare";
+import { createProjectEmailHandlers } from "../email/templates";
 
 type ProjectAuthOptions = {
   project: AuthProject;
   projectDb: ProjectDatabase;
   publicBaseUrl: string;
   secret: string;
+  emailSender: EmailSender | null;
 };
 
 type ProjectMigrationOptions = {
@@ -27,7 +30,8 @@ export function createProjectAuth(options: ProjectAuthOptions) {
     ...createBaseProjectAuthOptions({
       project,
       publicBaseUrl,
-      secret
+      secret,
+      emailSender: options.emailSender
     }),
     database: projectDb.pool
   });
@@ -40,7 +44,8 @@ export function createProjectMigrationAuthOptions(
     ...createBaseProjectAuthOptions({
       project: options.project,
       publicBaseUrl: options.publicBaseUrl,
-      secret: options.secret
+      secret: options.secret,
+      emailSender: null
     }),
     database: options.pool
   };
@@ -50,8 +55,13 @@ function createBaseProjectAuthOptions(options: {
   project: AuthProject;
   publicBaseUrl: string;
   secret: string;
+  emailSender: EmailSender | null;
 }): Omit<BetterAuthOptions, "database"> {
   const { project, publicBaseUrl, secret } = options;
+  const emailHandlers = createProjectEmailHandlers({
+    sender: options.emailSender,
+    project
+  });
 
   return {
     appName: project.name,
@@ -59,8 +69,14 @@ function createBaseProjectAuthOptions(options: {
     secret,
     trustedOrigins: project.trustedOrigins,
     emailAndPassword: {
-      enabled: true
+      enabled: true,
+      ...emailHandlers.emailAndPassword
     },
+    ...("emailVerification" in emailHandlers
+      ? {
+          emailVerification: emailHandlers.emailVerification
+        }
+      : {}),
     plugins: [
       admin({
         defaultRole: "user",

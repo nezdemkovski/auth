@@ -6,6 +6,7 @@ import { cors } from "hono/cors";
 import type { Env } from "../config/env";
 import { AuthRegistry } from "../auth/registry";
 import { bootstrapProjects } from "../db/bootstrap";
+import { createEmailSender } from "../email/cloudflare";
 import { createAdminApi } from "./admin";
 import {
   exchangeHostedCode,
@@ -48,6 +49,8 @@ function hostedAssetPath(path: string): string | null {
 }
 
 export async function createApp(env: Env) {
+  const emailSender = createEmailSender(env.email);
+
   if (env.autoMigrate) {
     await bootstrapProjects({
       databaseUrl: env.databaseUrl,
@@ -63,6 +66,7 @@ export async function createApp(env: Env) {
     databaseUrl: env.databaseUrl,
     publicBaseUrl: env.publicBaseUrl,
     secret: env.betterAuthSecret,
+    emailSender,
     projects: [env.adminProject, ...env.projects]
   });
 

@@ -1,0 +1,52 @@
+import type { EmailConfig } from "../config/env";
+
+export type EmailSender = {
+  send(input: {
+    to: string;
+    subject: string;
+    html: string;
+    text: string;
+  }): Promise<void>;
+};
+
+export function createEmailSender(config: EmailConfig): EmailSender | null {
+  if (config.provider === "none") {
+    return null;
+  }
+
+  return new CloudflareEmailSender(config);
+}
+
+class CloudflareEmailSender implements EmailSender {
+  constructor(private readonly config: Extract<EmailConfig, { provider: "cloudflare" }>) {}
+
+  async send(input: {
+    to: string;
+    subject: string;
+    html: string;
+    text: string;
+  }): Promise<void> {
+    const response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${this.config.accountId}/email/sending/send`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.config.apiToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          from: this.config.from,
+          to: input.to,
+          subject: input.subject,
+          html: input.html,
+          text: input.text
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`Cloudflare Email send failed: ${response.status} ${body}`);
+    }
+  }
+}

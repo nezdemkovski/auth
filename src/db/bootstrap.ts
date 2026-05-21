@@ -64,7 +64,8 @@ async function bootstrapInitialAdmin(options: BootstrapOptions): Promise<void> {
     project,
     projectDb,
     publicBaseUrl: options.publicBaseUrl,
-    secret: options.secret
+    secret: options.secret,
+    emailSender: null
   });
 
   try {

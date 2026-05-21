@@ -8,8 +8,20 @@ export type Env = {
   autoMigrate: boolean;
   adminProject: AuthProject;
   adminEmail: string;
+  email: EmailConfig;
   projects: AuthProject[];
 };
+
+export type EmailConfig =
+  | {
+      provider: "none";
+    }
+  | {
+      provider: "cloudflare";
+      accountId: string;
+      apiToken: string;
+      from: string;
+    };
 
 const DEFAULT_PORT = 3000;
 const MIN_SECRET_LENGTH = 32;
@@ -37,6 +49,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     autoMigrate: parseBoolean(source.AUTH_AUTO_MIGRATE, true),
     adminProject: parseAdminProject(source.AUTH_ADMIN_PROJECT),
     adminEmail: source.AUTH_ADMIN_EMAIL ?? "admin@localhost",
+    email: parseEmailConfig(source),
     projects: parseProjects(source.AUTH_PROJECTS)
   };
 }
@@ -81,4 +94,25 @@ function parseBoolean(value: string | undefined, defaultValue: boolean): boolean
   }
 
   throw new Error("AUTH_AUTO_MIGRATE must be a boolean");
+}
+
+function parseEmailConfig(source: NodeJS.ProcessEnv): EmailConfig {
+  const provider = source.EMAIL_PROVIDER ?? "none";
+
+  if (provider === "none") {
+    return {
+      provider: "none"
+    };
+  }
+
+  if (provider !== "cloudflare") {
+    throw new Error("EMAIL_PROVIDER must be one of: none, cloudflare");
+  }
+
+  return {
+    provider: "cloudflare",
+    accountId: required(source.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID"),
+    apiToken: required(source.CLOUDFLARE_EMAIL_API_TOKEN, "CLOUDFLARE_EMAIL_API_TOKEN"),
+    from: required(source.EMAIL_FROM, "EMAIL_FROM")
+  };
 }

@@ -1,5 +1,6 @@
 import type { AuthProject } from "../config/projects";
 import { createProjectDatabase, type ProjectDatabase } from "../db/project-db";
+import type { EmailSender } from "../email/cloudflare";
 import { createProjectAuth } from "./project-auth";
 
 type ProjectAuth = ReturnType<typeof createProjectAuth>;
@@ -14,6 +15,7 @@ type RegistryOptions = {
   databaseUrl: string;
   publicBaseUrl: string;
   secret: string;
+  emailSender: EmailSender | null;
   projects: AuthProject[];
 };
 
@@ -27,7 +29,8 @@ export class AuthRegistry {
         project,
         projectDb,
         publicBaseUrl: options.publicBaseUrl,
-        secret: options.secret
+        secret: options.secret,
+        emailSender: options.emailSender
       });
 
       this.projects.set(project.slug, {
