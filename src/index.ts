@@ -2,7 +2,7 @@ import { loadEnv } from "./config/env";
 import { createApp } from "./http/app";
 
 const env = loadEnv();
-const { app, registry } = await createApp(env);
+const { app, close } = await createApp(env);
 
 const server = Bun.serve({
   port: env.port,
@@ -12,7 +12,7 @@ const server = Bun.serve({
 console.log(`auth service listening on ${server.url}`);
 
 const shutdown = async () => {
-  await registry.close();
+  await close();
   server.stop(true);
 };
 

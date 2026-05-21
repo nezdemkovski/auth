@@ -1,4 +1,5 @@
 import type { MiddlewareHandler } from "hono";
+import { RedisClient } from "bun";
 
 type RateLimitRule = {
   name: string;
@@ -10,6 +11,20 @@ type RateLimitRule = {
 type RateLimitBucket = {
   count: number;
   resetAt: number;
+};
+
+type RateLimitResult =
+  | {
+      allowed: true;
+    }
+  | {
+      allowed: false;
+      retryAfter: number;
+    };
+
+type RateLimiterStore = {
+  hit(key: string, rule: RateLimitRule, now: number): Promise<RateLimitResult>;
+  close(): Promise<void>;
 };
 
 const rateLimitBuckets = new Map<string, RateLimitBucket>();
@@ -94,7 +109,15 @@ export function securityHeaders(publicBaseUrl: string): MiddlewareHandler {
   };
 }
 
-export function rateLimit(): MiddlewareHandler {
+export function createRateLimiter(redisUrl: string | null): RateLimiterStore {
+  if (redisUrl) {
+    return new RedisRateLimiterStore(redisUrl);
+  }
+
+  return new MemoryRateLimiterStore();
+}
+
+export function rateLimit(store: RateLimiterStore): MiddlewareHandler {
   return async (c, next) => {
     const method = c.req.method.toUpperCase();
     const path = c.req.path;
@@ -109,6 +132,38 @@ export function rateLimit(): MiddlewareHandler {
 
     const now = Date.now();
     const key = `${rule.name}:${clientKey(c.req.raw.headers)}:${normalizePath(path)}`;
+    let result: RateLimitResult;
+
+    try {
+      result = await store.hit(key, rule, now);
+    } catch (error) {
+      console.error("[rate-limit] backend error", error);
+      return c.json(
+        {
+          error: "rate_limit_unavailable"
+        },
+        503
+      );
+    }
+
+    if (!result.allowed) {
+      return c.json(
+        {
+          error: "rate_limited"
+        },
+        429,
+        {
+          "Retry-After": String(result.retryAfter)
+        }
+      );
+    }
+
+    await next();
+  };
+}
+
+class MemoryRateLimiterStore implements RateLimiterStore {
+  async hit(key: string, rule: RateLimitRule, now: number): Promise<RateLimitResult> {
     const bucket = rateLimitBuckets.get(key);
 
     if (!bucket || bucket.resetAt <= now) {
@@ -116,26 +171,63 @@ export function rateLimit(): MiddlewareHandler {
         count: 1,
         resetAt: now + rule.windowMs
       });
-      await next();
-      return;
+
+      return {
+        allowed: true
+      };
     }
 
     if (bucket.count >= rule.max) {
-      const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
-      return c.json(
-        {
-          error: "rate_limited"
-        },
-        429,
-        {
-          "Retry-After": String(retryAfter)
-        }
-      );
+      return {
+        allowed: false,
+        retryAfter: Math.ceil((bucket.resetAt - now) / 1000)
+      };
     }
 
     bucket.count += 1;
-    await next();
-  };
+    return {
+      allowed: true
+    };
+  }
+
+  async close(): Promise<void> {}
+}
+
+class RedisRateLimiterStore implements RateLimiterStore {
+  private readonly redis: RedisClient;
+
+  constructor(redisUrl: string) {
+    this.redis = new RedisClient(redisUrl, {
+      enableOfflineQueue: false,
+      maxRetries: 1
+    });
+  }
+
+  async hit(key: string, rule: RateLimitRule): Promise<RateLimitResult> {
+    const redisKey = `auth:rate-limit:${key}`;
+    const count = await this.redis.incr(redisKey);
+
+    if (count === 1) {
+      await this.redis.expire(redisKey, Math.ceil(rule.windowMs / 1000));
+    }
+
+    if (count > rule.max) {
+      const ttl = await this.redis.ttl(redisKey);
+
+      return {
+        allowed: false,
+        retryAfter: Math.max(1, ttl)
+      };
+    }
+
+    return {
+      allowed: true
+    };
+  }
+
+  async close(): Promise<void> {
+    this.redis.close();
+  }
 }
 
 function clientKey(headers: Headers): string {

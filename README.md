@@ -23,6 +23,7 @@ https://auth.nezdemkovski.cloud/<project>/.well-known/jwks.json
 - Better Auth
 - Postgres
 - Drizzle ORM `1.0.0-rc.3`
+- optional Redis for shared auth rate limiting
 
 ## Local Development
 
@@ -76,3 +77,9 @@ Each project gets:
 
 Applications should store their own domain data in their own databases and only
 reference the project-local Better Auth `user.id`.
+
+## Rate Limiting
+
+Auth-sensitive routes are rate limited by default. Without `REDIS_URL`, limits
+are kept in memory and apply per process. Set `REDIS_URL` to use Bun's native
+Redis client and share limits across replicas.

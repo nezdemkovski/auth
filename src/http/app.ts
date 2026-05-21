@@ -13,7 +13,7 @@ import {
   renderHostedLogin,
   submitHostedLogin
 } from "./hosted";
-import { rateLimit, securityHeaders } from "./security";
+import { createRateLimiter, rateLimit, securityHeaders } from "./security";
 
 type AppVariables = {
   registry: AuthRegistry;
@@ -51,6 +51,7 @@ function hostedAssetPath(path: string): string | null {
 
 export async function createApp(env: Env) {
   const emailSender = createEmailSender(env.email);
+  const rateLimiter = createRateLimiter(env.redisUrl);
 
   if (env.autoMigrate) {
     await bootstrapProjects({
@@ -80,7 +81,7 @@ export async function createApp(env: Env) {
     await next();
   });
   app.use("*", securityHeaders(env.publicBaseUrl));
-  app.use("*", rateLimit());
+  app.use("*", rateLimit(rateLimiter));
 
   app.get("/healthz", (c) => {
     return c.json({
@@ -215,6 +216,9 @@ export async function createApp(env: Env) {
 
   return {
     app,
-    registry
+    registry,
+    async close() {
+      await Promise.all([registry.close(), rateLimiter.close()]);
+    }
   };
 }

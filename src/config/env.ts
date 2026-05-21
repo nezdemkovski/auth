@@ -10,6 +10,7 @@ export type Env = {
   adminEmail: string;
   email: EmailConfig;
   emailServiceEnabled: boolean;
+  redisUrl: string | null;
   projects: AuthProject[];
 };
 
@@ -53,6 +54,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     adminEmail: source.AUTH_ADMIN_EMAIL ?? "admin@localhost",
     email,
     emailServiceEnabled: email.provider !== "none",
+    redisUrl: source.REDIS_URL?.trim() || null,
     projects: parseProjects(source.AUTH_PROJECTS)
   };
 }

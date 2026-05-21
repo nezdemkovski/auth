@@ -6,8 +6,7 @@
   a database-backed registry.
 - Add a project onboarding command that validates trusted origins and updates
   `AUTH_PROJECTS` safely.
-- Replace the in-memory auth rate limiter with a durable limiter before running
-  multiple replicas.
+- Provision Redis and set `REDIS_URL` before running multiple auth replicas.
 - Add structured request logging without leaking credentials, tokens, cookies, or
   PII.
 - Add a minimal read-only diagnostics endpoint for configured projects and auth
@@ -34,5 +33,7 @@
 - Email verification and password reset delivery through Cloudflare Email.
 - React Email templates and local preview server.
 - Basic security headers for all responses.
-- In-memory rate limiting for signin, signup, hosted login, hosted token
-  exchange, password reset, and verification flows.
+- Rate limiting for signin, signup, hosted login, hosted token exchange,
+  password reset, and verification flows.
+- Optional Bun-native Redis-backed rate limiter through `REDIS_URL`, with
+  in-memory fallback for local development.
