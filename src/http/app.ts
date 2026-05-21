@@ -6,7 +6,7 @@ import { cors } from "hono/cors";
 import type { Env } from "../config/env";
 import { AuthRegistry } from "../auth/registry";
 import { bootstrapProjects } from "../db/bootstrap";
-import { createEmailSender } from "../email/cloudflare";
+import { createEmailSender } from "../email/sender";
 import { createAdminApi } from "./admin";
 import {
   exchangeHostedCode,

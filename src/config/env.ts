@@ -14,14 +14,27 @@ export type Env = {
   projects: AuthProject[];
 };
 
+export const EmailProvider = {
+  None: "none",
+  Cloudflare: "cloudflare",
+  Resend: "resend"
+} as const;
+
+export type EmailProvider = (typeof EmailProvider)[keyof typeof EmailProvider];
+
 export type EmailConfig =
   | {
-      provider: "none";
+      provider: typeof EmailProvider.None;
     }
   | {
-      provider: "cloudflare";
+      provider: typeof EmailProvider.Cloudflare;
       accountId: string;
       apiToken: string;
+      from: string;
+    }
+  | {
+      provider: typeof EmailProvider.Resend;
+      apiKey: string;
       from: string;
     };
 
@@ -102,22 +115,30 @@ function parseBoolean(value: string | undefined, defaultValue: boolean): boolean
 }
 
 function parseEmailConfig(source: NodeJS.ProcessEnv): EmailConfig {
-  const provider = source.EMAIL_PROVIDER ?? "none";
+  const provider = source.EMAIL_PROVIDER ?? EmailProvider.None;
 
-  if (provider === "none") {
+  if (provider === EmailProvider.None) {
     return {
-      provider: "none"
+      provider: EmailProvider.None
     };
   }
 
-  if (provider !== "cloudflare") {
-    throw new Error("EMAIL_PROVIDER must be one of: none, cloudflare");
+  if (provider === EmailProvider.Cloudflare) {
+    return {
+      provider: EmailProvider.Cloudflare,
+      accountId: required(source.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID"),
+      apiToken: required(source.CLOUDFLARE_EMAIL_API_TOKEN, "CLOUDFLARE_EMAIL_API_TOKEN"),
+      from: required(source.EMAIL_FROM, "EMAIL_FROM")
+    };
   }
 
-  return {
-    provider: "cloudflare",
-    accountId: required(source.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID"),
-    apiToken: required(source.CLOUDFLARE_EMAIL_API_TOKEN, "CLOUDFLARE_EMAIL_API_TOKEN"),
-    from: required(source.EMAIL_FROM, "EMAIL_FROM")
-  };
+  if (provider === EmailProvider.Resend) {
+    return {
+      provider: EmailProvider.Resend,
+      apiKey: required(source.RESEND_API_KEY, "RESEND_API_KEY"),
+      from: required(source.EMAIL_FROM, "EMAIL_FROM")
+    };
+  }
+
+  throw new Error("EMAIL_PROVIDER must be one of: none, cloudflare, resend");
 }

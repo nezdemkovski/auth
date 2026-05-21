@@ -1,4 +1,4 @@
-import type { EmailConfig } from "../config/env";
+import { EmailProvider, type EmailConfig } from "../config/env";
 
 export type EmailSender = {
   send(input: {
@@ -10,11 +10,15 @@ export type EmailSender = {
 };
 
 export function createEmailSender(config: EmailConfig): EmailSender | null {
-  if (config.provider === "none") {
+  if (config.provider === EmailProvider.None) {
     return null;
   }
 
-  return new CloudflareEmailSender(config);
+  if (config.provider === EmailProvider.Cloudflare) {
+    return new CloudflareEmailSender(config);
+  }
+
+  return new ResendEmailSender(config);
 }
 
 class CloudflareEmailSender implements EmailSender {
@@ -47,6 +51,37 @@ class CloudflareEmailSender implements EmailSender {
     if (!response.ok) {
       const body = await response.text().catch(() => "");
       throw new Error(`Cloudflare Email send failed: ${response.status} ${body}`);
+    }
+  }
+}
+
+class ResendEmailSender implements EmailSender {
+  constructor(private readonly config: Extract<EmailConfig, { provider: "resend" }>) {}
+
+  async send(input: {
+    to: string;
+    subject: string;
+    html: string;
+    text: string;
+  }): Promise<void> {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.config.apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from: this.config.from,
+        to: input.to,
+        subject: input.subject,
+        html: input.html,
+        text: input.text
+      })
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`Resend email send failed: ${response.status} ${body}`);
     }
   }
 }

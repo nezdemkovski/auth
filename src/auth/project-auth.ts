@@ -5,7 +5,7 @@ import type { Pool } from "pg";
 
 import type { AuthProject } from "../config/projects";
 import type { ProjectDatabase } from "../db/project-db";
-import type { EmailSender } from "../email/cloudflare";
+import type { EmailSender } from "../email/sender";
 import { createProjectEmailHandlers } from "../email/templates";
 
 type ProjectAuthOptions = {

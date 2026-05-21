@@ -1,6 +1,6 @@
 import type { AuthProject } from "../config/projects";
 import { createProjectDatabase, type ProjectDatabase } from "../db/project-db";
-import type { EmailSender } from "../email/cloudflare";
+import type { EmailSender } from "../email/sender";
 import { createProjectAuth } from "./project-auth";
 
 type ProjectAuth = ReturnType<typeof createProjectAuth>;

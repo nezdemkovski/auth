@@ -14,7 +14,7 @@ import {
 import { render } from "@react-email/render";
 
 import type { AuthProject } from "../config/projects";
-import type { EmailSender } from "./cloudflare";
+import type { EmailSender } from "./sender";
 
 type BetterAuthUser = {
   email: string;
