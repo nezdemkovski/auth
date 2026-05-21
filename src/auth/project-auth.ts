@@ -1,6 +1,6 @@
 import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
-import { bearer, jwt } from "better-auth/plugins";
+import { admin, bearer, jwt } from "better-auth/plugins";
 import type { Pool } from "pg";
 
 import type { AuthProject } from "../config/projects";
@@ -62,6 +62,10 @@ function createBaseProjectAuthOptions(options: {
       enabled: true
     },
     plugins: [
+      admin({
+        defaultRole: "user",
+        adminRoles: ["admin"]
+      }),
       bearer(),
       jwt({
         jwks: {

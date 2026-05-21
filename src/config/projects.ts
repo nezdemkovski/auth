@@ -39,6 +39,19 @@ export function parseProjects(raw: string | undefined): AuthProject[] {
   return projects;
 }
 
+export function parseAdminProject(raw: string | undefined): AuthProject {
+  if (!raw) {
+    return {
+      slug: "admin",
+      name: "Auth Admin",
+      schema: "auth_admin",
+      trustedOrigins: []
+    };
+  }
+
+  return parseProject(JSON.parse(raw) as unknown);
+}
+
 export function findProject(projects: AuthProject[], slug: string): AuthProject | null {
   return projects.find((project) => project.slug === slug) ?? null;
 }

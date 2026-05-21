@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { parseProjects } from "../src/config/projects";
+import { parseAdminProject, parseProjects } from "../src/config/projects";
 
 describe("parseProjects", () => {
   test("parses project configuration", () => {
@@ -44,5 +44,14 @@ describe("parseProjects", () => {
         ])
       )
     ).toThrow("Duplicate project slug");
+  });
+
+  test("uses a stable default admin project", () => {
+    expect(parseAdminProject(undefined)).toEqual({
+      slug: "admin",
+      name: "Auth Admin",
+      schema: "auth_admin",
+      trustedOrigins: []
+    });
   });
 });

@@ -1,4 +1,4 @@
-import { parseProjects, type AuthProject } from "./projects";
+import { parseAdminProject, parseProjects, type AuthProject } from "./projects";
 
 export type Env = {
   port: number;
@@ -6,6 +6,8 @@ export type Env = {
   databaseUrl: string;
   betterAuthSecret: string;
   autoMigrate: boolean;
+  adminProject: AuthProject;
+  adminEmail: string;
   projects: AuthProject[];
 };
 
@@ -33,6 +35,8 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     databaseUrl,
     betterAuthSecret,
     autoMigrate: parseBoolean(source.AUTH_AUTO_MIGRATE, true),
+    adminProject: parseAdminProject(source.AUTH_ADMIN_PROJECT),
+    adminEmail: source.AUTH_ADMIN_EMAIL ?? "admin@localhost",
     projects: parseProjects(source.AUTH_PROJECTS)
   };
 }

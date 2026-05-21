@@ -1,6 +1,17 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import type { AuthRegistry } from "../auth/registry";
 
 const CODE_TTL_SECONDS = 60;
+const HOSTED_LOGIN_INDEX = join(
+  import.meta.dir,
+  "..",
+  "..",
+  "dist",
+  "hosted-login",
+  "index.html"
+);
 
 type PendingHostedCode = {
   project: string;
@@ -53,6 +64,10 @@ function escapeHtml(value: string): string {
   });
 }
 
+function serializeHostedConfig(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
 const pendingHostedCodes = new Map<string, PendingHostedCode>();
 
 function createCode(): string {
@@ -95,55 +110,24 @@ function renderLoginPage(options: {
 }): Response {
   const isSignup = options.mode === "signup";
   const title = isSignup ? "Create account" : "Log in";
-  const alternateMode = isSignup ? "login" : "signup";
-  const alternateText = isSignup
-    ? "Already have an account? Log in"
-    : "Need an account? Sign up";
-  const query = new URLSearchParams({
-    redirect_uri: options.redirectUri,
+  const index = readFileSync(HOSTED_LOGIN_INDEX, "utf8");
+  const config = serializeHostedConfig({
+    project: options.project,
+    projectName: options.projectName,
+    redirectUri: options.redirectUri,
     state: options.state,
-    mode: alternateMode
+    mode: isSignup ? "signup" : "login",
+    error: options.error
   });
 
-  return html(`<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${escapeHtml(title)} - ${escapeHtml(options.projectName)}</title>
-    <style>
-      :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #080b11; color: #f8fafc; }
-      main { width: min(420px, calc(100vw - 32px)); }
-      form { border: 1px solid #202938; background: #0f172a; border-radius: 16px; padding: 28px; box-shadow: 0 24px 80px rgba(0,0,0,.45); }
-      h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: 0; }
-      p { margin: 0 0 24px; color: #94a3b8; }
-      label { display: block; margin: 16px 0 6px; font-size: 14px; color: #cbd5e1; }
-      input { width: 100%; box-sizing: border-box; border: 1px solid #334155; border-radius: 10px; background: #020617; color: #f8fafc; padding: 12px; font-size: 16px; }
-      button { width: 100%; margin-top: 20px; border: 0; border-radius: 10px; background: #22c55e; color: #052e16; padding: 12px; font-weight: 700; font-size: 16px; }
-      a { display: block; margin-top: 18px; color: #86efac; text-align: center; text-decoration: none; }
-      .error { margin: 0 0 12px; border: 1px solid #7f1d1d; background: #450a0a; color: #fecaca; border-radius: 10px; padding: 10px 12px; }
-    </style>
-  </head>
-  <body>
-    <main>
-      <form method="post" action="/${escapeHtml(options.project)}/login">
-        <h1>${escapeHtml(title)}</h1>
-        <p>${escapeHtml(options.projectName)}</p>
-        ${options.error ? `<div class="error">${escapeHtml(options.error)}</div>` : ""}
-        <input type="hidden" name="redirect_uri" value="${escapeHtml(options.redirectUri)}" />
-        <input type="hidden" name="state" value="${escapeHtml(options.state)}" />
-        <input type="hidden" name="mode" value="${escapeHtml(options.mode)}" />
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" autocomplete="email" required />
-        <label for="password">Password</label>
-        <input id="password" name="password" type="password" autocomplete="${isSignup ? "new-password" : "current-password"}" required />
-        <button type="submit">${escapeHtml(title)}</button>
-        <a href="/${escapeHtml(options.project)}/login?${escapeHtml(query.toString())}">${escapeHtml(alternateText)}</a>
-      </form>
-    </main>
-  </body>
-</html>`);
+  return html(
+    index
+      .replace("<title>Sign in</title>", `<title>${escapeHtml(title)} - ${escapeHtml(options.projectName)}</title>`)
+      .replace(
+        "<!-- hosted-auth-config -->",
+        `<script>window.__HOSTED_AUTH__=${config};</script>`
+      )
+  );
 }
 
 async function issueSession(options: {
