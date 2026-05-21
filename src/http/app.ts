@@ -63,7 +63,7 @@ export async function createApp(env: Env) {
       );
     }
 
-    return registered.auth.handler(stripProjectPrefix(c.req.raw, projectSlug));
+    return registered.auth.handler(c.req.raw);
   });
 
   app.use(
@@ -97,7 +97,7 @@ export async function createApp(env: Env) {
       );
     }
 
-    return registered.auth.handler(stripProjectPrefix(c.req.raw, projectSlug));
+    return registered.auth.handler(c.req.raw);
   });
 
   app.notFound((c) => {
@@ -113,17 +113,4 @@ export async function createApp(env: Env) {
     app,
     registry
   };
-}
-
-function stripProjectPrefix(request: Request, projectSlug: string): Request {
-  const url = new URL(request.url);
-  const prefix = `/${projectSlug}`;
-
-  if (url.pathname === prefix) {
-    url.pathname = "/";
-  } else if (url.pathname.startsWith(`${prefix}/`)) {
-    url.pathname = url.pathname.slice(prefix.length);
-  }
-
-  return new Request(url, request);
 }
