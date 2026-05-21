@@ -165,9 +165,10 @@ async function issueSession(options: {
         };
   const endpoint =
     options.mode === "signup" ? "/sign-up/email" : "/sign-in/email";
+  const authPath = `/${options.registered.project.slug}/api/auth`;
 
   const authRes = await options.registered.auth.handler(
-    new Request(`http://auth.local${endpoint}`, {
+    new Request(`http://auth.local${authPath}${endpoint}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -183,7 +184,7 @@ async function issueSession(options: {
   const cookies = authRes.headers.getSetCookie();
   const cookie = cookies.map((value) => value.split(";")[0]).join("; ");
   const sessionRes = await options.registered.auth.handler(
-    new Request("http://auth.local/get-session", {
+    new Request(`http://auth.local${authPath}/get-session`, {
       headers: {
         Cookie: cookie
       }
