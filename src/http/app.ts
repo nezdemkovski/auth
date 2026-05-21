@@ -4,6 +4,11 @@ import { cors } from "hono/cors";
 import type { Env } from "../config/env";
 import { AuthRegistry } from "../auth/registry";
 import { bootstrapProjects } from "../db/bootstrap";
+import {
+  exchangeHostedCode,
+  renderHostedLogin,
+  submitHostedLogin
+} from "./hosted";
 
 type AppVariables = {
   registry: AuthRegistry;
@@ -47,6 +52,27 @@ export async function createApp(env: Env) {
         slug: project.slug,
         name: project.name
       }))
+    });
+  });
+
+  app.get("/:project/login", (c) => {
+    return renderHostedLogin(c.req.raw, c.req.param("project"), {
+      registry,
+      secret: env.betterAuthSecret
+    });
+  });
+
+  app.post("/:project/login", (c) => {
+    return submitHostedLogin(c.req.raw, c.req.param("project"), {
+      registry,
+      secret: env.betterAuthSecret
+    });
+  });
+
+  app.post("/:project/hosted/token", (c) => {
+    return exchangeHostedCode(c.req.raw, c.req.param("project"), {
+      registry,
+      secret: env.betterAuthSecret
     });
   });
 
