@@ -13,11 +13,15 @@
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.6.11",
+    "@react-email/components": "1.0.12",
+    "@react-email/render": "2.0.8",
     "@tanstack/react-query": "5.100.11",
     "better-auth": "1.6.11",
     "drizzle-orm": "1.0.0-rc.3",
     "hono": "4.12.21",
-    "pg": "8.21.0"
+    "pg": "8.21.0",
+    "react": "19.2.1",
+    "react-dom": "19.2.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.0",
@@ -27,8 +31,6 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.2",
     "drizzle-kit": "1.0.0-rc.3",
-    "react": "19.2.1",
-    "react-dom": "19.2.1",
     "tailwindcss": "4.3.0",
     "typescript": "latest",
     "vite": "8.0.14"
