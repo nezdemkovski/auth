@@ -104,7 +104,15 @@ function createBaseProjectAuthOptions(options: {
       })
     ],
     advanced: {
-      cookiePrefix: `auth_${project.slug}`
+      cookiePrefix: `auth_${project.slug}`,
+      ipAddress: {
+        ipAddressHeaders: [
+          "cf-connecting-ip",
+          "x-forwarded-for",
+          "x-real-ip",
+          "x-client-ip"
+        ]
+      }
     },
     telemetry: {
       enabled: false

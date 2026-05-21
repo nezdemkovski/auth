@@ -194,16 +194,43 @@ class MemoryRateLimiterStore implements RateLimiterStore {
 }
 
 class RedisRateLimiterStore implements RateLimiterStore {
-  private readonly redis: RedisClient;
+  private readonly redisUrl: string;
+  private redis: RedisClient;
 
   constructor(redisUrl: string) {
-    this.redis = new RedisClient(redisUrl, {
+    this.redisUrl = redisUrl;
+    this.redis = this.createClient(redisUrl);
+  }
+
+  private createClient(redisUrl: string): RedisClient {
+    return new RedisClient(redisUrl, {
       enableOfflineQueue: false,
       maxRetries: 1
     });
   }
 
   async hit(key: string, rule: RateLimitRule): Promise<RateLimitResult> {
+    try {
+      return await this.hitRedis(key, rule);
+    } catch (error) {
+      if (!isClosedRedisConnection(error)) {
+        throw error;
+      }
+
+      this.redis.close();
+      this.redis = this.createClient(this.redisUrl);
+      return this.hitRedis(key, rule);
+    }
+  }
+
+  async close(): Promise<void> {
+    this.redis.close();
+  }
+
+  private async hitRedis(
+    key: string,
+    rule: RateLimitRule
+  ): Promise<RateLimitResult> {
     const redisKey = `auth:rate-limit:${key}`;
     const count = await this.redis.incr(redisKey);
 
@@ -224,10 +251,14 @@ class RedisRateLimiterStore implements RateLimiterStore {
       allowed: true
     };
   }
+}
 
-  async close(): Promise<void> {
-    this.redis.close();
-  }
+function isClosedRedisConnection(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "ERR_REDIS_CONNECTION_CLOSED"
+  );
 }
 
 function clientKey(headers: Headers): string {
