@@ -13,6 +13,7 @@ import {
   renderHostedLogin,
   submitHostedLogin
 } from "./hosted";
+import { rateLimit, securityHeaders } from "./security";
 
 type AppVariables = {
   registry: AuthRegistry;
@@ -78,6 +79,8 @@ export async function createApp(env: Env) {
     c.set("registry", registry);
     await next();
   });
+  app.use("*", securityHeaders(env.publicBaseUrl));
+  app.use("*", rateLimit());
 
   app.get("/healthz", (c) => {
     return c.json({
