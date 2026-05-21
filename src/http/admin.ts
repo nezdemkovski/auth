@@ -35,8 +35,8 @@ type ProjectUserRow = {
   role: string | null;
   banned: boolean | null;
   emailVerified: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: Date | string;
+  updatedAt: Date | string;
   sessionCount: number;
 };
 
@@ -145,8 +145,8 @@ export function createAdminApi(options: AdminApiOptions): Hono {
         role: user.role,
         banned: user.banned ?? false,
         emailVerified: user.emailVerified,
-        createdAt: user.createdAt.toISOString(),
-        updatedAt: user.updatedAt.toISOString(),
+        createdAt: toIsoString(user.createdAt),
+        updatedAt: toIsoString(user.updatedAt),
         sessionCount: Number(user.sessionCount)
       }))
     });
@@ -279,4 +279,8 @@ async function readProjectUsers(pool: Pool): Promise<ProjectUserRow[]> {
   `);
 
   return result.rows;
+}
+
+function toIsoString(value: Date | string): string {
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }

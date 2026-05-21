@@ -94,20 +94,20 @@ function AdminApp() {
   }, [view]);
 
   return (
-    <main className="relative min-h-screen px-5 py-6 sm:px-8 lg:px-10">
-      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-6xl flex-col">
-        <header className="mb-8 flex items-center justify-between gap-4">
+    <main className="relative min-h-screen w-full overflow-x-hidden px-4 py-5 sm:px-8 sm:py-6 lg:px-10">
+      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-2.5rem)] w-full max-w-6xl min-w-0 flex-col">
+        <header className="mb-6 flex min-w-0 items-center justify-between gap-3 sm:mb-8 sm:gap-4">
           <a
             href="/admin"
-            className="inline-flex items-center gap-3 text-ink no-underline"
+            className="inline-flex min-w-0 items-center gap-3 text-ink no-underline"
             aria-label="Auth Admin"
           >
-            <span className="grid h-10 w-10 place-items-center rounded-2xl border border-line bg-panel/80 text-sm font-semibold text-accent shadow-[0_18px_50px_rgba(0,0,0,.25)]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-line bg-panel/80 text-sm font-semibold text-accent shadow-[0_18px_50px_rgba(0,0,0,.25)]">
               A
             </span>
-            <span>
-              <span className="block text-sm font-semibold leading-5">Auth Admin</span>
-              <span className="block text-xs text-muted">Nezdemkovski Cloud</span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold leading-5">Auth Admin</span>
+              <span className="block truncate text-xs text-muted">Nezdemkovski Cloud</span>
             </span>
           </a>
 
@@ -115,14 +115,14 @@ function AdminApp() {
             <button
               type="button"
               onClick={() => void signOut().then(() => setView({ status: "signed-out" }))}
-              className="rounded-2xl border border-line bg-panel/70 px-4 py-2 text-sm font-medium text-muted transition hover:border-accent/40 hover:text-ink"
+              className="shrink-0 rounded-2xl border border-line bg-panel/70 px-3 py-2 text-sm font-medium text-muted transition hover:border-accent/40 hover:text-ink sm:px-4"
             >
               Sign out
             </button>
           ) : null}
         </header>
 
-        <div className="grid flex-1 items-center">{content}</div>
+        <div className="grid min-w-0 flex-1 items-center">{content}</div>
       </div>
     </main>
   );
@@ -341,14 +341,17 @@ function DashboardPanel({
   }, [projects, selectedProject]);
 
   return (
-    <section className="grid gap-5 sm:gap-6">
-      <div className="rounded-[28px] border border-line bg-panel/82 p-7 shadow-[0_28px_90px_rgba(0,0,0,.42)] backdrop-blur-xl">
+    <section className="grid min-w-0 max-w-full gap-5 overflow-hidden sm:gap-6">
+      <div className="min-w-0 overflow-hidden rounded-[24px] border border-line bg-panel/82 p-5 shadow-[0_28px_90px_rgba(0,0,0,.42)] backdrop-blur-xl sm:rounded-[28px] sm:p-7">
         <p className="mb-3 text-[11px] font-semibold uppercase tracking-[.28em] text-accent/80">
           Dashboard
         </p>
-        <h1 className="max-w-full break-words text-3xl font-semibold leading-tight text-ink sm:text-4xl">
-          Signed in as {me.user.email}
+        <h1 className="text-3xl font-semibold leading-tight text-ink sm:text-4xl">
+          Signed in as
         </h1>
+        <p className="mt-2 max-w-full break-all text-2xl font-semibold leading-tight text-ink/95 sm:text-4xl">
+          {me.user.email}
+        </p>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
           Manage auth realms, users, roles, and active sessions from one place.
         </p>
@@ -372,31 +375,31 @@ function DashboardPanel({
             />
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
-            <aside className="grid gap-3 self-start">
+          <div className="grid min-w-0 gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
+            <aside className="grid min-w-0 gap-3 self-start">
               {projects.map((project) => (
                 <button
                   key={project.slug}
                   type="button"
                   onClick={() => setSelectedProject(project.slug)}
-                  className={`rounded-3xl border p-4 text-left transition ${
+                  className={`min-w-0 rounded-3xl border p-4 text-left transition ${
                     selected?.slug === project.slug
                       ? "border-accent/60 bg-accent/10"
                       : "border-line bg-panel/70 hover:border-accent/30"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center justify-between gap-3">
                     <h2 className="min-w-0 truncate text-lg font-semibold text-ink">
                       {project.name}
                     </h2>
                     {project.system ? (
-                      <span className="rounded-full border border-accent/25 bg-accent/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[.12em] text-accent">
+                      <span className="shrink-0 rounded-full border border-accent/25 bg-accent/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[.12em] text-accent">
                         system
                       </span>
                     ) : null}
                   </div>
                   <p className="mt-1 truncate text-xs text-muted">{project.schema}</p>
-                  <div className="mt-4 flex gap-3 text-sm text-muted">
+                  <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted">
                     <span>{project.userCount} users</span>
                     <span>{project.activeSessionCount} sessions</span>
                   </div>
@@ -404,7 +407,7 @@ function DashboardPanel({
               ))}
             </aside>
 
-            <section className="overflow-hidden rounded-[28px] border border-line bg-panel/78 shadow-[0_28px_90px_rgba(0,0,0,.36)] backdrop-blur-xl">
+            <section className="min-w-0 overflow-hidden rounded-[24px] border border-line bg-panel/78 shadow-[0_28px_90px_rgba(0,0,0,.36)] backdrop-blur-xl sm:rounded-[28px]">
               <div className="border-b border-line p-5">
                 <p className="text-[11px] font-semibold uppercase tracking-[.24em] text-accent/80">
                   Users
@@ -431,7 +434,7 @@ function DashboardPanel({
       <button
         type="button"
         onClick={() => void signOut().then(() => onDone({ status: "signed-out" }))}
-        className="w-fit rounded-2xl border border-line bg-panel/70 px-4 py-2 text-sm font-medium text-muted transition hover:border-accent/40 hover:text-ink"
+        className="w-fit max-w-full rounded-2xl border border-line bg-panel/70 px-4 py-2 text-sm font-medium text-muted transition hover:border-accent/40 hover:text-ink"
       >
         Sign out
       </button>
@@ -466,9 +469,9 @@ function UserList({ users }: { users: ProjectUser[] }) {
   return (
     <div className="divide-y divide-line">
       {users.map((user) => (
-        <article key={user.id} className="grid gap-3 p-5 sm:grid-cols-[1fr_auto]">
+        <article key={user.id} className="grid min-w-0 gap-3 p-5 sm:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0">
-            <h3 className="truncate text-base font-semibold text-ink">{user.email}</h3>
+            <h3 className="break-all text-base font-semibold text-ink">{user.email}</h3>
             <p className="mt-1 truncate text-sm text-muted">{user.name || "No display name"}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Pill>{user.role ?? "user"}</Pill>
