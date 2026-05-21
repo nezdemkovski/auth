@@ -24,6 +24,8 @@ type ChangePasswordBody = {
   newPassword?: unknown;
 };
 
+type RegisteredProject = NonNullable<ReturnType<AuthRegistry["get"]>>;
+
 export function createAdminApi(options: AdminApiOptions): Hono {
   const app = new Hono();
 
@@ -81,7 +83,114 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     return c.json(response);
   });
 
+  app.get("/projects", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const projects = await Promise.all(
+      options.registry.list().map(async (project) => {
+        const registered = options.registry.get(project.slug);
+        if (!registered) {
+          return null;
+        }
+
+        const counts = await readProjectCounts(registered.projectDb.pool);
+        return {
+          slug: project.slug,
+          name: project.name,
+          schema: project.schema,
+          system: project.slug === "admin",
+          ...counts
+        };
+      })
+    );
+
+    return c.json({
+      projects: projects.filter((project) => project !== null)
+    });
+  });
+
+  app.get("/projects/:project/users", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const registered = options.registry.get(c.req.param("project"));
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+
+    const result = await registered.projectDb.pool.query<{
+      id: string;
+      email: string;
+      name: string;
+      role: string | null;
+      banned: boolean | null;
+      emailVerified: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+      sessionCount: string;
+    }>(
+      `SELECT u.id,
+              u.email,
+              u.name,
+              u.role,
+              u.banned,
+              u."emailVerified",
+              u."createdAt",
+              u."updatedAt",
+              COUNT(s.id)::int AS "sessionCount"
+       FROM "user" u
+       LEFT JOIN "session" s ON s."userId" = u.id AND s."expiresAt" > now()
+       GROUP BY u.id
+       ORDER BY u."createdAt" DESC
+       LIMIT 100`
+    );
+
+    return c.json({
+      project: {
+        slug: registered.project.slug,
+        name: registered.project.name,
+        schema: registered.project.schema
+      },
+      users: result.rows.map((user) => ({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        banned: user.banned ?? false,
+        emailVerified: user.emailVerified,
+        createdAt: user.createdAt.toISOString(),
+        updatedAt: user.updatedAt.toISOString(),
+        sessionCount: Number(user.sessionCount)
+      }))
+    });
+  });
+
   return app;
+}
+
+async function requireAdmin(
+  registry: AuthRegistry,
+  headers: Headers
+): Promise<{ registered: RegisteredProject; session: AdminSession } | null> {
+  const registered = registry.get("admin");
+  if (!registered) {
+    return null;
+  }
+
+  const session = await getSession(registered.auth, headers);
+  if (!session || session.user.role !== "admin") {
+    return null;
+  }
+
+  return {
+    registered,
+    session
+  };
 }
 
 async function getSession(auth: unknown, headers: Headers): Promise<AdminSession | null> {
@@ -135,4 +244,22 @@ async function mustChangePassword(pool: Pool, userId: string): Promise<boolean> 
   );
 
   return result.rows[0]?.must_change_password ?? false;
+}
+
+async function readProjectCounts(pool: Pool): Promise<{
+  userCount: number;
+  activeSessionCount: number;
+}> {
+  const result = await pool.query<{
+    userCount: string;
+    activeSessionCount: string;
+  }>(
+    `SELECT (SELECT COUNT(*)::int FROM "user") AS "userCount",
+            (SELECT COUNT(*)::int FROM "session" WHERE "expiresAt" > now()) AS "activeSessionCount"`
+  );
+
+  return {
+    userCount: Number(result.rows[0]?.userCount ?? 0),
+    activeSessionCount: Number(result.rows[0]?.activeSessionCount ?? 0)
+  };
 }

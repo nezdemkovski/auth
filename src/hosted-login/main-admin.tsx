@@ -1,3 +1,8 @@
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery
+} from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -15,6 +20,36 @@ type MeResponse = {
   mustChangePassword: boolean;
 };
 
+type ProjectSummary = {
+  slug: string;
+  name: string;
+  schema: string;
+  system: boolean;
+  userCount: number;
+  activeSessionCount: number;
+};
+
+type ProjectUser = AdminUser & {
+  banned: boolean;
+  emailVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
+  sessionCount: number;
+};
+
+type ProjectsResponse = {
+  projects: ProjectSummary[];
+};
+
+type ProjectUsersResponse = {
+  project: {
+    slug: string;
+    name: string;
+    schema: string;
+  };
+  users: ProjectUser[];
+};
+
 type ViewState =
   | { status: "loading" }
   | { status: "signed-out"; error?: string }
@@ -24,6 +59,16 @@ type ViewState =
 const jsonHeaders = {
   "Content-Type": "application/json"
 };
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 10_000,
+      refetchOnWindowFocus: false,
+      retry: 1
+    }
+  }
+});
 
 function AdminApp() {
   const [view, setView] = useState<ViewState>({ status: "loading" });
@@ -276,33 +321,112 @@ function DashboardPanel({
   me: MeResponse;
   onDone: (next: ViewState) => void;
 }) {
-  const cards = [
-    ["Projects", "Manage auth realms and trusted origins."],
-    ["Users", "Search users, change roles, ban accounts."],
-    ["Sessions", "Inspect active sessions and revoke access."]
-  ] as const;
+  const projectsQuery = useQuery({
+    queryKey: ["admin", "projects"],
+    queryFn: fetchProjects
+  });
+  const [selectedProject, setSelectedProject] = useState("");
+  const projects = projectsQuery.data?.projects ?? [];
+  const selected = projects.find((project) => project.slug === selectedProject) ?? projects[0];
+  const usersQuery = useQuery({
+    queryKey: ["admin", "project-users", selected?.slug],
+    queryFn: () => fetchProjectUsers(selected!.slug),
+    enabled: Boolean(selected?.slug)
+  });
+
+  useEffect(() => {
+    if (!selectedProject && projects[0]) {
+      setSelectedProject(projects[0].slug);
+    }
+  }, [projects, selectedProject]);
 
   return (
-    <section className="grid gap-6">
+    <section className="grid gap-5 sm:gap-6">
       <div className="rounded-[28px] border border-line bg-panel/82 p-7 shadow-[0_28px_90px_rgba(0,0,0,.42)] backdrop-blur-xl">
         <p className="mb-3 text-[11px] font-semibold uppercase tracking-[.28em] text-accent/80">
           Dashboard
         </p>
-        <h1 className="text-4xl font-semibold text-ink">Signed in as {me.user.email}</h1>
+        <h1 className="max-w-full break-words text-3xl font-semibold leading-tight text-ink sm:text-4xl">
+          Signed in as {me.user.email}
+        </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
-          Bootstrap is complete. The next pass can wire these surfaces to Better Auth
-          admin endpoints project by project.
+          Manage auth realms, users, roles, and active sessions from one place.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {cards.map(([title, body]) => (
-          <article key={title} className="rounded-3xl border border-line bg-panel/70 p-5">
-            <h2 className="text-lg font-semibold text-ink">{title}</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">{body}</p>
-          </article>
-        ))}
-      </div>
+      {projectsQuery.isLoading ? (
+        <DashboardSkeleton />
+      ) : projectsQuery.isError ? (
+        <Alert>Could not load admin data</Alert>
+      ) : (
+        <>
+          <div className="grid gap-4 md:grid-cols-3">
+            <MetricCard label="Projects" value={projects.length} />
+            <MetricCard
+              label="Users"
+              value={projects.reduce((sum, project) => sum + project.userCount, 0)}
+            />
+            <MetricCard
+              label="Active sessions"
+              value={projects.reduce((sum, project) => sum + project.activeSessionCount, 0)}
+            />
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-[320px_1fr]">
+            <aside className="grid gap-3 self-start">
+              {projects.map((project) => (
+                <button
+                  key={project.slug}
+                  type="button"
+                  onClick={() => setSelectedProject(project.slug)}
+                  className={`rounded-3xl border p-4 text-left transition ${
+                    selected?.slug === project.slug
+                      ? "border-accent/60 bg-accent/10"
+                      : "border-line bg-panel/70 hover:border-accent/30"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="min-w-0 truncate text-lg font-semibold text-ink">
+                      {project.name}
+                    </h2>
+                    {project.system ? (
+                      <span className="rounded-full border border-accent/25 bg-accent/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[.12em] text-accent">
+                        system
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 truncate text-xs text-muted">{project.schema}</p>
+                  <div className="mt-4 flex gap-3 text-sm text-muted">
+                    <span>{project.userCount} users</span>
+                    <span>{project.activeSessionCount} sessions</span>
+                  </div>
+                </button>
+              ))}
+            </aside>
+
+            <section className="overflow-hidden rounded-[28px] border border-line bg-panel/78 shadow-[0_28px_90px_rgba(0,0,0,.36)] backdrop-blur-xl">
+              <div className="border-b border-line p-5">
+                <p className="text-[11px] font-semibold uppercase tracking-[.24em] text-accent/80">
+                  Users
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold text-ink">
+                  {selected?.name ?? "Project"}
+                </h2>
+              </div>
+
+              {usersQuery.isLoading ? (
+                <div className="p-5 text-sm text-muted">Loading users...</div>
+              ) : usersQuery.isError ? (
+                <div className="p-5">
+                  <Alert>Could not load users</Alert>
+                </div>
+              ) : (
+                <UserList users={usersQuery.data?.users ?? []} />
+              )}
+            </section>
+          </div>
+        </>
+      )}
 
       <button
         type="button"
@@ -312,6 +436,73 @@ function DashboardPanel({
         Sign out
       </button>
     </section>
+  );
+}
+
+function MetricCard({ label, value }: { label: string; value: number }) {
+  return (
+    <article className="rounded-3xl border border-line bg-panel/70 p-5">
+      <p className="text-sm text-muted">{label}</p>
+      <p className="mt-2 text-4xl font-semibold text-ink">{value}</p>
+    </article>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="grid gap-4 md:grid-cols-3">
+      {[0, 1, 2].map((item) => (
+        <div key={item} className="h-28 animate-pulse rounded-3xl border border-line bg-panel/70" />
+      ))}
+    </div>
+  );
+}
+
+function UserList({ users }: { users: ProjectUser[] }) {
+  if (users.length === 0) {
+    return <div className="p-5 text-sm text-muted">No users in this project yet.</div>;
+  }
+
+  return (
+    <div className="divide-y divide-line">
+      {users.map((user) => (
+        <article key={user.id} className="grid gap-3 p-5 sm:grid-cols-[1fr_auto]">
+          <div className="min-w-0">
+            <h3 className="truncate text-base font-semibold text-ink">{user.email}</h3>
+            <p className="mt-1 truncate text-sm text-muted">{user.name || "No display name"}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Pill>{user.role ?? "user"}</Pill>
+              <Pill>{user.emailVerified ? "verified" : "unverified"}</Pill>
+              {user.banned ? <Pill tone="danger">banned</Pill> : null}
+            </div>
+          </div>
+          <div className="text-left text-sm text-muted sm:text-right">
+            <p>{user.sessionCount} active sessions</p>
+            <p className="mt-1">created {formatDate(user.createdAt)}</p>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function Pill({
+  children,
+  tone = "default"
+}: {
+  children: React.ReactNode;
+  tone?: "default" | "danger";
+}) {
+  return (
+    <span
+      className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
+        tone === "danger"
+          ? "border-red-400/30 bg-red-950/40 text-danger"
+          : "border-line bg-black/20 text-muted"
+      }`}
+    >
+      {children}
+    </span>
   );
 }
 
@@ -348,6 +539,30 @@ function Alert({ children }: { children: React.ReactNode }) {
   );
 }
 
+async function fetchProjects(): Promise<ProjectsResponse> {
+  const response = await fetch("/admin/api/projects", {
+    credentials: "include"
+  });
+
+  if (!response.ok) {
+    throw new Error("Could not load projects");
+  }
+
+  return (await response.json()) as ProjectsResponse;
+}
+
+async function fetchProjectUsers(project: string): Promise<ProjectUsersResponse> {
+  const response = await fetch(`/admin/api/projects/${project}/users`, {
+    credentials: "include"
+  });
+
+  if (!response.ok) {
+    throw new Error("Could not load users");
+  }
+
+  return (await response.json()) as ProjectUsersResponse;
+}
+
 async function loadSession(): Promise<ViewState> {
   const response = await fetch("/admin/api/me", {
     credentials: "include"
@@ -365,6 +580,12 @@ async function loadSession(): Promise<ViewState> {
   return me.mustChangePassword ? { status: "force-change", me } : { status: "dashboard", me };
 }
 
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium"
+  }).format(new Date(value));
+}
+
 async function signOut(): Promise<void> {
   await fetch("/admin/api/auth/sign-out", {
     method: "POST",
@@ -372,4 +593,8 @@ async function signOut(): Promise<void> {
   }).catch(() => {});
 }
 
-createRoot(document.querySelector<HTMLDivElement>("#app")!).render(<AdminApp />);
+createRoot(document.querySelector<HTMLDivElement>("#app")!).render(
+  <QueryClientProvider client={queryClient}>
+    <AdminApp />
+  </QueryClientProvider>
+);
