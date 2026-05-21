@@ -55,8 +55,7 @@ function createBaseProjectAuthOptions(options: {
 
   return {
     appName: project.name,
-    baseURL: `${publicBaseUrl}/${project.slug}`,
-    basePath: "/api/auth",
+    baseURL: `${publicBaseUrl}/${project.slug}/api/auth`,
     secret,
     trustedOrigins: project.trustedOrigins,
     emailAndPassword: {
