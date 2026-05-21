@@ -1,7 +1,9 @@
 import {
   QueryClient,
   QueryClientProvider,
-  useQuery
+  useMutation,
+  useQuery,
+  useQueryClient
 } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -18,6 +20,7 @@ type AdminUser = {
 type MeResponse = {
   user: AdminUser;
   mustChangePassword: boolean;
+  emailServiceEnabled: boolean;
 };
 
 type ProjectSummary = {
@@ -321,17 +324,29 @@ function DashboardPanel({
   me: MeResponse;
   onDone: (next: ViewState) => void;
 }) {
+  const queryClient = useQueryClient();
   const projectsQuery = useQuery({
     queryKey: ["admin", "projects"],
     queryFn: fetchProjects
   });
   const [selectedProject, setSelectedProject] = useState("");
+  const [resentVerificationEmail, setResentVerificationEmail] = useState<string | null>(null);
   const projects = projectsQuery.data?.projects ?? [];
   const selected = projects.find((project) => project.slug === selectedProject) ?? projects[0];
   const usersQuery = useQuery({
     queryKey: ["admin", "project-users", selected?.slug],
     queryFn: () => fetchProjectUsers(selected!.slug),
     enabled: Boolean(selected?.slug)
+  });
+  const resendVerification = useMutation({
+    mutationFn: (input: { project: string; email: string }) =>
+      resendVerificationEmail(input.project, input.email),
+    onSuccess: async (_data, variables) => {
+      setResentVerificationEmail(variables.email);
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "project-users", variables.project]
+      });
+    }
   });
 
   useEffect(() => {
@@ -424,7 +439,23 @@ function DashboardPanel({
                   <Alert>Could not load users</Alert>
                 </div>
               ) : (
-                <UserList users={usersQuery.data?.users ?? []} />
+                <UserList
+                  users={usersQuery.data?.users ?? []}
+                  emailServiceEnabled={me.emailServiceEnabled}
+                  resendPendingEmail={
+                    resendVerification.isPending ? resendVerification.variables?.email ?? null : null
+                  }
+                  resendErrorEmail={
+                    resendVerification.isError ? resendVerification.variables?.email ?? null : null
+                  }
+                  resentVerificationEmail={resentVerificationEmail}
+                  onResendVerification={(email) =>
+                    resendVerification.mutate({
+                      project: selected!.slug,
+                      email
+                    })
+                  }
+                />
               )}
             </section>
           </div>
@@ -461,7 +492,21 @@ function DashboardSkeleton() {
   );
 }
 
-function UserList({ users }: { users: ProjectUser[] }) {
+function UserList({
+  users,
+  emailServiceEnabled,
+  resendPendingEmail,
+  resendErrorEmail,
+  resentVerificationEmail,
+  onResendVerification
+}: {
+  users: ProjectUser[];
+  emailServiceEnabled: boolean;
+  resendPendingEmail: string | null;
+  resendErrorEmail: string | null;
+  resentVerificationEmail: string | null;
+  onResendVerification: (email: string) => void;
+}) {
   if (users.length === 0) {
     return <div className="p-5 text-sm text-muted">No users in this project yet.</div>;
   }
@@ -478,6 +523,27 @@ function UserList({ users }: { users: ProjectUser[] }) {
               <Pill>{user.emailVerified ? "verified" : "unverified"}</Pill>
               {user.banned ? <Pill tone="danger">banned</Pill> : null}
             </div>
+            {!user.emailVerified ? (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  disabled={!emailServiceEnabled || resendPendingEmail === user.email}
+                  onClick={() => onResendVerification(user.email)}
+                  className="rounded-2xl border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-medium text-accent transition hover:border-accent/60 hover:bg-accent/15 disabled:cursor-not-allowed disabled:border-line disabled:bg-black/20 disabled:text-muted"
+                >
+                  {resendPendingEmail === user.email ? "Sending..." : "Resend verification"}
+                </button>
+                {!emailServiceEnabled ? (
+                  <p className="mt-2 text-xs text-muted">Email service is disabled.</p>
+                ) : null}
+                {resendErrorEmail === user.email ? (
+                  <p className="mt-2 text-xs text-danger">Could not send verification email.</p>
+                ) : null}
+                {resentVerificationEmail === user.email ? (
+                  <p className="mt-2 text-xs text-accent">Verification email sent.</p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
           <div className="text-left text-sm text-muted sm:text-right">
             <p>{user.sessionCount} active sessions</p>
@@ -564,6 +630,19 @@ async function fetchProjectUsers(project: string): Promise<ProjectUsersResponse>
   }
 
   return (await response.json()) as ProjectUsersResponse;
+}
+
+async function resendVerificationEmail(project: string, email: string): Promise<void> {
+  const response = await fetch(`/admin/api/projects/${project}/users/resend-verification`, {
+    method: "POST",
+    credentials: "include",
+    headers: jsonHeaders,
+    body: JSON.stringify({ email })
+  });
+
+  if (!response.ok) {
+    throw new Error("Could not send verification email");
+  }
 }
 
 async function loadSession(): Promise<ViewState> {

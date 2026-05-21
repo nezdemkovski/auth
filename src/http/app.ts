@@ -122,7 +122,13 @@ export async function createApp(env: Env) {
     });
   });
 
-  app.route("/admin/api", createAdminApi({ registry }));
+  app.route(
+    "/admin/api",
+    createAdminApi({
+      registry,
+      emailServiceEnabled: env.emailServiceEnabled
+    })
+  );
 
   app.get("/:project/login", (c) => {
     return renderHostedLogin(c.req.raw, c.req.param("project"), {

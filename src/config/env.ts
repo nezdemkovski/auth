@@ -9,6 +9,7 @@ export type Env = {
   adminProject: AuthProject;
   adminEmail: string;
   email: EmailConfig;
+  emailServiceEnabled: boolean;
   projects: AuthProject[];
 };
 
@@ -40,6 +41,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   if (betterAuthSecret.length < MIN_SECRET_LENGTH) {
     throw new Error(`BETTER_AUTH_SECRET must be at least ${MIN_SECRET_LENGTH} characters`);
   }
+  const email = parseEmailConfig(source);
 
   return {
     port,
@@ -49,7 +51,8 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     autoMigrate: parseBoolean(source.AUTH_AUTO_MIGRATE, true),
     adminProject: parseAdminProject(source.AUTH_ADMIN_PROJECT),
     adminEmail: source.AUTH_ADMIN_EMAIL ?? "admin@localhost",
-    email: parseEmailConfig(source),
+    email,
+    emailServiceEnabled: email.provider !== "none",
     projects: parseProjects(source.AUTH_PROJECTS)
   };
 }

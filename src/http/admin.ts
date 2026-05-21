@@ -7,6 +7,7 @@ import type { AuthRegistry } from "../auth/registry";
 
 type AdminApiOptions = {
   registry: AuthRegistry;
+  emailServiceEnabled: boolean;
 };
 
 type AdminSession = {
@@ -24,6 +25,10 @@ type AdminSession = {
 type ChangePasswordBody = {
   currentPassword?: unknown;
   newPassword?: unknown;
+};
+
+type ResendVerificationBody = {
+  email?: unknown;
 };
 
 type RegisteredProject = NonNullable<ReturnType<AuthRegistry["get"]>>;
@@ -56,7 +61,8 @@ export function createAdminApi(options: AdminApiOptions): Hono {
 
     return c.json({
       user: session.user,
-      mustChangePassword: await mustChangePassword(admin.projectDb.pool, session.user.id)
+      mustChangePassword: await mustChangePassword(admin.projectDb.pool, session.user.id),
+      emailServiceEnabled: options.emailServiceEnabled
     });
   });
 
@@ -152,6 +158,34 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     });
   });
 
+  app.post("/projects/:project/users/resend-verification", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    if (!options.emailServiceEnabled) {
+      return c.json({ error: "email_service_disabled" }, 409);
+    }
+
+    const registered = options.registry.get(c.req.param("project"));
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+
+    const body = (await c.req.json().catch(() => ({}))) as ResendVerificationBody;
+    if (typeof body.email !== "string") {
+      return c.json({ error: "invalid_body" }, 400);
+    }
+
+    await sendVerificationEmail(registered.auth, {
+      email: body.email,
+      callbackURL: registered.project.trustedOrigins[0]
+    });
+
+    return c.json({ ok: true });
+  });
+
   return app;
 }
 
@@ -213,6 +247,27 @@ async function changePassword(
       revokeOtherSessions: true
     }
   });
+}
+
+async function sendVerificationEmail(
+  auth: unknown,
+  body: {
+    email: string;
+    callbackURL?: string;
+  }
+): Promise<unknown> {
+  const api = (auth as {
+    api: {
+      sendVerificationEmail(input: {
+        body: {
+          email: string;
+          callbackURL?: string;
+        };
+      }): Promise<unknown>;
+    };
+  }).api;
+
+  return api.sendVerificationEmail({ body });
 }
 
 async function mustChangePassword(pool: Pool, userId: string): Promise<boolean> {
