@@ -8,7 +8,11 @@ import {
   projectSchemaFromSlug,
   validateProjectSlug
 } from "../src/config/projects";
-import { normalizeProjectFeatures } from "../src/db/project-settings";
+import {
+  createProjectFromInput,
+  normalizeProjectFeatures,
+  validateProjectSettingsPatch
+} from "../src/db/project-settings";
 
 describe("projects", () => {
   test("uses a stable built-in admin project", () => {
@@ -33,8 +37,64 @@ describe("projects", () => {
     expect(projectSchemaFromSlug("open-markers")).toBe("open_markers_auth");
   });
 
+  test("creates project settings with normalized slug, schema, and origins", () => {
+    expect(
+      createProjectFromInput({
+        slug: " Open Markers ",
+        name: " OpenMarkers ",
+        description: " Marker maps ",
+        iconUrl: "",
+        appUrl: "https://openmarkers.app",
+        trustedOrigins: [" https://openmarkers.app ", ""]
+      })
+    ).toMatchObject({
+      slug: "open-markers",
+      name: "OpenMarkers",
+      schema: "open_markers_auth",
+      description: "Marker maps",
+      appUrl: "https://openmarkers.app",
+      trustedOrigins: ["https://openmarkers.app"]
+    });
+  });
+
   test("rejects invalid slugs", () => {
     expect(() => validateProjectSlug("bad_slug")).toThrow("Invalid project slug");
+  });
+
+  test("rejects invalid project settings patches", () => {
+    const patch = {
+      name: "OpenMarkers",
+      description: "",
+      iconUrl: "",
+      appUrl: "https://openmarkers.app",
+      trustedOrigins: ["https://openmarkers.app"],
+      features: DEFAULT_PROJECT_FEATURES
+    };
+
+    expect(() =>
+      validateProjectSettingsPatch({
+        ...patch,
+        name: " "
+      })
+    ).toThrow("Project name is required");
+    expect(() =>
+      validateProjectSettingsPatch({
+        ...patch,
+        appUrl: "javascript:alert(1)"
+      })
+    ).toThrow("Invalid appUrl");
+    expect(() =>
+      validateProjectSettingsPatch({
+        ...patch,
+        trustedOrigins: ["https://openmarkers.app/path"]
+      })
+    ).toThrow("Invalid trusted origin");
+    expect(() =>
+      validateProjectSettingsPatch({
+        ...patch,
+        trustedOrigins: ["https://openmarkers.app", "https://openmarkers.app"]
+      })
+    ).toThrow("Duplicate trusted origin");
   });
 
   test("normalizes realm feature flags", () => {

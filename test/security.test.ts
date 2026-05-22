@@ -1,0 +1,49 @@
+import { describe, expect, test } from "bun:test";
+
+import { __securityTestUtils } from "../src/http/security";
+
+describe("http security helpers", () => {
+  test("does not trust client-supplied proxy headers by default", () => {
+    const headers = new Headers({
+      "cf-connecting-ip": "203.0.113.10",
+      "x-forwarded-for": "203.0.113.11"
+    });
+
+    expect(__securityTestUtils.clientKey(headers, { trustProxyHeaders: false })).toBe(
+      "direct"
+    );
+  });
+
+  test("uses Cloudflare IP first when proxy headers are trusted", () => {
+    const headers = new Headers({
+      "cf-connecting-ip": "203.0.113.10",
+      "x-forwarded-for": "203.0.113.11, 10.0.0.1"
+    });
+
+    expect(__securityTestUtils.clientKey(headers, { trustProxyHeaders: true })).toBe(
+      "203.0.113.10"
+    );
+  });
+
+  test("falls back to first forwarded IP and then unknown in trusted proxy mode", () => {
+    expect(
+      __securityTestUtils.clientKey(
+        new Headers({ "x-forwarded-for": "203.0.113.11, 10.0.0.1" }),
+        { trustProxyHeaders: true }
+      )
+    ).toBe("203.0.113.11");
+    expect(__securityTestUtils.clientKey(new Headers(), { trustProxyHeaders: true })).toBe(
+      "unknown"
+    );
+  });
+
+  test("normalizes project auth paths into one rate-limit bucket", () => {
+    expect(
+      __securityTestUtils.normalizePath("/openmarkers/api/auth/sign-in/email")
+    ).toBe("/:project/api/auth/sign-in/email");
+    expect(__securityTestUtils.normalizePath("/admin/api/auth/sign-in/email")).toBe(
+      "/:project/api/auth/sign-in/email"
+    );
+    expect(__securityTestUtils.normalizePath("/admin/login")).toBe("/admin/login");
+  });
+});

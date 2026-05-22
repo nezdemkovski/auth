@@ -333,6 +333,17 @@ function callbackUrlFromRedirectUri(redirectUri: string): string {
   return new URL(redirectUri).origin;
 }
 
+export const __hostedTestUtils = {
+  callbackUrlFromRedirectUri,
+  escapeHtml,
+  internalAuthHeaders,
+  pkceChallenge,
+  redirectUriAllowed,
+  serializeHostedConfig,
+  validPkceChallenge,
+  verifyPkce
+};
+
 export async function submitHostedLogin(
   req: Request,
   project: string,

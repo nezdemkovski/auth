@@ -212,3 +212,7 @@ function buildSocialProviders(project: AuthProject): BetterAuthOptions["socialPr
     })
   ) as BetterAuthOptions["socialProviders"];
 }
+
+export const __projectAuthTestUtils = {
+  createBaseProjectAuthOptions
+};

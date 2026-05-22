@@ -84,6 +84,20 @@ type ProjectUserRow = {
 
 export function createAdminApi(options: AdminApiOptions): Hono {
   const app = new Hono();
+  const adminOrigin = new URL(options.publicBaseUrl).origin;
+
+  app.use("*", async (c, next) => {
+    if (!isStateChangingMethod(c.req.method)) {
+      await next();
+      return;
+    }
+
+    if (!isTrustedAdminRequest(c.req.raw.headers, adminOrigin)) {
+      return c.json({ error: "forbidden_origin" }, 403);
+    }
+
+    await next();
+  });
 
   app.get("/me", async (c) => {
     const admin = options.registry.get("admin");
@@ -667,6 +681,28 @@ function parseSocialProviderPatch(body: SocialProviderBody): SocialProviderPatch
   return patch;
 }
 
+function isStateChangingMethod(method: string): boolean {
+  return !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
+}
+
+function isTrustedAdminRequest(headers: Headers, adminOrigin: string): boolean {
+  const origin = headers.get("origin");
+  if (origin) {
+    return origin === adminOrigin;
+  }
+
+  const referer = headers.get("referer");
+  if (referer) {
+    try {
+      return new URL(referer).origin === adminOrigin;
+    } catch {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 async function requireAdmin(
   registry: AuthRegistry,
   headers: Headers
@@ -865,3 +901,7 @@ async function terminateUserSessions(pool: Pool, userId: string): Promise<number
 function toIsoString(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
+
+export const __adminTestUtils = {
+  isTrustedAdminRequest
+};

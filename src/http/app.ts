@@ -310,6 +310,10 @@ export async function createApp(env: Env) {
 function isEnabledAuthFeaturePath(project: AuthProject, path: string): boolean {
   const authPath = path.replace(new RegExp(`^/${project.slug}/api/auth`), "") || "/";
 
+  if (project.slug === "admin" && authPath.startsWith("/sign-up/")) {
+    return false;
+  }
+
   if (authPath.startsWith("/passkey/") && !project.features.passkey.enabled) {
     return false;
   }
@@ -355,3 +359,7 @@ function renderAdminApp() {
     }
   });
 }
+
+export const __appTestUtils = {
+  isEnabledAuthFeaturePath
+};

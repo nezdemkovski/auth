@@ -294,3 +294,8 @@ function clientKey(
 function normalizePath(path: string): string {
   return path.replace(/^\/[^/]+\/api\/auth\//, "/:project/api/auth/");
 }
+
+export const __securityTestUtils = {
+  clientKey,
+  normalizePath
+};

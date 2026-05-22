@@ -12,6 +12,27 @@ const baseEnv = {
 };
 
 describe("loadEnv email config", () => {
+  test("trims AUTH_PUBLIC_BASE_URL and builds DATABASE_URL from Postgres parts", () => {
+    const env = loadEnv({
+      ...baseEnv,
+      AUTH_PUBLIC_BASE_URL: "https://auth.example.com///"
+    });
+
+    expect(env.publicBaseUrl).toBe("https://auth.example.com");
+    expect(env.databaseUrl).toBe(
+      "postgres://auth:secret@postgres.example.com:5432/auth"
+    );
+  });
+
+  test("rejects short Better Auth secrets", () => {
+    expect(() =>
+      loadEnv({
+        ...baseEnv,
+        BETTER_AUTH_SECRET: "short"
+      })
+    ).toThrow("BETTER_AUTH_SECRET must be at least 32 characters");
+  });
+
   test("parses Resend email settings", () => {
     const env = loadEnv({
       ...baseEnv,
@@ -50,5 +71,14 @@ describe("loadEnv email config", () => {
     });
 
     expect(env.trustProxyHeaders).toBe(true);
+  });
+
+  test("rejects invalid TRUST_PROXY_HEADERS", () => {
+    expect(() =>
+      loadEnv({
+        ...baseEnv,
+        TRUST_PROXY_HEADERS: "maybe"
+      })
+    ).toThrow("TRUST_PROXY_HEADERS must be a boolean");
   });
 });

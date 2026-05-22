@@ -310,6 +310,12 @@ function decryptSecret(value: string, secret: string): string {
   ]).toString("utf8");
 }
 
+export const __socialProviderTestUtils = {
+  encryptSecret,
+  decryptSecret,
+  normalizeDate
+};
+
 function encryptionKey(secret: string): Buffer {
   return createHash("sha256").update(secret).digest();
 }
