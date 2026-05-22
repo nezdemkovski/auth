@@ -136,7 +136,11 @@ function createBaseProjectAuthOptions(options: {
         validAudiences: [
           `${publicBaseUrl}/${project.slug}`,
           `${publicBaseUrl}/${project.slug}/api/auth`
-        ]
+        ],
+        silenceWarnings: {
+          oauthAuthServerConfig: true,
+          openidConfig: true
+        }
       }),
       bearer(),
       jwt({

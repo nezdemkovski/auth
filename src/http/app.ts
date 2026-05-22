@@ -2,6 +2,10 @@ import { extname, join, normalize } from "node:path";
 
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import {
+  oauthProviderAuthServerMetadata,
+  oauthProviderOpenIdConfigMetadata
+} from "@better-auth/oauth-provider";
 
 import type { Env } from "../config/env";
 import type { AuthProject } from "../config/projects";
@@ -203,6 +207,32 @@ export async function createApp(env: Env) {
     }
 
     return registered.auth.handler(c.req.raw);
+  });
+
+  app.get("/.well-known/oauth-authorization-server/:project", (c) => {
+    const registered = registry.get(c.req.param("project"));
+    if (!registered || !registered.project.features.oauthProvider.enabled) {
+      return c.notFound();
+    }
+
+    return oauthProviderAuthServerMetadata(
+      registered.auth as unknown as {
+        api: { getOAuthServerConfig: (...args: unknown[]) => unknown };
+      }
+    )(c.req.raw);
+  });
+
+  app.get("/:project/.well-known/openid-configuration", (c) => {
+    const registered = registry.get(c.req.param("project"));
+    if (!registered || !registered.project.features.oauthProvider.enabled) {
+      return c.notFound();
+    }
+
+    return oauthProviderOpenIdConfigMetadata(
+      registered.auth as unknown as {
+        api: { getOpenIdConfig: (...args: unknown[]) => unknown };
+      }
+    )(c.req.raw);
   });
 
   app.get("/:project/.well-known/agent-configuration", async (c) => {
