@@ -23,6 +23,7 @@ type RateLimitResult =
     };
 
 type RateLimiterStore = {
+  connect(): Promise<void>;
   hit(key: string, rule: RateLimitRule, now: number): Promise<RateLimitResult>;
   close(): Promise<void>;
 };
@@ -163,6 +164,8 @@ export function rateLimit(store: RateLimiterStore): MiddlewareHandler {
 }
 
 class MemoryRateLimiterStore implements RateLimiterStore {
+  async connect(): Promise<void> {}
+
   async hit(key: string, rule: RateLimitRule, now: number): Promise<RateLimitResult> {
     const bucket = rateLimitBuckets.get(key);
 
@@ -209,8 +212,15 @@ class RedisRateLimiterStore implements RateLimiterStore {
     });
   }
 
+  async connect(): Promise<void> {
+    if (!this.redis.connected) {
+      await this.redis.connect();
+    }
+  }
+
   async hit(key: string, rule: RateLimitRule): Promise<RateLimitResult> {
     try {
+      await this.connect();
       return await this.hitRedis(key, rule);
     } catch (error) {
       if (!isClosedRedisConnection(error)) {
@@ -219,6 +229,7 @@ class RedisRateLimiterStore implements RateLimiterStore {
 
       this.redis.close();
       this.redis = this.createClient(this.redisUrl);
+      await this.connect();
       return this.hitRedis(key, rule);
     }
   }

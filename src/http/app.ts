@@ -52,6 +52,7 @@ function hostedAssetPath(path: string): string | null {
 export async function createApp(env: Env) {
   const emailSender = createEmailSender(env.email);
   const rateLimiter = createRateLimiter(env.redisUrl);
+  await rateLimiter.connect();
 
   if (env.autoMigrate) {
     await bootstrapProjects({
