@@ -215,11 +215,7 @@ export async function createApp(env: Env) {
       return c.notFound();
     }
 
-    return oauthProviderAuthServerMetadata(
-      registered.auth as unknown as {
-        api: { getOAuthServerConfig: (...args: unknown[]) => unknown };
-      }
-    )(c.req.raw);
+    return oauthProviderAuthServerMetadata(registered.auth)(c.req.raw);
   });
 
   app.get("/:project/.well-known/openid-configuration", (c) => {
@@ -228,11 +224,7 @@ export async function createApp(env: Env) {
       return c.notFound();
     }
 
-    return oauthProviderOpenIdConfigMetadata(
-      registered.auth as unknown as {
-        api: { getOpenIdConfig: (...args: unknown[]) => unknown };
-      }
-    )(c.req.raw);
+    return oauthProviderOpenIdConfigMetadata(registered.auth)(c.req.raw);
   });
 
   app.get("/:project/.well-known/agent-configuration", async (c) => {

@@ -63,7 +63,7 @@ function createBaseProjectAuthOptions(options: {
   secret: string;
   emailSender: EmailSender | null;
   trustProxyHeaders: boolean;
-}): Omit<BetterAuthOptions, "database"> {
+}) {
   const { project, publicBaseUrl, secret } = options;
   const publicOrigin = new URL(publicBaseUrl).origin;
   const publicHostname = new URL(publicBaseUrl).hostname;
