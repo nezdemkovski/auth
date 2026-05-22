@@ -1,8 +1,9 @@
-import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { AuthRegistry } from "../auth/registry";
+import { ReconnectingRedisClient, type RedisBackedStore } from "./security";
 
 const CODE_TTL_SECONDS = 60;
 const HOSTED_LOGIN_INDEX = join(
@@ -26,7 +27,9 @@ type PendingHostedCode = {
 type HostedOptions = {
   registry: AuthRegistry;
   secret: string;
+  codeStore: HostedCodeStore;
   trustProxyHeaders?: boolean;
+  cspNonce?: string;
 };
 
 function html(content: string, status = 200): Response {
@@ -71,7 +74,100 @@ function serializeHostedConfig(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
+type HostedCodeStore = RedisBackedStore & {
+  set(code: string, payload: PendingHostedCode): Promise<void>;
+  get(code: string): Promise<PendingHostedCode | null>;
+  delete(code: string): Promise<void>;
+};
+
 const pendingHostedCodes = new Map<string, PendingHostedCode>();
+
+export function createHostedCodeStore(redisUrl: string | null): HostedCodeStore {
+  if (redisUrl) {
+    return new RedisHostedCodeStore(redisUrl);
+  }
+
+  return new MemoryHostedCodeStore();
+}
+
+class MemoryHostedCodeStore implements HostedCodeStore {
+  async connect(): Promise<void> {}
+
+  async set(code: string, payload: PendingHostedCode): Promise<void> {
+    pruneExpiredCodes();
+    pendingHostedCodes.set(code, payload);
+  }
+
+  async get(code: string): Promise<PendingHostedCode | null> {
+    pruneExpiredCodes();
+    const pending = pendingHostedCodes.get(code);
+    if (!pending || pending.expiresAt < Date.now()) {
+      pendingHostedCodes.delete(code);
+      return null;
+    }
+
+    return pending;
+  }
+
+  async delete(code: string): Promise<void> {
+    pendingHostedCodes.delete(code);
+  }
+
+  async close(): Promise<void> {}
+}
+
+class RedisHostedCodeStore implements HostedCodeStore {
+  private readonly client: ReconnectingRedisClient;
+
+  constructor(redisUrl: string) {
+    this.client = new ReconnectingRedisClient(redisUrl);
+  }
+
+  connect(): Promise<void> {
+    return this.client.connect();
+  }
+
+  async set(code: string, payload: PendingHostedCode): Promise<void> {
+    await this.client.withClient((redis) =>
+      redis.set(hostedCodeKey(code), JSON.stringify(payload), "EX", CODE_TTL_SECONDS)
+    );
+  }
+
+  async get(code: string): Promise<PendingHostedCode | null> {
+    const value = await this.client.withClient((redis) => redis.get(hostedCodeKey(code)));
+    if (!value) {
+      return null;
+    }
+
+    const parsed = JSON.parse(value) as PendingHostedCode;
+    if (parsed.expiresAt < Date.now()) {
+      await this.delete(code);
+      return null;
+    }
+
+    return parsed;
+  }
+
+  async delete(code: string): Promise<void> {
+    await this.client.withClient((redis) => redis.del(hostedCodeKey(code)));
+  }
+
+  close(): void {
+    this.client.close();
+  }
+}
+
+function hostedCodeKey(code: string): string {
+  return `auth:hosted-code:${code}`;
+}
+
+function pruneExpiredCodes(now = Date.now()): void {
+  for (const [code, payload] of pendingHostedCodes) {
+    if (payload.expiresAt < now) {
+      pendingHostedCodes.delete(code);
+    }
+  }
+}
 
 function createCode(): string {
   return Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString(
@@ -89,17 +185,6 @@ function validPkceChallenge(value: string): boolean {
 
 function verifyPkce(codeChallenge: string, codeVerifier: string): boolean {
   return validPkceChallenge(codeVerifier) && pkceChallenge(codeVerifier) === codeChallenge;
-}
-
-function consumeCode(code: string): PendingHostedCode | null {
-  const pending = pendingHostedCodes.get(code);
-  pendingHostedCodes.delete(code);
-
-  if (!pending || pending.expiresAt < Date.now()) {
-    return null;
-  }
-
-  return pending;
 }
 
 function redirectUriAllowed(
@@ -123,6 +208,7 @@ function renderLoginPage(options: {
   state: string;
   mode: string;
   codeChallenge: string;
+  cspNonce?: string;
   error?: string;
 }): Response {
   const isSignup = options.mode === "signup";
@@ -145,9 +231,10 @@ function renderLoginPage(options: {
   return html(
     index
       .replace("<title>Sign in</title>", `<title>${escapeHtml(title)} - ${escapeHtml(options.projectName)}</title>`)
+      .replaceAll("__CSP_NONCE__", escapeHtml(options.cspNonce ?? ""))
       .replace(
         "<!-- hosted-auth-config -->",
-        `<script>window.__HOSTED_AUTH__=${config};</script>`
+        `<script nonce="${escapeHtml(options.cspNonce ?? "")}">window.__HOSTED_AUTH__=${config};</script>`
       )
   );
 }
@@ -223,6 +310,7 @@ async function issueHostedCodeFromSession(options: {
   codeChallenge: string;
   headers: Headers;
   trustProxyHeaders: boolean;
+  codeStore: HostedCodeStore;
 }): Promise<{ redirectTo: string; email: string } | null> {
   const authPath = `/${options.registered.project.slug}/api/auth`;
   const sessionRes = await options.registered.auth.handler(
@@ -245,7 +333,7 @@ async function issueHostedCodeFromSession(options: {
   }
 
   const code = createCode();
-  pendingHostedCodes.set(code, {
+  await options.codeStore.set(code, {
     project: options.registered.project.slug,
     sessionCookie: options.headers.get("cookie") ?? "",
     email,
@@ -298,7 +386,8 @@ export function renderHostedLogin(
     redirectUri,
     state,
     mode,
-    codeChallenge
+    codeChallenge,
+    cspNonce: options.cspNonce
   });
 }
 
@@ -335,6 +424,7 @@ function callbackUrlFromRedirectUri(redirectUri: string): string {
 
 export const __hostedTestUtils = {
   callbackUrlFromRedirectUri,
+  createHostedCodeStore,
   escapeHtml,
   internalAuthHeaders,
   pkceChallenge,
@@ -389,12 +479,13 @@ export async function submitHostedLogin(
       state,
       mode,
       codeChallenge,
+      cspNonce: options.cspNonce,
       error: mode === "signup" ? "Could not create account" : "Invalid email or password"
     });
   }
 
   const code = createCode();
-  pendingHostedCodes.set(code, {
+  await options.codeStore.set(code, {
     project,
     sessionCookie: session.sessionCookie,
     email: session.email,
@@ -443,7 +534,8 @@ export async function createHostedSessionCode(
     state,
     codeChallenge,
     headers: req.headers,
-    trustProxyHeaders: options.trustProxyHeaders === true
+    trustProxyHeaders: options.trustProxyHeaders === true,
+    codeStore: options.codeStore
   });
 
   if (!issued) {
@@ -474,7 +566,7 @@ export async function exchangeHostedCode(
     return json({ error: "invalid_redirect_uri" }, 400);
   }
 
-  const payload = consumeCode(code);
+  const payload = await options.codeStore.get(code);
   if (
     !payload ||
     payload.project !== project ||
@@ -483,6 +575,8 @@ export async function exchangeHostedCode(
   ) {
     return json({ error: "invalid_code" }, 400);
   }
+
+  await options.codeStore.delete(code);
 
   return json({
     sessionCookie: payload.sessionCookie,

@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 import type { MiddlewareHandler } from "hono";
 import { RedisClient } from "bun";
 
@@ -26,6 +28,11 @@ type RateLimiterStore = {
   connect(): Promise<void>;
   hit(key: string, rule: RateLimitRule, now: number): Promise<RateLimitResult>;
   close(): Promise<void>;
+};
+
+export type RedisBackedStore = {
+  connect(): Promise<void>;
+  close(): void | Promise<void>;
 };
 
 const rateLimitBuckets = new Map<string, RateLimitBucket>();
@@ -84,6 +91,8 @@ export function securityHeaders(publicBaseUrl: string): MiddlewareHandler {
   const isHttps = publicBaseUrl.startsWith("https://");
 
   return async (c, next) => {
+    const nonce = randomBytes(16).toString("base64url");
+    c.set("cspNonce", nonce);
     await next();
 
     c.header("X-Content-Type-Options", "nosniff");
@@ -100,7 +109,7 @@ export function securityHeaders(publicBaseUrl: string): MiddlewareHandler {
         "img-src 'self' data:",
         "font-src 'self' https://cdn.jsdelivr.net",
         "style-src 'self' 'unsafe-inline'",
-        "script-src 'self' 'unsafe-inline'",
+        `script-src 'self' 'nonce-${nonce}'`,
         "connect-src 'self'"
       ].join("; ")
     );
@@ -201,11 +210,55 @@ class MemoryRateLimiterStore implements RateLimiterStore {
 }
 
 class RedisRateLimiterStore implements RateLimiterStore {
-  private readonly redisUrl: string;
-  private redis: RedisClient;
+  private readonly client: ReconnectingRedisClient;
 
   constructor(redisUrl: string) {
-    this.redisUrl = redisUrl;
+    this.client = new ReconnectingRedisClient(redisUrl);
+  }
+
+  async connect(): Promise<void> {
+    await this.client.connect();
+  }
+
+  async hit(key: string, rule: RateLimitRule): Promise<RateLimitResult> {
+    return this.client.withClient((redis) => this.hitRedis(redis, key, rule));
+  }
+
+  async close(): Promise<void> {
+    this.client.close();
+  }
+
+  private async hitRedis(
+    redis: RedisClient,
+    key: string,
+    rule: RateLimitRule
+  ): Promise<RateLimitResult> {
+    const redisKey = `auth:rate-limit:${key}`;
+    const count = await redis.incr(redisKey);
+
+    if (count === 1) {
+      await redis.expire(redisKey, Math.ceil(rule.windowMs / 1000));
+    }
+
+    if (count > rule.max) {
+      const ttl = await redis.ttl(redisKey);
+
+      return {
+        allowed: false,
+        retryAfter: Math.max(1, ttl)
+      };
+    }
+
+    return {
+      allowed: true
+    };
+  }
+}
+
+export class ReconnectingRedisClient implements RedisBackedStore {
+  private redis: RedisClient;
+
+  constructor(private readonly redisUrl: string) {
     this.redis = this.createClient(redisUrl);
   }
 
@@ -222,10 +275,10 @@ class RedisRateLimiterStore implements RateLimiterStore {
     }
   }
 
-  async hit(key: string, rule: RateLimitRule): Promise<RateLimitResult> {
+  async withClient<T>(operation: (redis: RedisClient) => Promise<T>): Promise<T> {
     try {
       await this.connect();
-      return await this.hitRedis(key, rule);
+      return await operation(this.redis);
     } catch (error) {
       if (!isClosedRedisConnection(error)) {
         throw error;
@@ -234,37 +287,12 @@ class RedisRateLimiterStore implements RateLimiterStore {
       this.redis.close();
       this.redis = this.createClient(this.redisUrl);
       await this.connect();
-      return this.hitRedis(key, rule);
+      return operation(this.redis);
     }
   }
 
-  async close(): Promise<void> {
+  close(): void {
     this.redis.close();
-  }
-
-  private async hitRedis(
-    key: string,
-    rule: RateLimitRule
-  ): Promise<RateLimitResult> {
-    const redisKey = `auth:rate-limit:${key}`;
-    const count = await this.redis.incr(redisKey);
-
-    if (count === 1) {
-      await this.redis.expire(redisKey, Math.ceil(rule.windowMs / 1000));
-    }
-
-    if (count > rule.max) {
-      const ttl = await this.redis.ttl(redisKey);
-
-      return {
-        allowed: false,
-        retryAfter: Math.max(1, ttl)
-      };
-    }
-
-    return {
-      allowed: true
-    };
   }
 }
 

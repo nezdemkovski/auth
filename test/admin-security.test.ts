@@ -43,4 +43,24 @@ describe("admin API security helpers", () => {
       )
     ).toBe(false);
   });
+
+  test("accepts browser same-origin fetch metadata when Origin is absent", () => {
+    expect(
+      __adminTestUtils.isTrustedAdminRequest(
+        new Headers({
+          "sec-fetch-site": "same-origin"
+        }),
+        "https://auth.example.com"
+      )
+    ).toBe(true);
+  });
+
+  test("rejects requests without origin, fetch metadata, or referer", () => {
+    expect(
+      __adminTestUtils.isTrustedAdminRequest(
+        new Headers(),
+        "https://auth.example.com"
+      )
+    ).toBe(false);
+  });
 });

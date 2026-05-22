@@ -169,6 +169,7 @@ function createBaseProjectAuthOptions(options: {
           definePayload: ({ user }) => ({
             sub: user.id,
             email: user.email,
+            email_verified: user.emailVerified === true,
             project: project.slug
           })
         }

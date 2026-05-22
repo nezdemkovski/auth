@@ -54,6 +54,7 @@ type ChangePasswordBody = {
 type UpdateProfileBody = {
   name?: unknown;
   email?: unknown;
+  currentPassword?: unknown;
 };
 
 type ResendVerificationBody = {
@@ -154,8 +155,35 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       return c.json({ error: "no_changes" }, 400);
     }
 
+    if (patch.email !== undefined && patch.email !== session.user.email.toLowerCase()) {
+      if (!options.emailServiceEnabled) {
+        return c.json({ error: "email_service_required" }, 400);
+      }
+
+      if (typeof body.currentPassword !== "string" || body.currentPassword.length === 0) {
+        return c.json({ error: "current_password_required" }, 400);
+      }
+
+      const verified = await verifyPassword(admin.auth, c.req.raw.headers, {
+        email: session.user.email,
+        password: body.currentPassword
+      });
+
+      if (!verified) {
+        return c.json({ error: "invalid_current_password" }, 403);
+      }
+    }
+
     try {
       await updateAdminProfile(admin.projectDb.pool, session.user.id, patch);
+      if (patch.email !== undefined && patch.email !== session.user.email.toLowerCase()) {
+        await sendVerificationEmail(admin.auth, {
+          email: patch.email,
+          callbackURL: `${options.publicBaseUrl}/admin/settings`
+        }).catch((error) => {
+          console.warn("[admin] could not send email-change verification", error);
+        });
+      }
     } catch (error: unknown) {
       if (error instanceof Error && /unique|duplicate/i.test(error.message)) {
         return c.json({ error: "email_in_use" }, 409);
@@ -691,6 +719,11 @@ function isTrustedAdminRequest(headers: Headers, adminOrigin: string): boolean {
     return origin === adminOrigin;
   }
 
+  const secFetchSite = headers.get("sec-fetch-site");
+  if (secFetchSite) {
+    return secFetchSite === "same-origin" || secFetchSite === "same-site";
+  }
+
   const referer = headers.get("referer");
   if (referer) {
     try {
@@ -700,7 +733,7 @@ function isTrustedAdminRequest(headers: Headers, adminOrigin: string): boolean {
     }
   }
 
-  return true;
+  return false;
 }
 
 async function requireAdmin(
@@ -761,6 +794,37 @@ async function changePassword(
       revokeOtherSessions: true
     }
   });
+}
+
+async function verifyPassword(
+  auth: unknown,
+  headers: Headers,
+  body: {
+    email: string;
+    password: string;
+  }
+): Promise<boolean> {
+  const api = (auth as {
+    api: {
+      signInEmail(input: {
+        headers: Headers;
+        body: {
+          email: string;
+          password: string;
+        };
+      }): Promise<unknown>;
+    };
+  }).api;
+
+  try {
+    await api.signInEmail({
+      headers,
+      body
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function sendVerificationEmail(
@@ -827,6 +891,7 @@ async function updateAdminProfile(
     await db.execute(sql`
       UPDATE "user"
       SET email = ${patch.email},
+          "emailVerified" = false,
           "updatedAt" = now()
       WHERE id = ${userId}
     `);

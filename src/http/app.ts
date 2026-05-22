@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 
 import { Hono } from "hono";
@@ -16,6 +17,7 @@ import { createEmailSender } from "../email/sender";
 import { createAdminApi } from "./admin";
 import {
   createHostedSessionCode,
+  createHostedCodeStore,
   exchangeHostedCode,
   renderHostedLogin,
   submitHostedLogin
@@ -24,6 +26,7 @@ import { createRateLimiter, rateLimit, securityHeaders } from "./security";
 
 type AppVariables = {
   registry: AuthRegistry;
+  cspNonce: string;
 };
 
 const HOSTED_ASSETS_DIR = join(
@@ -59,7 +62,9 @@ function hostedAssetPath(path: string): string | null {
 export async function createApp(env: Env) {
   const emailSender = createEmailSender(env.email);
   const rateLimiter = createRateLimiter(env.redisUrl);
+  const hostedCodeStore = createHostedCodeStore(env.redisUrl);
   await rateLimiter.connect();
+  await hostedCodeStore.connect();
   let adminProject = env.adminProject;
   let projects: AuthProject[] = [];
 
@@ -69,7 +74,8 @@ export async function createApp(env: Env) {
       publicBaseUrl: env.publicBaseUrl,
       secret: env.betterAuthSecret,
       adminProject,
-      adminEmail: env.adminEmail
+      adminEmail: env.adminEmail,
+      initialAdminPassword: env.initialAdminPassword
     });
   }
 
@@ -161,13 +167,15 @@ export async function createApp(env: Env) {
     })
   );
 
-  app.get("/admin", renderAdminApp);
-  app.get("/admin/*", renderAdminApp);
+  app.get("/admin", (c) => renderAdminApp(c.get("cspNonce")));
+  app.get("/admin/*", (c) => renderAdminApp(c.get("cspNonce")));
 
   app.get("/:project/login", (c) => {
     return renderHostedLogin(c.req.raw, c.req.param("project"), {
       registry,
-      secret: env.betterAuthSecret
+      secret: env.betterAuthSecret,
+      codeStore: hostedCodeStore,
+      cspNonce: c.get("cspNonce")
     });
   });
 
@@ -175,14 +183,17 @@ export async function createApp(env: Env) {
     return submitHostedLogin(c.req.raw, c.req.param("project"), {
       registry,
       secret: env.betterAuthSecret,
-      trustProxyHeaders: env.trustProxyHeaders
+      trustProxyHeaders: env.trustProxyHeaders,
+      codeStore: hostedCodeStore,
+      cspNonce: c.get("cspNonce")
     });
   });
 
   app.post("/:project/hosted/token", (c) => {
     return exchangeHostedCode(c.req.raw, c.req.param("project"), {
       registry,
-      secret: env.betterAuthSecret
+      secret: env.betterAuthSecret,
+      codeStore: hostedCodeStore
     });
   });
 
@@ -190,7 +201,8 @@ export async function createApp(env: Env) {
     return createHostedSessionCode(c.req.raw, c.req.param("project"), {
       registry,
       secret: env.betterAuthSecret,
-      trustProxyHeaders: env.trustProxyHeaders
+      trustProxyHeaders: env.trustProxyHeaders,
+      codeStore: hostedCodeStore
     });
   });
 
@@ -302,7 +314,7 @@ export async function createApp(env: Env) {
     app,
     registry,
     async close() {
-      await Promise.all([registry.close(), rateLimiter.close()]);
+      await Promise.all([registry.close(), rateLimiter.close(), hostedCodeStore.close()]);
     }
   };
 }
@@ -351,8 +363,13 @@ function isOAuthProviderPath(path: string): boolean {
   );
 }
 
-function renderAdminApp() {
-  return new Response(Bun.file(ADMIN_INDEX_PATH), {
+function renderAdminApp(cspNonce: string) {
+  const index = readFileSync(ADMIN_INDEX_PATH, "utf8").replaceAll(
+    "__CSP_NONCE__",
+    cspNonce
+  );
+
+  return new Response(index, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store"

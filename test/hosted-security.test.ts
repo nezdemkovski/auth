@@ -89,4 +89,33 @@ describe("hosted auth security helpers", () => {
       )
     ).toBe("https://openmarkers.app");
   });
+
+  test("memory hosted-code store expires codes and deletes only when asked", async () => {
+    const store = __hostedTestUtils.createHostedCodeStore(null);
+    await store.set("valid-code", {
+      project: "openmarkers",
+      sessionCookie: "auth.session=value",
+      email: "user@example.com",
+      redirectUri: "https://openmarkers.app/auth/callback",
+      codeChallenge: __hostedTestUtils.pkceChallenge(verifier),
+      expiresAt: Date.now() + 60_000
+    });
+
+    expect(await store.get("valid-code")).not.toBeNull();
+    expect(await store.get("valid-code")).not.toBeNull();
+
+    await store.delete("valid-code");
+    expect(await store.get("valid-code")).toBeNull();
+
+    await store.set("expired-code", {
+      project: "openmarkers",
+      sessionCookie: "auth.session=value",
+      email: "user@example.com",
+      redirectUri: "https://openmarkers.app/auth/callback",
+      codeChallenge: __hostedTestUtils.pkceChallenge(verifier),
+      expiresAt: Date.now() - 1
+    });
+
+    expect(await store.get("expired-code")).toBeNull();
+  });
 });
