@@ -1,6 +1,15 @@
+import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 
+import { MoonIcon, ShieldIcon, SunIcon } from "./icons";
 import "./style.css";
+import {
+  applyTheme,
+  resolveTheme,
+  setTheme,
+  watchSystemTheme,
+  type Theme
+} from "./theme";
 
 type HostedAuthConfig = {
   project: string;
@@ -25,11 +34,12 @@ if (!config) {
 }
 
 function LoginPage({ config }: { config: HostedAuthConfig }) {
+  const [theme, setThemeState] = useState<Theme>(() => resolveTheme());
   const isSignup = config.mode === "signup";
-  const title = isSignup ? "Create account" : "Log in";
+  const title = isSignup ? "Create your account" : "Welcome back";
   const subtitle = isSignup
-    ? "Create a secure account for this project."
-    : "Continue to your project workspace.";
+    ? `Set up access to ${config.projectName}.`
+    : `Continue to ${config.projectName}.`;
   const alternateUrl = new URL(`/${config.project}/login`, window.location.origin);
 
   alternateUrl.searchParams.set("redirect_uri", config.redirectUri);
@@ -38,96 +48,257 @@ function LoginPage({ config }: { config: HostedAuthConfig }) {
   alternateUrl.searchParams.set("code_challenge", config.codeChallenge);
   alternateUrl.searchParams.set("code_challenge_method", "S256");
 
-  document.title = `${title} - ${config.projectName}`;
+  useEffect(() => {
+    document.title = `${title} · ${config.projectName}`;
+    applyTheme(theme);
+  }, [theme, title, config.projectName]);
+
+  useEffect(() => {
+    return watchSystemTheme((next) => setThemeState(next));
+  }, []);
+
+  function toggleTheme() {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    setThemeState(next);
+  }
+
+  const projectInitial = config.projectName.trim().charAt(0).toUpperCase() || "·";
 
   return (
-    <section className="relative grid min-h-screen place-items-center px-5 py-8 sm:px-8">
-      <div className="auth-shell relative z-10 w-full max-w-[440px]">
-        <div className="mb-5 flex items-center justify-between text-xs text-muted">
-          <span className="inline-flex items-center gap-2 rounded-full border border-line/80 bg-panel/70 px-3 py-1.5 backdrop-blur">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent shadow-[0_0_18px_rgba(110,231,168,.8)]" />
-            Hosted auth
-          </span>
-          <span className="font-medium text-muted/80">{config.projectName}</span>
-        </div>
+    <div className="relative min-h-screen overflow-hidden">
+      <div
+        aria-hidden="true"
+        data-grid-bg
+        className="pointer-events-none absolute inset-0"
+      />
 
-        <form
-          method="post"
-          action={`/${config.project}/login`}
-          className="relative overflow-hidden rounded-[28px] border border-line bg-panel/88 p-6 shadow-[0_28px_90px_rgba(0,0,0,.55)] backdrop-blur-xl sm:p-7"
-        >
-          <div className="pointer-events-none absolute -right-20 -top-24 h-52 w-52 rounded-full bg-accent/15 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-32 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full bg-teal-400/10 blur-3xl" />
+      <div className="absolute right-4 top-4 z-10">
+        <ThemeToggle theme={theme} onToggle={toggleTheme} />
+      </div>
 
-          <div className="relative">
-            <div className="mb-7">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[.28em] text-accent/80">
-                {config.projectName}
-              </p>
-              <h1 className="text-4xl font-semibold tracking-[-.03em] text-ink sm:text-5xl">
+      <section className="relative grid min-h-screen place-items-center px-5 py-12">
+        <div className="w-full max-w-[400px]">
+          <div className="enter mb-7 flex items-center justify-center gap-2.5">
+            <span
+              aria-hidden="true"
+              className="grid h-9 w-9 place-items-center rounded-[10px] bg-accent text-[15px] font-semibold tracking-[-0.02em] text-accent-ink"
+              style={{ boxShadow: "var(--shadow-button)" }}
+            >
+              {projectInitial}
+            </span>
+            <span className="text-[15px] font-medium tracking-[-0.005em] text-ink">
+              {config.projectName}
+            </span>
+          </div>
+
+          <div
+            className="enter enter-1 overflow-hidden rounded-2xl border border-border bg-surface"
+            style={{ boxShadow: "var(--shadow-elevated)" }}
+          >
+            <div className="px-8 pb-7 pt-8">
+              <h1 className="text-[26px] font-semibold leading-[1.15] tracking-[-0.025em] text-ink">
                 {title}
               </h1>
-              <p className="mt-3 max-w-[22rem] text-sm leading-6 text-muted">
+              <p className="mt-1.5 text-[14px] leading-[1.45] text-muted">
                 {subtitle}
               </p>
+
+              {config.error ? (
+                <div
+                  role="alert"
+                  className="mt-5 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-[13px] leading-5"
+                  style={{
+                    background: "var(--danger-bg)",
+                    borderColor: "var(--danger-border)",
+                    color: "var(--danger)"
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="mt-[3px] inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ background: "var(--danger)" }}
+                  />
+                  <span>{config.error}</span>
+                </div>
+              ) : null}
+
+              <form
+                method="post"
+                action={`/${config.project}/login`}
+                className="mt-6 space-y-3.5"
+              >
+                <input type="hidden" name="redirect_uri" value={config.redirectUri} />
+                <input type="hidden" name="state" value={config.state} />
+                <input type="hidden" name="mode" value={config.mode} />
+                <input
+                  type="hidden"
+                  name="code_challenge"
+                  value={config.codeChallenge}
+                />
+
+                <FormField
+                  id="email"
+                  name="email"
+                  label="Email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                />
+                <FormField
+                  id="password"
+                  name="password"
+                  label="Password"
+                  type="password"
+                  autoComplete={isSignup ? "new-password" : "current-password"}
+                  placeholder={isSignup ? "At least 12 characters" : "••••••••"}
+                  hint={
+                    !isSignup ? (
+                      <a
+                        href="#"
+                        className="text-[12px] font-medium text-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
+                      >
+                        Forgot?
+                      </a>
+                    ) : null
+                  }
+                />
+
+                <button
+                  type="submit"
+                  data-press
+                  className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-lg bg-accent text-[14px] font-medium text-accent-ink outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+                  style={{
+                    boxShadow: "var(--shadow-button)",
+                    transition: "background-color 140ms ease, transform 120ms"
+                  }}
+                  onMouseEnter={(e) =>
+                    (e.currentTarget.style.background = "var(--accent-hover)")
+                  }
+                  onMouseLeave={(e) =>
+                    (e.currentTarget.style.background = "var(--accent)")
+                  }
+                >
+                  {isSignup ? "Create account" : "Sign in"}
+                </button>
+              </form>
             </div>
 
-            {config.error ? (
-              <div className="mb-5 rounded-2xl border border-red-400/25 bg-red-950/55 px-4 py-3 text-sm text-danger">
-                {config.error}
-              </div>
-            ) : null}
-
-            <input type="hidden" name="redirect_uri" value={config.redirectUri} />
-            <input type="hidden" name="state" value={config.state} />
-            <input type="hidden" name="mode" value={config.mode} />
-            <input type="hidden" name="code_challenge" value={config.codeChallenge} />
-
-            <label className="mb-2 block text-sm font-medium text-ink/80" htmlFor="email">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              className="mb-5 h-13 w-full rounded-2xl border border-line bg-black/28 px-4 text-[16px] text-ink outline-none transition focus:border-accent/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(110,231,168,.08)]"
-            />
-
-            <label className="mb-2 block text-sm font-medium text-ink/80" htmlFor="password">
-              Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete={isSignup ? "new-password" : "current-password"}
-              required
-              className="h-13 w-full rounded-2xl border border-line bg-black/28 px-4 text-[16px] text-ink outline-none transition focus:border-accent/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(110,231,168,.08)]"
-            />
-
-            <button
-              type="submit"
-              className="mt-7 h-13 w-full rounded-2xl bg-accent-strong text-[15px] font-semibold text-emerald-950 shadow-[0_14px_38px_rgba(34,197,94,.24)] transition hover:-translate-y-0.5 hover:bg-accent hover:shadow-[0_18px_46px_rgba(34,197,94,.3)] active:translate-y-0"
+            <div
+              className="flex items-center justify-center gap-1 border-t border-border bg-surface-muted px-8 py-4 text-[13px]"
+              style={{ color: "var(--muted)" }}
             >
-              {title}
-            </button>
-
-            <a
-              href={alternateUrl.toString()}
-              className="mt-5 block text-center text-sm font-medium text-accent/85 transition hover:text-accent"
-            >
-              {isSignup ? "Already have an account? Log in" : "Need an account? Sign up"}
-            </a>
+              <span>{isSignup ? "Already have an account?" : "New to this project?"}</span>
+              <a
+                href={alternateUrl.toString()}
+                className="font-medium text-ink underline-offset-[3px] transition-colors hover:underline"
+              >
+                {isSignup ? "Sign in" : "Create one"}
+              </a>
+            </div>
           </div>
-        </form>
 
-        <p className="mt-5 text-center text-[11px] leading-5 text-muted/65">
-          Session handoff uses a short-lived code and returns to the requesting app.
-        </p>
+          <div className="enter enter-2 mt-6 flex items-center justify-center gap-1.5 text-[12px] text-muted-soft">
+            <ShieldIcon size={12} className="opacity-70" />
+            <span>Short-lived authorization code · PKCE&nbsp;S256</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function FormField({
+  id,
+  name,
+  label,
+  type,
+  autoComplete,
+  placeholder,
+  hint
+}: {
+  id: string;
+  name: string;
+  label: string;
+  type: string;
+  autoComplete: string;
+  placeholder?: string;
+  hint?: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-baseline justify-between">
+        <label
+          htmlFor={id}
+          className="text-[12.5px] font-medium tracking-[-0.005em] text-ink-soft"
+        >
+          {label}
+        </label>
+        {hint}
       </div>
-    </section>
+      <input
+        id={id}
+        name={name}
+        type={type}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        required
+        className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none placeholder:text-muted-soft"
+        style={{
+          transition:
+            "border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease"
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.borderColor = "var(--border-strong)";
+          e.currentTarget.style.boxShadow = "0 0 0 3px var(--focus-ring)";
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderColor = "var(--border)";
+          e.currentTarget.style.boxShadow = "none";
+        }}
+      />
+    </div>
+  );
+}
+
+function ThemeToggle({
+  theme,
+  onToggle
+}: {
+  theme: Theme;
+  onToggle: () => void;
+}) {
+  const next = theme === "dark" ? "light" : "dark";
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      data-press
+      aria-label={`Switch to ${next} mode`}
+      title={`Switch to ${next} mode`}
+      className="relative grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+    >
+      <span
+        className="absolute inset-0 grid place-items-center transition-[opacity,transform,filter] duration-200"
+        style={{
+          opacity: theme === "dark" ? 1 : 0,
+          transform: theme === "dark" ? "scale(1)" : "scale(0.5)",
+          filter: theme === "dark" ? "blur(0)" : "blur(4px)"
+        }}
+      >
+        <MoonIcon size={15} />
+      </span>
+      <span
+        className="absolute inset-0 grid place-items-center transition-[opacity,transform,filter] duration-200"
+        style={{
+          opacity: theme === "light" ? 1 : 0,
+          transform: theme === "light" ? "scale(1)" : "scale(0.5)",
+          filter: theme === "light" ? "blur(0)" : "blur(4px)"
+        }}
+      >
+        <SunIcon size={15} />
+      </span>
+    </button>
   );
 }
 

@@ -150,14 +150,17 @@ export function ActionEmail({
 }
 
 const colors = {
-  background: "#f4f7f5",
+  background: "#fafafa",
   panel: "#ffffff",
-  ink: "#0b1110",
-  muted: "#4b5b53",
-  soft: "#6b7a72",
-  border: "#dbe4df",
-  accent: "#22c55e",
-  accentInk: "#052e16"
+  ink: "#18181b",
+  inkSoft: "#3f3f46",
+  muted: "#52525b",
+  soft: "#71717a",
+  border: "#e7e7ea",
+  accent: "#18181b",
+  accentInk: "#ffffff",
+  brandMarkBg: "#18181b",
+  brandMarkInk: "#ffffff"
 };
 
 const styles = {
@@ -166,66 +169,69 @@ const styles = {
     backgroundColor: colors.background,
     color: colors.ink,
     fontFamily:
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+      "-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
   },
   container: {
-    maxWidth: "520px",
-    margin: "32px auto",
+    maxWidth: "480px",
+    margin: "40px auto",
     padding: "32px",
     backgroundColor: colors.panel,
     border: `1px solid ${colors.border}`,
-    borderRadius: "18px"
+    borderRadius: "12px"
   },
   brand: {
-    marginBottom: "28px"
+    marginBottom: "24px"
   },
   brandMark: {
     display: "inline-block",
-    width: "32px",
-    height: "32px",
+    width: "28px",
+    height: "28px",
     margin: "0 10px 0 0",
-    borderRadius: "12px",
-    backgroundColor: "#dcfce7",
-    color: "#166534",
-    fontSize: "14px",
-    fontWeight: 700,
-    lineHeight: "32px",
+    borderRadius: "8px",
+    backgroundColor: colors.brandMarkBg,
+    color: colors.brandMarkInk,
+    fontSize: "13px",
+    fontWeight: 600,
+    lineHeight: "28px",
     textAlign: "center" as const
   },
   brandText: {
     display: "inline-block",
     margin: 0,
-    color: colors.soft,
+    color: colors.inkSoft,
     fontSize: "14px",
-    fontWeight: 600,
-    lineHeight: "32px",
+    fontWeight: 500,
+    lineHeight: "28px",
     verticalAlign: "top"
   },
   heading: {
-    margin: "0 0 12px",
+    margin: "0 0 8px",
     color: colors.ink,
-    fontSize: "24px",
-    lineHeight: "1.2"
+    fontSize: "22px",
+    fontWeight: 600,
+    letterSpacing: "-0.01em",
+    lineHeight: "1.25"
   },
   intro: {
     margin: "0 0 24px",
     color: colors.muted,
-    fontSize: "16px",
-    lineHeight: "1.6"
+    fontSize: "15px",
+    lineHeight: "1.55"
   },
   button: {
     display: "inline-block",
-    padding: "13px 18px",
-    borderRadius: "12px",
+    padding: "10px 18px",
+    borderRadius: "8px",
     backgroundColor: colors.accent,
     color: colors.accentInk,
-    fontSize: "15px",
-    fontWeight: 700,
+    fontSize: "14px",
+    fontWeight: 500,
     textDecoration: "none"
   },
   hr: {
     margin: "28px 0 20px",
-    borderColor: colors.border
+    border: "none",
+    borderTop: `1px solid ${colors.border}`
   },
   helpText: {
     margin: "0 0 6px",
@@ -234,7 +240,7 @@ const styles = {
     lineHeight: "1.5"
   },
   link: {
-    color: "#15803d",
+    color: colors.inkSoft,
     fontSize: "13px",
     lineHeight: "1.5",
     wordBreak: "break-all" as const

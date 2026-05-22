@@ -8,7 +8,25 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 
+import {
+  BrandMark,
+  ChevronRightIcon,
+  HomeIcon,
+  MailIcon,
+  MoonIcon,
+  ShieldIcon,
+  SignOutIcon,
+  StatusDot,
+  SunIcon
+} from "./icons";
 import "./style.css";
+import {
+  applyTheme,
+  resolveTheme,
+  setTheme,
+  watchSystemTheme,
+  type Theme
+} from "./theme";
 
 type AdminUser = {
   id: string;
@@ -75,57 +93,96 @@ const queryClient = new QueryClient({
 
 function AdminApp() {
   const [view, setView] = useState<ViewState>({ status: "loading" });
+  const [theme, setThemeState] = useState<Theme>(() => resolveTheme());
 
   useEffect(() => {
     void loadSession().then(setView);
   }, []);
 
-  const content = useMemo(() => {
-    if (view.status === "loading") {
-      return <LoadingPanel />;
-    }
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
-    if (view.status === "signed-out") {
-      return <LoginPanel error={view.error} onDone={setView} />;
-    }
+  useEffect(() => {
+    return watchSystemTheme((next) => setThemeState(next));
+  }, []);
 
-    if (view.status === "force-change") {
-      return <ChangePasswordPanel me={view.me} error={view.error} onDone={setView} />;
-    }
+  function toggleTheme() {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    setThemeState(next);
+  }
 
-    return <DashboardPanel me={view.me} onDone={setView} />;
-  }, [view]);
+  if (view.status === "loading") {
+    return (
+      <CenteredShell theme={theme} onToggleTheme={toggleTheme}>
+        <LoadingPanel />
+      </CenteredShell>
+    );
+  }
+
+  if (view.status === "signed-out") {
+    return (
+      <CenteredShell theme={theme} onToggleTheme={toggleTheme}>
+        <SignInPanel error={view.error} onDone={setView} />
+      </CenteredShell>
+    );
+  }
+
+  if (view.status === "force-change") {
+    return (
+      <CenteredShell theme={theme} onToggleTheme={toggleTheme}>
+        <ChangePasswordPanel
+          me={view.me}
+          error={view.error}
+          onDone={setView}
+        />
+      </CenteredShell>
+    );
+  }
 
   return (
-    <main className="relative min-h-screen w-full overflow-x-hidden px-4 py-5 sm:px-8 sm:py-6 lg:px-10">
-      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-2.5rem)] w-full max-w-6xl min-w-0 flex-col">
-        <header className="mb-6 flex min-w-0 items-center justify-between gap-3 sm:mb-8 sm:gap-4">
-          <a
-            href="/admin"
-            className="inline-flex min-w-0 items-center gap-3 text-ink no-underline"
-            aria-label="Auth Admin"
-          >
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl border border-line bg-panel/80 text-sm font-semibold text-accent shadow-[0_18px_50px_rgba(0,0,0,.25)]">
-              A
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold leading-5">Auth Admin</span>
-              <span className="block truncate text-xs text-muted">Nezdemkovski Cloud</span>
-            </span>
-          </a>
+    <DashboardShell
+      me={view.me}
+      theme={theme}
+      onToggleTheme={toggleTheme}
+      onSignOut={() => void signOut().then(() => setView({ status: "signed-out" }))}
+    />
+  );
+}
 
-          {view.status === "dashboard" ? (
-            <button
-              type="button"
-              onClick={() => void signOut().then(() => setView({ status: "signed-out" }))}
-              className="shrink-0 rounded-2xl border border-line bg-panel/70 px-3 py-2 text-sm font-medium text-muted transition hover:border-accent/40 hover:text-ink sm:px-4"
-            >
-              Sign out
-            </button>
-          ) : null}
-        </header>
-
-        <div className="grid min-w-0 flex-1 items-center">{content}</div>
+function CenteredShell({
+  children,
+  theme,
+  onToggleTheme
+}: {
+  children: React.ReactNode;
+  theme: Theme;
+  onToggleTheme: () => void;
+}) {
+  return (
+    <main className="relative min-h-screen overflow-hidden">
+      <div
+        aria-hidden="true"
+        data-grid-bg
+        className="pointer-events-none absolute inset-0"
+      />
+      <div className="absolute right-4 top-4 z-10">
+        <ThemeToggle theme={theme} onToggle={onToggleTheme} />
+      </div>
+      <div className="relative grid min-h-screen place-items-center px-5 py-12">
+        <div className="w-full max-w-[400px]">
+          <div className="enter mb-7 flex items-center justify-center gap-2.5 text-ink">
+            <BrandMark size={26} />
+            <div className="leading-tight">
+              <div className="text-[15px] font-semibold tracking-[-0.01em] text-ink">
+                Auth Admin
+              </div>
+              <div className="text-[11.5px] text-muted">Nezdemkovski Cloud</div>
+            </div>
+          </div>
+          <div className="enter enter-1">{children}</div>
+        </div>
       </div>
     </main>
   );
@@ -133,17 +190,19 @@ function AdminApp() {
 
 function LoadingPanel() {
   return (
-    <section className="mx-auto w-full max-w-[460px] rounded-[28px] border border-line bg-panel/88 p-7 shadow-[0_28px_90px_rgba(0,0,0,.48)] backdrop-blur-xl">
-      <div className="mb-5 h-2 w-24 overflow-hidden rounded-full bg-panel-soft">
-        <div className="h-full w-2/3 animate-[pulse_1.2s_ease-in-out_infinite] rounded-full bg-accent" />
+    <Card>
+      <div className="flex items-center gap-3 px-7 py-7">
+        <Spinner />
+        <div>
+          <p className="text-[14px] font-medium text-ink">Checking session</p>
+          <p className="text-[13px] text-muted">Loading admin workspace…</p>
+        </div>
       </div>
-      <h1 className="text-3xl font-semibold text-ink">Checking session</h1>
-      <p className="mt-3 text-sm leading-6 text-muted">Loading admin workspace access.</p>
-    </section>
+    </Card>
   );
 }
 
-function LoginPanel({
+function SignInPanel({
   error,
   onDone
 }: {
@@ -155,7 +214,6 @@ function LoginPanel({
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
-
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") ?? "");
     const password = String(form.get("password") ?? "");
@@ -176,54 +234,40 @@ function LoginPanel({
   }
 
   return (
-    <section className="mx-auto grid w-full max-w-5xl items-center gap-8 lg:grid-cols-[1fr_440px]">
-      <div className="hidden lg:block">
-        <p className="mb-4 text-[11px] font-semibold uppercase tracking-[.28em] text-accent/80">
-          Control plane
-        </p>
-        <h1 className="max-w-[34rem] text-6xl font-semibold leading-[.96] text-ink">
-          One place for projects, users, and sessions.
+    <Card>
+      <div className="px-7 pb-6 pt-7">
+        <h1 className="text-[24px] font-semibold leading-[1.15] tracking-[-0.025em] text-ink">
+          Sign in
         </h1>
-        <p className="mt-5 max-w-[30rem] text-base leading-7 text-muted">
-          The first generated admin password is temporary. After the initial login,
-          the dashboard requires a password change before anything else opens.
+        <p className="mt-1.5 text-[13.5px] leading-[1.45] text-muted">
+          Access the admin control plane.
         </p>
-      </div>
 
-      <form
-        onSubmit={(event) => void submit(event)}
-        className="auth-shell relative overflow-hidden rounded-[28px] border border-line bg-panel/88 p-6 shadow-[0_28px_90px_rgba(0,0,0,.55)] backdrop-blur-xl sm:p-7"
-      >
-        <div className="pointer-events-none absolute -right-20 -top-24 h-52 w-52 rounded-full bg-accent/15 blur-3xl" />
-        <div className="relative">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-[.28em] text-accent/80">
-            Admin sign in
-          </p>
-          <h2 className="text-4xl font-semibold text-ink">Log in</h2>
-          <p className="mt-3 text-sm leading-6 text-muted">
-            Use the initial admin credentials from the server bootstrap logs.
-          </p>
+        {error ? <FormAlert>{error}</FormAlert> : null}
 
-          {error ? <Alert>{error}</Alert> : null}
-
-          <Field label="Email" name="email" type="email" autoComplete="email" />
-          <Field
-            label="Password"
+        <form onSubmit={(event) => void submit(event)} className="mt-5 space-y-3.5">
+          <FormField
+            id="admin-email"
+            name="email"
+            label="Email"
+            type="email"
+            autoComplete="email"
+            placeholder="admin@example.com"
+          />
+          <FormField
+            id="admin-password"
             name="password"
+            label="Password"
             type="password"
             autoComplete="current-password"
+            placeholder="••••••••"
           />
-
-          <button
-            type="submit"
-            disabled={pending}
-            className="mt-7 h-13 w-full rounded-2xl bg-accent-strong text-[15px] font-semibold text-emerald-950 shadow-[0_14px_38px_rgba(34,197,94,.24)] transition hover:-translate-y-0.5 hover:bg-accent disabled:translate-y-0 disabled:cursor-wait disabled:opacity-60"
-          >
-            {pending ? "Checking..." : "Log in"}
-          </button>
-        </div>
-      </form>
-    </section>
+          <PrimaryButton type="submit" loading={pending}>
+            {pending ? "Signing in…" : "Sign in"}
+          </PrimaryButton>
+        </form>
+      </div>
+    </Card>
   );
 }
 
@@ -241,7 +285,6 @@ function ChangePasswordPanel({
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
-
     const form = new FormData(event.currentTarget);
     const currentPassword = String(form.get("currentPassword") ?? "");
     const newPassword = String(form.get("newPassword") ?? "");
@@ -265,7 +308,10 @@ function ChangePasswordPanel({
       onDone({
         status: "force-change",
         me,
-        error: response.status === 400 ? "Use a password with at least 12 characters" : "Could not change password"
+        error:
+          response.status === 400
+            ? "Use a password with at least 12 characters"
+            : "Could not change password"
       });
       return;
     }
@@ -274,65 +320,75 @@ function ChangePasswordPanel({
   }
 
   return (
-    <section className="mx-auto w-full max-w-[500px] rounded-[28px] border border-line bg-panel/88 p-6 shadow-[0_28px_90px_rgba(0,0,0,.55)] backdrop-blur-xl sm:p-7">
-      <p className="mb-3 text-[11px] font-semibold uppercase tracking-[.28em] text-accent/80">
-        First login
-      </p>
-      <h1 className="text-4xl font-semibold text-ink">Change temporary password</h1>
-      <p className="mt-3 text-sm leading-6 text-muted">
-        Signed in as {me.user.email}. Pick a permanent password before opening the dashboard.
-      </p>
+    <Card>
+      <div className="px-7 pb-6 pt-7">
+        <h1 className="text-[24px] font-semibold leading-[1.15] tracking-[-0.025em] text-ink">
+          Set a permanent password
+        </h1>
+        <p className="mt-1.5 text-[13.5px] leading-[1.45] text-muted">
+          Signed in as{" "}
+          <span className="font-medium text-ink-soft">{me.user.email}</span>.
+          You need to change the temporary password before continuing.
+        </p>
 
-      {error ? <Alert>{error}</Alert> : null}
+        {error ? <FormAlert>{error}</FormAlert> : null}
 
-      <form onSubmit={(event) => void submit(event)} className="mt-6">
-        <Field
-          label="Temporary password"
-          name="currentPassword"
-          type="password"
-          autoComplete="current-password"
-        />
-        <Field
-          label="New password"
-          name="newPassword"
-          type="password"
-          autoComplete="new-password"
-        />
-        <Field
-          label="Confirm new password"
-          name="confirmPassword"
-          type="password"
-          autoComplete="new-password"
-        />
-
-        <button
-          type="submit"
-          disabled={pending}
-          className="mt-7 h-13 w-full rounded-2xl bg-accent-strong text-[15px] font-semibold text-emerald-950 shadow-[0_14px_38px_rgba(34,197,94,.24)] transition hover:-translate-y-0.5 hover:bg-accent disabled:translate-y-0 disabled:cursor-wait disabled:opacity-60"
-        >
-          {pending ? "Saving..." : "Save password"}
-        </button>
-      </form>
-    </section>
+        <form onSubmit={(event) => void submit(event)} className="mt-5 space-y-3.5">
+          <FormField
+            id="current-password"
+            name="currentPassword"
+            label="Temporary password"
+            type="password"
+            autoComplete="current-password"
+            placeholder="••••••••"
+          />
+          <FormField
+            id="new-password"
+            name="newPassword"
+            label="New password"
+            type="password"
+            autoComplete="new-password"
+            placeholder="At least 12 characters"
+          />
+          <FormField
+            id="confirm-password"
+            name="confirmPassword"
+            label="Confirm new password"
+            type="password"
+            autoComplete="new-password"
+            placeholder="Repeat new password"
+          />
+          <PrimaryButton type="submit" loading={pending}>
+            {pending ? "Saving…" : "Save password"}
+          </PrimaryButton>
+        </form>
+      </div>
+    </Card>
   );
 }
 
-function DashboardPanel({
+function DashboardShell({
   me,
-  onDone
+  theme,
+  onToggleTheme,
+  onSignOut
 }: {
   me: MeResponse;
-  onDone: (next: ViewState) => void;
+  theme: Theme;
+  onToggleTheme: () => void;
+  onSignOut: () => void;
 }) {
   const queryClient = useQueryClient();
   const projectsQuery = useQuery({
     queryKey: ["admin", "projects"],
     queryFn: fetchProjects
   });
-  const [selectedProject, setSelectedProject] = useState("");
-  const [resentVerificationEmail, setResentVerificationEmail] = useState<string | null>(null);
+  const [selectedSlug, setSelectedSlug] = useState<string>("__overview__");
+  const [resentVerificationEmail, setResentVerificationEmail] = useState<string | null>(
+    null
+  );
   const projects = projectsQuery.data?.projects ?? [];
-  const selected = projects.find((project) => project.slug === selectedProject) ?? projects[0];
+  const selected = projects.find((project) => project.slug === selectedSlug);
   const usersQuery = useQuery({
     queryKey: ["admin", "project-users", selected?.slug],
     queryFn: () => fetchProjectUsers(selected!.slug),
@@ -349,150 +405,555 @@ function DashboardPanel({
     }
   });
 
-  useEffect(() => {
-    if (!selectedProject && projects[0]) {
-      setSelectedProject(projects[0].slug);
-    }
-  }, [projects, selectedProject]);
+  const totals = useMemo(() => {
+    return projects.reduce(
+      (acc, project) => {
+        acc.users += project.userCount;
+        acc.sessions += project.activeSessionCount;
+        return acc;
+      },
+      { users: 0, sessions: 0 }
+    );
+  }, [projects]);
 
   return (
-    <section className="grid min-w-0 max-w-full gap-5 overflow-hidden sm:gap-6">
-      <div className="min-w-0 overflow-hidden rounded-[24px] border border-line bg-panel/82 p-5 shadow-[0_28px_90px_rgba(0,0,0,.42)] backdrop-blur-xl sm:rounded-[28px] sm:p-7">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[.28em] text-accent/80">
-          Dashboard
-        </p>
-        <h1 className="text-3xl font-semibold leading-tight text-ink sm:text-4xl">
-          Signed in as
-        </h1>
-        <p className="mt-2 max-w-full break-all text-2xl font-semibold leading-tight text-ink/95 sm:text-4xl">
-          {me.user.email}
-        </p>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted">
-          Manage auth realms, users, roles, and active sessions from one place.
-        </p>
-      </div>
+    <div className="flex min-h-screen bg-bg">
+      <Sidebar
+        me={me}
+        projects={projects}
+        loading={projectsQuery.isLoading}
+        selectedSlug={selectedSlug}
+        onSelect={setSelectedSlug}
+        onSignOut={onSignOut}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+      />
 
-      {projectsQuery.isLoading ? (
-        <DashboardSkeleton />
-      ) : projectsQuery.isError ? (
-        <Alert>Could not load admin data</Alert>
-      ) : (
-        <>
-          <div className="grid gap-4 md:grid-cols-3">
-            <MetricCard label="Projects" value={projects.length} />
-            <MetricCard
-              label="Users"
-              value={projects.reduce((sum, project) => sum + project.userCount, 0)}
+      <main className="relative min-w-0 flex-1">
+        <Topbar selected={selected} />
+
+        <div className="mx-auto w-full max-w-[1120px] px-6 py-8 lg:px-10 lg:py-10">
+          {projectsQuery.isError ? (
+            <FormAlert>Could not load admin data.</FormAlert>
+          ) : selectedSlug === "__overview__" ? (
+            <OverviewView
+              loading={projectsQuery.isLoading}
+              projects={projects}
+              totals={totals}
+              onOpenProject={setSelectedSlug}
             />
-            <MetricCard
-              label="Active sessions"
-              value={projects.reduce((sum, project) => sum + project.activeSessionCount, 0)}
+          ) : selected ? (
+            <ProjectView
+              project={selected}
+              usersQuery={usersQuery}
+              emailServiceEnabled={me.emailServiceEnabled}
+              resendPendingEmail={
+                resendVerification.isPending
+                  ? resendVerification.variables?.email ?? null
+                  : null
+              }
+              resendErrorEmail={
+                resendVerification.isError
+                  ? resendVerification.variables?.email ?? null
+                  : null
+              }
+              resentVerificationEmail={resentVerificationEmail}
+              onResendVerification={(email) =>
+                resendVerification.mutate({
+                  project: selected.slug,
+                  email
+                })
+              }
             />
-          </div>
-
-          <div className="grid min-w-0 gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
-            <aside className="grid min-w-0 gap-3 self-start">
-              {projects.map((project) => (
-                <button
-                  key={project.slug}
-                  type="button"
-                  onClick={() => setSelectedProject(project.slug)}
-                  className={`min-w-0 rounded-3xl border p-4 text-left transition ${
-                    selected?.slug === project.slug
-                      ? "border-accent/60 bg-accent/10"
-                      : "border-line bg-panel/70 hover:border-accent/30"
-                  }`}
-                >
-                  <div className="flex min-w-0 items-center justify-between gap-3">
-                    <h2 className="min-w-0 truncate text-lg font-semibold text-ink">
-                      {project.name}
-                    </h2>
-                    {project.system ? (
-                      <span className="shrink-0 rounded-full border border-accent/25 bg-accent/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-[.12em] text-accent">
-                        system
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="mt-1 truncate text-xs text-muted">{project.schema}</p>
-                  <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted">
-                    <span>{project.userCount} users</span>
-                    <span>{project.activeSessionCount} sessions</span>
-                  </div>
-                </button>
-              ))}
-            </aside>
-
-            <section className="min-w-0 overflow-hidden rounded-[24px] border border-line bg-panel/78 shadow-[0_28px_90px_rgba(0,0,0,.36)] backdrop-blur-xl sm:rounded-[28px]">
-              <div className="border-b border-line p-5">
-                <p className="text-[11px] font-semibold uppercase tracking-[.24em] text-accent/80">
-                  Users
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold text-ink">
-                  {selected?.name ?? "Project"}
-                </h2>
-              </div>
-
-              {usersQuery.isLoading ? (
-                <div className="p-5 text-sm text-muted">Loading users...</div>
-              ) : usersQuery.isError ? (
-                <div className="p-5">
-                  <Alert>Could not load users</Alert>
-                </div>
-              ) : (
-                <UserList
-                  users={usersQuery.data?.users ?? []}
-                  emailServiceEnabled={me.emailServiceEnabled}
-                  resendPendingEmail={
-                    resendVerification.isPending ? resendVerification.variables?.email ?? null : null
-                  }
-                  resendErrorEmail={
-                    resendVerification.isError ? resendVerification.variables?.email ?? null : null
-                  }
-                  resentVerificationEmail={resentVerificationEmail}
-                  onResendVerification={(email) =>
-                    resendVerification.mutate({
-                      project: selected!.slug,
-                      email
-                    })
-                  }
-                />
-              )}
-            </section>
-          </div>
-        </>
-      )}
-
-      <button
-        type="button"
-        onClick={() => void signOut().then(() => onDone({ status: "signed-out" }))}
-        className="w-fit max-w-full rounded-2xl border border-line bg-panel/70 px-4 py-2 text-sm font-medium text-muted transition hover:border-accent/40 hover:text-ink"
-      >
-        Sign out
-      </button>
-    </section>
-  );
-}
-
-function MetricCard({ label, value }: { label: string; value: number }) {
-  return (
-    <article className="rounded-3xl border border-line bg-panel/70 p-5">
-      <p className="text-sm text-muted">{label}</p>
-      <p className="mt-2 text-4xl font-semibold text-ink">{value}</p>
-    </article>
-  );
-}
-
-function DashboardSkeleton() {
-  return (
-    <div className="grid gap-4 md:grid-cols-3">
-      {[0, 1, 2].map((item) => (
-        <div key={item} className="h-28 animate-pulse rounded-3xl border border-line bg-panel/70" />
-      ))}
+          ) : (
+            <Card>
+              <EmptyState
+                title="Project not found"
+                description="The selected project no longer exists."
+              />
+            </Card>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
 
-function UserList({
+function Sidebar({
+  me,
+  projects,
+  loading,
+  selectedSlug,
+  onSelect,
+  onSignOut,
+  theme,
+  onToggleTheme
+}: {
+  me: MeResponse;
+  projects: ProjectSummary[];
+  loading: boolean;
+  selectedSlug: string;
+  onSelect: (slug: string) => void;
+  onSignOut: () => void;
+  theme: Theme;
+  onToggleTheme: () => void;
+}) {
+  return (
+    <aside
+      className="sticky top-0 hidden h-screen w-[260px] shrink-0 flex-col border-r border-border bg-surface-muted/40 lg:flex"
+      style={{ backdropFilter: "saturate(180%)" }}
+    >
+      <div className="flex h-14 items-center gap-2.5 border-b border-border px-5 text-ink">
+        <BrandMark size={20} />
+        <div className="leading-tight">
+          <div className="text-[13.5px] font-semibold tracking-[-0.01em]">
+            Auth
+          </div>
+          <div className="text-[11px] text-muted">Nezdemkovski Cloud</div>
+        </div>
+      </div>
+
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <SidebarSection label="Workspace">
+          <SidebarLink
+            icon={<HomeIcon size={14} />}
+            label="Overview"
+            active={selectedSlug === "__overview__"}
+            onClick={() => onSelect("__overview__")}
+          />
+        </SidebarSection>
+
+        <SidebarSection label="Projects" count={projects.length}>
+          {loading ? (
+            <div className="space-y-1.5 px-2 py-1">
+              {[0, 1, 2].map((item) => (
+                <div
+                  key={item}
+                  className="h-9 animate-pulse rounded-md bg-surface-hover"
+                />
+              ))}
+            </div>
+          ) : projects.length === 0 ? (
+            <div className="px-2 py-1.5 text-[12.5px] text-muted">
+              No projects configured.
+            </div>
+          ) : (
+            projects.map((project) => (
+              <SidebarProjectItem
+                key={project.slug}
+                project={project}
+                active={selectedSlug === project.slug}
+                onClick={() => onSelect(project.slug)}
+              />
+            ))
+          )}
+        </SidebarSection>
+      </nav>
+
+      <div className="border-t border-border px-3 py-3">
+        <div className="flex items-center gap-2.5 rounded-lg px-2 py-2">
+          <Avatar email={me.user.email} size={28} />
+          <div className="min-w-0 flex-1 leading-tight">
+            <div className="truncate text-[13px] font-medium text-ink">
+              {me.user.name || me.user.email.split("@")[0]}
+            </div>
+            <div className="truncate text-[11.5px] text-muted">{me.user.email}</div>
+          </div>
+        </div>
+        <div className="mt-2 flex items-center gap-1.5">
+          <ThemeToggle theme={theme} onToggle={onToggleTheme} compact />
+          <button
+            type="button"
+            onClick={onSignOut}
+            data-press
+            className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          >
+            <SignOutIcon size={13} />
+            Sign out
+          </button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function SidebarSection({
+  label,
+  count,
+  children
+}: {
+  label: string;
+  count?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mb-5">
+      <div className="mb-1.5 flex items-center justify-between px-2">
+        <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-muted-soft">
+          {label}
+        </span>
+        {count !== undefined ? (
+          <span className="tabular text-[11px] text-muted-soft">{count}</span>
+        ) : null}
+      </div>
+      <div className="space-y-0.5">{children}</div>
+    </div>
+  );
+}
+
+function SidebarLink({
+  icon,
+  label,
+  active,
+  onClick
+}: {
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-press
+      className={`group flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] font-medium outline-none transition-colors ${
+        active
+          ? "bg-surface text-ink"
+          : "text-muted hover:bg-surface-hover hover:text-ink"
+      }`}
+      style={active ? { boxShadow: "var(--shadow-card)" } : undefined}
+    >
+      <span
+        className={`flex h-4 w-4 items-center justify-center ${
+          active ? "text-ink" : "text-muted-soft group-hover:text-ink"
+        }`}
+      >
+        {icon}
+      </span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function SidebarProjectItem({
+  project,
+  active,
+  onClick
+}: {
+  project: ProjectSummary;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-press
+      className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left outline-none transition-colors ${
+        active ? "bg-surface" : "hover:bg-surface-hover"
+      }`}
+      style={active ? { boxShadow: "var(--shadow-card)" } : undefined}
+    >
+      <span
+        aria-hidden="true"
+        className={`grid h-6 w-6 shrink-0 place-items-center rounded-[6px] text-[11px] font-semibold tracking-[-0.01em] ${
+          active
+            ? "bg-accent text-accent-ink"
+            : "border border-border bg-surface text-ink-soft"
+        }`}
+      >
+        {project.name.charAt(0).toUpperCase()}
+      </span>
+      <div className="min-w-0 flex-1 leading-tight">
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`truncate text-[12.5px] font-medium ${
+              active ? "text-ink" : "text-ink-soft"
+            }`}
+          >
+            {project.name}
+          </span>
+          {project.system ? (
+            <span
+              className="rounded-[3px] border border-border px-1 text-[9px] font-semibold uppercase tracking-[0.04em] text-muted"
+              title="System project"
+            >
+              sys
+            </span>
+          ) : null}
+        </div>
+        <div className="tabular text-[11px] text-muted-soft">
+          {project.userCount} · {project.activeSessionCount} active
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function Topbar({ selected }: { selected: ProjectSummary | undefined }) {
+  return (
+    <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-bg/85 px-6 lg:px-10"
+      style={{ backdropFilter: "saturate(180%) blur(8px)" }}
+    >
+      <nav
+        aria-label="Breadcrumb"
+        className="flex items-center gap-2 text-[13px] text-muted"
+      >
+        <span className="font-medium text-ink-soft">Nezdemkovski Cloud</span>
+        <ChevronRightIcon size={12} className="text-muted-soft" />
+        <span className="font-medium text-ink">
+          {selected ? selected.name : "Overview"}
+        </span>
+      </nav>
+
+      <div className="hidden items-center gap-3 sm:flex">
+        <code className="rounded-md border border-border bg-surface px-2 py-1 text-[11.5px] font-mono text-muted-soft">
+          {selected ? selected.schema : "all projects"}
+        </code>
+      </div>
+    </header>
+  );
+}
+
+function OverviewView({
+  loading,
+  projects,
+  totals,
+  onOpenProject
+}: {
+  loading: boolean;
+  projects: ProjectSummary[];
+  totals: { users: number; sessions: number };
+  onOpenProject: (slug: string) => void;
+}) {
+  return (
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-[30px] font-semibold leading-[1.1] tracking-[-0.03em] text-ink">
+          Overview
+        </h1>
+        <p className="mt-1.5 text-[14px] leading-[1.55] text-muted">
+          A summary of every auth realm running on this server.
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatCard
+          label="Projects"
+          value={loading ? null : projects.length}
+          hint="isolated schemas"
+        />
+        <StatCard
+          label="Users"
+          value={loading ? null : totals.users}
+          hint="across all realms"
+        />
+        <StatCard
+          label="Active sessions"
+          value={loading ? null : totals.sessions}
+          hint="signed in right now"
+        />
+      </div>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">
+            Projects
+          </h2>
+          {!loading && projects.length > 0 ? (
+            <span className="tabular text-[12.5px] text-muted">
+              {projects.length} total
+            </span>
+          ) : null}
+        </div>
+
+        {loading ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[0, 1, 2, 3].map((item) => (
+              <div
+                key={item}
+                className="h-[88px] animate-pulse rounded-xl border border-border bg-surface"
+              />
+            ))}
+          </div>
+        ) : projects.length === 0 ? (
+          <Card>
+            <EmptyState
+              title="No projects configured"
+              description="Add a project to AUTH_PROJECTS in your environment to get started."
+            />
+          </Card>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {projects.map((project) => (
+              <ProjectCard
+                key={project.slug}
+                project={project}
+                onOpen={() => onOpenProject(project.slug)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function ProjectCard({
+  project,
+  onOpen
+}: {
+  project: ProjectSummary;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      data-press
+      className="group flex items-start gap-3 rounded-xl border border-border bg-surface p-4 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+      style={{ boxShadow: "var(--shadow-card)" }}
+    >
+      <span
+        aria-hidden="true"
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent text-[13px] font-semibold tracking-[-0.02em] text-accent-ink"
+        style={{ boxShadow: "var(--shadow-button)" }}
+      >
+        {project.name.charAt(0).toUpperCase()}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate text-[14px] font-semibold tracking-[-0.005em] text-ink">
+            {project.name}
+          </span>
+          {project.system ? <SysTag /> : null}
+        </div>
+        <code className="mt-0.5 block truncate text-[11.5px] font-mono text-muted">
+          {project.schema}
+        </code>
+        <div className="mt-2 flex items-center gap-4 text-[12px] text-muted">
+          <span>
+            <span className="tabular font-medium text-ink-soft">
+              {project.userCount}
+            </span>{" "}
+            users
+          </span>
+          <span>
+            <span className="tabular font-medium text-ink-soft">
+              {project.activeSessionCount}
+            </span>{" "}
+            sessions
+          </span>
+        </div>
+      </div>
+      <ChevronRightIcon
+        size={14}
+        className="mt-1 shrink-0 text-muted-soft transition-transform group-hover:translate-x-0.5 group-hover:text-ink"
+      />
+    </button>
+  );
+}
+
+function ProjectView({
+  project,
+  usersQuery,
+  emailServiceEnabled,
+  resendPendingEmail,
+  resendErrorEmail,
+  resentVerificationEmail,
+  onResendVerification
+}: {
+  project: ProjectSummary;
+  usersQuery: ReturnType<typeof useQuery<ProjectUsersResponse>>;
+  emailServiceEnabled: boolean;
+  resendPendingEmail: string | null;
+  resendErrorEmail: string | null;
+  resentVerificationEmail: string | null;
+  onResendVerification: (email: string) => void;
+}) {
+  const users = usersQuery.data?.users ?? [];
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <div className="flex items-center gap-2 text-[12px] text-muted">
+          <ShieldIcon size={12} />
+          <span>Realm</span>
+        </div>
+        <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-2">
+          <h1 className="text-[30px] font-semibold leading-[1.05] tracking-[-0.03em] text-ink">
+            {project.name}
+          </h1>
+          {project.system ? <SysTag size="lg" /> : null}
+        </div>
+        <p className="mt-2 flex items-center gap-2 text-[13px] text-muted">
+          <span>Schema</span>
+          <code className="rounded-md border border-border bg-surface px-1.5 py-0.5 font-mono text-[12px] text-ink-soft">
+            {project.schema}
+          </code>
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatCard
+          label="Users"
+          value={project.userCount}
+          hint="total accounts"
+        />
+        <StatCard
+          label="Active sessions"
+          value={project.activeSessionCount}
+          hint="signed in right now"
+        />
+        <StatCard
+          label="Verified"
+          value={users.filter((user) => user.emailVerified).length}
+          hint={users.length === 0 ? "no users yet" : `of ${users.length} loaded`}
+        />
+      </div>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">
+            Users
+          </h2>
+          {!usersQuery.isLoading && users.length > 0 ? (
+            <span className="tabular text-[12.5px] text-muted">
+              {users.length} total
+            </span>
+          ) : null}
+        </div>
+
+        <Card padding={false}>
+          {usersQuery.isLoading ? (
+            <UsersSkeleton />
+          ) : usersQuery.isError ? (
+            <div className="p-6">
+              <FormAlert>Could not load users.</FormAlert>
+            </div>
+          ) : users.length === 0 ? (
+            <EmptyState
+              title="No users yet"
+              description="Users will appear here once someone signs up to this realm."
+            />
+          ) : (
+            <UserTable
+              users={users}
+              emailServiceEnabled={emailServiceEnabled}
+              resendPendingEmail={resendPendingEmail}
+              resendErrorEmail={resendErrorEmail}
+              resentVerificationEmail={resentVerificationEmail}
+              onResendVerification={onResendVerification}
+            />
+          )}
+        </Card>
+      </section>
+    </div>
+  );
+}
+
+function UserTable({
   users,
   emailServiceEnabled,
   resendPendingEmail,
@@ -507,116 +968,463 @@ function UserList({
   resentVerificationEmail: string | null;
   onResendVerification: (email: string) => void;
 }) {
-  if (users.length === 0) {
-    return <div className="p-5 text-sm text-muted">No users in this project yet.</div>;
-  }
-
   return (
-    <div className="divide-y divide-line">
-      {users.map((user) => (
-        <article key={user.id} className="grid min-w-0 gap-3 p-5 sm:grid-cols-[minmax(0,1fr)_auto]">
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[640px] border-collapse text-left">
+        <thead>
+          <tr className="border-b border-border">
+            <Th>User</Th>
+            <Th>Role</Th>
+            <Th>Status</Th>
+            <Th align="right">Sessions</Th>
+            <Th align="right">Joined</Th>
+            <Th>{""}</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((user) => (
+            <UserRow
+              key={user.id}
+              user={user}
+              emailServiceEnabled={emailServiceEnabled}
+              resendPending={resendPendingEmail === user.email}
+              resendError={resendErrorEmail === user.email}
+              resentVerification={resentVerificationEmail === user.email}
+              onResendVerification={onResendVerification}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function UserRow({
+  user,
+  emailServiceEnabled,
+  resendPending,
+  resendError,
+  resentVerification,
+  onResendVerification
+}: {
+  user: ProjectUser;
+  emailServiceEnabled: boolean;
+  resendPending: boolean;
+  resendError: boolean;
+  resentVerification: boolean;
+  onResendVerification: (email: string) => void;
+}) {
+  return (
+    <tr className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-hover">
+      <Td>
+        <div className="flex items-center gap-3">
+          <Avatar email={user.email} size={32} />
           <div className="min-w-0">
-            <h3 className="break-all text-base font-semibold text-ink">{user.email}</h3>
-            <p className="mt-1 truncate text-sm text-muted">{user.name || "No display name"}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Pill>{user.role ?? "user"}</Pill>
-              <Pill>{user.emailVerified ? "verified" : "unverified"}</Pill>
-              {user.banned ? <Pill tone="danger">banned</Pill> : null}
+            <div className="truncate text-[13px] font-medium text-ink">
+              {user.name || user.email.split("@")[0]}
             </div>
-            {!user.emailVerified ? (
-              <div className="mt-4">
-                <button
-                  type="button"
-                  disabled={!emailServiceEnabled || resendPendingEmail === user.email}
-                  onClick={() => onResendVerification(user.email)}
-                  className="rounded-2xl border border-accent/30 bg-accent/10 px-3 py-2 text-sm font-medium text-accent transition hover:border-accent/60 hover:bg-accent/15 disabled:cursor-not-allowed disabled:border-line disabled:bg-black/20 disabled:text-muted"
-                >
-                  {resendPendingEmail === user.email ? "Sending..." : "Resend verification"}
-                </button>
-                {!emailServiceEnabled ? (
-                  <p className="mt-2 text-xs text-muted">Email service is disabled.</p>
-                ) : null}
-                {resendErrorEmail === user.email ? (
-                  <p className="mt-2 text-xs text-danger">Could not send verification email.</p>
-                ) : null}
-                {resentVerificationEmail === user.email ? (
-                  <p className="mt-2 text-xs text-accent">Verification email sent.</p>
-                ) : null}
-              </div>
+            <div className="truncate text-[12px] text-muted">{user.email}</div>
+          </div>
+        </div>
+      </Td>
+      <Td>
+        <Pill>{user.role ?? "user"}</Pill>
+      </Td>
+      <Td>
+        {user.banned ? (
+          <StatusBadge tone="danger" label="Banned" />
+        ) : user.emailVerified ? (
+          <StatusBadge tone="success" label="Verified" />
+        ) : (
+          <StatusBadge tone="warning" label="Unverified" />
+        )}
+      </Td>
+      <Td align="right">
+        <span className="tabular text-[13px] text-ink-soft">
+          {user.sessionCount}
+        </span>
+      </Td>
+      <Td align="right">
+        <span className="text-[12.5px] text-muted">
+          {formatDate(user.createdAt)}
+        </span>
+      </Td>
+      <Td align="right">
+        {!user.emailVerified && !user.banned ? (
+          <div className="flex flex-col items-end gap-0.5">
+            <button
+              type="button"
+              data-press
+              disabled={!emailServiceEnabled || resendPending}
+              onClick={() => onResendVerification(user.email)}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-[12px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+              title={
+                !emailServiceEnabled
+                  ? "Email service is disabled"
+                  : "Resend verification email"
+              }
+            >
+              <MailIcon size={12} />
+              {resendPending ? "Sending…" : "Resend"}
+            </button>
+            {resendError ? (
+              <span className="text-[11px]" style={{ color: "var(--danger)" }}>
+                Failed
+              </span>
+            ) : null}
+            {resentVerification ? (
+              <span className="text-[11px]" style={{ color: "var(--success)" }}>
+                Sent
+              </span>
             ) : null}
           </div>
-          <div className="text-left text-sm text-muted sm:text-right">
-            <p>{user.sessionCount} active sessions</p>
-            <p className="mt-1">created {formatDate(user.createdAt)}</p>
+        ) : null}
+      </Td>
+    </tr>
+  );
+}
+
+function Th({
+  children,
+  align = "left"
+}: {
+  children: React.ReactNode;
+  align?: "left" | "right";
+}) {
+  return (
+    <th
+      scope="col"
+      className={`whitespace-nowrap px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-soft ${
+        align === "right" ? "text-right" : "text-left"
+      }`}
+    >
+      {children}
+    </th>
+  );
+}
+
+function Td({
+  children,
+  align = "left"
+}: {
+  children: React.ReactNode;
+  align?: "left" | "right";
+}) {
+  return (
+    <td
+      className={`whitespace-nowrap px-5 py-3 align-middle ${
+        align === "right" ? "text-right" : "text-left"
+      }`}
+    >
+      {children}
+    </td>
+  );
+}
+
+function UsersSkeleton() {
+  return (
+    <div className="divide-y divide-border">
+      {[0, 1, 2, 3].map((item) => (
+        <div key={item} className="flex items-center gap-4 px-5 py-3.5">
+          <div className="h-8 w-8 animate-pulse rounded-full bg-surface-hover" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3 w-40 animate-pulse rounded bg-surface-hover" />
+            <div className="h-2.5 w-24 animate-pulse rounded bg-surface-hover" />
           </div>
-        </article>
+          <div className="h-5 w-12 animate-pulse rounded-md bg-surface-hover" />
+          <div className="h-5 w-16 animate-pulse rounded-md bg-surface-hover" />
+        </div>
       ))}
     </div>
   );
 }
 
-function Pill({
-  children,
-  tone = "default"
+function StatCard({
+  label,
+  value,
+  hint
 }: {
-  children: React.ReactNode;
-  tone?: "default" | "danger";
+  label: string;
+  value: number | null;
+  hint: string;
 }) {
   return (
-    <span
-      className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
-        tone === "danger"
-          ? "border-red-400/30 bg-red-950/40 text-danger"
-          : "border-line bg-black/20 text-muted"
-      }`}
+    <div
+      className="rounded-xl border border-border bg-surface px-5 py-4"
+      style={{ boxShadow: "var(--shadow-card)" }}
     >
+      <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-soft">
+        {label}
+      </div>
+      <div className="mt-1.5 text-[28px] font-semibold leading-none tracking-[-0.025em] text-ink tabular">
+        {value === null ? (
+          <span className="inline-block h-7 w-12 animate-pulse rounded bg-surface-hover align-middle" />
+        ) : (
+          value
+        )}
+      </div>
+      <div className="mt-1.5 text-[12px] text-muted">{hint}</div>
+    </div>
+  );
+}
+
+function StatusBadge({
+  tone,
+  label
+}: {
+  tone: "success" | "warning" | "danger" | "neutral";
+  label: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[12px] text-ink-soft">
+      <StatusDot tone={tone} />
+      {label}
+    </span>
+  );
+}
+
+function Pill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-md border border-border bg-surface-muted px-1.5 py-0.5 text-[11.5px] font-medium text-ink-soft">
       {children}
     </span>
   );
 }
 
-function Field({
-  label,
-  name,
-  type,
-  autoComplete
-}: {
-  label: string;
-  name: string;
-  type: string;
-  autoComplete: string;
-}) {
+function SysTag({ size = "sm" }: { size?: "sm" | "lg" }) {
+  const cls =
+    size === "lg"
+      ? "px-2 py-0.5 text-[11px]"
+      : "px-1.5 py-0.5 text-[10px]";
   return (
-    <label className="mt-5 block">
-      <span className="mb-2 block text-sm font-medium text-ink/80">{label}</span>
-      <input
-        name={name}
-        type={type}
-        autoComplete={autoComplete}
-        required
-        className="h-13 w-full rounded-2xl border border-line bg-black/28 px-4 text-[16px] text-ink outline-none transition focus:border-accent/70 focus:bg-black/40 focus:shadow-[0_0_0_4px_rgba(110,231,168,.08)]"
-      />
-    </label>
+    <span
+      className={`inline-flex items-center rounded border border-border bg-surface-muted font-semibold uppercase tracking-[0.06em] text-muted ${cls}`}
+    >
+      system
+    </span>
   );
 }
 
-function Alert({ children }: { children: React.ReactNode }) {
+function EmptyState({
+  title,
+  description
+}: {
+  title: string;
+  description: string;
+}) {
   return (
-    <div className="mt-5 rounded-2xl border border-red-400/25 bg-red-950/55 px-4 py-3 text-sm text-danger">
+    <div className="flex flex-col items-center px-6 py-12 text-center">
+      <span
+        aria-hidden="true"
+        className="mb-3 grid h-10 w-10 place-items-center rounded-full border border-dashed border-border-strong text-muted-soft"
+      >
+        <ShieldIcon size={16} />
+      </span>
+      <p className="text-[14px] font-medium text-ink">{title}</p>
+      <p className="mt-1 max-w-[28rem] text-[13px] leading-[1.55] text-muted">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function Card({
+  children,
+  padding = true
+}: {
+  children: React.ReactNode;
+  padding?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-xl border border-border bg-surface ${
+        padding ? "" : "overflow-hidden"
+      }`}
+      style={{ boxShadow: "var(--shadow-card)" }}
+    >
       {children}
     </div>
   );
 }
 
+function Avatar({ email, size = 32 }: { email: string; size?: number }) {
+  const initial = email.trim().charAt(0).toUpperCase() || "?";
+  const fontSize = Math.max(11, size / 2.7);
+  return (
+    <span
+      aria-hidden="true"
+      className="grid shrink-0 place-items-center rounded-full border border-border bg-surface-muted font-medium text-ink-soft tracking-[-0.01em]"
+      style={{
+        width: size,
+        height: size,
+        fontSize: `${fontSize}px`
+      }}
+    >
+      {initial}
+    </span>
+  );
+}
+
+function Spinner() {
+  return (
+    <span
+      aria-hidden="true"
+      className="h-4 w-4 animate-spin rounded-full border-2"
+      style={{
+        borderColor: "var(--border)",
+        borderTopColor: "var(--ink)"
+      }}
+    />
+  );
+}
+
+function FormField({
+  id,
+  name,
+  label,
+  type,
+  autoComplete,
+  placeholder
+}: {
+  id: string;
+  name: string;
+  label: string;
+  type: string;
+  autoComplete: string;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="mb-1.5 block text-[12.5px] font-medium tracking-[-0.005em] text-ink-soft"
+      >
+        {label}
+      </label>
+      <input
+        id={id}
+        name={name}
+        type={type}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        required
+        className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none placeholder:text-muted-soft"
+        style={{
+          transition:
+            "border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease"
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.borderColor = "var(--border-strong)";
+          e.currentTarget.style.boxShadow = "0 0 0 3px var(--focus-ring)";
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderColor = "var(--border)";
+          e.currentTarget.style.boxShadow = "none";
+        }}
+      />
+    </div>
+  );
+}
+
+function PrimaryButton({
+  children,
+  type = "button",
+  loading = false
+}: {
+  children: React.ReactNode;
+  type?: "button" | "submit";
+  loading?: boolean;
+}) {
+  return (
+    <button
+      type={type}
+      disabled={loading}
+      data-press
+      className="mt-1 inline-flex h-10 w-full items-center justify-center rounded-lg bg-accent text-[14px] font-medium text-accent-ink outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-wait disabled:opacity-75"
+      style={{
+        boxShadow: "var(--shadow-button)",
+        transition: "background-color 140ms ease, transform 120ms"
+      }}
+      onMouseEnter={(e) => {
+        if (!loading) e.currentTarget.style.background = "var(--accent-hover)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "var(--accent)";
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function FormAlert({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      role="alert"
+      className="mt-5 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-[13px] leading-5"
+      style={{
+        background: "var(--danger-bg)",
+        borderColor: "var(--danger-border)",
+        color: "var(--danger)"
+      }}
+    >
+      <span
+        aria-hidden="true"
+        className="mt-[3px] inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+        style={{ background: "var(--danger)" }}
+      />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function ThemeToggle({
+  theme,
+  onToggle,
+  compact = false
+}: {
+  theme: Theme;
+  onToggle: () => void;
+  compact?: boolean;
+}) {
+  const next = theme === "dark" ? "light" : "dark";
+  const size = compact ? "h-9 w-9" : "h-9 w-9";
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      data-press
+      aria-label={`Switch to ${next} mode`}
+      title={`Switch to ${next} mode`}
+      className={`relative grid ${size} place-items-center rounded-lg border border-border bg-surface text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]`}
+    >
+      <span
+        className="absolute inset-0 grid place-items-center transition-[opacity,transform,filter] duration-200"
+        style={{
+          opacity: theme === "dark" ? 1 : 0,
+          transform: theme === "dark" ? "scale(1)" : "scale(0.5)",
+          filter: theme === "dark" ? "blur(0)" : "blur(4px)"
+        }}
+      >
+        <MoonIcon size={15} />
+      </span>
+      <span
+        className="absolute inset-0 grid place-items-center transition-[opacity,transform,filter] duration-200"
+        style={{
+          opacity: theme === "light" ? 1 : 0,
+          transform: theme === "light" ? "scale(1)" : "scale(0.5)",
+          filter: theme === "light" ? "blur(0)" : "blur(4px)"
+        }}
+      >
+        <SunIcon size={15} />
+      </span>
+    </button>
+  );
+}
+
 async function fetchProjects(): Promise<ProjectsResponse> {
-  const response = await fetch("/admin/api/projects", {
-    credentials: "include"
-  });
-
-  if (!response.ok) {
-    throw new Error("Could not load projects");
-  }
-
+  const response = await fetch("/admin/api/projects", { credentials: "include" });
+  if (!response.ok) throw new Error("Could not load projects");
   return (await response.json()) as ProjectsResponse;
 }
 
@@ -624,47 +1432,40 @@ async function fetchProjectUsers(project: string): Promise<ProjectUsersResponse>
   const response = await fetch(`/admin/api/projects/${project}/users`, {
     credentials: "include"
   });
-
-  if (!response.ok) {
-    throw new Error("Could not load users");
-  }
-
+  if (!response.ok) throw new Error("Could not load users");
   return (await response.json()) as ProjectUsersResponse;
 }
 
 async function resendVerificationEmail(project: string, email: string): Promise<void> {
-  const response = await fetch(`/admin/api/projects/${project}/users/resend-verification`, {
-    method: "POST",
-    credentials: "include",
-    headers: jsonHeaders,
-    body: JSON.stringify({ email })
-  });
-
-  if (!response.ok) {
-    throw new Error("Could not send verification email");
-  }
+  const response = await fetch(
+    `/admin/api/projects/${project}/users/resend-verification`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: jsonHeaders,
+      body: JSON.stringify({ email })
+    }
+  );
+  if (!response.ok) throw new Error("Could not send verification email");
 }
 
 async function loadSession(): Promise<ViewState> {
-  const response = await fetch("/admin/api/me", {
-    credentials: "include"
-  });
-
-  if (response.status === 401) {
-    return { status: "signed-out" };
-  }
-
+  const response = await fetch("/admin/api/me", { credentials: "include" });
+  if (response.status === 401) return { status: "signed-out" };
   if (!response.ok) {
     return { status: "signed-out", error: "Admin API is unavailable" };
   }
-
   const me = (await response.json()) as MeResponse;
-  return me.mustChangePassword ? { status: "force-change", me } : { status: "dashboard", me };
+  return me.mustChangePassword
+    ? { status: "force-change", me }
+    : { status: "dashboard", me };
 }
 
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium"
+    month: "short",
+    day: "numeric",
+    year: "numeric"
   }).format(new Date(value));
 }
 

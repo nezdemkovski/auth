@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "auth-preview",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["preview-server.ts"],
+      "port": 4321,
+      "autoPort": true
+    }
+  ]
+}
