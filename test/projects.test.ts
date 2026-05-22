@@ -40,12 +40,14 @@ describe("projects", () => {
       normalizeProjectFeatures({
         passkey: { enabled: true },
         twoFactor: { enabled: true, required: "everyone" },
-        agentAuth: { enabled: true, mode: "scoped-write" }
+        agentAuth: { enabled: true, mode: "scoped-write" },
+        oauthProvider: { enabled: true, dynamicClientRegistration: true }
       })
     ).toEqual({
       passkey: { enabled: true },
       twoFactor: { enabled: true, required: "everyone" },
-      agentAuth: { enabled: true, mode: "scoped-write" }
+      agentAuth: { enabled: true, mode: "scoped-write" },
+      oauthProvider: { enabled: true, dynamicClientRegistration: true }
     });
   });
 
@@ -54,12 +56,14 @@ describe("projects", () => {
       normalizeProjectFeatures({
         passkey: { enabled: "yes" },
         twoFactor: { enabled: true, required: "root" },
-        agentAuth: { enabled: true, mode: "god-mode" }
+        agentAuth: { enabled: true, mode: "god-mode" },
+        oauthProvider: { enabled: "yes", dynamicClientRegistration: "sure" }
       })
     ).toEqual({
       passkey: { enabled: false },
       twoFactor: { enabled: true, required: "optional" },
-      agentAuth: { enabled: true, mode: "read-only" }
+      agentAuth: { enabled: true, mode: "read-only" },
+      oauthProvider: { enabled: false, dynamicClientRegistration: false }
     });
   });
 });

@@ -59,6 +59,11 @@ export function ProjectSettingsForm({
         agentAuth: {
           enabled: form.agentAuthEnabled,
           mode: form.agentAuthMode
+        },
+        oauthProvider: {
+          enabled: form.oauthProviderEnabled,
+          dynamicClientRegistration:
+            form.oauthProviderEnabled && form.oauthDynamicClientRegistration
         }
       }
     });
@@ -213,6 +218,23 @@ export function ProjectSettingsForm({
               <option value="scoped-write">Scoped write</option>
             </select>
           </label>
+
+          <FeatureToggle
+            label="OAuth provider"
+            description="Expose OAuth 2.1 and OpenID Connect endpoints for this realm."
+            checked={form.oauthProviderEnabled}
+            disabled={project.system}
+            onChange={(checked) => update("oauthProviderEnabled", checked)}
+          />
+
+          <FeatureToggle
+            label="Dynamic client registration"
+            description="Allow authenticated users to register OAuth clients from the provider API."
+            checked={form.oauthDynamicClientRegistration}
+            disabled={project.system || !form.oauthProviderEnabled}
+            onChange={(checked) => update("oauthDynamicClientRegistration", checked)}
+            inset
+          />
         </div>
       </section>
 
@@ -236,16 +258,22 @@ function FeatureToggle({
   description,
   checked,
   disabled,
+  inset = false,
   onChange
 }: {
   label: string;
   description: string;
   checked: boolean;
   disabled: boolean;
+  inset?: boolean;
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex items-start gap-3 rounded-lg border border-border bg-surface px-3 py-3">
+    <label
+      className={`flex items-start gap-3 rounded-lg border border-border bg-surface px-3 py-3 ${
+        inset ? "ml-8" : ""
+      }`}
+    >
       <input
         type="checkbox"
         checked={checked}

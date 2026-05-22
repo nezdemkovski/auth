@@ -299,6 +299,10 @@ function isEnabledAuthFeaturePath(project: AuthProject, path: string): boolean {
     return false;
   }
 
+  if (isOAuthProviderPath(authPath) && !project.features.oauthProvider.enabled) {
+    return false;
+  }
+
   return true;
 }
 
@@ -308,6 +312,15 @@ function isAgentAuthPath(path: string): boolean {
     path.startsWith("/agent/") ||
     path.startsWith("/capability/") ||
     path.startsWith("/host/")
+  );
+}
+
+function isOAuthProviderPath(path: string): boolean {
+  return (
+    path === "/.well-known/oauth-authorization-server" ||
+    path === "/.well-known/openid-configuration" ||
+    path.startsWith("/oauth2/") ||
+    path.startsWith("/admin/oauth2/")
   );
 }
 

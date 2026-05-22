@@ -39,6 +39,10 @@ export type ProjectFeatures = {
     enabled: boolean;
     mode: "read-only" | "scoped-write";
   };
+  oauthProvider: {
+    enabled: boolean;
+    dynamicClientRegistration: boolean;
+  };
 };
 
 export type ProjectSettingsPatch = {

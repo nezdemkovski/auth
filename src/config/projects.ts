@@ -21,6 +21,10 @@ export type ProjectFeatures = {
     enabled: boolean;
     mode: "read-only" | "scoped-write";
   };
+  oauthProvider: {
+    enabled: boolean;
+    dynamicClientRegistration: boolean;
+  };
 };
 
 export const DEFAULT_PROJECT_FEATURES: ProjectFeatures = {
@@ -34,6 +38,10 @@ export const DEFAULT_PROJECT_FEATURES: ProjectFeatures = {
   agentAuth: {
     enabled: false,
     mode: "read-only"
+  },
+  oauthProvider: {
+    enabled: false,
+    dynamicClientRegistration: false
   }
 };
 

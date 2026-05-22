@@ -377,6 +377,7 @@ export function normalizeProjectFeatures(value: unknown): ProjectFeatures {
   const passkey = isRecord(value.passkey) ? value.passkey : {};
   const twoFactor = isRecord(value.twoFactor) ? value.twoFactor : {};
   const agentAuth = isRecord(value.agentAuth) ? value.agentAuth : {};
+  const oauthProvider = isRecord(value.oauthProvider) ? value.oauthProvider : {};
 
   const required = twoFactor.required;
   const mode = agentAuth.mode;
@@ -395,6 +396,14 @@ export function normalizeProjectFeatures(value: unknown): ProjectFeatures {
     agentAuth: {
       enabled: typeof agentAuth.enabled === "boolean" ? agentAuth.enabled : false,
       mode: mode === "scoped-write" || mode === "read-only" ? mode : "read-only"
+    },
+    oauthProvider: {
+      enabled:
+        typeof oauthProvider.enabled === "boolean" ? oauthProvider.enabled : false,
+      dynamicClientRegistration:
+        typeof oauthProvider.dynamicClientRegistration === "boolean"
+          ? oauthProvider.dynamicClientRegistration
+          : false
     }
   };
 }
@@ -409,6 +418,9 @@ function cloneDefaultFeatures(): ProjectFeatures {
     },
     agentAuth: {
       ...DEFAULT_PROJECT_FEATURES.agentAuth
+    },
+    oauthProvider: {
+      ...DEFAULT_PROJECT_FEATURES.oauthProvider
     }
   };
 }

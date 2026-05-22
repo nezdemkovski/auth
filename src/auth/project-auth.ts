@@ -2,6 +2,7 @@ import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
 import { admin, bearer, jwt, twoFactor } from "better-auth/plugins";
 import { agentAuth } from "@better-auth/agent-auth";
+import { oauthProvider } from "@better-auth/oauth-provider";
 import { passkey } from "@better-auth/passkey";
 import type { Pool } from "pg";
 
@@ -125,6 +126,17 @@ function createBaseProjectAuthOptions(options: {
           };
         },
         trustProxy: options.trustProxyHeaders
+      }),
+      oauthProvider({
+        loginPage: `/${project.slug}/login`,
+        consentPage: `/${project.slug}/oauth/consent`,
+        allowDynamicClientRegistration:
+          project.features.oauthProvider.dynamicClientRegistration,
+        allowUnauthenticatedClientRegistration: false,
+        validAudiences: [
+          `${publicBaseUrl}/${project.slug}`,
+          `${publicBaseUrl}/${project.slug}/api/auth`
+        ]
       }),
       bearer(),
       jwt({

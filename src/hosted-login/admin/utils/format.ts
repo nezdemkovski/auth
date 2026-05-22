@@ -32,6 +32,9 @@ export function projectToSettingsForm(project: ProjectSummary) {
     twoFactorEnabled: project.features.twoFactor.enabled,
     twoFactorRequired: project.features.twoFactor.required,
     agentAuthEnabled: project.features.agentAuth.enabled,
-    agentAuthMode: project.features.agentAuth.mode
+    agentAuthMode: project.features.agentAuth.mode,
+    oauthProviderEnabled: project.features.oauthProvider.enabled,
+    oauthDynamicClientRegistration:
+      project.features.oauthProvider.dynamicClientRegistration
   };
 }
