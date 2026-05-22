@@ -1,5 +1,5 @@
 import { createAuthClient } from "better-auth/client";
-import { lastLoginMethodClient } from "better-auth/client/plugins";
+import { lastLoginMethodClient, twoFactorClient } from "better-auth/client/plugins";
 import { passkeyClient } from "@better-auth/passkey/client";
 
 export type HostedAuthClient = ReturnType<typeof createHostedAuthClient>;
@@ -7,9 +7,18 @@ export type HostedAuthClient = ReturnType<typeof createHostedAuthClient>;
 export function createHostedAuthClient(project: string) {
   return createAuthClient({
     baseURL: `${window.location.origin}/${project}/api/auth`,
-    plugins: [passkeyClient(), lastLoginMethodClient()]
+    plugins: [passkeyClient(), twoFactorClient(), lastLoginMethodClient()]
   });
 }
+
+export type HostedSession = {
+  user?: {
+    id?: string;
+    email?: string;
+    role?: string | null;
+    twoFactorEnabled?: boolean;
+  };
+} | null;
 
 export async function signInWithEmail(options: {
   project: string;
@@ -107,6 +116,58 @@ export async function verifyTwoFactorCode(options: {
   return postTwoFactor(options.project, "/two-factor/verify-backup-code", {
     code: options.code
   });
+}
+
+export async function getHostedSession(project: string): Promise<HostedSession> {
+  const response = await fetch(`/${project}/api/auth/get-session`, {
+    credentials: "include"
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json().catch(() => null)) as HostedSession;
+}
+
+export async function requestHostedPasswordReset(options: {
+  project: string;
+  email: string;
+  redirectTo: string;
+}): Promise<boolean> {
+  const response = await fetch(`/${options.project}/api/auth/request-password-reset`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      email: options.email,
+      redirectTo: options.redirectTo
+    })
+  });
+
+  return response.ok;
+}
+
+export async function resetHostedPassword(options: {
+  project: string;
+  token: string;
+  newPassword: string;
+}): Promise<boolean> {
+  const response = await fetch(`/${options.project}/api/auth/reset-password`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      token: options.token,
+      newPassword: options.newPassword
+    })
+  });
+
+  return response.ok;
 }
 
 export async function hasPasskeys(project: string): Promise<boolean> {

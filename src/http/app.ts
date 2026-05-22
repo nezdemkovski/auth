@@ -21,6 +21,7 @@ import {
   createHostedCodeStore,
   exchangeHostedCode,
   renderHostedLogin,
+  renderHostedPasswordReset,
   renderHostedOAuthConsent,
   submitHostedLogin
 } from "./hosted";
@@ -189,6 +190,15 @@ export async function createApp(env: Env) {
 
   app.get("/:project/oauth/consent", (c) => {
     return renderHostedOAuthConsent(c.req.raw, c.req.param("project"), {
+      registry,
+      secret: env.betterAuthSecret,
+      codeStore: hostedCodeStore,
+      cspNonce: c.get("cspNonce")
+    });
+  });
+
+  app.get("/:project/reset-password", (c) => {
+    return renderHostedPasswordReset(c.req.raw, c.req.param("project"), {
       registry,
       secret: env.betterAuthSecret,
       codeStore: hostedCodeStore,

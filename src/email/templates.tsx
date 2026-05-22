@@ -73,6 +73,11 @@ export function createProjectEmailHandlers(options: {
         });
       }
     },
+    user: {
+      changeEmail: {
+        enabled: true
+      }
+    },
     emailAndPassword: {
       resetPasswordTokenExpiresIn: RESET_EXPIRY_HOURS * 60 * 60,
       sendResetPassword: async (input: {

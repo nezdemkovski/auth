@@ -46,10 +46,12 @@ function ProfileSection({ me }: { me: MeResponse }) {
   const initialEmail = me.user.email;
   const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
+  const [currentPassword, setCurrentPassword] = useState("");
 
   useEffect(() => {
     setName(initialName);
     setEmail(initialEmail);
+    setCurrentPassword("");
   }, [initialName, initialEmail]);
 
   const mutation = useMutation({
@@ -58,7 +60,7 @@ function ProfileSection({ me }: { me: MeResponse }) {
       void queryClient.invalidateQueries({ queryKey: ["admin", "me"] });
       const changed = [
         variables.name !== undefined ? "name" : null,
-        variables.email !== undefined ? "email" : null
+        variables.email !== undefined ? "email change request" : null
       ]
         .filter(Boolean)
         .join(" and ");
@@ -80,12 +82,16 @@ function ProfileSection({ me }: { me: MeResponse }) {
   const dirty =
     trimmedName !== initialName.trim() ||
     trimmedEmail !== initialEmail.toLowerCase();
+  const emailDirty = trimmedEmail !== initialEmail.toLowerCase();
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const patch: { name?: string; email?: string } = {};
+    const patch: { name?: string; email?: string; currentPassword?: string } = {};
     if (trimmedName !== initialName.trim()) patch.name = trimmedName;
-    if (trimmedEmail !== initialEmail.toLowerCase()) patch.email = trimmedEmail;
+    if (emailDirty) {
+      patch.email = trimmedEmail;
+      patch.currentPassword = currentPassword;
+    }
     mutation.mutate(patch);
   }
 
@@ -114,11 +120,22 @@ function ProfileSection({ me }: { me: MeResponse }) {
           autoComplete="email"
           placeholder="admin@example.com"
         />
+        {emailDirty ? (
+          <SettingsInput
+            id="admin-email-current-password"
+            label="Current password"
+            value={currentPassword}
+            onChange={setCurrentPassword}
+            type="password"
+            autoComplete="current-password"
+            placeholder="Required to change email"
+          />
+        ) : null}
 
         <PrimaryButton
           type="submit"
           loading={mutation.isPending}
-          disabled={!dirty}
+          disabled={!dirty || (emailDirty && currentPassword.length === 0)}
         >
           {mutation.isPending ? "Saving…" : "Save changes →"}
         </PrimaryButton>

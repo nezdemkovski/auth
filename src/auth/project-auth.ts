@@ -85,7 +85,8 @@ function createBaseProjectAuthOptions(options: {
     },
     ...("emailVerification" in emailHandlers
       ? {
-          emailVerification: emailHandlers.emailVerification
+          emailVerification: emailHandlers.emailVerification,
+          user: emailHandlers.user
         }
       : {}),
     plugins: [
@@ -99,7 +100,8 @@ function createBaseProjectAuthOptions(options: {
         origin: publicOrigin
       }),
       twoFactor({
-        issuer: project.name
+        issuer: project.name,
+        allowPasswordless: true
       }),
       agentAuth({
         providerName: project.name,

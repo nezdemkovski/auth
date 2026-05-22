@@ -5,8 +5,11 @@ import { createRoot } from "react-dom/client";
 import {
   createHostedAuthClient,
   createHostedSessionRedirect,
+  getHostedSession,
   getOAuthPublicClient,
   hasPasskeys,
+  requestHostedPasswordReset,
+  resetHostedPassword,
   type OAuthPublicClient,
   signInWithSocial,
   signInWithEmail,
@@ -52,7 +55,19 @@ type HostedOAuthConsentConfig = {
   oauthQuery: string;
 };
 
-type HostedAuthConfig = HostedLoginConfig | HostedOAuthConsentConfig;
+type HostedPasswordResetConfig = {
+  page: "reset-password";
+  project: string;
+  projectName: string;
+  appUrl: string;
+  token: string;
+  error?: string;
+};
+
+type HostedAuthConfig =
+  | HostedLoginConfig
+  | HostedOAuthConsentConfig
+  | HostedPasswordResetConfig;
 
 type SocialProviderId = "github" | "google" | "twitter" | "facebook";
 
@@ -70,7 +85,14 @@ type ProjectFeatures = {
   };
 };
 
-type AuthStep = "credentials" | "two-factor" | "passkey-enroll" | "redirecting";
+type AuthStep =
+  | "credentials"
+  | "forgot-password"
+  | "reset-sent"
+  | "two-factor"
+  | "two-factor-enroll"
+  | "passkey-enroll"
+  | "redirecting";
 
 declare global {
   interface Window {
@@ -90,6 +112,10 @@ if (config.page === "oauth-consent") {
   createRoot(document.querySelector<HTMLDivElement>("#app")!).render(
     <OAuthConsentPage config={config} />
   );
+} else if (config.page === "reset-password") {
+  createRoot(document.querySelector<HTMLDivElement>("#app")!).render(
+    <PasswordResetPage config={config} />
+  );
 } else {
   createRoot(document.querySelector<HTMLDivElement>("#app")!).render(
     <LoginPage config={config} />
@@ -104,6 +130,9 @@ function LoginPage({ config }: { config: HostedLoginConfig }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [verifiedPassword, setVerifiedPassword] = useState<string | null>(null);
+  const [totpUri, setTotpUri] = useState("");
+  const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [lastLoginMethod, setLastLoginMethod] = useState<string | null>(() =>
     authClient.getLastUsedLoginMethod()
   );
@@ -159,6 +188,7 @@ function LoginPage({ config }: { config: HostedLoginConfig }) {
           setError("Could not create account");
           return;
         }
+        setVerifiedPassword(password);
       } else {
         const signedIn = await signInWithEmail({
           project: config.project,
@@ -173,9 +203,10 @@ function LoginPage({ config }: { config: HostedLoginConfig }) {
           setStep("two-factor");
           return;
         }
+        setVerifiedPassword(password);
       }
 
-      await continueAfterAuth({ offerPasskey: passkeysEnabled });
+      await continueAfterAuth({ offerPasskey: passkeysEnabled, password });
     } finally {
       setPending(false);
     }
@@ -192,7 +223,7 @@ function LoginPage({ config }: { config: HostedLoginConfig }) {
         return;
       }
 
-      await continueAfterAuth({ offerPasskey: false });
+      await continueAfterAuth({ offerPasskey: false, password: null });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not sign in with passkey");
     } finally {
@@ -244,7 +275,30 @@ function LoginPage({ config }: { config: HostedLoginConfig }) {
         return;
       }
 
-      await continueAfterAuth({ offerPasskey: passkeysEnabled });
+      await continueAfterAuth({ offerPasskey: passkeysEnabled, password });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function submitForgotPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPending(true);
+    setError(null);
+
+    try {
+      const resetUrl = new URL(`/${config.project}/reset-password`, window.location.origin);
+      const sent = await requestHostedPasswordReset({
+        project: config.project,
+        email,
+        redirectTo: resetUrl.toString()
+      });
+      if (!sent) {
+        setError("Could not send reset email");
+        return;
+      }
+
+      setStep("reset-sent");
     } finally {
       setPending(false);
     }
@@ -271,7 +325,66 @@ function LoginPage({ config }: { config: HostedLoginConfig }) {
     }
   }
 
-  async function continueAfterAuth({ offerPasskey }: { offerPasskey: boolean }) {
+  async function startTwoFactorEnrollment() {
+    setPending(true);
+    setError(null);
+
+    try {
+      const result = await authClient.twoFactor.enable({
+        ...(verifiedPassword ? { password: verifiedPassword } : {}),
+        issuer: config.projectName
+      });
+      if (result.error || !result.data?.totpURI) {
+        setError(result.error?.message || "Could not start two-factor setup");
+        return;
+      }
+
+      setTotpUri(result.data.totpURI);
+      setBackupCodes(result.data.backupCodes ?? []);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not start two-factor setup");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function verifyTwoFactorEnrollment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPending(true);
+    setError(null);
+
+    try {
+      const result = await authClient.twoFactor.verifyTotp({
+        code: twoFactorCode.trim(),
+        trustDevice: true
+      });
+      if (result.error) {
+        setError(result.error.message || "Invalid verification code");
+        return;
+      }
+
+      await continueAfterAuth({ offerPasskey: passkeysEnabled, password: verifiedPassword });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Invalid verification code");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function continueAfterAuth({
+    offerPasskey,
+    password
+  }: {
+    offerPasskey: boolean;
+    password: string | null;
+  }) {
+    const session = await getHostedSession(config.project);
+    if (mustEnrollTwoFactor(config.features.twoFactor, session?.user)) {
+      setVerifiedPassword(password);
+      setStep("two-factor-enroll");
+      return;
+    }
+
     if (offerPasskey) {
       const alreadyEnrolled = await hasPasskeys(config.project);
       if (alreadyEnrolled) {
@@ -310,7 +423,7 @@ function LoginPage({ config }: { config: HostedLoginConfig }) {
       return;
     }
 
-    void redirectWithCurrentSession();
+    void continueAfterAuth({ offerPasskey: passkeysEnabled, password: null });
   }, []);
 
   const projectInitial = config.projectName.trim().charAt(0).toUpperCase() || "·";
@@ -358,6 +471,7 @@ function LoginPage({ config }: { config: HostedLoginConfig }) {
               onPasswordChange={setPassword}
               onPasskeySignIn={() => void signInWithPasskey()}
               onSocialSignIn={(provider) => void startSocialSignIn(provider)}
+              onForgotPassword={() => setStep("forgot-password")}
               onSubmit={(event) => void submitCredentials(event)}
             />
           ) : null}
@@ -370,6 +484,34 @@ function LoginPage({ config }: { config: HostedLoginConfig }) {
               onBack={() => setStep("credentials")}
               onSubmit={(event) => void submitTwoFactor(event)}
             />
+          ) : null}
+
+          {step === "two-factor-enroll" ? (
+            <TwoFactorEnrollStep
+              pending={pending}
+              totpUri={totpUri}
+              backupCodes={backupCodes}
+              code={twoFactorCode}
+              onCodeChange={setTwoFactorCode}
+              onStart={() => void startTwoFactorEnrollment()}
+              onSubmit={(event) => void verifyTwoFactorEnrollment(event)}
+            />
+          ) : null}
+
+          {step === "forgot-password" ? (
+            <ForgotPasswordStep
+              pending={pending}
+              email={email}
+              onEmailChange={setEmail}
+              onBack={() => setStep("credentials")}
+              onSubmit={(event) => void submitForgotPassword(event)}
+            />
+          ) : null}
+
+          {step === "reset-sent" ? (
+            <InfoPanel>
+              If an account exists for that email, a reset link has been sent.
+            </InfoPanel>
           ) : null}
 
           {step === "passkey-enroll" ? (
@@ -584,6 +726,154 @@ function OAuthConsentPage({ config }: { config: HostedOAuthConsentConfig }) {
   );
 }
 
+function PasswordResetPage({ config }: { config: HostedPasswordResetConfig }) {
+  const [theme, setThemeState] = useState<Theme>(() => resolveTheme());
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [done, setDone] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(
+    config.error ? "This reset link is invalid or expired." : null
+  );
+  const projectInitial = config.projectName.trim().charAt(0).toUpperCase() || "·";
+
+  useEffect(() => {
+    document.title = `Reset password · ${config.projectName}`;
+    applyTheme(theme);
+  }, [theme, config.projectName]);
+
+  useEffect(() => {
+    return watchSystemTheme((next) => setThemeState(next));
+  }, []);
+
+  function toggleTheme() {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    setThemeState(next);
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+
+    if (!config.token) {
+      setError("This reset link is invalid or expired.");
+      return;
+    }
+    if (password.length < 12) {
+      setError("Use a password with at least 12 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setPending(true);
+    try {
+      const ok = await resetHostedPassword({
+        project: config.project,
+        token: config.token,
+        newPassword: password
+      });
+      if (!ok) {
+        setError("Could not reset password.");
+        return;
+      }
+      setDone(true);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  const returnUrl = config.appUrl || "/";
+
+  return (
+    <div className="relative min-h-screen">
+      <div
+        aria-hidden="true"
+        data-grid-bg
+        className="pointer-events-none absolute inset-0"
+      />
+
+      <header className="relative z-10 flex h-14 items-center justify-between px-6 lg:px-10">
+        <div className="flex items-center gap-2 text-ink">
+          <span
+            aria-hidden="true"
+            className="grid h-7 w-7 place-items-center rounded-md bg-accent text-[13px] font-semibold tracking-[-0.02em] text-accent-ink"
+            style={{ boxShadow: "var(--shadow-button)" }}
+          >
+            {projectInitial}
+          </span>
+          <span className="text-[13.5px] font-medium tracking-[-0.005em]">
+            {config.projectName}
+          </span>
+        </div>
+        <ThemeToggle theme={theme} onToggle={toggleTheme} />
+      </header>
+
+      <section className="relative z-10 grid min-h-[calc(100vh-3.5rem)] place-items-center px-5 py-8">
+        <div className="w-full max-w-[440px]">
+          <div className="enter">
+            <div className="mb-6 flex items-baseline gap-3">
+              <span className="eyebrow shrink-0">Reset</span>
+              <span aria-hidden="true" className="h-px flex-1 bg-border" />
+            </div>
+            <h1 className="serif text-[58px] leading-[0.95] tracking-[-0.03em] text-ink sm:text-[68px]">
+              New <em>password.</em>
+            </h1>
+            <p className="mt-3 text-[14.5px] leading-[1.5] text-muted">
+              Choose a new password for {config.projectName}.
+            </p>
+          </div>
+
+          {error ? <ErrorAlert>{error}</ErrorAlert> : null}
+          {done ? (
+            <div className="enter enter-1 mt-8 space-y-4">
+              <InfoPanel>Your password has been reset.</InfoPanel>
+              <a
+                href={returnUrl}
+                className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-accent px-3 text-[14px] font-medium text-accent-ink"
+                style={{ boxShadow: "var(--shadow-button)" }}
+              >
+                Continue ↗
+              </a>
+            </div>
+          ) : (
+            <form onSubmit={submit} className="enter enter-1 mt-8 space-y-4">
+              <FormField
+                id="new-password"
+                name="password"
+                label="New password"
+                type="password"
+                autoComplete="new-password"
+                placeholder="At least 12 characters"
+                value={password}
+                onChange={setPassword}
+              />
+              <FormField
+                id="confirm-password"
+                name="confirm-password"
+                label="Confirm password"
+                type="password"
+                autoComplete="new-password"
+                placeholder="Repeat new password"
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+              />
+              <ActionButton type="submit" disabled={pending || !config.token}>
+                {pending ? "Saving…" : "Reset password ↗"}
+              </ActionButton>
+            </form>
+          )}
+
+          <HostedFooter />
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function AuthHeading({
   step,
   isSignup,
@@ -604,6 +894,18 @@ function AuthHeading({
         {step === "two-factor" ? (
           <>
             Verify <em>code.</em>
+          </>
+        ) : step === "two-factor-enroll" ? (
+          <>
+            Secure <em>account.</em>
+          </>
+        ) : step === "forgot-password" ? (
+          <>
+            Reset <em>password.</em>
+          </>
+        ) : step === "reset-sent" ? (
+          <>
+            Check <em>email.</em>
           </>
         ) : step === "passkey-enroll" ? (
           <>
@@ -637,6 +939,7 @@ function CredentialsStep({
   onPasswordChange,
   onPasskeySignIn,
   onSocialSignIn,
+  onForgotPassword,
   onSubmit
 }: {
   isSignup: boolean;
@@ -651,6 +954,7 @@ function CredentialsStep({
   onPasswordChange: (value: string) => void;
   onPasskeySignIn: () => void;
   onSocialSignIn: (provider: SocialProviderId) => void;
+  onForgotPassword: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const hasSocialProviders = socialProviders.length > 0;
@@ -730,12 +1034,13 @@ function CredentialsStep({
           onChange={onPasswordChange}
           hint={
             !isSignup ? (
-              <a
-                href="#"
+              <button
+                type="button"
+                onClick={onForgotPassword}
                 className="text-[12px] font-medium text-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
               >
                 Forgot?
-              </a>
+              </button>
             ) : null
           }
         />
@@ -879,6 +1184,122 @@ function TwoFactorStep({
   );
 }
 
+function TwoFactorEnrollStep({
+  pending,
+  totpUri,
+  backupCodes,
+  code,
+  onCodeChange,
+  onStart,
+  onSubmit
+}: {
+  pending: boolean;
+  totpUri: string;
+  backupCodes: string[];
+  code: string;
+  onCodeChange: (value: string) => void;
+  onStart: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  if (!totpUri) {
+    return (
+      <div className="enter enter-1 mt-8 space-y-3">
+        <InfoPanel>
+          This realm requires two-factor authentication. Set up an authenticator
+          app to continue.
+        </InfoPanel>
+        <ActionButton type="button" disabled={pending} onClick={onStart}>
+          {pending ? "Preparing…" : "Set up authenticator ↗"}
+        </ActionButton>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="enter enter-1 mt-8 space-y-4">
+      <div className="rounded-lg border border-border bg-surface-muted p-3">
+        <p className="text-[12.5px] leading-5 text-muted">
+          Add this setup key in your authenticator app, then enter the code it
+          generates.
+        </p>
+        <textarea
+          readOnly
+          value={totpUri}
+          rows={4}
+          className="mt-3 w-full resize-none rounded-lg border border-border bg-surface p-2 font-mono text-[11px] leading-5 text-ink outline-none"
+        />
+      </div>
+
+      {backupCodes.length > 0 ? (
+        <div className="rounded-lg border border-border bg-surface-muted p-3">
+          <p className="text-[12.5px] leading-5 text-muted">
+            Save these backup codes before continuing.
+          </p>
+          <div className="mt-2 grid grid-cols-2 gap-1 font-mono text-[11px] text-ink">
+            {backupCodes.map((backupCode) => (
+              <span key={backupCode}>{backupCode}</span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <FormField
+        id="two-factor-enroll-code"
+        name="code"
+        label="Verification code"
+        type="text"
+        autoComplete="one-time-code"
+        placeholder="123456"
+        value={code}
+        onChange={onCodeChange}
+      />
+      <ActionButton type="submit" disabled={pending}>
+        {pending ? "Verifying…" : "Enable and continue ↗"}
+      </ActionButton>
+    </form>
+  );
+}
+
+function ForgotPasswordStep({
+  pending,
+  email,
+  onEmailChange,
+  onBack,
+  onSubmit
+}: {
+  pending: boolean;
+  email: string;
+  onEmailChange: (value: string) => void;
+  onBack: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="enter enter-1 mt-8 space-y-4">
+      <FormField
+        id="reset-email"
+        name="email"
+        label="Email"
+        type="email"
+        autoComplete="email"
+        placeholder="you@example.com"
+        value={email}
+        onChange={onEmailChange}
+      />
+      <ActionButton type="submit" disabled={pending}>
+        {pending ? "Sending…" : "Send reset link ↗"}
+      </ActionButton>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={onBack}
+        className="w-full text-center text-[13px] font-medium text-muted underline-offset-[3px] hover:text-ink hover:underline disabled:opacity-60"
+      >
+        Back to sign in
+      </button>
+    </form>
+  );
+}
+
 function PasskeyEnrollStep({
   pending,
   onAdd,
@@ -907,8 +1328,14 @@ function PasskeyEnrollStep({
 
 function RedirectingPanel() {
   return (
-    <div className="enter enter-1 mt-8 rounded-lg border border-border bg-surface-muted px-3 py-2.5 text-[13px] text-muted">
-      Finishing sign-in…
+    <InfoPanel>Finishing sign-in…</InfoPanel>
+  );
+}
+
+function InfoPanel({ children }: { children: ReactNode }) {
+  return (
+    <div className="enter enter-1 mt-8 rounded-lg border border-border bg-surface-muted px-3 py-2.5 text-[13px] leading-5 text-muted">
+      {children}
     </div>
   );
 }
@@ -1100,6 +1527,9 @@ function ThemeToggle({
 
 function getTitle(step: AuthStep, isSignup: boolean): string {
   if (step === "two-factor") return "Verify code";
+  if (step === "two-factor-enroll") return "Set up two-factor";
+  if (step === "forgot-password") return "Reset password";
+  if (step === "reset-sent") return "Check your email";
   if (step === "passkey-enroll") return "Add passkey";
   return isSignup ? "Create account" : "Welcome back";
 }
@@ -1107,6 +1537,15 @@ function getTitle(step: AuthStep, isSignup: boolean): string {
 function getSubtitle(step: AuthStep, isSignup: boolean, projectName: string): string {
   if (step === "two-factor") {
     return "Enter your authenticator code to finish signing in.";
+  }
+  if (step === "two-factor-enroll") {
+    return "Set up an authenticator app before continuing.";
+  }
+  if (step === "forgot-password") {
+    return "Send a password reset link to your email.";
+  }
+  if (step === "reset-sent") {
+    return "Check your inbox for the next step.";
   }
   if (step === "passkey-enroll") {
     return "Save a passkey for faster sign-ins on this device.";
@@ -1116,6 +1555,8 @@ function getSubtitle(step: AuthStep, isSignup: boolean, projectName: string): st
 
 function getEyebrow(step: AuthStep, isSignup: boolean): string {
   if (step === "two-factor") return "Security";
+  if (step === "two-factor-enroll") return "Security";
+  if (step === "forgot-password" || step === "reset-sent") return "Reset";
   if (step === "passkey-enroll") return "Passkey";
   return isSignup ? "Register" : "Sign in";
 }
@@ -1129,6 +1570,21 @@ function loginMethodLabel(method: string | null): string {
   }
 
   return method;
+}
+
+function mustEnrollTwoFactor(
+  policy: ProjectFeatures["twoFactor"],
+  user: { role?: string | null; twoFactorEnabled?: boolean } | undefined
+): boolean {
+  if (!policy.enabled || policy.required === "optional" || user?.twoFactorEnabled) {
+    return false;
+  }
+
+  if (policy.required === "everyone") {
+    return true;
+  }
+
+  return policy.required === "admins" && user?.role === "admin";
 }
 
 function describeScope(scope: string): { title: string; description: string } {

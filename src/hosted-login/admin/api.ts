@@ -209,6 +209,7 @@ export async function updateProjectSettings(
 export async function updateAdminProfile(patch: {
   name?: string;
   email?: string;
+  currentPassword?: string;
 }): Promise<void> {
   const response = await fetch("/admin/api/profile", {
     method: "PATCH",
@@ -223,6 +224,13 @@ export async function updateAdminProfile(patch: {
     if (data?.error === "email_in_use") throw new Error("Email is already in use");
     if (data?.error === "invalid_email") throw new Error("Invalid email address");
     if (data?.error === "invalid_name") throw new Error("Invalid name");
+    if (data?.error === "current_password_required") {
+      throw new Error("Current password is required to change email");
+    }
+    if (data?.error === "invalid_password") throw new Error("Current password is incorrect");
+    if (data?.error === "email_service_disabled") {
+      throw new Error("Configure email delivery before changing email");
+    }
     if (data?.error === "no_changes") throw new Error("Nothing to save");
     throw new Error("Could not save profile");
   }

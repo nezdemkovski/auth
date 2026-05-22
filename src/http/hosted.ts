@@ -425,6 +425,43 @@ export function renderHostedLogin(
   });
 }
 
+export function renderHostedPasswordReset(
+  req: Request,
+  project: string,
+  options: HostedOptions
+): Response {
+  const registered = options.registry.get(project);
+  if (!registered) {
+    return json({ error: "unknown_project" }, 404);
+  }
+
+  const url = new URL(req.url);
+  const token = url.searchParams.get("token") ?? "";
+  const error = url.searchParams.get("error") ?? "";
+  const index = readFileSync(HOSTED_LOGIN_INDEX, "utf8");
+  const config = serializeHostedConfig({
+    page: "reset-password",
+    project,
+    projectName: registered.project.name,
+    appUrl: registered.project.appUrl,
+    token,
+    error
+  });
+
+  return html(
+    index
+      .replace(
+        "<title>Sign in</title>",
+        `<title>Reset password - ${escapeHtml(registered.project.name)}</title>`
+      )
+      .replaceAll("__CSP_NONCE__", escapeHtml(options.cspNonce ?? ""))
+      .replace(
+        "<!-- hosted-auth-config -->",
+        `<script nonce="${escapeHtml(options.cspNonce ?? "")}">window.__HOSTED_AUTH__=${config};</script>`
+      )
+  );
+}
+
 export function renderHostedOAuthConsent(
   req: Request,
   project: string,

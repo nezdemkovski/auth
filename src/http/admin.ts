@@ -61,6 +61,7 @@ type ChangePasswordBody = {
 type UpdateProfileBody = {
   name?: unknown;
   email?: unknown;
+  currentPassword?: unknown;
 };
 
 type ResendVerificationBody = {
@@ -243,7 +244,28 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     }
 
     try {
-      await updateAdminProfile(admin.projectDb.pool, session.user.id, patch);
+      if (patch.email !== undefined && patch.email !== session.user.email.toLowerCase()) {
+        if (currentDeliverySettings.provider === EmailProvider.None) {
+          return c.json({ error: "email_service_disabled" }, 409);
+        }
+        if (typeof body.currentPassword !== "string" || body.currentPassword.length === 0) {
+          return c.json({ error: "current_password_required" }, 400);
+        }
+        if (!(await verifyPassword(admin.auth, c.req.raw.headers, body.currentPassword))) {
+          return c.json({ error: "invalid_password" }, 401);
+        }
+      }
+
+      await updateAdminProfile(admin.projectDb.pool, session.user.id, {
+        name: patch.name
+      });
+
+      if (patch.email !== undefined && patch.email !== session.user.email.toLowerCase()) {
+        await changeEmail(admin.auth, c.req.raw.headers, {
+          newEmail: patch.email,
+          callbackURL: `${options.publicBaseUrl}/admin/settings`
+        });
+      }
     } catch (error: unknown) {
       if (error instanceof Error && /unique|duplicate/i.test(error.message)) {
         return c.json({ error: "email_in_use" }, 409);
@@ -869,6 +891,60 @@ async function changePassword(
       ...body,
       revokeOtherSessions: true
     }
+  });
+}
+
+async function verifyPassword(
+  auth: unknown,
+  headers: Headers,
+  password: string
+): Promise<boolean> {
+  const api = (auth as {
+    api: {
+      verifyPassword(input: {
+        headers: Headers;
+        body: {
+          password: string;
+        };
+      }): Promise<{ status: boolean }>;
+    };
+  }).api;
+
+  const result = await api
+    .verifyPassword({
+      headers,
+      body: {
+        password
+      }
+    })
+    .catch(() => null);
+
+  return result?.status === true;
+}
+
+async function changeEmail(
+  auth: unknown,
+  headers: Headers,
+  body: {
+    newEmail: string;
+    callbackURL: string;
+  }
+): Promise<unknown> {
+  const api = (auth as {
+    api: {
+      changeEmail(input: {
+        headers: Headers;
+        body: {
+          newEmail: string;
+          callbackURL: string;
+        };
+      }): Promise<unknown>;
+    };
+  }).api;
+
+  return api.changeEmail({
+    headers,
+    body
   });
 }
 
