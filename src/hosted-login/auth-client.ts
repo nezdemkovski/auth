@@ -5,7 +5,7 @@ export type HostedAuthClient = ReturnType<typeof createHostedAuthClient>;
 
 export function createHostedAuthClient(project: string) {
   return createAuthClient({
-    baseURL: `/${project}/api/auth`,
+    baseURL: `${window.location.origin}/${project}/api/auth`,
     plugins: [passkeyClient()]
   });
 }
