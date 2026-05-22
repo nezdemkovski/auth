@@ -70,6 +70,7 @@ export async function createApp(env: Env) {
     publicBaseUrl: env.publicBaseUrl,
     secret: env.betterAuthSecret,
     emailSender,
+    trustProxyHeaders: env.trustProxyHeaders,
     projects: [env.adminProject, ...env.projects]
   });
 
@@ -82,7 +83,7 @@ export async function createApp(env: Env) {
     await next();
   });
   app.use("*", securityHeaders(env.publicBaseUrl));
-  app.use("*", rateLimit(rateLimiter));
+  app.use("*", rateLimit(rateLimiter, { trustProxyHeaders: env.trustProxyHeaders }));
 
   app.get("/healthz", (c) => {
     return c.json({
@@ -145,7 +146,8 @@ export async function createApp(env: Env) {
   app.post("/:project/login", (c) => {
     return submitHostedLogin(c.req.raw, c.req.param("project"), {
       registry,
-      secret: env.betterAuthSecret
+      secret: env.betterAuthSecret,
+      trustProxyHeaders: env.trustProxyHeaders
     });
   });
 

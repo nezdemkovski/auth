@@ -36,4 +36,19 @@ describe("loadEnv email config", () => {
       })
     ).toThrow("EMAIL_PROVIDER must be one of: none, cloudflare, resend");
   });
+
+  test("does not trust proxy IP headers by default", () => {
+    const env = loadEnv(baseEnv);
+
+    expect(env.trustProxyHeaders).toBe(false);
+  });
+
+  test("parses TRUST_PROXY_HEADERS", () => {
+    const env = loadEnv({
+      ...baseEnv,
+      TRUST_PROXY_HEADERS: "true"
+    });
+
+    expect(env.trustProxyHeaders).toBe(true);
+  });
 });

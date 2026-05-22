@@ -16,6 +16,7 @@ type RegistryOptions = {
   publicBaseUrl: string;
   secret: string;
   emailSender: EmailSender | null;
+  trustProxyHeaders: boolean;
   projects: AuthProject[];
 };
 
@@ -30,7 +31,8 @@ export class AuthRegistry {
         projectDb,
         publicBaseUrl: options.publicBaseUrl,
         secret: options.secret,
-        emailSender: options.emailSender
+        emailSender: options.emailSender,
+        trustProxyHeaders: options.trustProxyHeaders
       });
 
       this.projects.set(project.slug, {

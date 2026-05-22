@@ -8,6 +8,7 @@ type HostedAuthConfig = {
   redirectUri: string;
   state: string;
   mode: "login" | "signup";
+  codeChallenge: string;
   error?: string;
 };
 
@@ -34,6 +35,8 @@ function LoginPage({ config }: { config: HostedAuthConfig }) {
   alternateUrl.searchParams.set("redirect_uri", config.redirectUri);
   alternateUrl.searchParams.set("state", config.state);
   alternateUrl.searchParams.set("mode", isSignup ? "login" : "signup");
+  alternateUrl.searchParams.set("code_challenge", config.codeChallenge);
+  alternateUrl.searchParams.set("code_challenge_method", "S256");
 
   document.title = `${title} - ${config.projectName}`;
 
@@ -78,6 +81,7 @@ function LoginPage({ config }: { config: HostedAuthConfig }) {
             <input type="hidden" name="redirect_uri" value={config.redirectUri} />
             <input type="hidden" name="state" value={config.state} />
             <input type="hidden" name="mode" value={config.mode} />
+            <input type="hidden" name="code_challenge" value={config.codeChallenge} />
 
             <label className="mb-2 block text-sm font-medium text-ink/80" htmlFor="email">
               Email

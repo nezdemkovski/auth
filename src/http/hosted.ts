@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 import type { AuthRegistry } from "../auth/registry";
@@ -18,12 +19,14 @@ type PendingHostedCode = {
   sessionCookie: string;
   email: string;
   redirectUri: string;
+  codeChallenge: string;
   expiresAt: number;
 };
 
 type HostedOptions = {
   registry: AuthRegistry;
   secret: string;
+  trustProxyHeaders?: boolean;
 };
 
 function html(content: string, status = 200): Response {
@@ -76,6 +79,18 @@ function createCode(): string {
   );
 }
 
+function pkceChallenge(verifier: string): string {
+  return createHash("sha256").update(verifier).digest("base64url");
+}
+
+function validPkceChallenge(value: string): boolean {
+  return /^[A-Za-z0-9_-]{43,128}$/.test(value);
+}
+
+function verifyPkce(codeChallenge: string, codeVerifier: string): boolean {
+  return validPkceChallenge(codeVerifier) && pkceChallenge(codeVerifier) === codeChallenge;
+}
+
 function consumeCode(code: string): PendingHostedCode | null {
   const pending = pendingHostedCodes.get(code);
   pendingHostedCodes.delete(code);
@@ -106,6 +121,7 @@ function renderLoginPage(options: {
   redirectUri: string;
   state: string;
   mode: string;
+  codeChallenge: string;
   error?: string;
 }): Response {
   const isSignup = options.mode === "signup";
@@ -117,6 +133,7 @@ function renderLoginPage(options: {
     redirectUri: options.redirectUri,
     state: options.state,
     mode: isSignup ? "signup" : "login",
+    codeChallenge: options.codeChallenge,
     error: options.error
   });
 
@@ -137,6 +154,7 @@ async function issueSession(options: {
   password: string;
   redirectUri: string;
   headers: Headers;
+  trustProxyHeaders: boolean;
 }): Promise<{ sessionCookie: string; email: string } | null> {
   const callbackURL = callbackUrlFromRedirectUri(options.redirectUri);
   const body =
@@ -160,7 +178,7 @@ async function issueSession(options: {
       method: "POST",
       headers: internalAuthHeaders(options.headers, {
         "Content-Type": "application/json"
-      }),
+      }, options),
       body: JSON.stringify(body)
     })
   );
@@ -175,7 +193,7 @@ async function issueSession(options: {
     new Request(`http://auth.local${authPath}/get-session`, {
       headers: internalAuthHeaders(options.headers, {
         Cookie: cookie
-      })
+      }, options)
     })
   );
 
@@ -207,9 +225,15 @@ export function renderHostedLogin(
   const redirectUri = url.searchParams.get("redirect_uri") ?? "";
   const state = url.searchParams.get("state") ?? "";
   const mode = url.searchParams.get("mode") === "signup" ? "signup" : "login";
+  const codeChallenge = url.searchParams.get("code_challenge") ?? "";
+  const codeChallengeMethod = url.searchParams.get("code_challenge_method") ?? "";
 
   if (!redirectUriAllowed(options.registry, project, redirectUri)) {
     return html("Invalid redirect_uri", 400);
+  }
+
+  if (codeChallengeMethod !== "S256" || !validPkceChallenge(codeChallenge)) {
+    return html("Invalid PKCE challenge", 400);
   }
 
   return renderLoginPage({
@@ -217,20 +241,29 @@ export function renderHostedLogin(
     projectName: registered.project.name,
     redirectUri,
     state,
-    mode
+    mode,
+    codeChallenge
   });
 }
 
-function internalAuthHeaders(source: Headers, headers: HeadersInit): Headers {
+function internalAuthHeaders(
+  source: Headers,
+  headers: HeadersInit,
+  options: { trustProxyHeaders: boolean }
+): Headers {
   const result = new Headers(headers);
 
-  for (const name of [
-    "cf-connecting-ip",
-    "x-forwarded-for",
-    "x-real-ip",
-    "x-client-ip",
-    "user-agent"
-  ]) {
+  const headerNames = options.trustProxyHeaders
+    ? [
+        "cf-connecting-ip",
+        "x-forwarded-for",
+        "x-real-ip",
+        "x-client-ip",
+        "user-agent"
+      ]
+    : ["user-agent"];
+
+  for (const name of headerNames) {
     const value = source.get(name);
     if (value) {
       result.set(name, value);
@@ -260,9 +293,14 @@ export async function submitHostedLogin(
   const mode = form.get("mode") === "signup" ? "signup" : "login";
   const email = String(form.get("email") ?? "");
   const password = String(form.get("password") ?? "");
+  const codeChallenge = String(form.get("code_challenge") ?? "");
 
   if (!redirectUriAllowed(options.registry, project, redirectUri)) {
     return html("Invalid redirect_uri", 400);
+  }
+
+  if (!validPkceChallenge(codeChallenge)) {
+    return html("Invalid PKCE challenge", 400);
   }
 
   const session = await issueSession({
@@ -271,7 +309,8 @@ export async function submitHostedLogin(
     email,
     password,
     redirectUri,
-    headers: req.headers
+    headers: req.headers,
+    trustProxyHeaders: options.trustProxyHeaders === true
   });
 
   if (!session) {
@@ -281,6 +320,7 @@ export async function submitHostedLogin(
       redirectUri,
       state,
       mode,
+      codeChallenge,
       error: mode === "signup" ? "Could not create account" : "Invalid email or password"
     });
   }
@@ -291,6 +331,7 @@ export async function submitHostedLogin(
     sessionCookie: session.sessionCookie,
     email: session.email,
     redirectUri,
+    codeChallenge,
     expiresAt: Date.now() + CODE_TTL_SECONDS * 1000
   });
 
@@ -317,6 +358,8 @@ export async function exchangeHostedCode(
   const code = typeof body?.code === "string" ? body.code : "";
   const redirectUri =
     typeof body?.redirect_uri === "string" ? body.redirect_uri : "";
+  const codeVerifier =
+    typeof body?.code_verifier === "string" ? body.code_verifier : "";
 
   if (!redirectUriAllowed(options.registry, project, redirectUri)) {
     return json({ error: "invalid_redirect_uri" }, 400);
@@ -326,7 +369,8 @@ export async function exchangeHostedCode(
   if (
     !payload ||
     payload.project !== project ||
-    payload.redirectUri !== redirectUri
+    payload.redirectUri !== redirectUri ||
+    !verifyPkce(payload.codeChallenge, codeVerifier)
   ) {
     return json({ error: "invalid_code" }, 400);
   }

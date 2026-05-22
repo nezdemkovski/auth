@@ -118,7 +118,10 @@ export function createRateLimiter(redisUrl: string | null): RateLimiterStore {
   return new MemoryRateLimiterStore();
 }
 
-export function rateLimit(store: RateLimiterStore): MiddlewareHandler {
+export function rateLimit(
+  store: RateLimiterStore,
+  options: { trustProxyHeaders: boolean }
+): MiddlewareHandler {
   return async (c, next) => {
     const method = c.req.method.toUpperCase();
     const path = c.req.path;
@@ -132,7 +135,7 @@ export function rateLimit(store: RateLimiterStore): MiddlewareHandler {
     }
 
     const now = Date.now();
-    const key = `${rule.name}:${clientKey(c.req.raw.headers)}:${normalizePath(path)}`;
+    const key = `${rule.name}:${clientKey(c.req.raw.headers, options)}:${normalizePath(path)}`;
     let result: RateLimitResult;
 
     try {
@@ -272,7 +275,14 @@ function isClosedRedisConnection(error: unknown): boolean {
   );
 }
 
-function clientKey(headers: Headers): string {
+function clientKey(
+  headers: Headers,
+  options: { trustProxyHeaders: boolean }
+): string {
+  if (!options.trustProxyHeaders) {
+    return "direct";
+  }
+
   return (
     headers.get("cf-connecting-ip") ??
     headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??

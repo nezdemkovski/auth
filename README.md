@@ -83,3 +83,19 @@ reference the project-local Better Auth `user.id`.
 Auth-sensitive routes are rate limited by default. Without `REDIS_URL`, limits
 are kept in memory and apply per process. Set `REDIS_URL` to use Bun's native
 Redis client and share limits across replicas.
+
+## Proxy Headers
+
+By default the service does not trust client-supplied `CF-Connecting-IP` or
+`X-Forwarded-*` headers for rate limiting or Better Auth IP metadata.
+
+Set `TRUST_PROXY_HEADERS=true` only when the service is reachable exclusively
+through a trusted reverse proxy, such as Cloudflare Tunnel or nginx, that strips
+incoming forwarding headers from clients before adding its own.
+
+## Hosted Auth Handoff
+
+The hosted login flow uses a short-lived authorization code plus PKCE S256. The
+client app sends `code_challenge` and `code_challenge_method=S256` to
+`/<project>/login`, stores the verifier in an HttpOnly app cookie, and sends
+`code_verifier` to `/<project>/hosted/token` during callback exchange.

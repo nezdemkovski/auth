@@ -14,6 +14,7 @@ type ProjectAuthOptions = {
   publicBaseUrl: string;
   secret: string;
   emailSender: EmailSender | null;
+  trustProxyHeaders: boolean;
 };
 
 type ProjectMigrationOptions = {
@@ -31,7 +32,8 @@ export function createProjectAuth(options: ProjectAuthOptions) {
       project,
       publicBaseUrl,
       secret,
-      emailSender: options.emailSender
+      emailSender: options.emailSender,
+      trustProxyHeaders: options.trustProxyHeaders
     }),
     database: projectDb.pool
   });
@@ -45,7 +47,8 @@ export function createProjectMigrationAuthOptions(
       project: options.project,
       publicBaseUrl: options.publicBaseUrl,
       secret: options.secret,
-      emailSender: null
+      emailSender: null,
+      trustProxyHeaders: false
     }),
     database: options.pool
   };
@@ -56,6 +59,7 @@ function createBaseProjectAuthOptions(options: {
   publicBaseUrl: string;
   secret: string;
   emailSender: EmailSender | null;
+  trustProxyHeaders: boolean;
 }): Omit<BetterAuthOptions, "database"> {
   const { project, publicBaseUrl, secret } = options;
   const emailHandlers = createProjectEmailHandlers({
@@ -105,14 +109,18 @@ function createBaseProjectAuthOptions(options: {
     ],
     advanced: {
       cookiePrefix: `auth_${project.slug}`,
-      ipAddress: {
-        ipAddressHeaders: [
-          "cf-connecting-ip",
-          "x-forwarded-for",
-          "x-real-ip",
-          "x-client-ip"
-        ]
-      }
+      ...(options.trustProxyHeaders
+        ? {
+            ipAddress: {
+              ipAddressHeaders: [
+                "cf-connecting-ip",
+                "x-forwarded-for",
+                "x-real-ip",
+                "x-client-ip"
+              ]
+            }
+          }
+        : {})
     },
     telemetry: {
       enabled: false

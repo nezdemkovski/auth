@@ -11,6 +11,7 @@ export type Env = {
   email: EmailConfig;
   emailServiceEnabled: boolean;
   redisUrl: string | null;
+  trustProxyHeaders: boolean;
   projects: AuthProject[];
 };
 
@@ -68,6 +69,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     email,
     emailServiceEnabled: email.provider !== "none",
     redisUrl: source.REDIS_URL?.trim() || null,
+    trustProxyHeaders: parseBoolean(source.TRUST_PROXY_HEADERS, false, "TRUST_PROXY_HEADERS"),
     projects: parseProjects(source.AUTH_PROJECTS)
   };
 }
@@ -98,7 +100,11 @@ function buildDatabaseUrl(source: NodeJS.ProcessEnv): string {
   return url.toString();
 }
 
-function parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
+function parseBoolean(
+  value: string | undefined,
+  defaultValue: boolean,
+  name = "AUTH_AUTO_MIGRATE"
+): boolean {
   if (value === undefined) {
     return defaultValue;
   }
@@ -111,7 +117,7 @@ function parseBoolean(value: string | undefined, defaultValue: boolean): boolean
     return false;
   }
 
-  throw new Error("AUTH_AUTO_MIGRATE must be a boolean");
+  throw new Error(`${name} must be a boolean`);
 }
 
 function parseEmailConfig(source: NodeJS.ProcessEnv): EmailConfig {
