@@ -25,7 +25,7 @@ describe("admin API security helpers", () => {
     ).toBe(false);
   });
 
-  test("falls back to referer origin when Origin is absent", () => {
+  test("does not trust Referer when Origin is absent", () => {
     expect(
       __adminTestUtils.isTrustedAdminRequest(
         new Headers({
@@ -33,7 +33,7 @@ describe("admin API security helpers", () => {
         }),
         "https://auth.example.com"
       )
-    ).toBe(true);
+    ).toBe(false);
     expect(
       __adminTestUtils.isTrustedAdminRequest(
         new Headers({

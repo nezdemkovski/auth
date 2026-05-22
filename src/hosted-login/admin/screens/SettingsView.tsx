@@ -34,12 +34,10 @@ function ProfileSection({ me }: { me: MeResponse }) {
   const initialEmail = me.user.email;
   const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
-  const [currentPassword, setCurrentPassword] = useState("");
 
   useEffect(() => {
     setName(initialName);
     setEmail(initialEmail);
-    setCurrentPassword("");
   }, [initialName, initialEmail]);
 
   const mutation = useMutation({
@@ -73,16 +71,11 @@ function ProfileSection({ me }: { me: MeResponse }) {
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const patch: { name?: string; email?: string; currentPassword?: string } = {};
+    const patch: { name?: string; email?: string } = {};
     if (trimmedName !== initialName.trim()) patch.name = trimmedName;
-    if (trimmedEmail !== initialEmail.toLowerCase()) {
-      patch.email = trimmedEmail;
-      patch.currentPassword = currentPassword;
-    }
+    if (trimmedEmail !== initialEmail.toLowerCase()) patch.email = trimmedEmail;
     mutation.mutate(patch);
   }
-
-  const emailChanged = trimmedEmail !== initialEmail.toLowerCase();
 
   return (
     <section>
@@ -109,22 +102,11 @@ function ProfileSection({ me }: { me: MeResponse }) {
           autoComplete="email"
           placeholder="admin@example.com"
         />
-        {emailChanged ? (
-          <SettingsInput
-            id="admin-email-current-password"
-            label="Current password"
-            value={currentPassword}
-            onChange={setCurrentPassword}
-            type="password"
-            autoComplete="current-password"
-            placeholder="Required to change email"
-          />
-        ) : null}
 
         <PrimaryButton
           type="submit"
           loading={mutation.isPending}
-          disabled={!dirty || (emailChanged && currentPassword.length === 0)}
+          disabled={!dirty}
         >
           {mutation.isPending ? "Saving…" : "Save changes →"}
         </PrimaryButton>

@@ -64,15 +64,6 @@ describe("loadEnv email config", () => {
     expect(env.trustProxyHeaders).toBe(false);
   });
 
-  test("parses optional initial admin password without requiring it", () => {
-    const env = loadEnv({
-      ...baseEnv,
-      AUTH_INITIAL_ADMIN_PASSWORD: "temporary-admin-password"
-    });
-
-    expect(env.initialAdminPassword).toBe("temporary-admin-password");
-  });
-
   test("parses TRUST_PROXY_HEADERS", () => {
     const env = loadEnv({
       ...baseEnv,

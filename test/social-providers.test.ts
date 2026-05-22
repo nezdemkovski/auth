@@ -41,17 +41,42 @@ describe("social provider settings", () => {
 
   test("encrypts secrets with authenticated encryption and rejects tampering", () => {
     const secret = "x".repeat(32);
-    const cipher = __socialProviderTestUtils.encryptSecret("client-secret", secret);
+    const cipher = __socialProviderTestUtils.encryptSecret(
+      "client-secret",
+      secret,
+      "openmarkers",
+      "github"
+    );
+
+    expect(cipher).toMatch(/^v2:/);
+    expect(cipher).not.toContain("client-secret");
+    expect(
+      __socialProviderTestUtils.decryptSecret(cipher, secret, "openmarkers", "github")
+    ).toBe("client-secret");
+    expect(() =>
+      __socialProviderTestUtils.decryptSecret(
+        cipher,
+        "y".repeat(32),
+        "openmarkers",
+        "github"
+      )
+    ).toThrow();
+    expect(() =>
+      __socialProviderTestUtils.decryptSecret(cipher, secret, "other", "github")
+    ).toThrow();
+    expect(() =>
+      __socialProviderTestUtils.decryptSecret(cipher, secret, "openmarkers", "google")
+    ).toThrow();
+  });
+
+  test("can still read legacy v1 social provider secrets", () => {
+    const secret = "x".repeat(32);
+    const cipher = __socialProviderTestUtils.encryptSecretV1("client-secret", secret);
 
     expect(cipher).toMatch(/^v1:/);
-    expect(cipher).not.toContain("client-secret");
-    expect(__socialProviderTestUtils.decryptSecret(cipher, secret)).toBe("client-secret");
-    expect(() =>
-      __socialProviderTestUtils.decryptSecret(cipher, "y".repeat(32))
-    ).toThrow();
-    expect(() =>
-      __socialProviderTestUtils.decryptSecret(cipher.replace(/^v1:/, "v2:"), secret)
-    ).toThrow();
+    expect(
+      __socialProviderTestUtils.decryptSecret(cipher, secret, "openmarkers", "github")
+    ).toBe("client-secret");
   });
 
   test("builds provider callback URLs under the realm auth endpoint", () => {

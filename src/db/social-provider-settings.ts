@@ -1,4 +1,10 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  hkdfSync,
+  randomBytes
+} from "node:crypto";
 
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -97,7 +103,12 @@ export async function loadSocialProviderSettings(options: {
       current[row.provider] = {
         enabled: row.enabled,
         clientId: row.clientId,
-        clientSecret: decryptSecret(row.clientSecretCipher, options.encryptionSecret),
+        clientSecret: decryptSecret(
+          row.clientSecretCipher,
+          options.encryptionSecret,
+          row.projectSlug,
+          row.provider
+        ),
         verifiedAt: normalizeDate(row.verifiedAt)
       };
       byProject.set(row.projectSlug, current);
@@ -164,7 +175,12 @@ export async function updateProjectSocialProvider(options: {
   const clientId = options.patch.clientId.trim();
   const secretCipher =
     options.patch.clientSecret !== undefined
-      ? encryptSecret(options.patch.clientSecret.trim(), options.encryptionSecret)
+      ? encryptSecret(
+          options.patch.clientSecret.trim(),
+          options.encryptionSecret,
+          options.project.slug,
+          options.provider
+        )
       : null;
 
   try {
@@ -274,32 +290,71 @@ export function cloneDefaultSocialProviders(): ProjectSocialProviders {
   ) as ProjectSocialProviders;
 }
 
-function encryptSecret(value: string, secret: string): string {
+function encryptSecret(
+  value: string,
+  secret: string,
+  projectSlug: string,
+  provider: SocialProviderId
+): string {
   if (!value) {
     return "";
   }
 
   const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", encryptionKey(secret), iv);
+  const cipher = createCipheriv("aes-256-gcm", encryptionKeyV2(secret), iv);
+  cipher.setAAD(encryptionContext(projectSlug, provider));
   const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
 
-  return `v1:${iv.toString("base64url")}:${tag.toString("base64url")}:${encrypted.toString("base64url")}`;
+  return `v2:${iv.toString("base64url")}:${tag.toString("base64url")}:${encrypted.toString("base64url")}`;
 }
 
-function decryptSecret(value: string, secret: string): string {
+function decryptSecret(
+  value: string,
+  secret: string,
+  projectSlug: string,
+  provider: SocialProviderId
+): string {
   if (!value) {
     return "";
   }
 
   const [version, iv, tag, encrypted] = value.split(":");
-  if (version !== "v1" || !iv || !tag || !encrypted) {
+  if (!iv || !tag || !encrypted) {
+    throw new Error("Invalid social provider secret cipher");
+  }
+
+  if (version === "v1") {
+    return decryptSecretV1(secret, iv, tag, encrypted);
+  }
+
+  if (version !== "v2") {
     throw new Error("Invalid social provider secret cipher");
   }
 
   const decipher = createDecipheriv(
     "aes-256-gcm",
-    encryptionKey(secret),
+    encryptionKeyV2(secret),
+    Buffer.from(iv, "base64url")
+  );
+  decipher.setAAD(encryptionContext(projectSlug, provider));
+  decipher.setAuthTag(Buffer.from(tag, "base64url"));
+
+  return Buffer.concat([
+    decipher.update(Buffer.from(encrypted, "base64url")),
+    decipher.final()
+  ]).toString("utf8");
+}
+
+function decryptSecretV1(
+  secret: string,
+  iv: string,
+  tag: string,
+  encrypted: string
+): string {
+  const decipher = createDecipheriv(
+    "aes-256-gcm",
+    encryptionKeyV1(secret),
     Buffer.from(iv, "base64url")
   );
   decipher.setAuthTag(Buffer.from(tag, "base64url"));
@@ -310,14 +365,40 @@ function decryptSecret(value: string, secret: string): string {
   ]).toString("utf8");
 }
 
+function encryptSecretV1(value: string, secret: string): string {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", encryptionKeyV1(secret), iv);
+  const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+
+  return `v1:${iv.toString("base64url")}:${tag.toString("base64url")}:${encrypted.toString("base64url")}`;
+}
+
 export const __socialProviderTestUtils = {
   encryptSecret,
+  encryptSecretV1,
   decryptSecret,
   normalizeDate
 };
 
-function encryptionKey(secret: string): Buffer {
+function encryptionKeyV1(secret: string): Buffer {
   return createHash("sha256").update(secret).digest();
+}
+
+function encryptionKeyV2(secret: string): Buffer {
+  return Buffer.from(
+    hkdfSync(
+      "sha256",
+      Buffer.from(secret),
+      Buffer.from("auth-encryption-v1"),
+      Buffer.from("social-provider-secret"),
+      32
+    )
+  );
+}
+
+function encryptionContext(projectSlug: string, provider: string): Buffer {
+  return Buffer.from(`${projectSlug}:${provider}`);
 }
 
 function normalizeDate(value: Date | string | null | undefined): string | null {

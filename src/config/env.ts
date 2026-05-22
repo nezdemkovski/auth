@@ -8,7 +8,6 @@ export type Env = {
   autoMigrate: boolean;
   adminProject: AuthProject;
   adminEmail: string;
-  initialAdminPassword: string | null;
   email: EmailConfig;
   emailServiceEnabled: boolean;
   redisUrl: string | null;
@@ -66,7 +65,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     autoMigrate: parseBoolean(source.AUTH_AUTO_MIGRATE, true),
     adminProject: ADMIN_PROJECT,
     adminEmail: source.AUTH_ADMIN_EMAIL ?? "admin@localhost",
-    initialAdminPassword: source.AUTH_INITIAL_ADMIN_PASSWORD?.trim() || null,
     email,
     emailServiceEnabled: email.provider !== "none",
     redisUrl: source.REDIS_URL?.trim() || null,

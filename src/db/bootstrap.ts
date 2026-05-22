@@ -1,4 +1,5 @@
 import { getMigrations } from "better-auth/db/migration";
+import { randomBytes } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
@@ -18,7 +19,6 @@ type BootstrapOptions = {
   secret: string;
   adminProject: AuthProject;
   adminEmail: string;
-  initialAdminPassword?: string | null;
 };
 
 const BOOTSTRAP_LOCK_KEY = "nezdemkovski-auth-bootstrap";
@@ -109,12 +109,7 @@ async function bootstrapInitialAdmin(options: BootstrapOptions): Promise<void> {
       return;
     }
 
-    if (!options.initialAdminPassword) {
-      throw new Error(
-        "AUTH_INITIAL_ADMIN_PASSWORD is required when creating the initial admin user"
-      );
-    }
-
+    const temporaryPassword = generateTemporaryPassword();
     const created = await (auth.api as unknown as {
       createUser(input: {
         body: {
@@ -128,7 +123,7 @@ async function bootstrapInitialAdmin(options: BootstrapOptions): Promise<void> {
       body: {
         email: options.adminEmail,
         name: "Initial Admin",
-        password: options.initialAdminPassword,
+        password: temporaryPassword,
         role: "admin"
       }
     });
@@ -144,11 +139,15 @@ async function bootstrapInitialAdmin(options: BootstrapOptions): Promise<void> {
     `);
 
     console.info(`[bootstrap] ${project.slug}: created initial admin ${options.adminEmail}`);
-    console.info(`[bootstrap] ${project.slug}: initial admin password was provided by env`);
+    console.info(`[bootstrap] ${project.slug}: temporary admin password: ${temporaryPassword}`);
     console.info(`[bootstrap] ${project.slug}: change this password after the first login`);
   } finally {
     await projectDb.pool.end();
   }
+}
+
+function generateTemporaryPassword(): string {
+  return randomBytes(24).toString("base64url");
 }
 
 export async function prepareProjectSchema(options: Omit<BootstrapOptions, "adminEmail"> & {

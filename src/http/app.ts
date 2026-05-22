@@ -74,8 +74,7 @@ export async function createApp(env: Env) {
       publicBaseUrl: env.publicBaseUrl,
       secret: env.betterAuthSecret,
       adminProject,
-      adminEmail: env.adminEmail,
-      initialAdminPassword: env.initialAdminPassword
+      adminEmail: env.adminEmail
     });
   }
 
