@@ -128,15 +128,6 @@ export async function createApp(env: Env) {
     });
   });
 
-  app.get("/admin", () => {
-    return new Response(Bun.file(ADMIN_INDEX_PATH), {
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Cache-Control": "no-store"
-      }
-    });
-  });
-
   app.route(
     "/admin/api",
     createAdminApi({
@@ -146,6 +137,9 @@ export async function createApp(env: Env) {
       adminProject
     })
   );
+
+  app.get("/admin", renderAdminApp);
+  app.get("/admin/*", renderAdminApp);
 
   app.get("/:project/login", (c) => {
     return renderHostedLogin(c.req.raw, c.req.param("project"), {
@@ -235,4 +229,13 @@ export async function createApp(env: Env) {
       await Promise.all([registry.close(), rateLimiter.close()]);
     }
   };
+}
+
+function renderAdminApp() {
+  return new Response(Bun.file(ADMIN_INDEX_PATH), {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store"
+    }
+  });
 }

@@ -217,6 +217,25 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     });
   });
 
+  app.post("/projects/:project/users/:userId/terminate-sessions", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const registered = options.registry.get(c.req.param("project"));
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+
+    const userId = c.req.param("userId");
+    const terminated = await terminateUserSessions(registered.projectDb.pool, userId);
+
+    return c.json({
+      terminated
+    });
+  });
+
   app.post("/projects/:project/users/resend-verification", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
@@ -434,6 +453,18 @@ async function readProjectUsers(pool: Pool): Promise<ProjectUserRow[]> {
   `);
 
   return result.rows;
+}
+
+async function terminateUserSessions(pool: Pool, userId: string): Promise<number> {
+  const db = drizzle({ client: pool });
+  const result = await db.execute<{ id: string }>(sql`
+    DELETE FROM "session"
+    WHERE "userId" = ${userId}
+      AND "expiresAt" > now()
+    RETURNING id
+  `);
+
+  return result.rows.length;
 }
 
 function toIsoString(value: Date | string): string {

@@ -5,6 +5,15 @@ import {
   useQuery,
   useQueryClient
 } from "@tanstack/react-query";
+import {
+  Outlet,
+  RouterProvider,
+  createRootRouteWithContext,
+  createRoute,
+  createRouter,
+  useNavigate,
+  useParams
+} from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 
@@ -94,6 +103,13 @@ type ViewState =
   | { status: "force-change"; me: MeResponse; error?: string }
   | { status: "dashboard"; me: MeResponse };
 
+type DashboardRouterContext = {
+  me: MeResponse;
+  theme: Theme;
+  onToggleTheme: () => void;
+  onSignOut: () => void;
+};
+
 const jsonHeaders = {
   "Content-Type": "application/json"
 };
@@ -107,6 +123,49 @@ const queryClient = new QueryClient({
     }
   }
 });
+
+const rootRoute = createRootRouteWithContext<DashboardRouterContext>()({
+  component: DashboardLayout
+});
+
+const overviewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/",
+  component: OverviewRoute
+});
+
+const projectRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/projects/$projectSlug",
+  component: ProjectRoute
+});
+
+const routeTree = rootRoute.addChildren([overviewRoute, projectRoute]);
+
+const adminRouter = createRouter({
+  routeTree,
+  basepath: "/admin",
+  context: {
+    me: {
+      user: {
+        id: "",
+        email: "",
+        name: ""
+      },
+      mustChangePassword: false,
+      emailServiceEnabled: false
+    },
+    theme: "dark",
+    onToggleTheme: () => {},
+    onSignOut: () => {}
+  }
+});
+
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: typeof adminRouter;
+  }
+}
 
 function AdminApp() {
   const [view, setView] = useState<ViewState>({ status: "loading" });
@@ -421,17 +480,124 @@ function DashboardShell({
   onToggleTheme: () => void;
   onSignOut: () => void;
 }) {
-  const queryClient = useQueryClient();
+  return (
+    <RouterProvider
+      router={adminRouter}
+      context={{
+        me,
+        theme,
+        onToggleTheme,
+        onSignOut
+      }}
+    />
+  );
+}
+
+function DashboardLayout() {
+  const { me, theme, onToggleTheme, onSignOut } = rootRoute.useRouteContext();
   const projectsQuery = useQuery({
     queryKey: ["admin", "projects"],
     queryFn: fetchProjects
   });
-  const [selectedSlug, setSelectedSlug] = useState<string>("__overview__");
+  const navigate = useNavigate();
+  const params = useParams({ strict: false }) as { projectSlug?: string };
+  const projects = projectsQuery.data?.projects ?? [];
+  const selectedSlug = params.projectSlug ?? "__overview__";
+  const selected = projects.find((project) => project.slug === selectedSlug);
+
+  async function selectProject(slug: string) {
+    if (slug === "__overview__") {
+      await navigate({ to: "/" });
+      return;
+    }
+
+    await navigate({
+      to: "/projects/$projectSlug",
+      params: { projectSlug: slug }
+    });
+  }
+
+  return (
+    <div className="flex min-h-screen bg-bg">
+      <Sidebar
+        me={me}
+        projects={projects}
+        loading={projectsQuery.isLoading}
+        selectedSlug={selectedSlug}
+        onSelect={(slug) => void selectProject(slug)}
+        onSignOut={onSignOut}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+      />
+
+      <main className="relative min-w-0 flex-1">
+        <Topbar
+          selected={selected}
+          syncedAt={projectsQuery.dataUpdatedAt || Date.now()}
+        />
+
+        <div className="mx-auto w-full max-w-[1120px] px-6 py-8 lg:px-10 lg:py-10">
+          {projectsQuery.isError ? (
+            <FormAlert>Could not load admin data.</FormAlert>
+          ) : (
+            <Outlet />
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function OverviewRoute() {
+  const projectsQuery = useQuery({
+    queryKey: ["admin", "projects"],
+    queryFn: fetchProjects
+  });
+  const navigate = useNavigate();
+  const projects = projectsQuery.data?.projects ?? [];
+  const totals = useMemo(() => {
+    return projects.reduce(
+      (acc, project) => {
+        acc.users += project.userCount;
+        acc.sessions += project.activeSessionCount;
+        return acc;
+      },
+      { users: 0, sessions: 0 }
+    );
+  }, [projects]);
+
+  return (
+    <OverviewView
+      loading={projectsQuery.isLoading}
+      projects={projects}
+      totals={totals}
+      onOpenProject={(slug) =>
+        void navigate({
+          to: "/projects/$projectSlug",
+          params: { projectSlug: slug }
+        })
+      }
+    />
+  );
+}
+
+function ProjectRoute() {
+  const { me } = rootRoute.useRouteContext();
+  const params = useParams({ from: projectRoute.id });
+  const queryClient = useQueryClient();
   const [resentVerificationEmail, setResentVerificationEmail] = useState<string | null>(
     null
   );
-  const projects = projectsQuery.data?.projects ?? [];
-  const selected = projects.find((project) => project.slug === selectedSlug);
+  const [terminatedSessionsUserId, setTerminatedSessionsUserId] = useState<
+    string | null
+  >(null);
+  const projectsQuery = useQuery({
+    queryKey: ["admin", "projects"],
+    queryFn: fetchProjects
+  });
+  const selected = projectsQuery.data?.projects.find(
+    (project) => project.slug === params.projectSlug
+  );
   const usersQuery = useQuery({
     queryKey: ["admin", "project-users", selected?.slug],
     queryFn: () => fetchProjectUsers(selected!.slug),
@@ -444,6 +610,19 @@ function DashboardShell({
       setResentVerificationEmail(variables.email);
       await queryClient.invalidateQueries({
         queryKey: ["admin", "project-users", variables.project]
+      });
+    }
+  });
+  const terminateSessions = useMutation({
+    mutationFn: (input: { project: string; userId: string }) =>
+      terminateUserSessions(input.project, input.userId),
+    onSuccess: async (_data, variables) => {
+      setTerminatedSessionsUserId(variables.userId);
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "project-users", variables.project]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "projects"]
       });
     }
   });
@@ -460,98 +639,69 @@ function DashboardShell({
     }
   });
 
-  const totals = useMemo(() => {
-    return projects.reduce(
-      (acc, project) => {
-        acc.users += project.userCount;
-        acc.sessions += project.activeSessionCount;
-        return acc;
-      },
-      { users: 0, sessions: 0 }
+  if (projectsQuery.isLoading) {
+    return <UsersSkeleton />;
+  }
+
+  if (!selected) {
+    return (
+      <Card>
+        <EmptyState
+          title="Project not found"
+          description="The selected project no longer exists."
+        />
+      </Card>
     );
-  }, [projects]);
+  }
 
   return (
-    <div className="flex min-h-screen bg-bg">
-      <Sidebar
-        me={me}
-        projects={projects}
-        loading={projectsQuery.isLoading}
-        selectedSlug={selectedSlug}
-        onSelect={setSelectedSlug}
-        onSignOut={onSignOut}
-        theme={theme}
-        onToggleTheme={onToggleTheme}
-      />
-
-      <main className="relative min-w-0 flex-1">
-        <Topbar
-          selected={selected}
-          syncedAt={
-            usersQuery.dataUpdatedAt ||
-            projectsQuery.dataUpdatedAt ||
-            Date.now()
-          }
-        />
-
-        <div className="mx-auto w-full max-w-[1120px] px-6 py-8 lg:px-10 lg:py-10">
-          {projectsQuery.isError ? (
-            <FormAlert>Could not load admin data.</FormAlert>
-          ) : selectedSlug === "__overview__" ? (
-            <OverviewView
-              loading={projectsQuery.isLoading}
-              projects={projects}
-              totals={totals}
-              onOpenProject={setSelectedSlug}
-            />
-          ) : selected ? (
-            <ProjectView
-              project={selected}
-              usersQuery={usersQuery}
-              emailServiceEnabled={me.emailServiceEnabled}
-              resendPendingEmail={
-                resendVerification.isPending
-                  ? resendVerification.variables?.email ?? null
-                  : null
-              }
-              resendErrorEmail={
-                resendVerification.isError
-                  ? resendVerification.variables?.email ?? null
-                  : null
-              }
-              resentVerificationEmail={resentVerificationEmail}
-              updatePending={updateProject.isPending}
-              updateError={
-                updateProject.isError
-                  ? updateProject.error instanceof Error
-                    ? updateProject.error.message
-                    : "Could not save project settings"
-                  : null
-              }
-              onResendVerification={(email) =>
-                resendVerification.mutate({
-                  project: selected.slug,
-                  email
-                })
-              }
-              onUpdateProject={(patch) =>
-                updateProject.mutate({
-                  project: selected.slug,
-                  patch
-                })
-              }
-            />
-          ) : (
-            <Card>
-              <EmptyState
-                title="Project not found"
-                description="The selected project no longer exists."
-              />
-            </Card>
-          )}
-        </div>
-      </main>
-    </div>
+    <ProjectView
+      project={selected}
+      usersQuery={usersQuery}
+      emailServiceEnabled={me.emailServiceEnabled}
+      resendPendingEmail={
+        resendVerification.isPending
+          ? resendVerification.variables?.email ?? null
+          : null
+      }
+      resendErrorEmail={
+        resendVerification.isError ? resendVerification.variables?.email ?? null : null
+      }
+      resentVerificationEmail={resentVerificationEmail}
+      terminatePendingUserId={
+        terminateSessions.isPending ? terminateSessions.variables?.userId ?? null : null
+      }
+      terminateErrorUserId={
+        terminateSessions.isError ? terminateSessions.variables?.userId ?? null : null
+      }
+      terminatedSessionsUserId={terminatedSessionsUserId}
+      updatePending={updateProject.isPending}
+      updateError={
+        updateProject.isError
+          ? updateProject.error instanceof Error
+            ? updateProject.error.message
+            : "Could not save project settings"
+          : null
+      }
+      onResendVerification={(email) =>
+        resendVerification.mutate({
+          project: selected.slug,
+          email
+        })
+      }
+      onTerminateSessions={(userId) =>
+        terminateSessions.mutate({
+          project: selected.slug,
+          userId
+        })
+      }
+      onUpdateProject={(patch) =>
+        updateProject.mutate({
+          project: selected.slug,
+          patch
+        })
+      }
+    />
   );
 }
 
@@ -960,9 +1110,13 @@ function ProjectView({
   resendPendingEmail,
   resendErrorEmail,
   resentVerificationEmail,
+  terminatePendingUserId,
+  terminateErrorUserId,
+  terminatedSessionsUserId,
   updatePending,
   updateError,
   onResendVerification,
+  onTerminateSessions,
   onUpdateProject
 }: {
   project: ProjectSummary;
@@ -971,9 +1125,13 @@ function ProjectView({
   resendPendingEmail: string | null;
   resendErrorEmail: string | null;
   resentVerificationEmail: string | null;
+  terminatePendingUserId: string | null;
+  terminateErrorUserId: string | null;
+  terminatedSessionsUserId: string | null;
   updatePending: boolean;
   updateError: string | null;
   onResendVerification: (email: string) => void;
+  onTerminateSessions: (userId: string) => void;
   onUpdateProject: (patch: ProjectSettingsPatch) => void;
 }) {
   const users = usersQuery.data?.users ?? [];
@@ -1069,7 +1227,11 @@ function ProjectView({
               resendPendingEmail={resendPendingEmail}
               resendErrorEmail={resendErrorEmail}
               resentVerificationEmail={resentVerificationEmail}
+              terminatePendingUserId={terminatePendingUserId}
+              terminateErrorUserId={terminateErrorUserId}
+              terminatedSessionsUserId={terminatedSessionsUserId}
               onResendVerification={onResendVerification}
+              onTerminateSessions={onTerminateSessions}
             />
           )}
         </Card>
@@ -1222,14 +1384,22 @@ function UserTable({
   resendPendingEmail,
   resendErrorEmail,
   resentVerificationEmail,
-  onResendVerification
+  terminatePendingUserId,
+  terminateErrorUserId,
+  terminatedSessionsUserId,
+  onResendVerification,
+  onTerminateSessions
 }: {
   users: ProjectUser[];
   emailServiceEnabled: boolean;
   resendPendingEmail: string | null;
   resendErrorEmail: string | null;
   resentVerificationEmail: string | null;
+  terminatePendingUserId: string | null;
+  terminateErrorUserId: string | null;
+  terminatedSessionsUserId: string | null;
   onResendVerification: (email: string) => void;
+  onTerminateSessions: (userId: string) => void;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -1253,7 +1423,11 @@ function UserTable({
               resendPending={resendPendingEmail === user.email}
               resendError={resendErrorEmail === user.email}
               resentVerification={resentVerificationEmail === user.email}
+              terminatePending={terminatePendingUserId === user.id}
+              terminateError={terminateErrorUserId === user.id}
+              terminatedSessions={terminatedSessionsUserId === user.id}
               onResendVerification={onResendVerification}
+              onTerminateSessions={onTerminateSessions}
             />
           ))}
         </tbody>
@@ -1268,14 +1442,22 @@ function UserRow({
   resendPending,
   resendError,
   resentVerification,
-  onResendVerification
+  terminatePending,
+  terminateError,
+  terminatedSessions,
+  onResendVerification,
+  onTerminateSessions
 }: {
   user: ProjectUser;
   emailServiceEnabled: boolean;
   resendPending: boolean;
   resendError: boolean;
   resentVerification: boolean;
+  terminatePending: boolean;
+  terminateError: boolean;
+  terminatedSessions: boolean;
   onResendVerification: (email: string) => void;
+  onTerminateSessions: (userId: string) => void;
 }) {
   return (
     <tr className="border-b border-border last:border-b-0 transition-colors hover:bg-surface-hover">
@@ -1313,8 +1495,8 @@ function UserRow({
         </span>
       </Td>
       <Td align="right">
-        {!user.emailVerified && !user.banned ? (
-          <div className="flex flex-col items-end gap-0.5">
+        <div className="flex flex-col items-end gap-1">
+          {!user.emailVerified && !user.banned ? (
             <button
               type="button"
               data-press
@@ -1330,18 +1512,30 @@ function UserRow({
               <MailIcon size={12} />
               {resendPending ? "Sending…" : "Resend"}
             </button>
-            {resendError ? (
-              <span className="text-[11px]" style={{ color: "var(--danger)" }}>
-                Failed
-              </span>
-            ) : null}
-            {resentVerification ? (
-              <span className="text-[11px]" style={{ color: "var(--success)" }}>
-                Sent
-              </span>
-            ) : null}
-          </div>
-        ) : null}
+          ) : null}
+          {user.sessionCount > 0 ? (
+            <button
+              type="button"
+              data-press
+              disabled={terminatePending}
+              onClick={() => onTerminateSessions(user.id)}
+              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-[12px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+              title="Terminate all active sessions for this user"
+            >
+              {terminatePending ? "Terminating…" : "Terminate sessions"}
+            </button>
+          ) : null}
+          {resendError || terminateError ? (
+            <span className="text-[11px]" style={{ color: "var(--danger)" }}>
+              Failed
+            </span>
+          ) : null}
+          {resentVerification || terminatedSessions ? (
+            <span className="text-[11px]" style={{ color: "var(--success)" }}>
+              {terminatedSessions ? "Terminated" : "Sent"}
+            </span>
+          ) : null}
+        </div>
       </Td>
     </tr>
   );
@@ -1825,6 +2019,18 @@ async function resendVerificationEmail(project: string, email: string): Promise<
     }
   );
   if (!response.ok) throw new Error("Could not send verification email");
+}
+
+async function terminateUserSessions(project: string, userId: string): Promise<void> {
+  const response = await fetch(
+    `/admin/api/projects/${project}/users/${userId}/terminate-sessions`,
+    {
+      method: "POST",
+      credentials: "include"
+    }
+  );
+
+  if (!response.ok) throw new Error("Could not terminate sessions");
 }
 
 async function updateProjectSettings(
