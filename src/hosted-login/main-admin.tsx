@@ -45,9 +45,21 @@ type ProjectSummary = {
   slug: string;
   name: string;
   schema: string;
+  description: string;
+  iconUrl: string;
+  appUrl: string;
+  trustedOrigins: string[];
   system: boolean;
   userCount: number;
   activeSessionCount: number;
+};
+
+type ProjectSettingsPatch = {
+  name: string;
+  description: string;
+  iconUrl: string;
+  appUrl: string;
+  trustedOrigins: string[];
 };
 
 type ProjectUser = AdminUser & {
@@ -67,6 +79,11 @@ type ProjectUsersResponse = {
     slug: string;
     name: string;
     schema: string;
+    description: string;
+    iconUrl: string;
+    appUrl: string;
+    trustedOrigins: string[];
+    system: boolean;
   };
   users: ProjectUser[];
 };
@@ -430,6 +447,18 @@ function DashboardShell({
       });
     }
   });
+  const updateProject = useMutation({
+    mutationFn: (input: { project: string; patch: ProjectSettingsPatch }) =>
+      updateProjectSettings(input.project, input.patch),
+    onSuccess: async (_data, variables) => {
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "projects"]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "project-users", variables.project]
+      });
+    }
+  });
 
   const totals = useMemo(() => {
     return projects.reduce(
@@ -491,10 +520,24 @@ function DashboardShell({
                   : null
               }
               resentVerificationEmail={resentVerificationEmail}
+              updatePending={updateProject.isPending}
+              updateError={
+                updateProject.isError
+                  ? updateProject.error instanceof Error
+                    ? updateProject.error.message
+                    : "Could not save project settings"
+                  : null
+              }
               onResendVerification={(email) =>
                 resendVerification.mutate({
                   project: selected.slug,
                   email
+                })
+              }
+              onUpdateProject={(patch) =>
+                updateProject.mutate({
+                  project: selected.slug,
+                  patch
                 })
               }
             />
@@ -696,7 +739,7 @@ function SidebarProjectItem({
             : "border border-border bg-surface text-ink-soft"
         }`}
       >
-        {project.name.charAt(0).toUpperCase()}
+        <ProjectGlyph project={project} />
       </span>
       <div className="min-w-0 flex-1 leading-tight">
         <div className="flex items-center gap-1.5">
@@ -881,6 +924,11 @@ function ProjectCard({
         <code className="mt-1 block truncate text-[11.5px] font-mono text-muted">
           {project.schema}
         </code>
+        {project.description ? (
+          <p className="mt-2 line-clamp-2 text-[12.5px] leading-5 text-muted">
+            {project.description}
+          </p>
+        ) : null}
         <div className="mt-3 flex items-center gap-4 text-[12px] text-muted">
           <span>
             <span className="tabular font-medium text-ink-soft">
@@ -912,7 +960,10 @@ function ProjectView({
   resendPendingEmail,
   resendErrorEmail,
   resentVerificationEmail,
-  onResendVerification
+  updatePending,
+  updateError,
+  onResendVerification,
+  onUpdateProject
 }: {
   project: ProjectSummary;
   usersQuery: ReturnType<typeof useQuery<ProjectUsersResponse>>;
@@ -920,7 +971,10 @@ function ProjectView({
   resendPendingEmail: string | null;
   resendErrorEmail: string | null;
   resentVerificationEmail: string | null;
+  updatePending: boolean;
+  updateError: string | null;
   onResendVerification: (email: string) => void;
+  onUpdateProject: (patch: ProjectSettingsPatch) => void;
 }) {
   const users = usersQuery.data?.users ?? [];
 
@@ -941,6 +995,11 @@ function ProjectView({
           </h1>
           {project.system ? <SysTag size="lg" /> : null}
         </div>
+        {project.description ? (
+          <p className="mt-3 max-w-[42rem] text-[14px] leading-[1.55] text-muted">
+            {project.description}
+          </p>
+        ) : null}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -966,7 +1025,23 @@ function ProjectView({
 
       <section>
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="eyebrow">01 — Users</span>
+          <span className="eyebrow">01 — Settings</span>
+          <span aria-hidden="true" className="h-px flex-1 bg-border" />
+        </div>
+
+        <Card>
+          <ProjectSettingsForm
+            project={project}
+            pending={updatePending}
+            error={updateError}
+            onSubmit={onUpdateProject}
+          />
+        </Card>
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-baseline gap-3">
+          <span className="eyebrow">02 — Users</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
           {!usersQuery.isLoading && users.length > 0 ? (
             <span className="eyebrow text-muted-soft tabular">
@@ -1000,6 +1075,144 @@ function ProjectView({
         </Card>
       </section>
     </div>
+  );
+}
+
+function ProjectSettingsForm({
+  project,
+  pending,
+  error,
+  onSubmit
+}: {
+  project: ProjectSummary;
+  pending: boolean;
+  error: string | null;
+  onSubmit: (patch: ProjectSettingsPatch) => void;
+}) {
+  const [form, setForm] = useState(() => projectToSettingsForm(project));
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setForm(projectToSettingsForm(project));
+    setLocalError(null);
+  }, [project]);
+
+  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const trustedOrigins = form.trustedOrigins
+      .split("\n")
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+
+    if (form.name.trim().length === 0) {
+      setLocalError("Project name is required.");
+      return;
+    }
+
+    setLocalError(null);
+    onSubmit({
+      name: form.name.trim(),
+      description: form.description.trim(),
+      iconUrl: form.iconUrl.trim(),
+      appUrl: form.appUrl.trim(),
+      trustedOrigins
+    });
+  }
+
+  return (
+    <form onSubmit={(event) => void submit(event)} className="space-y-5 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">
+            App details
+          </h2>
+          <p className="mt-1 max-w-[34rem] text-[12.5px] leading-5 text-muted">
+            These settings are stored in Postgres and override the bootstrap values
+            from the environment.
+          </p>
+        </div>
+        {project.appUrl ? (
+          <a
+            href={project.appUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-8 items-center rounded-md border border-border bg-surface px-2.5 text-[12px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          >
+            Open app ↗
+          </a>
+        ) : null}
+      </div>
+
+      {project.system ? (
+        <div className="rounded-lg border border-border bg-surface-muted px-3 py-2.5 text-[12.5px] leading-5 text-muted">
+          System project settings are read-only from this dashboard.
+        </div>
+      ) : null}
+
+      {localError || error ? <FormAlert>{localError ?? error}</FormAlert> : null}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <SettingsInput
+          id="project-name"
+          label="Name"
+          value={form.name}
+          disabled={project.system}
+          onChange={(value) => update("name", value)}
+        />
+        <SettingsInput
+          id="project-icon"
+          label="Icon URL"
+          value={form.iconUrl}
+          disabled={project.system}
+          placeholder="https://example.com/icon.png"
+          onChange={(value) => update("iconUrl", value)}
+        />
+        <SettingsInput
+          id="project-app-url"
+          label="App URL"
+          value={form.appUrl}
+          disabled={project.system}
+          placeholder="https://app.example.com"
+          onChange={(value) => update("appUrl", value)}
+        />
+        <SettingsTextarea
+          id="project-origins"
+          label="Trusted origins"
+          value={form.trustedOrigins}
+          disabled={project.system}
+          placeholder="https://openmarkers.app"
+          rows={4}
+          onChange={(value) => update("trustedOrigins", value)}
+        />
+      </div>
+
+      <SettingsTextarea
+        id="project-description"
+        label="Description"
+        value={form.description}
+        disabled={project.system}
+        placeholder="Short internal description for this app."
+        rows={3}
+        onChange={(value) => update("description", value)}
+      />
+
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          data-press
+          disabled={project.system || pending}
+          className="inline-flex h-9 items-center justify-center rounded-lg bg-accent px-4 text-[13px] font-medium text-accent-ink outline-none transition-colors hover:bg-accent-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+          style={{ boxShadow: "var(--shadow-button)" }}
+        >
+          {pending ? "Saving…" : "Save settings"}
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -1318,6 +1531,21 @@ function Avatar({ email, size = 32 }: { email: string; size?: number }) {
   );
 }
 
+function ProjectGlyph({ project }: { project: ProjectSummary }) {
+  if (project.iconUrl) {
+    return (
+      <img
+        src={project.iconUrl}
+        alt=""
+        className="h-full w-full rounded-[6px] object-cover"
+        loading="lazy"
+      />
+    );
+  }
+
+  return <>{project.name.charAt(0).toUpperCase()}</>;
+}
+
 function Spinner() {
   return (
     <span
@@ -1328,6 +1556,103 @@ function Spinner() {
         borderTopColor: "var(--ink)"
       }}
     />
+  );
+}
+
+function SettingsInput({
+  id,
+  label,
+  value,
+  disabled = false,
+  placeholder,
+  onChange
+}: {
+  id: string;
+  label: string;
+  value: string;
+  disabled?: boolean;
+  placeholder?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="mb-1.5 block text-[12.5px] font-medium tracking-[-0.005em] text-ink-soft"
+      >
+        {label}
+      </label>
+      <input
+        id={id}
+        value={value}
+        disabled={disabled}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.currentTarget.value)}
+        className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none placeholder:text-muted-soft disabled:cursor-not-allowed disabled:opacity-60"
+        style={{
+          transition:
+            "border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease"
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.borderColor = "var(--border-strong)";
+          e.currentTarget.style.boxShadow = "0 0 0 3px var(--focus-ring)";
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderColor = "var(--border)";
+          e.currentTarget.style.boxShadow = "none";
+        }}
+      />
+    </div>
+  );
+}
+
+function SettingsTextarea({
+  id,
+  label,
+  value,
+  disabled = false,
+  placeholder,
+  rows,
+  onChange
+}: {
+  id: string;
+  label: string;
+  value: string;
+  disabled?: boolean;
+  placeholder?: string;
+  rows: number;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label
+        htmlFor={id}
+        className="mb-1.5 block text-[12.5px] font-medium tracking-[-0.005em] text-ink-soft"
+      >
+        {label}
+      </label>
+      <textarea
+        id={id}
+        value={value}
+        disabled={disabled}
+        placeholder={placeholder}
+        rows={rows}
+        onChange={(event) => onChange(event.currentTarget.value)}
+        className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2.5 text-[14px] leading-5 text-ink outline-none placeholder:text-muted-soft disabled:cursor-not-allowed disabled:opacity-60"
+        style={{
+          transition:
+            "border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease"
+        }}
+        onFocus={(e) => {
+          e.currentTarget.style.borderColor = "var(--border-strong)";
+          e.currentTarget.style.boxShadow = "0 0 0 3px var(--focus-ring)";
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderColor = "var(--border)";
+          e.currentTarget.style.boxShadow = "none";
+        }}
+      />
+    </div>
   );
 }
 
@@ -1502,6 +1827,27 @@ async function resendVerificationEmail(project: string, email: string): Promise<
   if (!response.ok) throw new Error("Could not send verification email");
 }
 
+async function updateProjectSettings(
+  project: string,
+  patch: ProjectSettingsPatch
+): Promise<ProjectSummary> {
+  const response = await fetch(`/admin/api/projects/${project}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: jsonHeaders,
+    body: JSON.stringify(patch)
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      message?: string;
+    } | null;
+    throw new Error(body?.message ?? "Could not save project settings");
+  }
+
+  return ((await response.json()) as { project: ProjectSummary }).project;
+}
+
 async function loadSession(): Promise<ViewState> {
   const response = await fetch("/admin/api/me", { credentials: "include" });
   if (response.status === 401) return { status: "signed-out" };
@@ -1520,6 +1866,16 @@ function formatDate(value: string): string {
     day: "numeric",
     year: "numeric"
   }).format(new Date(value));
+}
+
+function projectToSettingsForm(project: ProjectSummary) {
+  return {
+    name: project.name,
+    description: project.description,
+    iconUrl: project.iconUrl,
+    appUrl: project.appUrl,
+    trustedOrigins: project.trustedOrigins.join("\n")
+  };
 }
 
 async function signOut(): Promise<void> {

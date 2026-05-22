@@ -2,6 +2,9 @@ export type AuthProject = {
   slug: string;
   name: string;
   schema: string;
+  description: string;
+  iconUrl: string;
+  appUrl: string;
   trustedOrigins: string[];
 };
 
@@ -45,6 +48,9 @@ export function parseAdminProject(raw: string | undefined): AuthProject {
       slug: "admin",
       name: "Auth Admin",
       schema: "auth_admin",
+      description: "System admin realm for managing auth projects.",
+      iconUrl: "",
+      appUrl: "",
       trustedOrigins: []
     };
   }
@@ -64,6 +70,9 @@ function parseProject(value: unknown): AuthProject {
   const slug = readString(value, "slug");
   const name = readString(value, "name");
   const schema = readString(value, "schema");
+  const description = readOptionalString(value, "description");
+  const iconUrl = readOptionalString(value, "iconUrl");
+  const appUrl = readOptionalString(value, "appUrl");
   const trustedOrigins = readStringArray(value, "trustedOrigins");
 
   if (!SLUG_PATTERN.test(slug)) {
@@ -78,6 +87,9 @@ function parseProject(value: unknown): AuthProject {
     slug,
     name,
     schema,
+    description,
+    iconUrl,
+    appUrl,
     trustedOrigins
   };
 }
@@ -87,6 +99,20 @@ function readString(record: Record<string, unknown>, key: string): string {
 
   if (typeof value !== "string" || value.length === 0) {
     throw new Error(`Project field ${key} must be a non-empty string`);
+  }
+
+  return value;
+}
+
+function readOptionalString(record: Record<string, unknown>, key: string): string {
+  const value = record[key];
+
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  if (typeof value !== "string") {
+    throw new Error(`Project field ${key} must be a string`);
   }
 
   return value;

@@ -4,10 +4,17 @@ import { Hono } from "hono";
 import type { Pool } from "pg";
 
 import type { AuthRegistry } from "../auth/registry";
+import type { AuthProject } from "../config/projects";
+import {
+  updateProjectSettings,
+  type ProjectSettingsPatch
+} from "../db/project-settings";
 
 type AdminApiOptions = {
   registry: AuthRegistry;
   emailServiceEnabled: boolean;
+  databaseUrl: string;
+  adminProject: AuthProject;
 };
 
 type AdminSession = {
@@ -30,6 +37,8 @@ type ChangePasswordBody = {
 type ResendVerificationBody = {
   email?: unknown;
 };
+
+type UpdateProjectBody = Partial<Record<keyof ProjectSettingsPatch, unknown>>;
 
 type RegisteredProject = NonNullable<ReturnType<AuthRegistry["get"]>>;
 
@@ -110,19 +119,64 @@ export function createAdminApi(options: AdminApiOptions): Hono {
         }
 
         const counts = await readProjectCounts(registered.projectDb.pool);
-        return {
-          slug: project.slug,
-          name: project.name,
-          schema: project.schema,
-          system: project.slug === "admin",
-          ...counts
-        };
+        return serializeProject(project, counts);
       })
     );
 
     return c.json({
       projects: projects.filter((project) => project !== null)
     });
+  });
+
+  app.patch("/projects/:project", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const registered = options.registry.get(c.req.param("project"));
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+
+    if (registered.project.slug === options.adminProject.slug) {
+      return c.json({ error: "system_project_locked" }, 409);
+    }
+
+    const body = (await c.req.json().catch(() => ({}))) as UpdateProjectBody;
+    const patch = parseProjectSettingsPatch(body);
+    if (!patch) {
+      return c.json({ error: "invalid_body" }, 400);
+    }
+
+    try {
+      const updated = await updateProjectSettings({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject,
+        slug: registered.project.slug,
+        patch
+      });
+
+      if (!updated) {
+        return c.json({ error: "unknown_project" }, 404);
+      }
+
+      await options.registry.updateProject(updated);
+      const next = options.registry.get(updated.slug);
+      const counts = next ? await readProjectCounts(next.projectDb.pool) : undefined;
+
+      return c.json({
+        project: serializeProject(updated, counts)
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error: "invalid_project_settings",
+          message: error instanceof Error ? error.message : "Invalid project settings"
+        },
+        400
+      );
+    }
   });
 
   app.get("/projects/:project/users", async (c) => {
@@ -142,7 +196,12 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       project: {
         slug: registered.project.slug,
         name: registered.project.name,
-        schema: registered.project.schema
+        schema: registered.project.schema,
+        description: registered.project.description,
+        iconUrl: registered.project.iconUrl,
+        appUrl: registered.project.appUrl,
+        trustedOrigins: registered.project.trustedOrigins,
+        system: registered.project.slug === options.adminProject.slug
       },
       users: users.map((user) => ({
         id: user.id,
@@ -187,6 +246,47 @@ export function createAdminApi(options: AdminApiOptions): Hono {
   });
 
   return app;
+}
+
+function serializeProject(
+  project: AuthProject,
+  counts: { userCount: number; activeSessionCount: number } = {
+    userCount: 0,
+    activeSessionCount: 0
+  }
+) {
+  return {
+    slug: project.slug,
+    name: project.name,
+    schema: project.schema,
+    description: project.description,
+    iconUrl: project.iconUrl,
+    appUrl: project.appUrl,
+    trustedOrigins: project.trustedOrigins,
+    system: project.slug === "admin",
+    ...counts
+  };
+}
+
+function parseProjectSettingsPatch(body: UpdateProjectBody): ProjectSettingsPatch | null {
+  if (
+    typeof body.name !== "string" ||
+    typeof body.description !== "string" ||
+    typeof body.iconUrl !== "string" ||
+    typeof body.appUrl !== "string" ||
+    !Array.isArray(body.trustedOrigins) ||
+    !body.trustedOrigins.every((origin) => typeof origin === "string")
+  ) {
+    return null;
+  }
+
+  return {
+    name: body.name.trim(),
+    description: body.description.trim(),
+    iconUrl: body.iconUrl.trim(),
+    appUrl: body.appUrl.trim(),
+    trustedOrigins: body.trustedOrigins.map((origin) => origin.trim()).filter(Boolean)
+  };
 }
 
 async function requireAdmin(

@@ -22,24 +22,12 @@ type RegistryOptions = {
 
 export class AuthRegistry {
   private readonly projects = new Map<string, RegisteredProject>();
+  private readonly options: RegistryOptions;
 
   constructor(options: RegistryOptions) {
+    this.options = options;
     for (const project of options.projects) {
-      const projectDb = createProjectDatabase(options.databaseUrl, project);
-      const auth = createProjectAuth({
-        project,
-        projectDb,
-        publicBaseUrl: options.publicBaseUrl,
-        secret: options.secret,
-        emailSender: options.emailSender,
-        trustProxyHeaders: options.trustProxyHeaders
-      });
-
-      this.projects.set(project.slug, {
-        project,
-        auth,
-        projectDb
-      });
+      this.projects.set(project.slug, this.createRegisteredProject(project));
     }
   }
 
@@ -49,6 +37,14 @@ export class AuthRegistry {
 
   list(): AuthProject[] {
     return [...this.projects.values()].map(({ project }) => project);
+  }
+
+  async updateProject(project: AuthProject): Promise<void> {
+    const current = this.projects.get(project.slug);
+    const next = this.createRegisteredProject(project);
+
+    this.projects.set(project.slug, next);
+    await current?.projectDb.pool.end();
   }
 
   isTrustedOrigin(slug: string, origin: string | undefined): boolean {
@@ -69,5 +65,23 @@ export class AuthRegistry {
     await Promise.all(
       [...this.projects.values()].map(({ projectDb }) => projectDb.pool.end())
     );
+  }
+
+  private createRegisteredProject(project: AuthProject): RegisteredProject {
+    const projectDb = createProjectDatabase(this.options.databaseUrl, project);
+    const auth = createProjectAuth({
+      project,
+      projectDb,
+      publicBaseUrl: this.options.publicBaseUrl,
+      secret: this.options.secret,
+      emailSender: this.options.emailSender,
+      trustProxyHeaders: this.options.trustProxyHeaders
+    });
+
+    return {
+      project,
+      auth,
+      projectDb
+    };
   }
 }

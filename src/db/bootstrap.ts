@@ -10,6 +10,7 @@ import {
   createProjectMigrationAuthOptions
 } from "../auth/project-auth";
 import { createProjectDatabase } from "./project-db";
+import { ensureProjectSettingsTable, seedProjectSettings } from "./project-settings";
 
 type BootstrapOptions = {
   databaseUrl: string;
@@ -23,10 +24,6 @@ type BootstrapOptions = {
 const BOOTSTRAP_LOCK_KEY = "nezdemkovski-auth-bootstrap";
 
 export async function bootstrapProjects(options: BootstrapOptions): Promise<void> {
-  if (options.projects.length === 0) {
-    return;
-  }
-
   const adminPool = new Pool({
     connectionString: options.databaseUrl
   });
@@ -46,6 +43,12 @@ export async function bootstrapProjects(options: BootstrapOptions): Promise<void
     }
 
     await bootstrapInitialAdmin(options);
+    await ensureProjectSettingsTable(options.databaseUrl, options.adminProject);
+    await seedProjectSettings({
+      databaseUrl: options.databaseUrl,
+      adminProject: options.adminProject,
+      projects: options.projects
+    });
   } finally {
     await db
       .execute(sql`SELECT pg_advisory_unlock(hashtext(${BOOTSTRAP_LOCK_KEY}))`)

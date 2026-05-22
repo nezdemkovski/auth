@@ -20,6 +20,9 @@ describe("parseProjects", () => {
         slug: "service-1",
         name: "Service 1",
         schema: "service_1_auth",
+        description: "",
+        iconUrl: "",
+        appUrl: "",
         trustedOrigins: ["http://localhost:5173"]
       }
     ]);
@@ -51,6 +54,9 @@ describe("parseProjects", () => {
       slug: "admin",
       name: "Auth Admin",
       schema: "auth_admin",
+      description: "System admin realm for managing auth projects.",
+      iconUrl: "",
+      appUrl: "",
       trustedOrigins: []
     });
   });

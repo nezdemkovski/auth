@@ -6,6 +6,7 @@ import { cors } from "hono/cors";
 import type { Env } from "../config/env";
 import { AuthRegistry } from "../auth/registry";
 import { bootstrapProjects } from "../db/bootstrap";
+import { loadEffectiveProjects } from "../db/project-settings";
 import { createEmailSender } from "../email/sender";
 import { createAdminApi } from "./admin";
 import {
@@ -53,17 +54,25 @@ export async function createApp(env: Env) {
   const emailSender = createEmailSender(env.email);
   const rateLimiter = createRateLimiter(env.redisUrl);
   await rateLimiter.connect();
+  let adminProject = env.adminProject;
+  let projects = env.projects;
 
   if (env.autoMigrate) {
     await bootstrapProjects({
       databaseUrl: env.databaseUrl,
       publicBaseUrl: env.publicBaseUrl,
       secret: env.betterAuthSecret,
-      adminProject: env.adminProject,
+      adminProject,
       adminEmail: env.adminEmail,
-      projects: env.projects
+      projects
     });
   }
+
+  ({ adminProject, projects } = await loadEffectiveProjects({
+    databaseUrl: env.databaseUrl,
+    adminProject,
+    projects
+  }));
 
   const registry = new AuthRegistry({
     databaseUrl: env.databaseUrl,
@@ -71,7 +80,7 @@ export async function createApp(env: Env) {
     secret: env.betterAuthSecret,
     emailSender,
     trustProxyHeaders: env.trustProxyHeaders,
-    projects: [env.adminProject, ...env.projects]
+    projects: [adminProject, ...projects]
   });
 
   const app = new Hono<{ Variables: AppVariables }>({
@@ -93,7 +102,7 @@ export async function createApp(env: Env) {
 
   app.get("/projects", (c) => {
     return c.json({
-      projects: env.projects.map((project) => ({
+      projects: projects.map((project) => ({
         slug: project.slug,
         name: project.name
       }))
@@ -132,7 +141,9 @@ export async function createApp(env: Env) {
     "/admin/api",
     createAdminApi({
       registry,
-      emailServiceEnabled: env.emailServiceEnabled
+      emailServiceEnabled: env.emailServiceEnabled,
+      databaseUrl: env.databaseUrl,
+      adminProject
     })
   );
 
