@@ -136,6 +136,7 @@ async function issueSession(options: {
   email: string;
   password: string;
   redirectUri: string;
+  headers: Headers;
 }): Promise<{ sessionCookie: string; email: string } | null> {
   const callbackURL = callbackUrlFromRedirectUri(options.redirectUri);
   const body =
@@ -157,9 +158,9 @@ async function issueSession(options: {
   const authRes = await options.registered.auth.handler(
     new Request(`http://auth.local${authPath}${endpoint}`, {
       method: "POST",
-      headers: {
+      headers: internalAuthHeaders(options.headers, {
         "Content-Type": "application/json"
-      },
+      }),
       body: JSON.stringify(body)
     })
   );
@@ -172,9 +173,9 @@ async function issueSession(options: {
   const cookie = cookies.map((value) => value.split(";")[0]).join("; ");
   const sessionRes = await options.registered.auth.handler(
     new Request(`http://auth.local${authPath}/get-session`, {
-      headers: {
+      headers: internalAuthHeaders(options.headers, {
         Cookie: cookie
-      }
+      })
     })
   );
 
@@ -220,6 +221,25 @@ export function renderHostedLogin(
   });
 }
 
+function internalAuthHeaders(source: Headers, headers: HeadersInit): Headers {
+  const result = new Headers(headers);
+
+  for (const name of [
+    "cf-connecting-ip",
+    "x-forwarded-for",
+    "x-real-ip",
+    "x-client-ip",
+    "user-agent"
+  ]) {
+    const value = source.get(name);
+    if (value) {
+      result.set(name, value);
+    }
+  }
+
+  return result;
+}
+
 function callbackUrlFromRedirectUri(redirectUri: string): string {
   return new URL(redirectUri).origin;
 }
@@ -250,7 +270,8 @@ export async function submitHostedLogin(
     mode,
     email,
     password,
-    redirectUri
+    redirectUri,
+    headers: req.headers
   });
 
   if (!session) {
