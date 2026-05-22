@@ -21,9 +21,24 @@ export type ProjectSummary = {
   iconUrl: string;
   appUrl: string;
   trustedOrigins: string[];
+  features: ProjectFeatures;
   system: boolean;
   userCount: number;
   activeSessionCount: number;
+};
+
+export type ProjectFeatures = {
+  passkey: {
+    enabled: boolean;
+  };
+  twoFactor: {
+    enabled: boolean;
+    required: "optional" | "admins" | "everyone";
+  };
+  agentAuth: {
+    enabled: boolean;
+    mode: "read-only" | "scoped-write";
+  };
 };
 
 export type ProjectSettingsPatch = {
@@ -32,10 +47,12 @@ export type ProjectSettingsPatch = {
   iconUrl: string;
   appUrl: string;
   trustedOrigins: string[];
+  features: ProjectFeatures;
 };
 
-export type CreateProjectInput = ProjectSettingsPatch & {
+export type CreateProjectInput = Omit<ProjectSettingsPatch, "features"> & {
   slug: string;
+  features?: ProjectFeatures;
 };
 
 export type ProjectUser = AdminUser & {

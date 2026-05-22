@@ -9,6 +9,7 @@ import { prepareProjectSchema } from "../db/bootstrap";
 import {
   createProjectFromInput,
   createProjectSettings,
+  normalizeProjectFeatures,
   projectSettingsExists,
   updateProjectSettings,
   type ProjectSettingsCreate,
@@ -419,6 +420,7 @@ function serializeProject(
     iconUrl: project.iconUrl,
     appUrl: project.appUrl,
     trustedOrigins: project.trustedOrigins,
+    features: project.features,
     system: project.slug === "admin",
     ...counts
   };
@@ -443,7 +445,8 @@ function parseProjectCreate(body: CreateProjectBody): ProjectSettingsCreate | nu
     description: body.description.trim(),
     iconUrl: body.iconUrl.trim(),
     appUrl: body.appUrl.trim(),
-    trustedOrigins: body.trustedOrigins.map((origin) => origin.trim()).filter(Boolean)
+    trustedOrigins: body.trustedOrigins.map((origin) => origin.trim()).filter(Boolean),
+    features: normalizeProjectFeatures(body.features)
   };
 }
 
@@ -464,7 +467,8 @@ function parseProjectSettingsPatch(body: UpdateProjectBody): ProjectSettingsPatc
     description: body.description.trim(),
     iconUrl: body.iconUrl.trim(),
     appUrl: body.appUrl.trim(),
-    trustedOrigins: body.trustedOrigins.map((origin) => origin.trim()).filter(Boolean)
+    trustedOrigins: body.trustedOrigins.map((origin) => origin.trim()).filter(Boolean),
+    features: normalizeProjectFeatures(body.features)
   };
 }
 

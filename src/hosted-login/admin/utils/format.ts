@@ -27,6 +27,11 @@ export function projectToSettingsForm(project: ProjectSummary) {
     description: project.description,
     iconUrl: project.iconUrl,
     appUrl: project.appUrl,
-    trustedOrigins: project.trustedOrigins.join("\n")
+    trustedOrigins: project.trustedOrigins.join("\n"),
+    passkeyEnabled: project.features.passkey.enabled,
+    twoFactorEnabled: project.features.twoFactor.enabled,
+    twoFactorRequired: project.features.twoFactor.required,
+    agentAuthEnabled: project.features.agentAuth.enabled,
+    agentAuthMode: project.features.agentAuth.mode
   };
 }

@@ -6,6 +6,35 @@ export type AuthProject = {
   iconUrl: string;
   appUrl: string;
   trustedOrigins: string[];
+  features: ProjectFeatures;
+};
+
+export type ProjectFeatures = {
+  passkey: {
+    enabled: boolean;
+  };
+  twoFactor: {
+    enabled: boolean;
+    required: "optional" | "admins" | "everyone";
+  };
+  agentAuth: {
+    enabled: boolean;
+    mode: "read-only" | "scoped-write";
+  };
+};
+
+export const DEFAULT_PROJECT_FEATURES: ProjectFeatures = {
+  passkey: {
+    enabled: false
+  },
+  twoFactor: {
+    enabled: false,
+    required: "optional"
+  },
+  agentAuth: {
+    enabled: false,
+    mode: "read-only"
+  }
 };
 
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/;
@@ -18,7 +47,8 @@ export const ADMIN_PROJECT: AuthProject = {
   description: "System admin realm for managing auth projects.",
   iconUrl: "",
   appUrl: "",
-  trustedOrigins: []
+  trustedOrigins: [],
+  features: DEFAULT_PROJECT_FEATURES
 };
 
 export function findProject(projects: AuthProject[], slug: string): AuthProject | null {

@@ -47,7 +47,20 @@ export function ProjectSettingsForm({
       description: form.description.trim(),
       iconUrl: form.iconUrl.trim(),
       appUrl: form.appUrl.trim(),
-      trustedOrigins
+      trustedOrigins,
+      features: {
+        passkey: {
+          enabled: form.passkeyEnabled
+        },
+        twoFactor: {
+          enabled: form.twoFactorEnabled,
+          required: form.twoFactorRequired
+        },
+        agentAuth: {
+          enabled: form.agentAuthEnabled,
+          mode: form.agentAuthMode
+        }
+      }
     });
   }
 
@@ -128,6 +141,81 @@ export function ProjectSettingsForm({
         onChange={(value) => update("description", value)}
       />
 
+      <section className="rounded-lg border border-border bg-surface-muted p-4">
+        <div>
+          <h3 className="text-[13px] font-semibold tracking-[-0.005em] text-ink">
+            Auth features
+          </h3>
+          <p className="mt-1 max-w-[34rem] text-[12px] leading-5 text-muted">
+            Feature availability is enforced by the server for this realm.
+          </p>
+        </div>
+
+        <div className="mt-4 grid gap-3">
+          <FeatureToggle
+            label="Passkeys"
+            description="Allow users to register and sign in with WebAuthn passkeys."
+            checked={form.passkeyEnabled}
+            disabled={project.system}
+            onChange={(checked) => update("passkeyEnabled", checked)}
+          />
+
+          <FeatureToggle
+            label="Two-factor authentication"
+            description="Allow TOTP and backup-code based second factor flows."
+            checked={form.twoFactorEnabled}
+            disabled={project.system}
+            onChange={(checked) => update("twoFactorEnabled", checked)}
+          />
+
+          <label className="grid gap-1.5 pl-8">
+            <span className="text-[12.5px] font-medium text-ink-soft">
+              Two-factor requirement
+            </span>
+            <select
+              value={form.twoFactorRequired}
+              disabled={project.system || !form.twoFactorEnabled}
+              onChange={(event) =>
+                update(
+                  "twoFactorRequired",
+                  event.currentTarget.value as typeof form.twoFactorRequired
+                )
+              }
+              className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60 md:max-w-[18rem]"
+            >
+              <option value="optional">Optional</option>
+              <option value="admins">Required for admins</option>
+              <option value="everyone">Required for everyone</option>
+            </select>
+          </label>
+
+          <FeatureToggle
+            label="Agent Auth"
+            description="Allow AI agents to request scoped access through the Agent Auth protocol."
+            checked={form.agentAuthEnabled}
+            disabled={project.system}
+            onChange={(checked) => update("agentAuthEnabled", checked)}
+          />
+
+          <label className="grid gap-1.5 pl-8">
+            <span className="text-[12.5px] font-medium text-ink-soft">
+              Agent access mode
+            </span>
+            <select
+              value={form.agentAuthMode}
+              disabled={project.system || !form.agentAuthEnabled}
+              onChange={(event) =>
+                update("agentAuthMode", event.currentTarget.value as typeof form.agentAuthMode)
+              }
+              className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60 md:max-w-[18rem]"
+            >
+              <option value="read-only">Read-only</option>
+              <option value="scoped-write">Scoped write</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
       <div className="flex justify-end">
         <button
           type="submit"
@@ -140,5 +228,35 @@ export function ProjectSettingsForm({
         </button>
       </div>
     </form>
+  );
+}
+
+function FeatureToggle({
+  label,
+  description,
+  checked,
+  disabled,
+  onChange
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex items-start gap-3 rounded-lg border border-border bg-surface px-3 py-3">
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.currentTarget.checked)}
+        className="mt-0.5 h-4 w-4 rounded border-border bg-surface text-accent focus:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+      />
+      <span className="min-w-0">
+        <span className="block text-[13px] font-medium text-ink">{label}</span>
+        <span className="mt-0.5 block text-[12px] leading-5 text-muted">{description}</span>
+      </span>
+    </label>
   );
 }

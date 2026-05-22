@@ -3,11 +3,13 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
 import {
+  DEFAULT_PROJECT_FEATURES,
   normalizeProjectSlug,
   projectSchemaFromSlug,
   validateProjectSchema,
   validateProjectSlug,
-  type AuthProject
+  type AuthProject,
+  type ProjectFeatures
 } from "../config/projects";
 
 export type ProjectSettingsPatch = {
@@ -16,10 +18,12 @@ export type ProjectSettingsPatch = {
   iconUrl: string;
   appUrl: string;
   trustedOrigins: string[];
+  features: ProjectFeatures;
 };
 
-export type ProjectSettingsCreate = ProjectSettingsPatch & {
+export type ProjectSettingsCreate = Omit<ProjectSettingsPatch, "features"> & {
   slug: string;
+  features?: ProjectFeatures;
 };
 
 type ProjectSettingsRow = {
@@ -30,6 +34,7 @@ type ProjectSettingsRow = {
   iconUrl: string | null;
   appUrl: string | null;
   trustedOrigins: unknown;
+  features: unknown;
   system: boolean;
 };
 
@@ -50,6 +55,7 @@ export async function ensureProjectSettingsTable(
         icon_url text NOT NULL DEFAULT '',
         app_url text NOT NULL DEFAULT '',
         trusted_origins jsonb NOT NULL DEFAULT '[]'::jsonb,
+        features jsonb NOT NULL DEFAULT '{}'::jsonb,
         system boolean NOT NULL DEFAULT false,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
@@ -58,6 +64,10 @@ export async function ensureProjectSettingsTable(
     await db.execute(sql`
       ALTER TABLE auth_project_settings
       ADD COLUMN IF NOT EXISTS enabled boolean NOT NULL DEFAULT true
+    `);
+    await db.execute(sql`
+      ALTER TABLE auth_project_settings
+      ADD COLUMN IF NOT EXISTS features jsonb NOT NULL DEFAULT '{}'::jsonb
     `);
     await db.execute(sql`
       CREATE UNIQUE INDEX IF NOT EXISTS auth_project_settings_schema_key
@@ -86,6 +96,7 @@ export async function seedAdminProjectSettings(options: {
         icon_url,
         app_url,
         trusted_origins,
+        features,
         system,
         enabled
       )
@@ -97,6 +108,7 @@ export async function seedAdminProjectSettings(options: {
         ${project.iconUrl},
         ${project.appUrl},
         ${JSON.stringify(project.trustedOrigins)}::jsonb,
+        ${JSON.stringify(project.features)}::jsonb,
         true,
         true
       )
@@ -107,6 +119,7 @@ export async function seedAdminProjectSettings(options: {
           icon_url = EXCLUDED.icon_url,
           app_url = EXCLUDED.app_url,
           trusted_origins = EXCLUDED.trusted_origins,
+          features = COALESCE(NULLIF(auth_project_settings.features, '{}'::jsonb), EXCLUDED.features),
           system = true,
           enabled = true
     `);
@@ -180,6 +193,7 @@ export async function createProjectSettings(options: {
         icon_url,
         app_url,
         trusted_origins,
+        features,
         system,
         enabled
       )
@@ -191,11 +205,13 @@ export async function createProjectSettings(options: {
         ${project.iconUrl},
         ${project.appUrl},
         ${JSON.stringify(project.trustedOrigins)}::jsonb,
+        ${JSON.stringify(project.features)}::jsonb,
         false,
         true
       )
       RETURNING slug, name, schema, description, icon_url AS "iconUrl",
                 app_url AS "appUrl", trusted_origins AS "trustedOrigins",
+                features,
                 system
     `);
 
@@ -220,6 +236,7 @@ export async function updateProjectSettings(options: {
     const existing = await db.execute<ProjectSettingsRow>(sql`
       SELECT slug, name, schema, description, icon_url AS "iconUrl",
              app_url AS "appUrl", trusted_origins AS "trustedOrigins",
+             features,
              system
       FROM auth_project_settings
       WHERE slug = ${options.slug}
@@ -237,10 +254,12 @@ export async function updateProjectSettings(options: {
           icon_url = ${options.patch.iconUrl},
           app_url = ${options.patch.appUrl},
           trusted_origins = ${JSON.stringify(options.patch.trustedOrigins)}::jsonb,
+          features = ${JSON.stringify(options.patch.features)}::jsonb,
           updated_at = now()
       WHERE slug = ${options.slug}
       RETURNING slug, name, schema, description, icon_url AS "iconUrl",
                 app_url AS "appUrl", trusted_origins AS "trustedOrigins",
+                features,
                 system
     `);
 
@@ -261,6 +280,7 @@ async function readProjectSettings(
     const rows = await db.execute<ProjectSettingsRow>(sql`
       SELECT slug, name, schema, description, icon_url AS "iconUrl",
              app_url AS "appUrl", trusted_origins AS "trustedOrigins",
+             features,
              system
       FROM auth_project_settings
       WHERE enabled = true
@@ -302,7 +322,8 @@ export function createProjectFromInput(input: ProjectSettingsCreate): AuthProjec
     description: input.description.trim(),
     iconUrl: input.iconUrl.trim(),
     appUrl: input.appUrl.trim(),
-    trustedOrigins: input.trustedOrigins.map((origin) => origin.trim()).filter(Boolean)
+    trustedOrigins: input.trustedOrigins.map((origin) => origin.trim()).filter(Boolean),
+    features: normalizeProjectFeatures(input.features)
   };
 
   validateProjectSchema(project.schema);
@@ -343,7 +364,52 @@ function rowToProject(row: ProjectSettingsRow): AuthProject {
     description: row.description ?? "",
     iconUrl: row.iconUrl ?? "",
     appUrl: row.appUrl ?? "",
-    trustedOrigins: normalizeTrustedOrigins(row.trustedOrigins)
+    trustedOrigins: normalizeTrustedOrigins(row.trustedOrigins),
+    features: normalizeProjectFeatures(row.features)
+  };
+}
+
+export function normalizeProjectFeatures(value: unknown): ProjectFeatures {
+  if (!isRecord(value)) {
+    return cloneDefaultFeatures();
+  }
+
+  const passkey = isRecord(value.passkey) ? value.passkey : {};
+  const twoFactor = isRecord(value.twoFactor) ? value.twoFactor : {};
+  const agentAuth = isRecord(value.agentAuth) ? value.agentAuth : {};
+
+  const required = twoFactor.required;
+  const mode = agentAuth.mode;
+
+  return {
+    passkey: {
+      enabled: typeof passkey.enabled === "boolean" ? passkey.enabled : false
+    },
+    twoFactor: {
+      enabled: typeof twoFactor.enabled === "boolean" ? twoFactor.enabled : false,
+      required:
+        required === "admins" || required === "everyone" || required === "optional"
+          ? required
+          : "optional"
+    },
+    agentAuth: {
+      enabled: typeof agentAuth.enabled === "boolean" ? agentAuth.enabled : false,
+      mode: mode === "scoped-write" || mode === "read-only" ? mode : "read-only"
+    }
+  };
+}
+
+function cloneDefaultFeatures(): ProjectFeatures {
+  return {
+    passkey: {
+      ...DEFAULT_PROJECT_FEATURES.passkey
+    },
+    twoFactor: {
+      ...DEFAULT_PROJECT_FEATURES.twoFactor
+    },
+    agentAuth: {
+      ...DEFAULT_PROJECT_FEATURES.agentAuth
+    }
   };
 }
 
@@ -353,6 +419,10 @@ function normalizeTrustedOrigins(value: unknown): string[] {
   }
 
   return value.filter((item): item is string => typeof item === "string");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function createAdminPool(databaseUrl: string, adminProject: AuthProject): Pool {

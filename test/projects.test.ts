@@ -2,10 +2,12 @@ import { describe, expect, test } from "bun:test";
 
 import {
   ADMIN_PROJECT,
+  DEFAULT_PROJECT_FEATURES,
   normalizeProjectSlug,
   projectSchemaFromSlug,
   validateProjectSlug
 } from "../src/config/projects";
+import { normalizeProjectFeatures } from "../src/db/project-settings";
 
 describe("projects", () => {
   test("uses a stable built-in admin project", () => {
@@ -16,7 +18,8 @@ describe("projects", () => {
       description: "System admin realm for managing auth projects.",
       iconUrl: "",
       appUrl: "",
-      trustedOrigins: []
+      trustedOrigins: [],
+      features: DEFAULT_PROJECT_FEATURES
     });
   });
 
@@ -30,5 +33,33 @@ describe("projects", () => {
 
   test("rejects invalid slugs", () => {
     expect(() => validateProjectSlug("bad_slug")).toThrow("Invalid project slug");
+  });
+
+  test("normalizes realm feature flags", () => {
+    expect(
+      normalizeProjectFeatures({
+        passkey: { enabled: true },
+        twoFactor: { enabled: true, required: "everyone" },
+        agentAuth: { enabled: true, mode: "scoped-write" }
+      })
+    ).toEqual({
+      passkey: { enabled: true },
+      twoFactor: { enabled: true, required: "everyone" },
+      agentAuth: { enabled: true, mode: "scoped-write" }
+    });
+  });
+
+  test("falls back to disabled feature flags for invalid input", () => {
+    expect(
+      normalizeProjectFeatures({
+        passkey: { enabled: "yes" },
+        twoFactor: { enabled: true, required: "root" },
+        agentAuth: { enabled: true, mode: "god-mode" }
+      })
+    ).toEqual({
+      passkey: { enabled: false },
+      twoFactor: { enabled: true, required: "optional" },
+      agentAuth: { enabled: true, mode: "read-only" }
+    });
   });
 });

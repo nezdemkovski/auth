@@ -1,6 +1,8 @@
 import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
-import { admin, bearer, jwt } from "better-auth/plugins";
+import { admin, bearer, jwt, twoFactor } from "better-auth/plugins";
+import { agentAuth } from "@better-auth/agent-auth";
+import { passkey } from "@better-auth/passkey";
 import type { Pool } from "pg";
 
 import type { AuthProject } from "../config/projects";
@@ -85,6 +87,41 @@ function createBaseProjectAuthOptions(options: {
       admin({
         defaultRole: "user",
         adminRoles: ["admin"]
+      }),
+      passkey({
+        rpName: project.name,
+        origin: project.trustedOrigins
+      }),
+      twoFactor(),
+      agentAuth({
+        providerName: project.name,
+        providerDescription: project.description || `${project.name} auth realm`,
+        capabilities: [
+          {
+            name: "realm.info",
+            description: "Read public metadata for the current auth realm.",
+            input: {
+              type: "object",
+              properties: {},
+              additionalProperties: false
+            }
+          }
+        ],
+        requireAuthForCapabilities: true,
+        validateCapabilities: (capabilities) =>
+          capabilities.every((capability) => capability === "realm.info"),
+        onExecute: ({ capability }) => {
+          if (capability !== "realm.info") {
+            throw new Error("Unknown capability");
+          }
+
+          return {
+            slug: project.slug,
+            name: project.name,
+            description: project.description
+          };
+        },
+        trustProxy: options.trustProxyHeaders
       }),
       bearer(),
       jwt({

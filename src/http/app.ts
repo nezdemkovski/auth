@@ -6,7 +6,7 @@ import { cors } from "hono/cors";
 import type { Env } from "../config/env";
 import type { AuthProject } from "../config/projects";
 import { AuthRegistry } from "../auth/registry";
-import { bootstrapProjects } from "../db/bootstrap";
+import { bootstrapProjects, prepareProjectSchema } from "../db/bootstrap";
 import { loadEffectiveProjects } from "../db/project-settings";
 import { createEmailSender } from "../email/sender";
 import { createAdminApi } from "./admin";
@@ -72,6 +72,18 @@ export async function createApp(env: Env) {
     databaseUrl: env.databaseUrl,
     adminProject
   }));
+
+  if (env.autoMigrate) {
+    for (const project of projects) {
+      await prepareProjectSchema({
+        databaseUrl: env.databaseUrl,
+        publicBaseUrl: env.publicBaseUrl,
+        secret: env.betterAuthSecret,
+        adminProject,
+        project
+      });
+    }
+  }
 
   const registry = new AuthRegistry({
     databaseUrl: env.databaseUrl,
@@ -184,6 +196,29 @@ export async function createApp(env: Env) {
     return registered.auth.handler(c.req.raw);
   });
 
+  app.get("/:project/.well-known/agent-configuration", async (c) => {
+    const projectSlug = c.req.param("project");
+    const registered = registry.get(projectSlug);
+
+    if (!registered) {
+      return c.json(
+        {
+          error: "unknown_project"
+        },
+        404
+      );
+    }
+
+    if (!registered.project.features.agentAuth.enabled) {
+      return c.notFound();
+    }
+
+    const api = registered.auth.api as unknown as {
+      getAgentConfiguration(input: { headers: Headers }): Promise<unknown>;
+    };
+    return c.json(await api.getAgentConfiguration({ headers: c.req.raw.headers }));
+  });
+
   app.use(
     "/:project/api/auth/*",
     cors({
@@ -215,6 +250,10 @@ export async function createApp(env: Env) {
       );
     }
 
+    if (!isEnabledAuthFeaturePath(registered.project, c.req.path)) {
+      return c.notFound();
+    }
+
     return registered.auth.handler(c.req.raw);
   });
 
@@ -234,6 +273,33 @@ export async function createApp(env: Env) {
       await Promise.all([registry.close(), rateLimiter.close()]);
     }
   };
+}
+
+function isEnabledAuthFeaturePath(project: AuthProject, path: string): boolean {
+  const authPath = path.replace(new RegExp(`^/${project.slug}/api/auth`), "") || "/";
+
+  if (authPath.startsWith("/passkey/") && !project.features.passkey.enabled) {
+    return false;
+  }
+
+  if (authPath.startsWith("/two-factor/") && !project.features.twoFactor.enabled) {
+    return false;
+  }
+
+  if (isAgentAuthPath(authPath) && !project.features.agentAuth.enabled) {
+    return false;
+  }
+
+  return true;
+}
+
+function isAgentAuthPath(path: string): boolean {
+  return (
+    path === "/agent-configuration" ||
+    path.startsWith("/agent/") ||
+    path.startsWith("/capability/") ||
+    path.startsWith("/host/")
+  );
 }
 
 function renderAdminApp() {
