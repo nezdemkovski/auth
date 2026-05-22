@@ -143,6 +143,63 @@ export async function createHostedSessionRedirect(options: {
   return response.ok && payload?.redirectTo ? payload.redirectTo : null;
 }
 
+export type OAuthPublicClient = {
+  client_id: string;
+  client_name?: string | null;
+  client_uri?: string | null;
+  logo_uri?: string | null;
+};
+
+export async function getOAuthPublicClient(options: {
+  project: string;
+  clientId: string;
+}): Promise<OAuthPublicClient | null> {
+  const url = new URL(
+    `/${options.project}/api/auth/oauth2/public-client`,
+    window.location.origin
+  );
+  url.searchParams.set("client_id", options.clientId);
+
+  const response = await fetch(url, {
+    credentials: "include"
+  });
+  const payload = (await response.json().catch(() => null)) as
+    | OAuthPublicClient
+    | null;
+
+  return response.ok && payload ? payload : null;
+}
+
+export async function submitOAuthConsent(options: {
+  project: string;
+  accept: boolean;
+  scopes: string[];
+  oauthQuery: string;
+}): Promise<string | null> {
+  const response = await fetch(`/${options.project}/api/auth/oauth2/consent`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      accept: options.accept,
+      scope: options.scopes.join(" "),
+      oauth_query: options.oauthQuery
+    })
+  });
+  const payload = (await response.json().catch(() => null)) as {
+    url?: string;
+    redirect_uri?: string;
+  } | null;
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return payload?.url ?? payload?.redirect_uri ?? null;
+}
+
 async function postTwoFactor(
   project: string,
   path: string,

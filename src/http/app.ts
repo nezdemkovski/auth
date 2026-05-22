@@ -21,6 +21,7 @@ import {
   createHostedCodeStore,
   exchangeHostedCode,
   renderHostedLogin,
+  renderHostedOAuthConsent,
   submitHostedLogin
 } from "./hosted";
 import { createRateLimiter, rateLimit, securityHeaders } from "./security";
@@ -179,6 +180,15 @@ export async function createApp(env: Env) {
 
   app.get("/:project/login", (c) => {
     return renderHostedLogin(c.req.raw, c.req.param("project"), {
+      registry,
+      secret: env.betterAuthSecret,
+      codeStore: hostedCodeStore,
+      cspNonce: c.get("cspNonce")
+    });
+  });
+
+  app.get("/:project/oauth/consent", (c) => {
+    return renderHostedOAuthConsent(c.req.raw, c.req.param("project"), {
       registry,
       secret: env.betterAuthSecret,
       codeStore: hostedCodeStore,

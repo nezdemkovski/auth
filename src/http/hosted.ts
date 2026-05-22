@@ -215,6 +215,7 @@ function renderLoginPage(options: {
   const title = isSignup ? "Create account" : "Log in";
   const index = readFileSync(HOSTED_LOGIN_INDEX, "utf8");
   const config = serializeHostedConfig({
+    page: "login",
     project: options.project,
     projectName: options.projectName,
     redirectUri: options.redirectUri,
@@ -231,6 +232,39 @@ function renderLoginPage(options: {
   return html(
     index
       .replace("<title>Sign in</title>", `<title>${escapeHtml(title)} - ${escapeHtml(options.projectName)}</title>`)
+      .replaceAll("__CSP_NONCE__", escapeHtml(options.cspNonce ?? ""))
+      .replace(
+        "<!-- hosted-auth-config -->",
+        `<script nonce="${escapeHtml(options.cspNonce ?? "")}">window.__HOSTED_AUTH__=${config};</script>`
+      )
+  );
+}
+
+function renderOAuthConsentPage(options: {
+  registered: NonNullable<ReturnType<AuthRegistry["get"]>>;
+  project: string;
+  projectName: string;
+  clientId: string;
+  scopes: string[];
+  oauthQuery: string;
+  cspNonce?: string;
+}): Response {
+  const index = readFileSync(HOSTED_LOGIN_INDEX, "utf8");
+  const config = serializeHostedConfig({
+    page: "oauth-consent",
+    project: options.project,
+    projectName: options.projectName,
+    clientId: options.clientId,
+    scopes: options.scopes,
+    oauthQuery: options.oauthQuery
+  });
+
+  return html(
+    index
+      .replace(
+        "<title>Sign in</title>",
+        `<title>Authorize - ${escapeHtml(options.projectName)}</title>`
+      )
       .replaceAll("__CSP_NONCE__", escapeHtml(options.cspNonce ?? ""))
       .replace(
         "<!-- hosted-auth-config -->",
@@ -387,6 +421,42 @@ export function renderHostedLogin(
     state,
     mode,
     codeChallenge,
+    cspNonce: options.cspNonce
+  });
+}
+
+export function renderHostedOAuthConsent(
+  req: Request,
+  project: string,
+  options: HostedOptions
+): Response {
+  const registered = options.registry.get(project);
+  if (!registered) {
+    return json({ error: "unknown_project" }, 404);
+  }
+
+  if (!registered.project.features.oauthProvider.enabled) {
+    return json({ error: "not_found" }, 404);
+  }
+
+  const url = new URL(req.url);
+  const clientId = url.searchParams.get("client_id") ?? "";
+  const scopes = (url.searchParams.get("scope") ?? "")
+    .split(" ")
+    .map((scope) => scope.trim())
+    .filter(Boolean);
+
+  if (!clientId) {
+    return html("Missing client_id", 400);
+  }
+
+  return renderOAuthConsentPage({
+    registered,
+    project,
+    projectName: registered.project.name,
+    clientId,
+    scopes,
+    oauthQuery: url.searchParams.toString(),
     cspNonce: options.cspNonce
   });
 }
