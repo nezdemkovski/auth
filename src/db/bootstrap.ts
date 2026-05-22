@@ -10,7 +10,7 @@ import {
   createProjectMigrationAuthOptions
 } from "../auth/project-auth";
 import { createProjectDatabase } from "./project-db";
-import { ensureProjectSettingsTable, seedProjectSettings } from "./project-settings";
+import { ensureProjectSettingsTable, seedAdminProjectSettings } from "./project-settings";
 
 type BootstrapOptions = {
   databaseUrl: string;
@@ -18,7 +18,6 @@ type BootstrapOptions = {
   secret: string;
   adminProject: AuthProject;
   adminEmail: string;
-  projects: AuthProject[];
 };
 
 const BOOTSTRAP_LOCK_KEY = "nezdemkovski-auth-bootstrap";
@@ -34,20 +33,16 @@ export async function bootstrapProjects(options: BootstrapOptions): Promise<void
   try {
     await db.execute(sql`SELECT pg_advisory_lock(hashtext(${BOOTSTRAP_LOCK_KEY}))`);
 
-    for (const project of [options.adminProject, ...options.projects]) {
-      await db.execute(sql`CREATE SCHEMA IF NOT EXISTS ${sql.identifier(project.schema)}`);
-      await migrateProject({
-        ...options,
-        project
-      });
-    }
+    await prepareProjectSchema({
+      ...options,
+      project: options.adminProject
+    });
 
     await bootstrapInitialAdmin(options);
     await ensureProjectSettingsTable(options.databaseUrl, options.adminProject);
-    await seedProjectSettings({
+    await seedAdminProjectSettings({
       databaseUrl: options.databaseUrl,
-      adminProject: options.adminProject,
-      projects: options.projects
+      adminProject: options.adminProject
     });
   } finally {
     await db
@@ -150,9 +145,20 @@ function generateTemporaryPassword(): string {
   return randomBytes(24).toString("base64url");
 }
 
-async function migrateProject(options: Omit<BootstrapOptions, "projects"> & {
+export async function prepareProjectSchema(options: Omit<BootstrapOptions, "adminEmail"> & {
   project: AuthProject;
 }): Promise<void> {
+  const adminPool = new Pool({
+    connectionString: options.databaseUrl
+  });
+
+  try {
+    const db = drizzle({ client: adminPool });
+    await db.execute(sql`CREATE SCHEMA IF NOT EXISTS ${sql.identifier(options.project.schema)}`);
+  } finally {
+    await adminPool.end();
+  }
+
   const pool = new Pool({
     connectionString: options.databaseUrl,
     options: `-c search_path=${options.project.schema},public`

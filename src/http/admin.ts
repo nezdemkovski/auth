@@ -5,8 +5,13 @@ import type { Pool } from "pg";
 
 import type { AuthRegistry } from "../auth/registry";
 import type { AuthProject } from "../config/projects";
+import { prepareProjectSchema } from "../db/bootstrap";
 import {
+  createProjectFromInput,
+  createProjectSettings,
+  projectSettingsExists,
   updateProjectSettings,
+  type ProjectSettingsCreate,
   type ProjectSettingsPatch
 } from "../db/project-settings";
 
@@ -15,6 +20,8 @@ type AdminApiOptions = {
   emailServiceEnabled: boolean;
   databaseUrl: string;
   adminProject: AuthProject;
+  publicBaseUrl: string;
+  secret: string;
 };
 
 type AdminSession = {
@@ -44,6 +51,7 @@ type ResendVerificationBody = {
 };
 
 type UpdateProjectBody = Partial<Record<keyof ProjectSettingsPatch, unknown>>;
+type CreateProjectBody = Partial<Record<keyof ProjectSettingsCreate, unknown>>;
 
 type RegisteredProject = NonNullable<ReturnType<AuthRegistry["get"]>>;
 
@@ -180,6 +188,81 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     return c.json({
       projects: projects.filter((project) => project !== null)
     });
+  });
+
+  app.post("/projects", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const body = (await c.req.json().catch(() => ({}))) as CreateProjectBody;
+    const input = parseProjectCreate(body);
+    if (!input) {
+      return c.json({ error: "invalid_body" }, 400);
+    }
+
+    let project: AuthProject;
+    try {
+      project = createProjectFromInput(input);
+    } catch (error) {
+      return c.json(
+        {
+          error: "invalid_project",
+          message: error instanceof Error ? error.message : "Invalid project"
+        },
+        400
+      );
+    }
+
+    if (project.slug === options.adminProject.slug) {
+      return c.json({ error: "system_project_locked" }, 409);
+    }
+
+    if (
+      await projectSettingsExists({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject,
+        slug: project.slug,
+        schema: project.schema
+      })
+    ) {
+      return c.json({ error: "project_exists" }, 409);
+    }
+
+    try {
+      await prepareProjectSchema({
+        databaseUrl: options.databaseUrl,
+        publicBaseUrl: options.publicBaseUrl,
+        secret: options.secret,
+        adminProject: options.adminProject,
+        project
+      });
+
+      const created = await createProjectSettings({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject,
+        input
+      });
+      await options.registry.updateProject(created);
+      const registered = options.registry.get(created.slug);
+      const counts = registered ? await readProjectCounts(registered.projectDb.pool) : undefined;
+
+      return c.json(
+        {
+          project: serializeProject(created, counts)
+        },
+        201
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error: "create_project_failed",
+          message: error instanceof Error ? error.message : "Could not create project"
+        },
+        400
+      );
+    }
   });
 
   app.patch("/projects/:project", async (c) => {
@@ -338,6 +421,29 @@ function serializeProject(
     trustedOrigins: project.trustedOrigins,
     system: project.slug === "admin",
     ...counts
+  };
+}
+
+function parseProjectCreate(body: CreateProjectBody): ProjectSettingsCreate | null {
+  if (
+    typeof body.slug !== "string" ||
+    typeof body.name !== "string" ||
+    typeof body.description !== "string" ||
+    typeof body.iconUrl !== "string" ||
+    typeof body.appUrl !== "string" ||
+    !Array.isArray(body.trustedOrigins) ||
+    !body.trustedOrigins.every((origin) => typeof origin === "string")
+  ) {
+    return null;
+  }
+
+  return {
+    slug: body.slug.trim(),
+    name: body.name.trim(),
+    description: body.description.trim(),
+    iconUrl: body.iconUrl.trim(),
+    appUrl: body.appUrl.trim(),
+    trustedOrigins: body.trustedOrigins.map((origin) => origin.trim()).filter(Boolean)
   };
 }
 

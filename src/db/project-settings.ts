@@ -2,7 +2,13 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
-import type { AuthProject } from "../config/projects";
+import {
+  normalizeProjectSlug,
+  projectSchemaFromSlug,
+  validateProjectSchema,
+  validateProjectSlug,
+  type AuthProject
+} from "../config/projects";
 
 export type ProjectSettingsPatch = {
   name: string;
@@ -10,6 +16,10 @@ export type ProjectSettingsPatch = {
   iconUrl: string;
   appUrl: string;
   trustedOrigins: string[];
+};
+
+export type ProjectSettingsCreate = ProjectSettingsPatch & {
+  slug: string;
 };
 
 type ProjectSettingsRow = {
@@ -20,6 +30,7 @@ type ProjectSettingsRow = {
   iconUrl: string | null;
   appUrl: string | null;
   trustedOrigins: unknown;
+  system: boolean;
 };
 
 export async function ensureProjectSettingsTable(
@@ -44,47 +55,61 @@ export async function ensureProjectSettingsTable(
         updated_at timestamptz NOT NULL DEFAULT now()
       )
     `);
+    await db.execute(sql`
+      ALTER TABLE auth_project_settings
+      ADD COLUMN IF NOT EXISTS enabled boolean NOT NULL DEFAULT true
+    `);
+    await db.execute(sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS auth_project_settings_schema_key
+      ON auth_project_settings (schema)
+    `);
   } finally {
     await pool.end();
   }
 }
 
-export async function seedProjectSettings(options: {
+export async function seedAdminProjectSettings(options: {
   databaseUrl: string;
   adminProject: AuthProject;
-  projects: AuthProject[];
 }): Promise<void> {
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
   const db = drizzle({ client: pool });
 
   try {
-    for (const project of [options.adminProject, ...options.projects]) {
-      await db.execute(sql`
-        INSERT INTO auth_project_settings (
-          slug,
-          name,
-          schema,
-          description,
-          icon_url,
-          app_url,
-          trusted_origins,
-          system
-        )
-        VALUES (
-          ${project.slug},
-          ${project.name},
-          ${project.schema},
-          ${project.description},
-          ${project.iconUrl},
-          ${project.appUrl},
-          ${JSON.stringify(project.trustedOrigins)}::jsonb,
-          ${project.slug === options.adminProject.slug}
-        )
-        ON CONFLICT (slug) DO UPDATE
-        SET schema = EXCLUDED.schema,
-            system = EXCLUDED.system
-      `);
-    }
+    const project = options.adminProject;
+    await db.execute(sql`
+      INSERT INTO auth_project_settings (
+        slug,
+        name,
+        schema,
+        description,
+        icon_url,
+        app_url,
+        trusted_origins,
+        system,
+        enabled
+      )
+      VALUES (
+        ${project.slug},
+        ${project.name},
+        ${project.schema},
+        ${project.description},
+        ${project.iconUrl},
+        ${project.appUrl},
+        ${JSON.stringify(project.trustedOrigins)}::jsonb,
+        true,
+        true
+      )
+      ON CONFLICT (slug) DO UPDATE
+      SET name = EXCLUDED.name,
+          schema = EXCLUDED.schema,
+          description = EXCLUDED.description,
+          icon_url = EXCLUDED.icon_url,
+          app_url = EXCLUDED.app_url,
+          trusted_origins = EXCLUDED.trusted_origins,
+          system = true,
+          enabled = true
+    `);
   } finally {
     await pool.end();
   }
@@ -93,10 +118,9 @@ export async function seedProjectSettings(options: {
 export async function loadEffectiveProjects(options: {
   databaseUrl: string;
   adminProject: AuthProject;
-  projects: AuthProject[];
 }): Promise<{ adminProject: AuthProject; projects: AuthProject[] }> {
   await ensureProjectSettingsTable(options.databaseUrl, options.adminProject);
-  await seedProjectSettings(options);
+  await seedAdminProjectSettings(options);
 
   const all = await readProjectSettings(options.databaseUrl, options.adminProject);
   const bySlug = new Map(all.map((project) => [project.slug, project]));
@@ -104,8 +128,81 @@ export async function loadEffectiveProjects(options: {
 
   return {
     adminProject,
-    projects: options.projects.map((project) => bySlug.get(project.slug) ?? project)
+    projects: all.filter((project) => project.slug !== adminProject.slug)
   };
+}
+
+export async function projectSettingsExists(options: {
+  databaseUrl: string;
+  adminProject: AuthProject;
+  slug: string;
+  schema: string;
+}): Promise<boolean> {
+  validateProjectSlug(options.slug);
+  validateProjectSchema(options.schema);
+
+  const pool = createAdminPool(options.databaseUrl, options.adminProject);
+  const db = drizzle({ client: pool });
+
+  try {
+    const result = await db.execute<{ exists: boolean }>(sql`
+      SELECT EXISTS (
+        SELECT 1
+        FROM auth_project_settings
+        WHERE slug = ${options.slug}
+           OR schema = ${options.schema}
+      ) AS "exists"
+    `);
+    return result.rows[0]?.exists ?? false;
+  } finally {
+    await pool.end();
+  }
+}
+
+export async function createProjectSettings(options: {
+  databaseUrl: string;
+  adminProject: AuthProject;
+  input: ProjectSettingsCreate;
+}): Promise<AuthProject> {
+  const project = createProjectFromInput(options.input);
+  validateProjectSettingsPatch(project);
+
+  const pool = createAdminPool(options.databaseUrl, options.adminProject);
+  const db = drizzle({ client: pool });
+
+  try {
+    const created = await db.execute<ProjectSettingsRow>(sql`
+      INSERT INTO auth_project_settings (
+        slug,
+        name,
+        schema,
+        description,
+        icon_url,
+        app_url,
+        trusted_origins,
+        system,
+        enabled
+      )
+      VALUES (
+        ${project.slug},
+        ${project.name},
+        ${project.schema},
+        ${project.description},
+        ${project.iconUrl},
+        ${project.appUrl},
+        ${JSON.stringify(project.trustedOrigins)}::jsonb,
+        false,
+        true
+      )
+      RETURNING slug, name, schema, description, icon_url AS "iconUrl",
+                app_url AS "appUrl", trusted_origins AS "trustedOrigins",
+                system
+    `);
+
+    return rowToProject(created.rows[0]);
+  } finally {
+    await pool.end();
+  }
 }
 
 export async function updateProjectSettings(options: {
@@ -122,7 +219,8 @@ export async function updateProjectSettings(options: {
   try {
     const existing = await db.execute<ProjectSettingsRow>(sql`
       SELECT slug, name, schema, description, icon_url AS "iconUrl",
-             app_url AS "appUrl", trusted_origins AS "trustedOrigins"
+             app_url AS "appUrl", trusted_origins AS "trustedOrigins",
+             system
       FROM auth_project_settings
       WHERE slug = ${options.slug}
       LIMIT 1
@@ -142,7 +240,8 @@ export async function updateProjectSettings(options: {
           updated_at = now()
       WHERE slug = ${options.slug}
       RETURNING slug, name, schema, description, icon_url AS "iconUrl",
-                app_url AS "appUrl", trusted_origins AS "trustedOrigins"
+                app_url AS "appUrl", trusted_origins AS "trustedOrigins",
+                system
     `);
 
     return rowToProject(updated.rows[0]);
@@ -161,8 +260,10 @@ async function readProjectSettings(
   try {
     const rows = await db.execute<ProjectSettingsRow>(sql`
       SELECT slug, name, schema, description, icon_url AS "iconUrl",
-             app_url AS "appUrl", trusted_origins AS "trustedOrigins"
+             app_url AS "appUrl", trusted_origins AS "trustedOrigins",
+             system
       FROM auth_project_settings
+      WHERE enabled = true
       ORDER BY system DESC, slug ASC
     `);
 
@@ -188,6 +289,24 @@ export function validateProjectSettingsPatch(patch: ProjectSettingsPatch): void 
     }
     seen.add(origin);
   }
+}
+
+export function createProjectFromInput(input: ProjectSettingsCreate): AuthProject {
+  const slug = normalizeProjectSlug(input.slug);
+  validateProjectSlug(slug);
+
+  const project = {
+    slug,
+    name: input.name.trim(),
+    schema: projectSchemaFromSlug(slug),
+    description: input.description.trim(),
+    iconUrl: input.iconUrl.trim(),
+    appUrl: input.appUrl.trim(),
+    trustedOrigins: input.trustedOrigins.map((origin) => origin.trim()).filter(Boolean)
+  };
+
+  validateProjectSchema(project.schema);
+  return project;
 }
 
 function validateOptionalUrl(value: string, field: string): void {

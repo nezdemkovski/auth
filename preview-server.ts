@@ -29,6 +29,10 @@ const PROJECTS = [
     slug: "admin",
     name: "Auth Admin",
     schema: "auth_admin",
+    description: "System admin realm for managing auth projects.",
+    iconUrl: "",
+    appUrl: "",
+    trustedOrigins: [],
     system: true,
     userCount: 1,
     activeSessionCount: 1
@@ -37,6 +41,10 @@ const PROJECTS = [
     slug: "openmarkers",
     name: "OpenMarkers",
     schema: "openmarkers_auth",
+    description: "Map notes and field markers.",
+    iconUrl: "",
+    appUrl: "https://openmarkers.app",
+    trustedOrigins: ["https://openmarkers.app"],
     system: false,
     userCount: 247,
     activeSessionCount: 38
@@ -45,6 +53,10 @@ const PROJECTS = [
     slug: "noona",
     name: "Noona",
     schema: "noona_auth",
+    description: "Noona application users.",
+    iconUrl: "",
+    appUrl: "https://noona.app",
+    trustedOrigins: ["https://noona.app"],
     system: false,
     userCount: 89,
     activeSessionCount: 12
@@ -53,6 +65,10 @@ const PROJECTS = [
     slug: "lobby",
     name: "Lobby",
     schema: "lobby_auth",
+    description: "",
+    iconUrl: "",
+    appUrl: "",
+    trustedOrigins: [],
     system: false,
     userCount: 14,
     activeSessionCount: 2
@@ -162,7 +178,7 @@ const port = Number(process.env.PORT ?? 4321);
 
 serve({
   port,
-  fetch(req) {
+  async fetch(req) {
     const url = new URL(req.url);
     const path = url.pathname;
 
@@ -176,7 +192,26 @@ serve({
       }
       return json(ME_RESPONSE);
     }
-    if (path === "/admin/api/projects") return json({ projects: PROJECTS });
+    if (path === "/admin/api/projects" && req.method === "GET") {
+      return json({ projects: PROJECTS });
+    }
+    if (path === "/admin/api/projects" && req.method === "POST") {
+      const body = (await req.json().catch(() => ({}))) as { slug?: string; name?: string };
+      const project = {
+        slug: body.slug ?? "new-project",
+        name: body.name ?? "New Project",
+        schema: `${(body.slug ?? "new-project").replaceAll("-", "_")}_auth`,
+        description: "",
+        iconUrl: "",
+        appUrl: "",
+        trustedOrigins: [],
+        system: false,
+        userCount: 0,
+        activeSessionCount: 0
+      };
+      PROJECTS.push(project);
+      return json({ project }, 201);
+    }
     const usersMatch = path.match(/^\/admin\/api\/projects\/([^/]+)\/users$/);
     if (usersMatch) {
       const slug = usersMatch[1];

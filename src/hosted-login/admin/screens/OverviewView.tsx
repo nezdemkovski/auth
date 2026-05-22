@@ -8,12 +8,14 @@ export function OverviewView({
   loading,
   projects,
   totals,
-  onOpenProject
+  onOpenProject,
+  onCreateProject
 }: {
   loading: boolean;
   projects: ProjectSummary[];
   totals: { users: number; sessions: number };
   onOpenProject: (slug: string) => void;
+  onCreateProject: () => void;
 }) {
   return (
     <div className="space-y-10">
@@ -28,6 +30,15 @@ export function OverviewView({
         <p className="mt-3 max-w-[36rem] text-[14.5px] leading-[1.55] text-muted">
           A snapshot of every auth realm running on this server.
         </p>
+        <button
+          type="button"
+          data-press
+          onClick={onCreateProject}
+          className="mt-5 inline-flex h-9 items-center justify-center rounded-lg bg-accent px-4 text-[13px] font-medium text-accent-ink outline-none transition-colors hover:bg-accent-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+          style={{ boxShadow: "var(--shadow-button)" }}
+        >
+          New project
+        </button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -75,7 +86,7 @@ export function OverviewView({
           <Card>
             <EmptyState
               title="No projects configured"
-              description="Add a project to AUTH_PROJECTS in your environment to get started."
+              description="Create the first app realm from this dashboard."
             />
           </Card>
         ) : (

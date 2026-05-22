@@ -1,4 +1,4 @@
-import { parseAdminProject, parseProjects, type AuthProject } from "./projects";
+import { ADMIN_PROJECT, type AuthProject } from "./projects";
 
 export type Env = {
   port: number;
@@ -12,7 +12,6 @@ export type Env = {
   emailServiceEnabled: boolean;
   redisUrl: string | null;
   trustProxyHeaders: boolean;
-  projects: AuthProject[];
 };
 
 export const EmailProvider = {
@@ -64,13 +63,12 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     databaseUrl,
     betterAuthSecret,
     autoMigrate: parseBoolean(source.AUTH_AUTO_MIGRATE, true),
-    adminProject: parseAdminProject(source.AUTH_ADMIN_PROJECT),
+    adminProject: ADMIN_PROJECT,
     adminEmail: source.AUTH_ADMIN_EMAIL ?? "admin@localhost",
     email,
     emailServiceEnabled: email.provider !== "none",
     redisUrl: source.REDIS_URL?.trim() || null,
-    trustProxyHeaders: parseBoolean(source.TRUST_PROXY_HEADERS, false, "TRUST_PROXY_HEADERS"),
-    projects: parseProjects(source.AUTH_PROJECTS)
+    trustProxyHeaders: parseBoolean(source.TRUST_PROXY_HEADERS, false, "TRUST_PROXY_HEADERS")
   };
 }
 

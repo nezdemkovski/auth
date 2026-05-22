@@ -34,6 +34,10 @@ export type ProjectSettingsPatch = {
   trustedOrigins: string[];
 };
 
+export type CreateProjectInput = ProjectSettingsPatch & {
+  slug: string;
+};
+
 export type ProjectUser = AdminUser & {
   banned: boolean;
   emailVerified: boolean;

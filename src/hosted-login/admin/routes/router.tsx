@@ -2,14 +2,16 @@ import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/re
 import { Navigate, Outlet, RouterProvider, createRootRouteWithContext, createRoute, createRouter, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
-import { fetchProjectUsers, fetchProjects, resendVerificationEmail, terminateUserSessions, updateProjectSettings } from "../api";
+import { createProject, fetchProjectUsers, fetchProjects, resendVerificationEmail, terminateUserSessions, updateProjectSettings } from "../api";
 import { Topbar } from "../components/Topbar";
 import { Card, EmptyState, FormAlert } from "../components/primitives";
 import { UsersSkeleton } from "../components/Skeletons";
 import { OverviewView } from "../screens/OverviewView";
+import { NewProjectView } from "../screens/NewProjectView";
 import { ProjectView } from "../screens/ProjectView";
 import { SettingsView } from "../screens/SettingsView";
 import type {
+  CreateProjectInput,
   DashboardRouterContext,
   MeResponse,
   ProjectSettingsPatch
@@ -42,13 +44,24 @@ const projectRoute = createRoute({
   component: ProjectRoute
 });
 
+const newProjectRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/projects/new",
+  component: NewProjectRoute
+});
+
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/settings",
   component: SettingsRoute
 });
 
-const routeTree = rootRoute.addChildren([overviewRoute, projectRoute, settingsRoute]);
+const routeTree = rootRoute.addChildren([
+  overviewRoute,
+  newProjectRoute,
+  projectRoute,
+  settingsRoute
+]);
 
 const adminRouter = createRouter({
   routeTree,
@@ -116,8 +129,11 @@ function DashboardLayout() {
     [allProjects]
   );
   const isSettings = pathname === "/settings" || pathname.endsWith("/settings");
+  const isNewProject = pathname === "/projects/new" || pathname.endsWith("/projects/new");
   const selectedSlug = isSettings
     ? "__settings__"
+    : isNewProject
+    ? "__new_project__"
     : params.projectSlug ?? "__overview__";
   const selected = allProjects.find((project) => project.slug === params.projectSlug);
 
@@ -128,6 +144,10 @@ function DashboardLayout() {
     }
     if (slug === "__settings__") {
       await navigate({ to: "/settings" });
+      return;
+    }
+    if (slug === "__new_project__") {
+      await navigate({ to: "/projects/new" });
       return;
     }
     await navigate({
@@ -142,6 +162,7 @@ function DashboardLayout() {
         selected={selected}
         selectedSlug={selectedSlug}
         isSettings={isSettings}
+        isNewProject={isNewProject}
         projects={visibleProjects}
         loading={projectsQuery.isLoading}
         onSelect={(slug) => void selectProject(slug)}
@@ -160,6 +181,35 @@ function DashboardLayout() {
         )}
       </main>
     </div>
+  );
+}
+
+function NewProjectRoute() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (input: CreateProjectInput) => createProject(input),
+    onSuccess: async (project) => {
+      await queryClient.invalidateQueries({ queryKey: ["admin", "projects"] });
+      await navigate({
+        to: "/projects/$projectSlug",
+        params: { projectSlug: project.slug }
+      });
+    }
+  });
+
+  return (
+    <NewProjectView
+      pending={mutation.isPending}
+      error={
+        mutation.isError
+          ? mutation.error instanceof Error
+            ? mutation.error.message
+            : "Could not create project"
+          : null
+      }
+      onSubmit={(input) => mutation.mutate(input)}
+    />
   );
 }
 
@@ -200,6 +250,7 @@ function OverviewRoute() {
           params: { projectSlug: slug }
         })
       }
+      onCreateProject={() => void navigate({ to: "/projects/new" })}
     />
   );
 }

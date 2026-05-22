@@ -1,4 +1,5 @@
 import type {
+  CreateProjectInput,
   MeResponse,
   ProjectSettingsPatch,
   ProjectSummary,
@@ -43,6 +44,28 @@ export async function fetchProjects(): Promise<ProjectsResponse> {
   const response = await fetch("/admin/api/projects", { credentials: "include" });
   if (!response.ok) throw new Error("Could not load projects");
   return (await response.json()) as ProjectsResponse;
+}
+
+export async function createProject(input: CreateProjectInput): Promise<ProjectSummary> {
+  const response = await fetch("/admin/api/projects", {
+    method: "POST",
+    credentials: "include",
+    headers: jsonHeaders,
+    body: JSON.stringify(input)
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      error?: string;
+      message?: string;
+    } | null;
+    if (body?.error === "project_exists") {
+      throw new Error("A project with this slug already exists");
+    }
+    throw new Error(body?.message ?? "Could not create project");
+  }
+
+  return ((await response.json()) as { project: ProjectSummary }).project;
 }
 
 export async function fetchProjectUsers(project: string): Promise<ProjectUsersResponse> {

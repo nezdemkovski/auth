@@ -11,123 +11,41 @@ export type AuthProject = {
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/;
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
 
-export function parseProjects(raw: string | undefined): AuthProject[] {
-  if (!raw) {
-    return [];
-  }
-
-  const parsed = JSON.parse(raw) as unknown;
-
-  if (!Array.isArray(parsed)) {
-    throw new Error("AUTH_PROJECTS must be a JSON array");
-  }
-
-  const projects = parsed.map(parseProject);
-  const slugs = new Set<string>();
-  const schemas = new Set<string>();
-
-  for (const project of projects) {
-    if (slugs.has(project.slug)) {
-      throw new Error(`Duplicate project slug: ${project.slug}`);
-    }
-
-    if (schemas.has(project.schema)) {
-      throw new Error(`Duplicate project schema: ${project.schema}`);
-    }
-
-    slugs.add(project.slug);
-    schemas.add(project.schema);
-  }
-
-  return projects;
-}
-
-export function parseAdminProject(raw: string | undefined): AuthProject {
-  if (!raw) {
-    return {
-      slug: "admin",
-      name: "Auth Admin",
-      schema: "auth_admin",
-      description: "System admin realm for managing auth projects.",
-      iconUrl: "",
-      appUrl: "",
-      trustedOrigins: []
-    };
-  }
-
-  return parseProject(JSON.parse(raw) as unknown);
-}
+export const ADMIN_PROJECT: AuthProject = {
+  slug: "admin",
+  name: "Auth Admin",
+  schema: "auth_admin",
+  description: "System admin realm for managing auth projects.",
+  iconUrl: "",
+  appUrl: "",
+  trustedOrigins: []
+};
 
 export function findProject(projects: AuthProject[], slug: string): AuthProject | null {
   return projects.find((project) => project.slug === slug) ?? null;
 }
 
-function parseProject(value: unknown): AuthProject {
-  if (!isRecord(value)) {
-    throw new Error("Each AUTH_PROJECTS item must be an object");
-  }
+export function normalizeProjectSlug(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+}
 
-  const slug = readString(value, "slug");
-  const name = readString(value, "name");
-  const schema = readString(value, "schema");
-  const description = readOptionalString(value, "description");
-  const iconUrl = readOptionalString(value, "iconUrl");
-  const appUrl = readOptionalString(value, "appUrl");
-  const trustedOrigins = readStringArray(value, "trustedOrigins");
+export function projectSchemaFromSlug(slug: string): string {
+  return `${slug.replaceAll("-", "_")}_auth`;
+}
 
+export function validateProjectSlug(slug: string): void {
   if (!SLUG_PATTERN.test(slug)) {
     throw new Error(`Invalid project slug: ${slug}`);
   }
+}
 
+export function validateProjectSchema(schema: string): void {
   if (!IDENTIFIER_PATTERN.test(schema)) {
     throw new Error(`Invalid Postgres schema name: ${schema}`);
   }
-
-  return {
-    slug,
-    name,
-    schema,
-    description,
-    iconUrl,
-    appUrl,
-    trustedOrigins
-  };
-}
-
-function readString(record: Record<string, unknown>, key: string): string {
-  const value = record[key];
-
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`Project field ${key} must be a non-empty string`);
-  }
-
-  return value;
-}
-
-function readOptionalString(record: Record<string, unknown>, key: string): string {
-  const value = record[key];
-
-  if (value === undefined || value === null) {
-    return "";
-  }
-
-  if (typeof value !== "string") {
-    throw new Error(`Project field ${key} must be a string`);
-  }
-
-  return value;
-}
-
-function readStringArray(record: Record<string, unknown>, key: string): string[] {
-  const value = record[key];
-
-  if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) {
-    throw new Error(`Project field ${key} must be a string array`);
-  }
-
-  return value;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

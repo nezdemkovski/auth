@@ -18,6 +18,7 @@ export function Topbar({
   selected,
   selectedSlug,
   isSettings,
+  isNewProject,
   projects,
   loading,
   onSelect,
@@ -29,6 +30,7 @@ export function Topbar({
   selected: ProjectSummary | undefined;
   selectedSlug: string;
   isSettings: boolean;
+  isNewProject: boolean;
   projects: ProjectSummary[];
   loading: boolean;
   onSelect: (slug: string) => void;
@@ -50,6 +52,7 @@ export function Topbar({
         selected={selected}
         selectedSlug={selectedSlug}
         isSettings={isSettings}
+        isNewProject={isNewProject}
         projects={projects}
         loading={loading}
         onSelect={onSelect}
@@ -77,6 +80,7 @@ function BreadcrumbSwitcher({
   selected,
   selectedSlug,
   isSettings,
+  isNewProject,
   projects,
   loading,
   onSelect
@@ -85,6 +89,7 @@ function BreadcrumbSwitcher({
   selected: ProjectSummary | undefined;
   selectedSlug: string;
   isSettings: boolean;
+  isNewProject: boolean;
   projects: ProjectSummary[];
   loading: boolean;
   onSelect: (slug: string) => void;
@@ -115,6 +120,8 @@ function BreadcrumbSwitcher({
 
   const label = isSettings
     ? "settings"
+    : isNewProject
+    ? "new"
     : selected
     ? selected.slug
     : "overview";
@@ -170,6 +177,11 @@ function BreadcrumbSwitcher({
               label="Settings"
               active={selectedSlug === "__settings__"}
               onClick={() => handleSelect("__settings__")}
+            />
+            <SwitcherItem
+              label="New project"
+              active={selectedSlug === "__new_project__"}
+              onClick={() => handleSelect("__new_project__")}
             />
           </div>
 

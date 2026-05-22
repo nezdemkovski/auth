@@ -1,56 +1,15 @@
 import { describe, expect, test } from "bun:test";
 
-import { parseAdminProject, parseProjects } from "../src/config/projects";
+import {
+  ADMIN_PROJECT,
+  normalizeProjectSlug,
+  projectSchemaFromSlug,
+  validateProjectSlug
+} from "../src/config/projects";
 
-describe("parseProjects", () => {
-  test("parses project configuration", () => {
-    const projects = parseProjects(
-      JSON.stringify([
-        {
-          slug: "service-1",
-          name: "Service 1",
-          schema: "service_1_auth",
-          trustedOrigins: ["http://localhost:5173"]
-        }
-      ])
-    );
-
-    expect(projects).toEqual([
-      {
-        slug: "service-1",
-        name: "Service 1",
-        schema: "service_1_auth",
-        description: "",
-        iconUrl: "",
-        appUrl: "",
-        trustedOrigins: ["http://localhost:5173"]
-      }
-    ]);
-  });
-
-  test("rejects duplicate slugs", () => {
-    expect(() =>
-      parseProjects(
-        JSON.stringify([
-          {
-            slug: "service",
-            name: "Service",
-            schema: "service_auth",
-            trustedOrigins: []
-          },
-          {
-            slug: "service",
-            name: "Other",
-            schema: "other_auth",
-            trustedOrigins: []
-          }
-        ])
-      )
-    ).toThrow("Duplicate project slug");
-  });
-
-  test("uses a stable default admin project", () => {
-    expect(parseAdminProject(undefined)).toEqual({
+describe("projects", () => {
+  test("uses a stable built-in admin project", () => {
+    expect(ADMIN_PROJECT).toEqual({
       slug: "admin",
       name: "Auth Admin",
       schema: "auth_admin",
@@ -59,5 +18,17 @@ describe("parseProjects", () => {
       appUrl: "",
       trustedOrigins: []
     });
+  });
+
+  test("normalizes admin-created slugs", () => {
+    expect(normalizeProjectSlug(" Open Markers! ")).toBe("open-markers");
+  });
+
+  test("derives an isolated schema from slug", () => {
+    expect(projectSchemaFromSlug("open-markers")).toBe("open_markers_auth");
+  });
+
+  test("rejects invalid slugs", () => {
+    expect(() => validateProjectSlug("bad_slug")).toThrow("Invalid project slug");
   });
 });

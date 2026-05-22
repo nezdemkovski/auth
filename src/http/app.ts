@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 
 import type { Env } from "../config/env";
+import type { AuthProject } from "../config/projects";
 import { AuthRegistry } from "../auth/registry";
 import { bootstrapProjects } from "../db/bootstrap";
 import { loadEffectiveProjects } from "../db/project-settings";
@@ -55,7 +56,7 @@ export async function createApp(env: Env) {
   const rateLimiter = createRateLimiter(env.redisUrl);
   await rateLimiter.connect();
   let adminProject = env.adminProject;
-  let projects = env.projects;
+  let projects: AuthProject[] = [];
 
   if (env.autoMigrate) {
     await bootstrapProjects({
@@ -63,15 +64,13 @@ export async function createApp(env: Env) {
       publicBaseUrl: env.publicBaseUrl,
       secret: env.betterAuthSecret,
       adminProject,
-      adminEmail: env.adminEmail,
-      projects
+      adminEmail: env.adminEmail
     });
   }
 
   ({ adminProject, projects } = await loadEffectiveProjects({
     databaseUrl: env.databaseUrl,
-    adminProject,
-    projects
+    adminProject
   }));
 
   const registry = new AuthRegistry({
@@ -101,8 +100,12 @@ export async function createApp(env: Env) {
   });
 
   app.get("/projects", (c) => {
+    const publicProjects = registry
+      .list()
+      .filter((project) => project.slug !== adminProject.slug);
+
     return c.json({
-      projects: projects.map((project) => ({
+      projects: publicProjects.map((project) => ({
         slug: project.slug,
         name: project.name
       }))
@@ -134,7 +137,9 @@ export async function createApp(env: Env) {
       registry,
       emailServiceEnabled: env.emailServiceEnabled,
       databaseUrl: env.databaseUrl,
-      adminProject
+      adminProject,
+      publicBaseUrl: env.publicBaseUrl,
+      secret: env.betterAuthSecret
     })
   );
 
