@@ -64,6 +64,8 @@ function createBaseProjectAuthOptions(options: {
   trustProxyHeaders: boolean;
 }): Omit<BetterAuthOptions, "database"> {
   const { project, publicBaseUrl, secret } = options;
+  const publicOrigin = new URL(publicBaseUrl).origin;
+  const publicHostname = new URL(publicBaseUrl).hostname;
   const emailHandlers = createProjectEmailHandlers({
     sender: options.emailSender,
     project
@@ -90,7 +92,8 @@ function createBaseProjectAuthOptions(options: {
       }),
       passkey({
         rpName: project.name,
-        origin: project.trustedOrigins
+        rpID: publicHostname,
+        origin: publicOrigin
       }),
       twoFactor(),
       agentAuth({

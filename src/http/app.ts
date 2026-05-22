@@ -11,6 +11,7 @@ import { loadEffectiveProjects } from "../db/project-settings";
 import { createEmailSender } from "../email/sender";
 import { createAdminApi } from "./admin";
 import {
+  createHostedSessionCode,
   exchangeHostedCode,
   renderHostedLogin,
   submitHostedLogin
@@ -177,6 +178,14 @@ export async function createApp(env: Env) {
     return exchangeHostedCode(c.req.raw, c.req.param("project"), {
       registry,
       secret: env.betterAuthSecret
+    });
+  });
+
+  app.post("/:project/hosted/session-code", (c) => {
+    return createHostedSessionCode(c.req.raw, c.req.param("project"), {
+      registry,
+      secret: env.betterAuthSecret,
+      trustProxyHeaders: env.trustProxyHeaders
     });
   });
 

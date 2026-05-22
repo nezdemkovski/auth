@@ -1,6 +1,14 @@
-import { useEffect, useState } from "react";
+import type { FormEvent, ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 
+import {
+  createHostedAuthClient,
+  createHostedSessionRedirect,
+  signInWithEmail,
+  signUpWithEmail,
+  verifyTwoFactorCode
+} from "./auth-client";
 import { MoonIcon, SunIcon } from "./icons";
 import "./style.css";
 import {
@@ -18,8 +26,25 @@ type HostedAuthConfig = {
   state: string;
   mode: "login" | "signup";
   codeChallenge: string;
+  features: ProjectFeatures;
   error?: string;
 };
+
+type ProjectFeatures = {
+  passkey: {
+    enabled: boolean;
+  };
+  twoFactor: {
+    enabled: boolean;
+    required: "optional" | "admins" | "everyone";
+  };
+  agentAuth: {
+    enabled: boolean;
+    mode: "read-only" | "scoped-write";
+  };
+};
+
+type AuthStep = "credentials" | "two-factor" | "passkey-enroll" | "redirecting";
 
 declare global {
   interface Window {
@@ -33,20 +58,30 @@ if (!config) {
   throw new Error("Hosted auth config is missing");
 }
 
+const authClient = createHostedAuthClient(config.project);
+
 function LoginPage({ config }: { config: HostedAuthConfig }) {
   const [theme, setThemeState] = useState<Theme>(() => resolveTheme());
+  const [step, setStep] = useState<AuthStep>("credentials");
+  const [error, setError] = useState<string | null>(config.error ?? null);
+  const [pending, setPending] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [twoFactorCode, setTwoFactorCode] = useState("");
   const isSignup = config.mode === "signup";
-  const title = isSignup ? "Create account" : "Welcome back";
-  const subtitle = isSignup
-    ? `Set up access to ${config.projectName}.`
-    : `Continue to ${config.projectName}.`;
-  const alternateUrl = new URL(`/${config.project}/login`, window.location.origin);
-
-  alternateUrl.searchParams.set("redirect_uri", config.redirectUri);
-  alternateUrl.searchParams.set("state", config.state);
-  alternateUrl.searchParams.set("mode", isSignup ? "login" : "signup");
-  alternateUrl.searchParams.set("code_challenge", config.codeChallenge);
-  alternateUrl.searchParams.set("code_challenge_method", "S256");
+  const passkeysEnabled = config.features.passkey.enabled;
+  const twoFactorEnabled = config.features.twoFactor.enabled;
+  const title = getTitle(step, isSignup);
+  const subtitle = getSubtitle(step, isSignup, config.projectName);
+  const alternateUrl = useMemo(() => {
+    const url = new URL(`/${config.project}/login`, window.location.origin);
+    url.searchParams.set("redirect_uri", config.redirectUri);
+    url.searchParams.set("state", config.state);
+    url.searchParams.set("mode", isSignup ? "login" : "signup");
+    url.searchParams.set("code_challenge", config.codeChallenge);
+    url.searchParams.set("code_challenge_method", "S256");
+    return url;
+  }, [config, isSignup]);
 
   useEffect(() => {
     document.title = `${title} · ${config.projectName}`;
@@ -61,6 +96,134 @@ function LoginPage({ config }: { config: HostedAuthConfig }) {
     const next: Theme = theme === "dark" ? "light" : "dark";
     setTheme(next);
     setThemeState(next);
+  }
+
+  async function submitCredentials(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPending(true);
+    setError(null);
+
+    try {
+      if (isSignup) {
+        const created = await signUpWithEmail({
+          project: config.project,
+          email,
+          password,
+          callbackURL: new URL(config.redirectUri).origin
+        });
+        if (!created) {
+          setError("Could not create account");
+          return;
+        }
+      } else {
+        const signedIn = await signInWithEmail({
+          project: config.project,
+          email,
+          password
+        });
+        if (!signedIn.ok) {
+          setError("Invalid email or password");
+          return;
+        }
+        if (twoFactorEnabled && signedIn.twoFactorRedirect) {
+          setStep("two-factor");
+          return;
+        }
+      }
+
+      await continueAfterAuth({ offerPasskey: passkeysEnabled });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function signInWithPasskey() {
+    setPending(true);
+    setError(null);
+
+    try {
+      const result = await authClient.signIn.passkey();
+      if (result.error) {
+        setError(result.error.message || "Could not sign in with passkey");
+        return;
+      }
+
+      await continueAfterAuth({ offerPasskey: false });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not sign in with passkey");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function submitTwoFactor(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPending(true);
+    setError(null);
+
+    try {
+      const verified = await verifyTwoFactorCode({
+        project: config.project,
+        code: twoFactorCode.trim()
+      });
+
+      if (!verified) {
+        setError("Invalid verification code");
+        return;
+      }
+
+      await continueAfterAuth({ offerPasskey: passkeysEnabled });
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function addPasskey() {
+    setPending(true);
+    setError(null);
+
+    try {
+      const result = await authClient.passkey.addPasskey({
+        name: `${config.projectName} passkey`
+      });
+      if (result.error) {
+        setError(result.error.message || "Could not add passkey");
+        return;
+      }
+
+      await redirectWithCurrentSession();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not add passkey");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function continueAfterAuth({ offerPasskey }: { offerPasskey: boolean }) {
+    if (offerPasskey) {
+      setStep("passkey-enroll");
+      return;
+    }
+
+    await redirectWithCurrentSession();
+  }
+
+  async function redirectWithCurrentSession() {
+    setStep("redirecting");
+    const redirectTo = await createHostedSessionRedirect({
+      project: config.project,
+      redirectUri: config.redirectUri,
+      state: config.state,
+      codeChallenge: config.codeChallenge
+    });
+
+    if (!redirectTo) {
+      setStep("credentials");
+      setError("Could not finish sign-in");
+      return;
+    }
+
+    window.location.assign(redirectTo);
   }
 
   const projectInitial = config.projectName.trim().charAt(0).toUpperCase() || "·";
@@ -91,147 +254,336 @@ function LoginPage({ config }: { config: HostedAuthConfig }) {
 
       <section className="relative z-10 grid min-h-[calc(100vh-3.5rem)] place-items-center px-5 py-8">
         <div className="w-full max-w-[440px]">
-          <div className="enter">
-            <div className="mb-6 flex items-baseline gap-3">
-              <span className="eyebrow shrink-0">
-                {isSignup ? "Register" : "Sign in"}
-              </span>
-              <span aria-hidden="true" className="h-px flex-1 bg-border" />
-            </div>
+          <AuthHeading step={step} isSignup={isSignup} subtitle={subtitle} />
+          {error ? <ErrorAlert>{error}</ErrorAlert> : null}
 
-            <h1 className="serif text-[58px] leading-[0.95] tracking-[-0.03em] text-ink sm:text-[68px]">
-              {isSignup ? (
-                <>
-                  Create <em>account.</em>
-                </>
-              ) : (
-                <>
-                  Welcome <em>back.</em>
-                </>
-              )}
-            </h1>
-            <p className="mt-3 text-[14.5px] leading-[1.5] text-muted">
-              {subtitle}
-            </p>
-          </div>
-
-          {config.error ? (
-            <div
-              role="alert"
-              className="enter enter-1 mt-6 flex items-start gap-2 rounded-md border px-3 py-2.5 text-[13px] leading-5"
-              style={{
-                background: "var(--danger-bg)",
-                borderColor: "var(--danger-border)",
-                color: "var(--danger)"
-              }}
-            >
-              <span
-                aria-hidden="true"
-                className="mt-[3px] inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-                style={{ background: "var(--danger)" }}
-              />
-              <span>{config.error}</span>
-            </div>
+          {step === "credentials" ? (
+            <CredentialsStep
+              isSignup={isSignup}
+              passkeysEnabled={passkeysEnabled}
+              pending={pending}
+              email={email}
+              password={password}
+              alternateUrl={alternateUrl}
+              onEmailChange={setEmail}
+              onPasswordChange={setPassword}
+              onPasskeySignIn={() => void signInWithPasskey()}
+              onSubmit={(event) => void submitCredentials(event)}
+            />
           ) : null}
 
-          <form
-            method="post"
-            action={`/${config.project}/login`}
-            className="enter enter-1 mt-8 space-y-4"
-          >
-            <input type="hidden" name="redirect_uri" value={config.redirectUri} />
-            <input type="hidden" name="state" value={config.state} />
-            <input type="hidden" name="mode" value={config.mode} />
-            <input
-              type="hidden"
-              name="code_challenge"
-              value={config.codeChallenge}
+          {step === "two-factor" ? (
+            <TwoFactorStep
+              pending={pending}
+              code={twoFactorCode}
+              onCodeChange={setTwoFactorCode}
+              onBack={() => setStep("credentials")}
+              onSubmit={(event) => void submitTwoFactor(event)}
             />
+          ) : null}
 
-            <FormField
-              id="email"
-              name="email"
-              label="Email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
+          {step === "passkey-enroll" ? (
+            <PasskeyEnrollStep
+              pending={pending}
+              onAdd={() => void addPasskey()}
+              onSkip={() => void redirectWithCurrentSession()}
             />
-            <FormField
-              id="password"
-              name="password"
-              label="Password"
-              type="password"
-              autoComplete={isSignup ? "new-password" : "current-password"}
-              placeholder={isSignup ? "At least 12 characters" : "••••••••"}
-              hint={
-                !isSignup ? (
-                  <a
-                    href="#"
-                    className="text-[12px] font-medium text-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
-                  >
-                    Forgot?
-                  </a>
-                ) : null
-              }
-            />
+          ) : null}
 
-            <button
-              type="submit"
-              data-press
-              className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-lg bg-accent text-[14px] font-medium text-accent-ink outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-              style={{
-                boxShadow: "var(--shadow-button)",
-                transition: "background-color 140ms ease, transform 120ms"
-              }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.background = "var(--accent-hover)")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.background = "var(--accent)")
-              }
-            >
-              {isSignup ? "Create account ↗" : "Sign in ↗"}
-            </button>
-          </form>
-
-          <div className="enter enter-2 mt-8">
-            <hr className="rule" />
-            <div className="mt-4 flex items-center justify-between gap-4 text-[13px]">
-              <span className="text-muted">
-                {isSignup ? "Already have an account?" : "No account yet?"}
-              </span>
-              <a
-                href={alternateUrl.toString()}
-                className="font-medium text-ink underline-offset-[3px] transition-colors hover:underline"
-              >
-                {isSignup ? "Sign in →" : "Create one →"}
-              </a>
-            </div>
-          </div>
-
-          <footer className="enter enter-3 mono mt-12 text-center text-[10.5px] uppercase tracking-[0.08em] text-muted-soft sm:-mx-20 sm:whitespace-nowrap">
-            ↳ Proudly hosted on homelab ·{" "}
-            <a
-              href="https://github.com/nezdemkovski/auth"
-              target="_blank"
-              rel="noreferrer"
-              className="underline-offset-[3px] transition-colors hover:text-ink hover:underline"
-            >
-              Open source on github ↗
-            </a>
-            {" · Built on "}
-            <a
-              href="https://better-auth.com"
-              target="_blank"
-              rel="noreferrer"
-              className="underline-offset-[3px] transition-colors hover:text-ink hover:underline"
-            >
-              better-auth ↗
-            </a>
-          </footer>
+          {step === "redirecting" ? <RedirectingPanel /> : null}
+          <HostedFooter />
         </div>
       </section>
     </div>
+  );
+}
+
+function AuthHeading({
+  step,
+  isSignup,
+  subtitle
+}: {
+  step: AuthStep;
+  isSignup: boolean;
+  subtitle: string;
+}) {
+  return (
+    <div className="enter">
+      <div className="mb-6 flex items-baseline gap-3">
+        <span className="eyebrow shrink-0">{getEyebrow(step, isSignup)}</span>
+        <span aria-hidden="true" className="h-px flex-1 bg-border" />
+      </div>
+
+      <h1 className="serif text-[58px] leading-[0.95] tracking-[-0.03em] text-ink sm:text-[68px]">
+        {step === "two-factor" ? (
+          <>
+            Verify <em>code.</em>
+          </>
+        ) : step === "passkey-enroll" ? (
+          <>
+            Add <em>passkey.</em>
+          </>
+        ) : isSignup ? (
+          <>
+            Create <em>account.</em>
+          </>
+        ) : (
+          <>
+            Welcome <em>back.</em>
+          </>
+        )}
+      </h1>
+      <p className="mt-3 text-[14.5px] leading-[1.5] text-muted">{subtitle}</p>
+    </div>
+  );
+}
+
+function CredentialsStep({
+  isSignup,
+  passkeysEnabled,
+  pending,
+  email,
+  password,
+  alternateUrl,
+  onEmailChange,
+  onPasswordChange,
+  onPasskeySignIn,
+  onSubmit
+}: {
+  isSignup: boolean;
+  passkeysEnabled: boolean;
+  pending: boolean;
+  email: string;
+  password: string;
+  alternateUrl: URL;
+  onEmailChange: (value: string) => void;
+  onPasswordChange: (value: string) => void;
+  onPasskeySignIn: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <>
+      {passkeysEnabled && !isSignup ? (
+        <div className="enter enter-1 mt-8 space-y-3">
+          <ActionButton type="button" disabled={pending} onClick={onPasskeySignIn}>
+            {pending ? "Waiting…" : "Sign in with passkey"}
+          </ActionButton>
+          <div className="flex items-center gap-3 text-muted-soft">
+            <span className="h-px flex-1 bg-border" />
+            <span className="text-[11px] uppercase tracking-[0.08em]">or</span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+        </div>
+      ) : null}
+
+      <form onSubmit={onSubmit} className="enter enter-1 mt-8 space-y-4">
+        <FormField
+          id="email"
+          name="email"
+          label="Email"
+          type="email"
+          autoComplete="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={onEmailChange}
+        />
+        <FormField
+          id="password"
+          name="password"
+          label="Password"
+          type="password"
+          autoComplete={isSignup ? "new-password" : "current-password"}
+          placeholder={isSignup ? "At least 12 characters" : "••••••••"}
+          value={password}
+          onChange={onPasswordChange}
+          hint={
+            !isSignup ? (
+              <a
+                href="#"
+                className="text-[12px] font-medium text-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
+              >
+                Forgot?
+              </a>
+            ) : null
+          }
+        />
+
+        <ActionButton type="submit" disabled={pending}>
+          {pending ? "Working…" : isSignup ? "Create account ↗" : "Sign in ↗"}
+        </ActionButton>
+      </form>
+
+      <div className="enter enter-2 mt-8">
+        <hr className="rule" />
+        <div className="mt-4 flex items-center justify-between gap-4 text-[13px]">
+          <span className="text-muted">
+            {isSignup ? "Already have an account?" : "No account yet?"}
+          </span>
+          <a
+            href={alternateUrl.toString()}
+            className="font-medium text-ink underline-offset-[3px] transition-colors hover:underline"
+          >
+            {isSignup ? "Sign in →" : "Create one →"}
+          </a>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function TwoFactorStep({
+  pending,
+  code,
+  onCodeChange,
+  onBack,
+  onSubmit
+}: {
+  pending: boolean;
+  code: string;
+  onCodeChange: (value: string) => void;
+  onBack: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <form onSubmit={onSubmit} className="enter enter-1 mt-8 space-y-4">
+      <FormField
+        id="two-factor-code"
+        name="code"
+        label="Verification code"
+        type="text"
+        autoComplete="one-time-code"
+        placeholder="123456"
+        value={code}
+        onChange={onCodeChange}
+      />
+      <ActionButton type="submit" disabled={pending}>
+        {pending ? "Verifying…" : "Verify and continue ↗"}
+      </ActionButton>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={onBack}
+        className="w-full text-center text-[13px] font-medium text-muted underline-offset-[3px] hover:text-ink hover:underline disabled:opacity-60"
+      >
+        Back to password sign-in
+      </button>
+    </form>
+  );
+}
+
+function PasskeyEnrollStep({
+  pending,
+  onAdd,
+  onSkip
+}: {
+  pending: boolean;
+  onAdd: () => void;
+  onSkip: () => void;
+}) {
+  return (
+    <div className="enter enter-1 mt-8 space-y-3">
+      <ActionButton type="button" disabled={pending} onClick={onAdd}>
+        {pending ? "Waiting…" : "Add passkey"}
+      </ActionButton>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={onSkip}
+        className="w-full text-center text-[13px] font-medium text-muted underline-offset-[3px] hover:text-ink hover:underline disabled:opacity-60"
+      >
+        Continue without passkey
+      </button>
+    </div>
+  );
+}
+
+function RedirectingPanel() {
+  return (
+    <div className="enter enter-1 mt-8 rounded-lg border border-border bg-surface-muted px-3 py-2.5 text-[13px] text-muted">
+      Finishing sign-in…
+    </div>
+  );
+}
+
+function HostedFooter() {
+  return (
+    <footer className="enter enter-3 mono mt-12 text-center text-[10.5px] uppercase tracking-[0.08em] text-muted-soft sm:-mx-20 sm:whitespace-nowrap">
+      ↳ Proudly hosted on homelab ·{" "}
+      <a
+        href="https://github.com/nezdemkovski/auth"
+        target="_blank"
+        rel="noreferrer"
+        className="underline-offset-[3px] transition-colors hover:text-ink hover:underline"
+      >
+        Open source on github ↗
+      </a>
+      {" · Built on "}
+      <a
+        href="https://better-auth.com"
+        target="_blank"
+        rel="noreferrer"
+        className="underline-offset-[3px] transition-colors hover:text-ink hover:underline"
+      >
+        better-auth ↗
+      </a>
+    </footer>
+  );
+}
+
+function ErrorAlert({ children }: { children: ReactNode }) {
+  return (
+    <div
+      role="alert"
+      className="enter enter-1 mt-6 flex items-start gap-2 rounded-md border px-3 py-2.5 text-[13px] leading-5"
+      style={{
+        background: "var(--danger-bg)",
+        borderColor: "var(--danger-border)",
+        color: "var(--danger)"
+      }}
+    >
+      <span
+        aria-hidden="true"
+        className="mt-[3px] inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+        style={{ background: "var(--danger)" }}
+      />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function ActionButton({
+  type,
+  disabled,
+  onClick,
+  children
+}: {
+  type: "button" | "submit";
+  disabled?: boolean;
+  onClick?: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type={type}
+      data-press
+      disabled={disabled}
+      onClick={onClick}
+      className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-lg bg-accent text-[14px] font-medium text-accent-ink outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+      style={{
+        boxShadow: "var(--shadow-button)",
+        transition: "background-color 140ms ease, transform 120ms"
+      }}
+      onMouseEnter={(e) => {
+        if (!e.currentTarget.disabled) {
+          e.currentTarget.style.background = "var(--accent-hover)";
+        }
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = "var(--accent)";
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -242,6 +594,8 @@ function FormField({
   type,
   autoComplete,
   placeholder,
+  value,
+  onChange,
   hint
 }: {
   id: string;
@@ -250,7 +604,9 @@ function FormField({
   type: string;
   autoComplete: string;
   placeholder?: string;
-  hint?: React.ReactNode;
+  value: string;
+  onChange: (value: string) => void;
+  hint?: ReactNode;
 }) {
   return (
     <div>
@@ -269,6 +625,8 @@ function FormField({
         type={type}
         autoComplete={autoComplete}
         placeholder={placeholder}
+        value={value}
+        onChange={(event) => onChange(event.currentTarget.value)}
         required
         className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none placeholder:text-muted-soft"
         style={{
@@ -325,6 +683,28 @@ function ThemeToggle({
       </span>
     </button>
   );
+}
+
+function getTitle(step: AuthStep, isSignup: boolean): string {
+  if (step === "two-factor") return "Verify code";
+  if (step === "passkey-enroll") return "Add passkey";
+  return isSignup ? "Create account" : "Welcome back";
+}
+
+function getSubtitle(step: AuthStep, isSignup: boolean, projectName: string): string {
+  if (step === "two-factor") {
+    return "Enter your authenticator code to finish signing in.";
+  }
+  if (step === "passkey-enroll") {
+    return "Save a passkey for faster sign-ins on this device.";
+  }
+  return isSignup ? `Set up access to ${projectName}.` : `Continue to ${projectName}.`;
+}
+
+function getEyebrow(step: AuthStep, isSignup: boolean): string {
+  if (step === "two-factor") return "Security";
+  if (step === "passkey-enroll") return "Passkey";
+  return isSignup ? "Register" : "Sign in";
 }
 
 createRoot(document.querySelector<HTMLDivElement>("#app")!).render(
