@@ -1,6 +1,6 @@
 import type { BetterAuthOptions } from "better-auth";
 import { betterAuth } from "better-auth";
-import { admin, bearer, jwt, twoFactor } from "better-auth/plugins";
+import { admin, bearer, jwt, lastLoginMethod, twoFactor } from "better-auth/plugins";
 import { agentAuth } from "@better-auth/agent-auth";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { passkey } from "@better-auth/passkey";
@@ -142,6 +142,15 @@ function createBaseProjectAuthOptions(options: {
         silenceWarnings: {
           oauthAuthServerConfig: true,
           openidConfig: true
+        }
+      }),
+      lastLoginMethod({
+        customResolveMethod: (ctx) => {
+          if (ctx.path === "/passkey/verify-authentication") {
+            return "passkey";
+          }
+
+          return null;
         }
       }),
       bearer(),

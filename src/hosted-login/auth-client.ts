@@ -1,4 +1,5 @@
 import { createAuthClient } from "better-auth/client";
+import { lastLoginMethodClient } from "better-auth/client/plugins";
 import { passkeyClient } from "@better-auth/passkey/client";
 
 export type HostedAuthClient = ReturnType<typeof createHostedAuthClient>;
@@ -6,7 +7,7 @@ export type HostedAuthClient = ReturnType<typeof createHostedAuthClient>;
 export function createHostedAuthClient(project: string) {
   return createAuthClient({
     baseURL: `${window.location.origin}/${project}/api/auth`,
-    plugins: [passkeyClient()]
+    plugins: [passkeyClient(), lastLoginMethodClient()]
   });
 }
 

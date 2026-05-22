@@ -78,6 +78,9 @@ function LoginPage({ config }: { config: HostedAuthConfig }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [lastLoginMethod, setLastLoginMethod] = useState<string | null>(() =>
+    authClient.getLastUsedLoginMethod()
+  );
   const isSignup = config.mode === "signup";
   const passkeysEnabled = config.features.passkey.enabled;
   const twoFactorEnabled = config.features.twoFactor.enabled;
@@ -102,6 +105,10 @@ function LoginPage({ config }: { config: HostedAuthConfig }) {
   useEffect(() => {
     return watchSystemTheme((next) => setThemeState(next));
   }, []);
+
+  useEffect(() => {
+    setLastLoginMethod(authClient.getLastUsedLoginMethod());
+  }, [step]);
 
   function toggleTheme() {
     const next: Theme = theme === "dark" ? "light" : "dark";
@@ -310,6 +317,7 @@ function LoginPage({ config }: { config: HostedAuthConfig }) {
               isSignup={isSignup}
               passkeysEnabled={passkeysEnabled}
               socialProviders={socialProviders}
+              lastLoginMethod={lastLoginMethod}
               pending={pending}
               email={email}
               password={password}
@@ -392,6 +400,7 @@ function CredentialsStep({
   isSignup,
   passkeysEnabled,
   socialProviders,
+  lastLoginMethod,
   pending,
   email,
   password,
@@ -405,6 +414,7 @@ function CredentialsStep({
   isSignup: boolean;
   passkeysEnabled: boolean;
   socialProviders: SocialProviderId[];
+  lastLoginMethod: string | null;
   pending: boolean;
   email: string;
   password: string;
@@ -416,13 +426,29 @@ function CredentialsStep({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const hasSocialProviders = socialProviders.length > 0;
+  const showLastUsed = !isSignup && Boolean(lastLoginMethod);
 
   return (
     <>
+      {showLastUsed ? (
+        <div className="enter enter-1 mt-6 rounded-lg border border-border bg-surface-muted px-3 py-2 text-[12.5px] leading-5 text-muted">
+          Last signed in with{" "}
+          <span className="font-medium text-ink">
+            {loginMethodLabel(lastLoginMethod)}
+          </span>
+          .
+        </div>
+      ) : null}
+
       {(passkeysEnabled && !isSignup) || hasSocialProviders ? (
-        <div className="enter enter-1 mt-8 space-y-3">
+        <div className={`enter enter-1 ${showLastUsed ? "mt-4" : "mt-8"} space-y-3`}>
           {passkeysEnabled && !isSignup ? (
-            <ActionButton type="button" disabled={pending} onClick={onPasskeySignIn}>
+            <ActionButton
+              type="button"
+              disabled={pending}
+              onClick={onPasskeySignIn}
+              badge={lastLoginMethod === "passkey" ? <LastUsedBadge contrast /> : undefined}
+            >
               {pending ? "Waiting…" : "Sign in with passkey"}
             </ActionButton>
           ) : null}
@@ -433,6 +459,7 @@ function CredentialsStep({
                   key={provider}
                   provider={provider}
                   disabled={pending}
+                  lastUsed={lastLoginMethod === provider}
                   onClick={() => onSocialSignIn(provider)}
                 />
               ))}
@@ -446,7 +473,14 @@ function CredentialsStep({
         </div>
       ) : null}
 
-      <form onSubmit={onSubmit} className="enter enter-1 mt-8 space-y-4">
+      <form
+        onSubmit={onSubmit}
+        className={`enter enter-1 ${
+          (passkeysEnabled && !isSignup) || hasSocialProviders || showLastUsed
+            ? "mt-4"
+            : "mt-8"
+        } space-y-4`}
+      >
         <FormField
           id="email"
           name="email"
@@ -478,7 +512,15 @@ function CredentialsStep({
           }
         />
 
-        <ActionButton type="submit" disabled={pending}>
+        <ActionButton
+          type="submit"
+          disabled={pending}
+          badge={
+            lastLoginMethod === "email" && !isSignup ? (
+              <LastUsedBadge contrast />
+            ) : undefined
+          }
+        >
           {pending ? "Working…" : isSignup ? "Create account ↗" : "Sign in ↗"}
         </ActionButton>
       </form>
@@ -529,10 +571,12 @@ const socialProviderMeta: Record<
 function SocialButton({
   provider,
   disabled,
+  lastUsed,
   onClick
 }: {
   provider: SocialProviderId;
   disabled: boolean;
+  lastUsed: boolean;
   onClick: () => void;
 }) {
   const meta = socialProviderMeta[provider];
@@ -544,11 +588,26 @@ function SocialButton({
       data-press
       disabled={disabled}
       onClick={onClick}
-      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface text-[14px] font-medium text-ink outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 text-[14px] font-medium text-ink outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
     >
       <Icon size={16} />
-      Continue with {meta.label}
+      <span className="min-w-0 flex-1 text-center">Continue with {meta.label}</span>
+      {lastUsed ? <LastUsedBadge /> : null}
     </button>
+  );
+}
+
+function LastUsedBadge({ contrast = false }: { contrast?: boolean }) {
+  return (
+    <span
+      className={`rounded-full border px-2 py-0.5 text-[10.5px] font-medium uppercase tracking-[0.06em] ${
+        contrast
+          ? "border-[rgba(255,255,255,0.25)] bg-[rgba(255,255,255,0.18)] text-accent-ink"
+          : "border-border bg-surface-muted text-muted"
+      }`}
+    >
+      Last used
+    </span>
   );
 }
 
@@ -675,11 +734,13 @@ function ErrorAlert({ children }: { children: ReactNode }) {
 function ActionButton({
   type,
   disabled,
+  badge,
   onClick,
   children
 }: {
   type: "button" | "submit";
   disabled?: boolean;
+  badge?: ReactNode;
   onClick?: () => void;
   children: ReactNode;
 }) {
@@ -689,7 +750,7 @@ function ActionButton({
       data-press
       disabled={disabled}
       onClick={onClick}
-      className="mt-2 inline-flex h-11 w-full items-center justify-center rounded-lg bg-accent text-[14px] font-medium text-accent-ink outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+      className="mt-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent px-3 text-[14px] font-medium text-accent-ink outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
       style={{
         boxShadow: "var(--shadow-button)",
         transition: "background-color 140ms ease, transform 120ms"
@@ -703,7 +764,8 @@ function ActionButton({
         e.currentTarget.style.background = "var(--accent)";
       }}
     >
-      {children}
+      <span className="min-w-0 flex-1 text-center">{children}</span>
+      {badge}
     </button>
   );
 }
@@ -826,6 +888,17 @@ function getEyebrow(step: AuthStep, isSignup: boolean): string {
   if (step === "two-factor") return "Security";
   if (step === "passkey-enroll") return "Passkey";
   return isSignup ? "Register" : "Sign in";
+}
+
+function loginMethodLabel(method: string | null): string {
+  if (!method) return "your previous method";
+  if (method === "email") return "email and password";
+  if (method === "passkey") return "passkey";
+  if (method in socialProviderMeta) {
+    return socialProviderMeta[method as SocialProviderId].label;
+  }
+
+  return method;
 }
 
 createRoot(document.querySelector<HTMLDivElement>("#app")!).render(
