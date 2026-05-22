@@ -1,56 +1,49 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { jsonHeaders, loadSession } from "../api";
-import type { MeResponse, ViewState } from "../types";
-import { FormAlert, FormField, PrimaryButton } from "../components/primitives";
+import { changeAdminPassword } from "../api";
+import {
+  FormAlert,
+  FormField,
+  PrimaryButton
+} from "../components/primitives";
+import type { MeResponse } from "../types";
 
-export function ChangePasswordPanel({
-  me,
-  error,
-  onDone
-}: {
-  me: MeResponse;
-  error?: string;
-  onDone: (next: ViewState) => void;
-}) {
-  const [pending, setPending] = useState(false);
+export function ChangePasswordPanel({ me }: { me: MeResponse }) {
+  const queryClient = useQueryClient();
+  const [mismatchError, setMismatchError] = useState<string | null>(null);
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  const mutation = useMutation({
+    mutationFn: changeAdminPassword,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin", "me"] });
+    }
+  });
+
+  function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
+    setMismatchError(null);
+
     const form = new FormData(event.currentTarget);
     const currentPassword = String(form.get("currentPassword") ?? "");
     const newPassword = String(form.get("newPassword") ?? "");
     const confirmPassword = String(form.get("confirmPassword") ?? "");
 
     if (newPassword !== confirmPassword) {
-      setPending(false);
-      onDone({ status: "force-change", me, error: "New passwords do not match" });
+      setMismatchError("New passwords do not match");
       return;
     }
 
-    const response = await fetch("/admin/api/change-password", {
-      method: "POST",
-      credentials: "include",
-      headers: jsonHeaders,
-      body: JSON.stringify({ currentPassword, newPassword })
-    });
-
-    if (!response.ok) {
-      setPending(false);
-      onDone({
-        status: "force-change",
-        me,
-        error:
-          response.status === 400
-            ? "Use a password with at least 12 characters"
-            : "Could not change password"
-      });
-      return;
-    }
-
-    onDone(await loadSession());
+    mutation.mutate({ currentPassword, newPassword });
   }
+
+  const displayError =
+    mismatchError ??
+    (mutation.isError
+      ? mutation.error instanceof Error
+        ? mutation.error.message
+        : "Could not change password"
+      : null);
 
   return (
     <div>
@@ -67,9 +60,9 @@ export function ChangePasswordPanel({
         Change the temporary password before continuing.
       </p>
 
-      {error ? <FormAlert>{error}</FormAlert> : null}
+      {displayError ? <FormAlert>{displayError}</FormAlert> : null}
 
-      <form onSubmit={(event) => void submit(event)} className="mt-8 space-y-4">
+      <form onSubmit={submit} className="mt-8 space-y-4">
         <FormField
           id="current-password"
           name="currentPassword"
@@ -94,8 +87,8 @@ export function ChangePasswordPanel({
           autoComplete="new-password"
           placeholder="Repeat new password"
         />
-        <PrimaryButton type="submit" loading={pending}>
-          {pending ? "Saving…" : "Save password ↗"}
+        <PrimaryButton type="submit" loading={mutation.isPending}>
+          {mutation.isPending ? "Saving…" : "Save password ↗"}
         </PrimaryButton>
       </form>
     </div>

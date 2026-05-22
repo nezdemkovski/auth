@@ -1,5 +1,5 @@
 import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Outlet, RouterProvider, createRootRouteWithContext, createRoute, createRouter, useNavigate, useParams } from "@tanstack/react-router";
+import { Navigate, Outlet, RouterProvider, createRootRouteWithContext, createRoute, createRouter, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
 import { fetchProjectUsers, fetchProjects, resendVerificationEmail, terminateUserSessions, updateProjectSettings } from "../api";
@@ -8,6 +8,7 @@ import { Card, EmptyState, FormAlert } from "../components/primitives";
 import { UsersSkeleton } from "../components/Skeletons";
 import { OverviewView } from "../screens/OverviewView";
 import { ProjectView } from "../screens/ProjectView";
+import { SettingsView } from "../screens/SettingsView";
 import type {
   DashboardRouterContext,
   MeResponse,
@@ -41,7 +42,13 @@ const projectRoute = createRoute({
   component: ProjectRoute
 });
 
-const routeTree = rootRoute.addChildren([overviewRoute, projectRoute]);
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/settings",
+  component: SettingsRoute
+});
+
+const routeTree = rootRoute.addChildren([overviewRoute, projectRoute, settingsRoute]);
 
 const adminRouter = createRouter({
   routeTree,
@@ -102,16 +109,27 @@ function DashboardLayout() {
   });
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { projectSlug?: string };
-  const projects = projectsQuery.data?.projects ?? [];
-  const selectedSlug = params.projectSlug ?? "__overview__";
-  const selected = projects.find((project) => project.slug === selectedSlug);
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const allProjects = projectsQuery.data?.projects ?? [];
+  const visibleProjects = useMemo(
+    () => allProjects.filter((project) => !project.system),
+    [allProjects]
+  );
+  const isSettings = pathname === "/settings" || pathname.endsWith("/settings");
+  const selectedSlug = isSettings
+    ? "__settings__"
+    : params.projectSlug ?? "__overview__";
+  const selected = allProjects.find((project) => project.slug === params.projectSlug);
 
   async function selectProject(slug: string) {
     if (slug === "__overview__") {
       await navigate({ to: "/" });
       return;
     }
-
+    if (slug === "__settings__") {
+      await navigate({ to: "/settings" });
+      return;
+    }
     await navigate({
       to: "/projects/$projectSlug",
       params: { projectSlug: slug }
@@ -123,7 +141,8 @@ function DashboardLayout() {
       <Topbar
         selected={selected}
         selectedSlug={selectedSlug}
-        projects={projects}
+        isSettings={isSettings}
+        projects={visibleProjects}
         loading={projectsQuery.isLoading}
         onSelect={(slug) => void selectProject(slug)}
         syncedAt={projectsQuery.dataUpdatedAt || Date.now()}
@@ -144,15 +163,23 @@ function DashboardLayout() {
   );
 }
 
+function SettingsRoute() {
+  const { me } = rootRoute.useRouteContext();
+  return <SettingsView me={me} />;
+}
+
 function OverviewRoute() {
   const projectsQuery = useQuery({
     queryKey: ["admin", "projects"],
     queryFn: fetchProjects
   });
   const navigate = useNavigate();
-  const projects = projectsQuery.data?.projects ?? [];
+  const visibleProjects = useMemo(
+    () => (projectsQuery.data?.projects ?? []).filter((p) => !p.system),
+    [projectsQuery.data?.projects]
+  );
   const totals = useMemo(() => {
-    return projects.reduce(
+    return visibleProjects.reduce(
       (acc, project) => {
         acc.users += project.userCount;
         acc.sessions += project.activeSessionCount;
@@ -160,12 +187,12 @@ function OverviewRoute() {
       },
       { users: 0, sessions: 0 }
     );
-  }, [projects]);
+  }, [visibleProjects]);
 
   return (
     <OverviewView
       loading={projectsQuery.isLoading}
-      projects={projects}
+      projects={visibleProjects}
       totals={totals}
       onOpenProject={(slug) =>
         void navigate({
@@ -237,6 +264,10 @@ function ProjectRoute() {
 
   if (projectsQuery.isLoading) {
     return <UsersSkeleton />;
+  }
+
+  if (selected?.system) {
+    return <Navigate to="/settings" />;
   }
 
   if (!selected) {

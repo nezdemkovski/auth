@@ -189,7 +189,12 @@ serve({
     }
     if (path.startsWith("/admin/api/")) return json({ ok: true });
 
-    if (path === "/" || path === "/admin" || path === "/admin/") {
+    if (
+      path === "/" ||
+      path === "/admin" ||
+      path === "/admin/" ||
+      (path.startsWith("/admin/") && !path.startsWith("/admin/assets/") && !path.includes("."))
+    ) {
       const html = readFileSync(join(ROOT, "admin.html"), "utf8");
       return new Response(html, { headers: { "Content-Type": "text/html" } });
     }

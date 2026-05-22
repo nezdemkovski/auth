@@ -60,12 +60,6 @@ export type ProjectUsersResponse = {
   users: ProjectUser[];
 };
 
-export type ViewState =
-  | { status: "loading" }
-  | { status: "signed-out"; error?: string }
-  | { status: "force-change"; me: MeResponse; error?: string }
-  | { status: "dashboard"; me: MeResponse };
-
 export type DashboardRouterContext = {
   me: MeResponse;
   theme: Theme;

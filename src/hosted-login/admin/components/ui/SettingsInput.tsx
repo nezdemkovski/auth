@@ -4,6 +4,8 @@ export function SettingsInput({
   value,
   disabled = false,
   placeholder,
+  type = "text",
+  autoComplete,
   onChange
 }: {
   id: string;
@@ -11,6 +13,8 @@ export function SettingsInput({
   value: string;
   disabled?: boolean;
   placeholder?: string;
+  type?: string;
+  autoComplete?: string;
   onChange: (value: string) => void;
 }) {
   return (
@@ -23,6 +27,8 @@ export function SettingsInput({
       </label>
       <input
         id={id}
+        type={type}
+        autoComplete={autoComplete}
         value={value}
         disabled={disabled}
         placeholder={placeholder}

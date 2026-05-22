@@ -1,39 +1,34 @@
-import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { jsonHeaders, loadSession } from "../api";
-import type { ViewState } from "../types";
-import { FormAlert, FormField, PrimaryButton } from "../components/primitives";
+import { signInAdmin } from "../api";
+import {
+  FormAlert,
+  FormField,
+  PrimaryButton
+} from "../components/primitives";
 
-export function SignInPanel({
-  error,
-  onDone
-}: {
-  error?: string;
-  onDone: (next: ViewState) => void;
-}) {
-  const [pending, setPending] = useState(false);
+export function SignInPanel({ error }: { error?: string }) {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: signInAdmin,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin", "me"] });
+    }
+  });
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") ?? "");
     const password = String(form.get("password") ?? "");
-    const response = await fetch("/admin/api/auth/sign-in/email", {
-      method: "POST",
-      credentials: "include",
-      headers: jsonHeaders,
-      body: JSON.stringify({ email, password })
-    });
-
-    if (!response.ok) {
-      setPending(false);
-      onDone({ status: "signed-out", error: "Invalid email or password" });
-      return;
-    }
-
-    onDone(await loadSession());
+    mutation.mutate({ email, password });
   }
+
+  const displayError = mutation.isError
+    ? mutation.error instanceof Error
+      ? mutation.error.message
+      : "Could not sign in"
+    : error;
 
   return (
     <div>
@@ -48,9 +43,9 @@ export function SignInPanel({
         Access the admin control plane.
       </p>
 
-      {error ? <FormAlert>{error}</FormAlert> : null}
+      {displayError ? <FormAlert>{displayError}</FormAlert> : null}
 
-      <form onSubmit={(event) => void submit(event)} className="mt-8 space-y-4">
+      <form onSubmit={submit} className="mt-8 space-y-4">
         <FormField
           id="admin-email"
           name="email"
@@ -67,8 +62,8 @@ export function SignInPanel({
           autoComplete="current-password"
           placeholder="••••••••"
         />
-        <PrimaryButton type="submit" loading={pending}>
-          {pending ? "Signing in…" : "Sign in ↗"}
+        <PrimaryButton type="submit" loading={mutation.isPending}>
+          {mutation.isPending ? "Signing in…" : "Sign in ↗"}
         </PrimaryButton>
       </form>
     </div>

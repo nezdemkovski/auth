@@ -1,15 +1,43 @@
 import type {
+  MeResponse,
   ProjectSettingsPatch,
   ProjectSummary,
   ProjectUsersResponse,
-  ProjectsResponse,
-  ViewState,
-  MeResponse
+  ProjectsResponse
 } from "./types";
 
 export const jsonHeaders = {
   "Content-Type": "application/json"
 };
+
+export class UnauthorizedError extends Error {
+  constructor() {
+    super("unauthorized");
+    this.name = "UnauthorizedError";
+  }
+}
+
+export async function fetchMe(): Promise<MeResponse> {
+  const response = await fetch("/admin/api/me", { credentials: "include" });
+  if (response.status === 401) throw new UnauthorizedError();
+  if (!response.ok) throw new Error("Admin API is unavailable");
+  return (await response.json()) as MeResponse;
+}
+
+export async function signInAdmin(input: {
+  email: string;
+  password: string;
+}): Promise<void> {
+  const response = await fetch("/admin/api/auth/sign-in/email", {
+    method: "POST",
+    credentials: "include",
+    headers: jsonHeaders,
+    body: JSON.stringify(input)
+  });
+  if (!response.ok) {
+    throw new Error("Invalid email or password");
+  }
+}
 
 export async function fetchProjects(): Promise<ProjectsResponse> {
   const response = await fetch("/admin/api/projects", { credentials: "include" });
@@ -71,16 +99,44 @@ export async function updateProjectSettings(
   return ((await response.json()) as { project: ProjectSummary }).project;
 }
 
-export async function loadSession(): Promise<ViewState> {
-  const response = await fetch("/admin/api/me", { credentials: "include" });
-  if (response.status === 401) return { status: "signed-out" };
+export async function updateAdminProfile(patch: {
+  name?: string;
+  email?: string;
+}): Promise<void> {
+  const response = await fetch("/admin/api/profile", {
+    method: "PATCH",
+    credentials: "include",
+    headers: jsonHeaders,
+    body: JSON.stringify(patch)
+  });
   if (!response.ok) {
-    return { status: "signed-out", error: "Admin API is unavailable" };
+    const data = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    if (data?.error === "email_in_use") throw new Error("Email is already in use");
+    if (data?.error === "invalid_email") throw new Error("Invalid email address");
+    if (data?.error === "invalid_name") throw new Error("Invalid name");
+    if (data?.error === "no_changes") throw new Error("Nothing to save");
+    throw new Error("Could not save profile");
   }
-  const me = (await response.json()) as MeResponse;
-  return me.mustChangePassword
-    ? { status: "force-change", me }
-    : { status: "dashboard", me };
+}
+
+export async function changeAdminPassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  const response = await fetch("/admin/api/change-password", {
+    method: "POST",
+    credentials: "include",
+    headers: jsonHeaders,
+    body: JSON.stringify(input)
+  });
+  if (!response.ok) {
+    if (response.status === 400) {
+      throw new Error("Use a password with at least 12 characters");
+    }
+    throw new Error("Could not change password");
+  }
 }
 
 export async function signOut(): Promise<void> {

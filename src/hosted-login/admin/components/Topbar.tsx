@@ -17,6 +17,7 @@ function getWorkspaceName(): string {
 export function Topbar({
   selected,
   selectedSlug,
+  isSettings,
   projects,
   loading,
   onSelect,
@@ -27,6 +28,7 @@ export function Topbar({
 }: {
   selected: ProjectSummary | undefined;
   selectedSlug: string;
+  isSettings: boolean;
   projects: ProjectSummary[];
   loading: boolean;
   onSelect: (slug: string) => void;
@@ -47,6 +49,7 @@ export function Topbar({
         workspace={workspace}
         selected={selected}
         selectedSlug={selectedSlug}
+        isSettings={isSettings}
         projects={projects}
         loading={loading}
         onSelect={onSelect}
@@ -73,6 +76,7 @@ function BreadcrumbSwitcher({
   workspace,
   selected,
   selectedSlug,
+  isSettings,
   projects,
   loading,
   onSelect
@@ -80,6 +84,7 @@ function BreadcrumbSwitcher({
   workspace: string;
   selected: ProjectSummary | undefined;
   selectedSlug: string;
+  isSettings: boolean;
   projects: ProjectSummary[];
   loading: boolean;
   onSelect: (slug: string) => void;
@@ -108,7 +113,11 @@ function BreadcrumbSwitcher({
     setOpen(false);
   }
 
-  const label = selected ? selected.slug : "overview";
+  const label = isSettings
+    ? "settings"
+    : selected
+    ? selected.slug
+    : "overview";
 
   return (
     <div ref={rootRef} className="relative min-w-0">
@@ -156,6 +165,11 @@ function BreadcrumbSwitcher({
               label="Overview"
               active={selectedSlug === "__overview__"}
               onClick={() => handleSelect("__overview__")}
+            />
+            <SwitcherItem
+              label="Settings"
+              active={selectedSlug === "__settings__"}
+              onClick={() => handleSelect("__settings__")}
             />
           </div>
 

@@ -34,6 +34,11 @@ type ChangePasswordBody = {
   newPassword?: unknown;
 };
 
+type UpdateProfileBody = {
+  name?: unknown;
+  email?: unknown;
+};
+
 type ResendVerificationBody = {
   email?: unknown;
 };
@@ -73,6 +78,55 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       mustChangePassword: await mustChangePassword(admin.projectDb.pool, session.user.id),
       emailServiceEnabled: options.emailServiceEnabled
     });
+  });
+
+  app.patch("/profile", async (c) => {
+    const admin = options.registry.get("admin");
+    if (!admin) {
+      return c.json({ error: "admin_not_configured" }, 500);
+    }
+
+    const session = await getSession(admin.auth, c.req.raw.headers);
+    if (!session) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const body = (await c.req.json().catch(() => ({}))) as UpdateProfileBody;
+    const patch: { name?: string; email?: string } = {};
+
+    if (typeof body.name === "string") {
+      const trimmed = body.name.trim();
+      if (trimmed.length < 1 || trimmed.length > 80) {
+        return c.json({ error: "invalid_name" }, 400);
+      }
+      patch.name = trimmed;
+    }
+
+    if (typeof body.email === "string") {
+      const trimmed = body.email.trim().toLowerCase();
+      if (
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ||
+        trimmed.length > 200
+      ) {
+        return c.json({ error: "invalid_email" }, 400);
+      }
+      patch.email = trimmed;
+    }
+
+    if (patch.name === undefined && patch.email === undefined) {
+      return c.json({ error: "no_changes" }, 400);
+    }
+
+    try {
+      await updateAdminProfile(admin.projectDb.pool, session.user.id, patch);
+    } catch (error: unknown) {
+      if (error instanceof Error && /unique|duplicate/i.test(error.message)) {
+        return c.json({ error: "email_in_use" }, 409);
+      }
+      throw error;
+    }
+
+    return c.json({ ok: true });
   });
 
   app.post("/change-password", async (c) => {
@@ -400,6 +454,42 @@ async function mustChangePassword(pool: Pool, userId: string): Promise<boolean> 
   `);
 
   return result.rows[0]?.must_change_password ?? false;
+}
+
+async function updateAdminProfile(
+  pool: Pool,
+  userId: string,
+  patch: { name?: string; email?: string }
+): Promise<void> {
+  const db = drizzle({ client: pool });
+
+  if (patch.name !== undefined && patch.email !== undefined) {
+    await db.execute(sql`
+      UPDATE "user"
+      SET name = ${patch.name},
+          email = ${patch.email},
+          "updatedAt" = now()
+      WHERE id = ${userId}
+    `);
+    return;
+  }
+  if (patch.name !== undefined) {
+    await db.execute(sql`
+      UPDATE "user"
+      SET name = ${patch.name},
+          "updatedAt" = now()
+      WHERE id = ${userId}
+    `);
+    return;
+  }
+  if (patch.email !== undefined) {
+    await db.execute(sql`
+      UPDATE "user"
+      SET email = ${patch.email},
+          "updatedAt" = now()
+      WHERE id = ${userId}
+    `);
+  }
 }
 
 async function markPasswordChanged(pool: Pool, userId: string): Promise<void> {

@@ -1,21 +1,24 @@
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { applyTheme, resolveTheme, setTheme, watchSystemTheme, type Theme } from "../theme";
-import { loadSession, signOut } from "./api";
+import { UnauthorizedError, fetchMe, signOut } from "./api";
 import { CenteredShell } from "./components/CenteredShell";
 import { LoadingPanel } from "./components/primitives";
 import { ChangePasswordPanel } from "./screens/ChangePasswordPanel";
 import { SignInPanel } from "./screens/SignInPanel";
 import { DashboardShell } from "./routes/router";
-import type { ViewState } from "./types";
 
 export function AdminApp() {
-  const [view, setView] = useState<ViewState>({ status: "loading" });
   const [theme, setThemeState] = useState<Theme>(() => resolveTheme());
 
-  useEffect(() => {
-    void loadSession().then(setView);
-  }, []);
+  const meQuery = useQuery({
+    queryKey: ["admin", "me"],
+    queryFn: fetchMe,
+    retry: false,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false
+  });
 
   useEffect(() => {
     applyTheme(theme);
@@ -31,7 +34,7 @@ export function AdminApp() {
     setThemeState(next);
   }
 
-  if (view.status === "loading") {
+  if (meQuery.isLoading) {
     return (
       <CenteredShell theme={theme} onToggleTheme={toggleTheme}>
         <LoadingPanel />
@@ -39,32 +42,39 @@ export function AdminApp() {
     );
   }
 
-  if (view.status === "signed-out") {
+  if (meQuery.isError || !meQuery.data) {
+    const isUnauthorized = meQuery.error instanceof UnauthorizedError;
     return (
       <CenteredShell theme={theme} onToggleTheme={toggleTheme}>
-        <SignInPanel error={view.error} onDone={setView} />
+        <SignInPanel
+          error={
+            isUnauthorized
+              ? undefined
+              : meQuery.error instanceof Error
+              ? meQuery.error.message
+              : "Admin API is unavailable"
+          }
+        />
       </CenteredShell>
     );
   }
 
-  if (view.status === "force-change") {
+  const me = meQuery.data;
+
+  if (me.mustChangePassword) {
     return (
       <CenteredShell theme={theme} onToggleTheme={toggleTheme}>
-        <ChangePasswordPanel
-          me={view.me}
-          error={view.error}
-          onDone={setView}
-        />
+        <ChangePasswordPanel me={me} />
       </CenteredShell>
     );
   }
 
   return (
     <DashboardShell
-      me={view.me}
+      me={me}
       theme={theme}
       onToggleTheme={toggleTheme}
-      onSignOut={() => void signOut().then(() => setView({ status: "signed-out" }))}
+      onSignOut={() => void signOut().then(() => meQuery.refetch())}
     />
   );
 }
