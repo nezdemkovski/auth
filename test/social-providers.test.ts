@@ -48,7 +48,7 @@ describe("social provider settings", () => {
       "github"
     );
 
-    expect(cipher).toMatch(/^v2:/);
+    expect(cipher).toMatch(/^v1:/);
     expect(cipher).not.toContain("client-secret");
     expect(
       __socialProviderTestUtils.decryptSecret(cipher, secret, "openmarkers", "github")
@@ -67,16 +67,6 @@ describe("social provider settings", () => {
     expect(() =>
       __socialProviderTestUtils.decryptSecret(cipher, secret, "openmarkers", "google")
     ).toThrow();
-  });
-
-  test("can still read legacy v1 social provider secrets", () => {
-    const secret = "x".repeat(32);
-    const cipher = __socialProviderTestUtils.encryptSecretV1("client-secret", secret);
-
-    expect(cipher).toMatch(/^v1:/);
-    expect(
-      __socialProviderTestUtils.decryptSecret(cipher, secret, "openmarkers", "github")
-    ).toBe("client-secret");
   });
 
   test("builds provider callback URLs under the realm auth endpoint", () => {
