@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import {
   createHostedAuthClient,
   createHostedSessionRedirect,
+  hasPasskeys,
   signInWithSocial,
   signInWithEmail,
   signUpWithEmail,
@@ -247,6 +248,12 @@ function LoginPage({ config }: { config: HostedAuthConfig }) {
 
   async function continueAfterAuth({ offerPasskey }: { offerPasskey: boolean }) {
     if (offerPasskey) {
+      const alreadyEnrolled = await hasPasskeys(config.project);
+      if (alreadyEnrolled) {
+        await redirectWithCurrentSession();
+        return;
+      }
+
       setStep("passkey-enroll");
       return;
     }

@@ -109,6 +109,15 @@ export async function verifyTwoFactorCode(options: {
   });
 }
 
+export async function hasPasskeys(project: string): Promise<boolean> {
+  const response = await fetch(`/${project}/api/auth/passkey/list-user-passkeys`, {
+    credentials: "include"
+  });
+  const payload = await response.json().catch(() => null);
+
+  return response.ok && Array.isArray(payload) && payload.length > 0;
+}
+
 export async function createHostedSessionRedirect(options: {
   project: string;
   redirectUri: string;
