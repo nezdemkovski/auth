@@ -28,7 +28,7 @@ export function OverviewView({
           Over<em>view.</em>
         </h1>
         <p className="mt-3 max-w-[36rem] text-[14.5px] leading-[1.55] text-muted">
-          A snapshot of every auth realm running on this server.
+          Manage auth realms, users, and active sessions.
         </p>
         <button
           type="button"
@@ -37,16 +37,16 @@ export function OverviewView({
           className="mt-5 inline-flex h-9 items-center justify-center rounded-lg bg-accent px-4 text-[13px] font-medium text-accent-ink outline-none transition-colors hover:bg-accent-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
           style={{ boxShadow: "var(--shadow-button)" }}
         >
-          New project
+          New realm
         </button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <StatCard
           index={1}
-          label="Projects"
+          label="Realms"
           value={loading ? null : projects.length}
-          hint="isolated schemas"
+          hint="isolated auth realms"
         />
         <StatCard
           index={2}
@@ -64,7 +64,7 @@ export function OverviewView({
 
       <section>
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="eyebrow">01 — Projects</span>
+          <span className="eyebrow">01 — Realms</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
           {!loading && projects.length > 0 ? (
             <span className="eyebrow text-muted-soft tabular">
@@ -85,8 +85,8 @@ export function OverviewView({
         ) : projects.length === 0 ? (
           <Card>
             <EmptyState
-              title="No projects configured"
-              description="Create the first app realm from this dashboard."
+              title="No realms yet"
+              description="Create a realm to start accepting application users."
             />
           </Card>
         ) : (

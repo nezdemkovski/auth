@@ -54,12 +54,12 @@ export function NewProjectView({
       .filter(Boolean);
 
     if (form.name.trim().length === 0) {
-      setLocalError("Project name is required.");
+      setLocalError("Name is required.");
       return;
     }
 
     if (!SLUG_PATTERN.test(slug)) {
-      setLocalError("Use a slug like openmarkers or customer-portal.");
+      setLocalError("Slug must contain only lowercase letters, numbers, and hyphens.");
       return;
     }
 
@@ -78,15 +78,15 @@ export function NewProjectView({
     <div className="space-y-8">
       <div>
         <div className="mb-3 flex items-baseline gap-3">
-          <span className="eyebrow">02 — New project</span>
+          <span className="eyebrow">02 — New realm</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
         </div>
         <h1 className="serif text-[52px] leading-[0.95] tracking-[-0.03em] text-ink sm:text-[64px]">
           Create <em>realm.</em>
         </h1>
         <p className="mt-3 max-w-[38rem] text-[14.5px] leading-[1.55] text-muted">
-          Each project gets its own Postgres schema, Better Auth tables, trusted
-          origins, and hosted login surface.
+          Configure an isolated auth realm for an application. The server creates
+          the database schema and auth tables automatically.
         </p>
       </div>
 
@@ -97,28 +97,28 @@ export function NewProjectView({
               id="new-project-name"
               label="Name"
               value={form.name}
-              placeholder="OpenMarkers"
+              placeholder="Application name"
               onChange={(value) => update("name", value)}
             />
             <SettingsInput
               id="new-project-slug"
               label="Slug"
               value={form.slug}
-              placeholder="openmarkers"
+              placeholder="project-slug"
               onChange={(value) => update("slug", value)}
             />
             <SettingsInput
               id="new-project-app-url"
               label="App URL"
               value={form.appUrl}
-              placeholder="https://openmarkers.app"
+              placeholder="https://app.domain.com"
               onChange={(value) => update("appUrl", value)}
             />
             <SettingsInput
               id="new-project-icon-url"
               label="Icon URL"
               value={form.iconUrl}
-              placeholder="https://openmarkers.app/icon.png"
+              placeholder="https://app.domain.com/icon.png"
               onChange={(value) => update("iconUrl", value)}
             />
           </div>
@@ -127,7 +127,7 @@ export function NewProjectView({
             id="new-project-origins"
             label="Trusted origins"
             value={form.trustedOriginsText}
-            placeholder="https://openmarkers.app"
+            placeholder="https://app.domain.com"
             rows={4}
             onChange={(value) => update("trustedOriginsText", value)}
           />
@@ -136,13 +136,13 @@ export function NewProjectView({
             id="new-project-description"
             label="Description"
             value={form.description}
-            placeholder="Short internal description for this app."
+            placeholder="Internal description for this realm."
             rows={3}
             onChange={(value) => update("description", value)}
           />
 
           <div className="rounded-lg border border-border bg-surface-muted px-3 py-2.5 text-[12.5px] leading-5 text-muted">
-            Schema preview:{" "}
+            Database schema:{" "}
             <code className="font-mono text-ink-soft">{schemaPreview}</code>
           </div>
 
@@ -150,7 +150,7 @@ export function NewProjectView({
 
           <div className="max-w-[220px]">
             <PrimaryButton type="submit" loading={pending}>
-              Create project
+              Create realm
             </PrimaryButton>
           </div>
         </form>

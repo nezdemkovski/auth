@@ -37,7 +37,7 @@ export function ProjectSettingsForm({
       .filter(Boolean);
 
     if (form.name.trim().length === 0) {
-      setLocalError("Project name is required.");
+      setLocalError("Name is required.");
       return;
     }
 
@@ -59,8 +59,8 @@ export function ProjectSettingsForm({
             App details
           </h2>
           <p className="mt-1 max-w-[34rem] text-[12.5px] leading-5 text-muted">
-            These settings are stored in Postgres and override the bootstrap values
-            from the environment.
+            These settings control the hosted login experience, trusted origins,
+            and application metadata.
           </p>
         </div>
         {project.appUrl ? (
@@ -77,7 +77,7 @@ export function ProjectSettingsForm({
 
       {project.system ? (
         <div className="rounded-lg border border-border bg-surface-muted px-3 py-2.5 text-[12.5px] leading-5 text-muted">
-          System project settings are read-only from this dashboard.
+          System realm settings are read-only from this dashboard.
         </div>
       ) : null}
 
@@ -96,7 +96,7 @@ export function ProjectSettingsForm({
           label="Icon URL"
           value={form.iconUrl}
           disabled={project.system}
-          placeholder="https://example.com/icon.png"
+          placeholder="https://app.domain.com/icon.png"
           onChange={(value) => update("iconUrl", value)}
         />
         <SettingsInput
@@ -104,7 +104,7 @@ export function ProjectSettingsForm({
           label="App URL"
           value={form.appUrl}
           disabled={project.system}
-          placeholder="https://app.example.com"
+          placeholder="https://app.domain.com"
           onChange={(value) => update("appUrl", value)}
         />
         <SettingsTextarea
@@ -112,7 +112,7 @@ export function ProjectSettingsForm({
           label="Trusted origins"
           value={form.trustedOrigins}
           disabled={project.system}
-          placeholder="https://openmarkers.app"
+          placeholder="https://app.domain.com"
           rows={4}
           onChange={(value) => update("trustedOrigins", value)}
         />
@@ -123,7 +123,7 @@ export function ProjectSettingsForm({
         label="Description"
         value={form.description}
         disabled={project.system}
-        placeholder="Short internal description for this app."
+        placeholder="Internal description for this realm."
         rows={3}
         onChange={(value) => update("description", value)}
       />

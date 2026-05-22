@@ -123,7 +123,7 @@ export function ProjectView({
           ) : users.length === 0 ? (
             <EmptyState
               title="No users yet"
-              description="Users will appear here once someone signs up to this realm."
+              description="Users will appear here after they sign up to this realm."
             />
           ) : (
             <UserTable

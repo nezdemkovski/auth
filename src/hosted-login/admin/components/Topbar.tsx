@@ -179,7 +179,7 @@ function BreadcrumbSwitcher({
               onClick={() => handleSelect("__settings__")}
             />
             <SwitcherItem
-              label="New project"
+              label="New realm"
               active={selectedSlug === "__new_project__"}
               onClick={() => handleSelect("__new_project__")}
             />
@@ -190,7 +190,7 @@ function BreadcrumbSwitcher({
           <div className="px-3 pb-3 pt-1">
             <div className="mono flex items-baseline justify-between px-2">
               <span className="text-[10px] uppercase tracking-[0.1em] text-muted-soft">
-                Projects
+                Realms
               </span>
               <span className="tabular text-[10px] tracking-[0.04em] text-muted-soft">
                 {pad2(projects.length)}
@@ -207,7 +207,7 @@ function BreadcrumbSwitcher({
               </div>
             ) : projects.length === 0 ? (
               <div className="px-2 pt-2 text-[12px] text-muted-soft">
-                No projects configured.
+                No realms yet.
               </div>
             ) : (
               <ul className="space-y-px pt-1">

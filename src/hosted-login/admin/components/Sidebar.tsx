@@ -41,7 +41,7 @@ export function Sidebar({
           />
         </SidebarSection>
 
-        <SidebarSection label="Projects" count={projects.length}>
+        <SidebarSection label="Realms" count={projects.length}>
           {loading ? (
             <div className="space-y-1 pl-4 pr-2">
               {[0, 1, 2].map((item) => (
@@ -53,7 +53,7 @@ export function Sidebar({
             </div>
           ) : projects.length === 0 ? (
             <div className="px-4 py-1.5 text-[12px] text-muted-soft">
-              No projects configured.
+              No realms yet.
             </div>
           ) : (
             <ul className="space-y-px">
