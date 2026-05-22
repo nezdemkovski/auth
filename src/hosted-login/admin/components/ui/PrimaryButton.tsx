@@ -1,4 +1,5 @@
 import type React from "react";
+import { Button } from "react-aria-components";
 
 export function PrimaryButton({
   children,
@@ -11,27 +12,18 @@ export function PrimaryButton({
   loading?: boolean;
   disabled?: boolean;
 }) {
-  const isDisabled = loading || disabled;
   return (
-    <button
+    <Button
       type={type}
-      disabled={isDisabled}
-      data-press
-      className={`mt-1 inline-flex h-10 w-full items-center justify-center rounded-lg bg-accent text-[14px] font-medium text-accent-ink outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
-        loading ? "cursor-wait opacity-75" : "disabled:cursor-not-allowed disabled:opacity-50"
+      isDisabled={loading || disabled}
+      className={`mt-1 inline-flex h-10 w-full items-center justify-center rounded-lg bg-accent text-[14px] font-medium text-accent-ink outline-none transition-[background-color,transform,opacity] duration-150 hover:bg-accent-hover data-[focus-visible]:ring-2 data-[focus-visible]:ring-[var(--focus-ring)] data-[pressed]:scale-[0.97] ${
+        loading
+          ? "cursor-wait opacity-75"
+          : "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 data-[disabled]:hover:bg-accent"
       }`}
-      style={{
-        boxShadow: "var(--shadow-button)",
-        transition: "background-color 140ms ease, transform 120ms"
-      }}
-      onMouseEnter={(e) => {
-        if (!isDisabled) e.currentTarget.style.background = "var(--accent-hover)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = "var(--accent)";
-      }}
+      style={{ boxShadow: "var(--shadow-button)" }}
     >
       {children}
-    </button>
+    </Button>
   );
 }

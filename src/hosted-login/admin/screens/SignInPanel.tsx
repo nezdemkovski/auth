@@ -1,11 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 
 import { signInAdmin } from "../api";
-import {
-  FormAlert,
-  FormField,
-  PrimaryButton
-} from "../components/primitives";
+import { FormField, PrimaryButton } from "../components/primitives";
+import { notifyError } from "../toast";
 
 export function SignInPanel({ error }: { error?: string }) {
   const queryClient = useQueryClient();
@@ -13,8 +11,18 @@ export function SignInPanel({ error }: { error?: string }) {
     mutationFn: signInAdmin,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin", "me"] });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Could not sign in",
+        caught instanceof Error ? caught.message : undefined
+      );
     }
   });
+
+  useEffect(() => {
+    if (error) notifyError(error);
+  }, [error]);
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -23,12 +31,6 @@ export function SignInPanel({ error }: { error?: string }) {
     const password = String(form.get("password") ?? "");
     mutation.mutate({ email, password });
   }
-
-  const displayError = mutation.isError
-    ? mutation.error instanceof Error
-      ? mutation.error.message
-      : "Could not sign in"
-    : error;
 
   return (
     <div>
@@ -42,8 +44,6 @@ export function SignInPanel({ error }: { error?: string }) {
       <p className="mt-3 text-[14px] leading-[1.5] text-muted">
         Access the admin control plane.
       </p>
-
-      {displayError ? <FormAlert>{displayError}</FormAlert> : null}
 
       <form onSubmit={submit} className="mt-8 space-y-4">
         <FormField

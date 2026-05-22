@@ -1,10 +1,14 @@
+import type { ReactNode } from "react";
+import { Input, Label, TextField } from "react-aria-components";
+
 export function FormField({
   id,
   name,
   label,
   type,
   autoComplete,
-  placeholder
+  placeholder,
+  hint
 }: {
   id: string;
   name: string;
@@ -12,36 +16,27 @@ export function FormField({
   type: string;
   autoComplete: string;
   placeholder?: string;
+  hint?: ReactNode;
 }) {
   return (
-    <div>
-      <label
-        htmlFor={id}
-        className="mb-1.5 block text-[12.5px] font-medium tracking-[-0.005em] text-ink-soft"
-      >
-        {label}
-      </label>
-      <input
-        id={id}
-        name={name}
-        type={type}
-        autoComplete={autoComplete}
+    <TextField
+      id={id}
+      name={name}
+      type={type}
+      autoComplete={autoComplete}
+      isRequired
+      className="flex flex-col"
+    >
+      <div className="mb-1.5 flex items-baseline justify-between">
+        <Label className="text-[12.5px] font-medium tracking-[-0.005em] text-ink-soft">
+          {label}
+        </Label>
+        {hint}
+      </div>
+      <Input
         placeholder={placeholder}
-        required
-        className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none placeholder:text-muted-soft"
-        style={{
-          transition:
-            "border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease"
-        }}
-        onFocus={(e) => {
-          e.currentTarget.style.borderColor = "var(--border-strong)";
-          e.currentTarget.style.boxShadow = "0 0 0 3px var(--focus-ring)";
-        }}
-        onBlur={(e) => {
-          e.currentTarget.style.borderColor = "var(--border)";
-          e.currentTarget.style.boxShadow = "none";
-        }}
+        className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none placeholder:text-muted-soft transition-[border-color,box-shadow,background-color] duration-150 data-[focused]:border-border-strong data-[focused]:shadow-[0_0_0_3px_var(--focus-ring)] data-[invalid]:border-[var(--danger-border)] data-[invalid]:data-[focused]:shadow-[0_0_0_3px_rgba(220,38,38,0.18)]"
       />
-    </div>
+    </TextField>
   );
 }

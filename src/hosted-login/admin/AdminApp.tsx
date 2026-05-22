@@ -8,6 +8,7 @@ import { LoadingPanel } from "./components/primitives";
 import { ChangePasswordPanel } from "./screens/ChangePasswordPanel";
 import { SignInPanel } from "./screens/SignInPanel";
 import { DashboardShell } from "./routes/router";
+import { Toaster } from "./toast";
 
 export function AdminApp() {
   const [theme, setThemeState] = useState<Theme>(() => resolveTheme());
@@ -34,47 +35,56 @@ export function AdminApp() {
     setThemeState(next);
   }
 
-  if (meQuery.isLoading) {
-    return (
-      <CenteredShell theme={theme} onToggleTheme={toggleTheme}>
-        <LoadingPanel />
-      </CenteredShell>
-    );
-  }
-
-  if (meQuery.isError || !meQuery.data) {
-    const isUnauthorized = meQuery.error instanceof UnauthorizedError;
-    return (
-      <CenteredShell theme={theme} onToggleTheme={toggleTheme}>
-        <SignInPanel
-          error={
-            isUnauthorized
-              ? undefined
-              : meQuery.error instanceof Error
-              ? meQuery.error.message
-              : "Admin API is unavailable"
-          }
-        />
-      </CenteredShell>
-    );
-  }
-
-  const me = meQuery.data;
-
-  if (me.mustChangePassword) {
-    return (
-      <CenteredShell theme={theme} onToggleTheme={toggleTheme}>
-        <ChangePasswordPanel me={me} />
-      </CenteredShell>
-    );
-  }
-
   return (
-    <DashboardShell
-      me={me}
-      theme={theme}
-      onToggleTheme={toggleTheme}
-      onSignOut={() => void signOut().then(() => meQuery.refetch())}
-    />
+    <>
+      {renderContent()}
+      <Toaster />
+    </>
   );
+
+  function renderContent() {
+    if (meQuery.isLoading) {
+      return (
+        <CenteredShell theme={theme} onToggleTheme={toggleTheme}>
+          <LoadingPanel />
+        </CenteredShell>
+      );
+    }
+
+    if (meQuery.isError || !meQuery.data) {
+      const isUnauthorized = meQuery.error instanceof UnauthorizedError;
+      return (
+        <CenteredShell theme={theme} onToggleTheme={toggleTheme}>
+          <SignInPanel
+            error={
+              isUnauthorized
+                ? undefined
+                : meQuery.error instanceof Error
+                ? meQuery.error.message
+                : "Admin API is unavailable"
+            }
+          />
+        </CenteredShell>
+      );
+    }
+
+    const me = meQuery.data;
+
+    if (me.mustChangePassword) {
+      return (
+        <CenteredShell theme={theme} onToggleTheme={toggleTheme}>
+          <ChangePasswordPanel me={me} />
+        </CenteredShell>
+      );
+    }
+
+    return (
+      <DashboardShell
+        me={me}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onSignOut={() => void signOut().then(() => meQuery.refetch())}
+      />
+    );
+  }
 }

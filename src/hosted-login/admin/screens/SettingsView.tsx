@@ -2,11 +2,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { changeAdminPassword, updateAdminProfile } from "../api";
-import {
-  FormAlert,
-  PrimaryButton,
-  SettingsInput
-} from "../components/primitives";
+import { PrimaryButton, SettingsInput } from "../components/primitives";
+import { notifyError, notifySuccess } from "../toast";
 import type { MeResponse } from "../types";
 
 export function SettingsView({ me }: { me: MeResponse }) {
@@ -38,7 +35,6 @@ function ProfileSection({ me }: { me: MeResponse }) {
   const [name, setName] = useState(initialName);
   const [email, setEmail] = useState(initialEmail);
 
-  // Sync local state when me refetches with new server values
   useEffect(() => {
     setName(initialName);
     setEmail(initialEmail);
@@ -46,8 +42,24 @@ function ProfileSection({ me }: { me: MeResponse }) {
 
   const mutation = useMutation({
     mutationFn: updateAdminProfile,
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["admin", "me"] });
+      const changed = [
+        variables.name !== undefined ? "name" : null,
+        variables.email !== undefined ? "email" : null
+      ]
+        .filter(Boolean)
+        .join(" and ");
+      notifySuccess(
+        "Profile updated",
+        changed ? `Your ${changed} has been saved.` : undefined
+      );
+    },
+    onError: (error) => {
+      notifyError(
+        "Could not save profile",
+        error instanceof Error ? error.message : undefined
+      );
     }
   });
 
@@ -64,12 +76,6 @@ function ProfileSection({ me }: { me: MeResponse }) {
     if (trimmedEmail !== initialEmail.toLowerCase()) patch.email = trimmedEmail;
     mutation.mutate(patch);
   }
-
-  const errorMessage = mutation.isError
-    ? mutation.error instanceof Error
-      ? mutation.error.message
-      : "Could not save profile"
-    : null;
 
   return (
     <section>
@@ -97,13 +103,6 @@ function ProfileSection({ me }: { me: MeResponse }) {
           placeholder="admin@example.com"
         />
 
-        {errorMessage ? <FormAlert>{errorMessage}</FormAlert> : null}
-        {mutation.isSuccess && !dirty ? (
-          <p className="text-[12.5px]" style={{ color: "var(--success)" }}>
-            Saved.
-          </p>
-        ) : null}
-
         <PrimaryButton
           type="submit"
           loading={mutation.isPending}
@@ -120,7 +119,6 @@ function SecuritySection() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [mismatchError, setMismatchError] = useState<string | null>(null);
 
   const mutation = useMutation({
     mutationFn: changeAdminPassword,
@@ -128,6 +126,16 @@ function SecuritySection() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      notifySuccess(
+        "Password updated",
+        "Other sessions have been signed out."
+      );
+    },
+    onError: (error) => {
+      notifyError(
+        "Could not change password",
+        error instanceof Error ? error.message : undefined
+      );
     }
   });
 
@@ -138,27 +146,18 @@ function SecuritySection() {
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setMismatchError(null);
 
     if (newPassword !== confirmPassword) {
-      setMismatchError("New passwords do not match");
+      notifyError("Passwords do not match");
       return;
     }
     if (newPassword.length < 12) {
-      setMismatchError("Use a password with at least 12 characters");
+      notifyError("Use a password with at least 12 characters");
       return;
     }
 
     mutation.mutate({ currentPassword, newPassword });
   }
-
-  const errorMessage =
-    mismatchError ??
-    (mutation.isError
-      ? mutation.error instanceof Error
-        ? mutation.error.message
-        : "Could not change password"
-      : null);
 
   return (
     <section>
@@ -195,13 +194,6 @@ function SecuritySection() {
           autoComplete="new-password"
           placeholder="Repeat new password"
         />
-
-        {errorMessage ? <FormAlert>{errorMessage}</FormAlert> : null}
-        {mutation.isSuccess ? (
-          <p className="text-[12.5px]" style={{ color: "var(--success)" }}>
-            Password updated.
-          </p>
-        ) : null}
 
         <PrimaryButton
           type="submit"

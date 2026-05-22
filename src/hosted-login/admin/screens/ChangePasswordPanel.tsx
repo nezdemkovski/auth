@@ -1,28 +1,29 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 
 import { changeAdminPassword } from "../api";
-import {
-  FormAlert,
-  FormField,
-  PrimaryButton
-} from "../components/primitives";
+import { FormField, PrimaryButton } from "../components/primitives";
+import { notifyError, notifySuccess } from "../toast";
 import type { MeResponse } from "../types";
 
 export function ChangePasswordPanel({ me }: { me: MeResponse }) {
   const queryClient = useQueryClient();
-  const [mismatchError, setMismatchError] = useState<string | null>(null);
 
   const mutation = useMutation({
     mutationFn: changeAdminPassword,
     onSuccess: () => {
+      notifySuccess("Password updated");
       void queryClient.invalidateQueries({ queryKey: ["admin", "me"] });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Could not change password",
+        caught instanceof Error ? caught.message : undefined
+      );
     }
   });
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setMismatchError(null);
 
     const form = new FormData(event.currentTarget);
     const currentPassword = String(form.get("currentPassword") ?? "");
@@ -30,20 +31,16 @@ export function ChangePasswordPanel({ me }: { me: MeResponse }) {
     const confirmPassword = String(form.get("confirmPassword") ?? "");
 
     if (newPassword !== confirmPassword) {
-      setMismatchError("New passwords do not match");
+      notifyError("Passwords do not match");
+      return;
+    }
+    if (newPassword.length < 12) {
+      notifyError("Use a password with at least 12 characters");
       return;
     }
 
     mutation.mutate({ currentPassword, newPassword });
   }
-
-  const displayError =
-    mismatchError ??
-    (mutation.isError
-      ? mutation.error instanceof Error
-        ? mutation.error.message
-        : "Could not change password"
-      : null);
 
   return (
     <div>
@@ -59,8 +56,6 @@ export function ChangePasswordPanel({ me }: { me: MeResponse }) {
         <span className="mono text-[13px] text-ink-soft">{me.user.email}</span>.
         Change the temporary password before continuing.
       </p>
-
-      {displayError ? <FormAlert>{displayError}</FormAlert> : null}
 
       <form onSubmit={submit} className="mt-8 space-y-4">
         <FormField

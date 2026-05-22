@@ -1,4 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
+import {
+  Button as AriaButton,
+  Header,
+  Menu,
+  MenuItem,
+  MenuSection,
+  MenuTrigger,
+  Popover,
+  Separator,
+  Tooltip,
+  TooltipTrigger
+} from "react-aria-components";
 
 import { ChevronDownIcon, SignOutIcon } from "../../icons";
 import type { Theme } from "../../theme";
@@ -60,20 +72,33 @@ export function Topbar({
 
       <div className="flex shrink-0 items-center gap-1.5">
         <ThemeToggle theme={theme} onToggle={onToggleTheme} compact />
-        <button
-          type="button"
-          onClick={onSignOut}
-          data-press
-          aria-label={`Sign out ${me.user.email}`}
-          title={`Signed in as ${me.user.email} · Sign out`}
-          className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface text-ink-soft outline-none transition-colors hover:bg-surface-hover hover:text-ink focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-        >
-          <SignOutIcon size={14} />
-        </button>
+        <TooltipTrigger delay={400} closeDelay={120}>
+          <AriaButton
+            onPress={onSignOut}
+            aria-label={`Sign out ${me.user.email}`}
+            className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface text-ink-soft outline-none transition-colors hover:bg-surface-hover hover:text-ink data-[focus-visible]:ring-2 data-[focus-visible]:ring-[var(--focus-ring)] data-[pressed]:scale-[0.97]"
+          >
+            <SignOutIcon size={14} />
+          </AriaButton>
+          <Tooltip
+            placement="bottom"
+            offset={6}
+            className="mono rounded-md border border-border bg-surface px-2 py-1 text-[10.5px] uppercase tracking-[0.06em] text-muted outline-none data-[entering]:animate-[toast-in_140ms_ease-out]"
+            style={{ boxShadow: "var(--shadow-card)" }}
+          >
+            Signed in as {me.user.email}
+          </Tooltip>
+        </TooltipTrigger>
       </div>
     </header>
   );
 }
+
+const ITEM_BASE =
+  "relative flex h-8 cursor-pointer items-center rounded-md px-2 text-left outline-none transition-colors data-[focused]:bg-surface-hover";
+
+const SECTION_HEADER =
+  "mono px-2 pb-1 text-[10px] uppercase tracking-[0.1em] text-muted-soft";
 
 function BreadcrumbSwitcher({
   workspace,
@@ -94,30 +119,6 @@ function BreadcrumbSwitcher({
   loading: boolean;
   onSelect: (slug: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointer = (event: MouseEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onPointer);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointer);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  function handleSelect(slug: string) {
-    onSelect(slug);
-    setOpen(false);
-  }
-
   const label = isSettings
     ? "settings"
     : isNewProject
@@ -127,191 +128,176 @@ function BreadcrumbSwitcher({
     : "overview";
 
   return (
-    <div ref={rootRef} className="relative min-w-0">
-      <nav
-        aria-label="Breadcrumb"
-        className="mono flex min-w-0 items-center gap-px text-[12px] uppercase tracking-[0.06em]"
-      >
-        <span className="text-muted-soft">/</span>
-        <span className="px-1.5 py-1 text-muted">{workspace}</span>
-        <span className="text-muted-soft">/</span>
-        <button
-          type="button"
-          onClick={() => setOpen((value) => !value)}
-          aria-haspopup="menu"
-          aria-expanded={open}
-          title="Switch project"
-          className={`group ml-1 inline-flex min-w-0 items-center gap-2 rounded-md border bg-surface px-2 py-1 text-ink outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
-            open
-              ? "border-border-strong"
-              : "border-border hover:bg-surface-hover"
-          }`}
+    <nav
+      aria-label="Breadcrumb"
+      className="mono flex min-w-0 items-center gap-px text-[12px] uppercase tracking-[0.06em]"
+    >
+      <span className="text-muted-soft">/</span>
+      <span className="px-1.5 py-1 text-muted">{workspace}</span>
+      <span className="text-muted-soft">/</span>
+      <MenuTrigger>
+        <AriaButton
+          aria-label="Switch project"
+          className="group ml-1 inline-flex min-w-0 items-center gap-2 rounded-md border border-border bg-surface px-2 py-1 text-ink outline-none transition-colors hover:bg-surface-hover data-[pressed]:scale-[0.98] data-[focus-visible]:ring-2 data-[focus-visible]:ring-[var(--focus-ring)]"
           style={{ boxShadow: "var(--shadow-card)" }}
         >
           <span className="truncate">{label}</span>
           <ChevronDownIcon
             size={13}
-            className={`shrink-0 transition-transform duration-150 ${
-              open ? "rotate-180 text-ink" : "text-muted-soft group-hover:text-ink"
-            }`}
+            className="shrink-0 text-muted-soft transition-transform duration-150 group-data-[pressed]:text-ink"
           />
-        </button>
-      </nav>
-
-      {open ? (
-        <div
-          role="menu"
-          className="enter absolute left-0 top-full mt-2 w-[320px] overflow-hidden rounded-xl border border-border bg-surface"
+        </AriaButton>
+        <Popover
+          placement="bottom start"
+          offset={8}
+          className="enter w-[320px] overflow-hidden rounded-xl border border-border bg-surface outline-none"
           style={{ boxShadow: "var(--shadow-elevated)" }}
         >
-          <div className="px-3 pb-1 pt-3">
-            <div className="mono px-2 text-[10px] uppercase tracking-[0.1em] text-muted-soft">
-              Workspace
-            </div>
-            <SwitcherItem
-              label="Overview"
-              active={selectedSlug === "__overview__"}
-              onClick={() => handleSelect("__overview__")}
-            />
-            <SwitcherItem
-              label="Settings"
-              active={selectedSlug === "__settings__"}
-              onClick={() => handleSelect("__settings__")}
-            />
-            <SwitcherItem
-              label="New realm"
-              active={selectedSlug === "__new_project__"}
-              onClick={() => handleSelect("__new_project__")}
-            />
-          </div>
-
-          <div className="my-1 h-px bg-border" />
-
-          <div className="px-3 pb-3 pt-1">
-            <div className="mono flex items-baseline justify-between px-2">
-              <span className="text-[10px] uppercase tracking-[0.1em] text-muted-soft">
-                Realms
-              </span>
-              <span className="tabular text-[10px] tracking-[0.04em] text-muted-soft">
-                {pad2(projects.length)}
-              </span>
-            </div>
-            {loading ? (
-              <div className="space-y-1 px-2 pt-2">
-                {[0, 1, 2].map((item) => (
-                  <div
-                    key={item}
-                    className="h-7 animate-pulse rounded bg-surface-hover"
-                  />
-                ))}
-              </div>
-            ) : projects.length === 0 ? (
-              <div className="px-2 pt-2 text-[12px] text-muted-soft">
-                No realms yet.
-              </div>
-            ) : (
-              <ul className="space-y-px pt-1">
-                {projects.map((project, idx) => (
-                  <SwitcherProjectItem
-                    key={project.slug}
-                    index={idx + 1}
-                    project={project}
-                    active={selectedSlug === project.slug}
-                    onClick={() => handleSelect(project.slug)}
-                  />
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function SwitcherItem({
-  label,
-  active,
-  onClick
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      onClick={onClick}
-      data-press
-      className={`relative mt-1 flex h-8 w-full items-center rounded-md px-2 text-left text-[13.5px] outline-none transition-colors ${
-        active
-          ? "bg-surface-muted text-ink"
-          : "text-muted hover:bg-surface-hover hover:text-ink"
-      }`}
-    >
-      {active ? (
-        <span
-          aria-hidden="true"
-          className="absolute inset-y-1 left-0 w-[2px] rounded-full bg-accent"
-        />
-      ) : null}
-      <span className={active ? "ml-1.5 font-medium" : "ml-1.5"}>{label}</span>
-    </button>
-  );
-}
-
-function SwitcherProjectItem({
-  index,
-  project,
-  active,
-  onClick
-}: {
-  index: number;
-  project: ProjectSummary;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <li>
-      <button
-        type="button"
-        role="menuitem"
-        onClick={onClick}
-        data-press
-        className={`group relative flex h-8 w-full items-baseline gap-3 rounded-md px-2 text-left outline-none transition-colors ${
-          active ? "bg-surface-muted" : "hover:bg-surface-hover"
-        }`}
-      >
-        {active ? (
-          <span
-            aria-hidden="true"
-            className="absolute inset-y-1 left-0 w-[2px] rounded-full bg-accent"
-          />
-        ) : null}
-        <span
-          className={`mono tabular ml-1.5 w-5 shrink-0 text-[10.5px] tracking-[0.04em] ${
-            active ? "text-ink" : "text-muted-soft"
-          }`}
-        >
-          {pad2(index)}
-        </span>
-        <span
-          className={`min-w-0 flex-1 truncate text-[13px] ${
-            active ? "font-medium text-ink" : "text-muted group-hover:text-ink"
-          }`}
-        >
-          {project.name}
-        </span>
-        {project.system ? (
-          <span
-            className="mono shrink-0 text-[9px] uppercase tracking-[0.1em] text-muted-soft"
-            title="System project"
+          <Menu
+            aria-label="Switch project"
+            className="max-h-[420px] overflow-y-auto p-3 outline-none"
+            onAction={(key) => onSelect(String(key))}
           >
-            sys
-          </span>
-        ) : null}
-      </button>
-    </li>
+            <MenuSection>
+              <Header className={SECTION_HEADER}>Workspace</Header>
+              <MenuItem
+                id="__overview__"
+                className={`${ITEM_BASE} text-[13.5px] ${
+                  selectedSlug === "__overview__" ? "text-ink" : "text-muted"
+                }`}
+              >
+                {selectedSlug === "__overview__" ? (
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-y-1 left-0 w-[2px] rounded-full bg-accent"
+                  />
+                ) : null}
+                <span
+                  className={
+                    selectedSlug === "__overview__"
+                      ? "ml-1.5 font-medium"
+                      : "ml-1.5"
+                  }
+                >
+                  Overview
+                </span>
+              </MenuItem>
+              <MenuItem
+                id="__settings__"
+                className={`${ITEM_BASE} text-[13.5px] ${
+                  selectedSlug === "__settings__" ? "text-ink" : "text-muted"
+                }`}
+              >
+                {selectedSlug === "__settings__" ? (
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-y-1 left-0 w-[2px] rounded-full bg-accent"
+                  />
+                ) : null}
+                <span
+                  className={
+                    selectedSlug === "__settings__"
+                      ? "ml-1.5 font-medium"
+                      : "ml-1.5"
+                  }
+                >
+                  Settings
+                </span>
+              </MenuItem>
+              <MenuItem
+                id="__new_project__"
+                className={`${ITEM_BASE} text-[13.5px] ${
+                  selectedSlug === "__new_project__" ? "text-ink" : "text-muted"
+                }`}
+              >
+                {selectedSlug === "__new_project__" ? (
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-y-1 left-0 w-[2px] rounded-full bg-accent"
+                  />
+                ) : null}
+                <span
+                  className={
+                    selectedSlug === "__new_project__"
+                      ? "ml-1.5 font-medium"
+                      : "ml-1.5"
+                  }
+                >
+                  New realm
+                </span>
+              </MenuItem>
+            </MenuSection>
+
+            <Separator className="my-2 h-px bg-border" />
+
+            <MenuSection>
+              <Header className={SECTION_HEADER}>
+                <span className="flex items-baseline justify-between">
+                  <span>Realms</span>
+                  <span className="tabular text-[10px] tracking-[0.04em] text-muted-soft">
+                    {pad2(projects.length)}
+                  </span>
+                </span>
+              </Header>
+              {loading ? (
+                <div className="space-y-1 px-2 pt-1">
+                  {[0, 1, 2].map((item) => (
+                    <div
+                      key={item}
+                      className="h-7 animate-pulse rounded bg-surface-hover"
+                    />
+                  ))}
+                </div>
+              ) : projects.length === 0 ? (
+                <div className="px-2 pt-1 text-[12px] text-muted-soft">
+                  No realms yet.
+                </div>
+              ) : (
+                projects.map((project, idx) => {
+                  const active = selectedSlug === project.slug;
+                  return (
+                    <MenuItem
+                      key={project.slug}
+                      id={project.slug}
+                      textValue={project.name}
+                      className={`${ITEM_BASE} items-baseline gap-3`}
+                    >
+                      {active ? (
+                        <span
+                          aria-hidden="true"
+                          className="absolute inset-y-1 left-0 w-[2px] rounded-full bg-accent"
+                        />
+                      ) : null}
+                      <span
+                        className={`mono tabular ml-1.5 w-5 shrink-0 text-[10.5px] tracking-[0.04em] ${
+                          active ? "text-ink" : "text-muted-soft"
+                        }`}
+                      >
+                        {pad2(idx + 1)}
+                      </span>
+                      <span
+                        className={`min-w-0 flex-1 truncate text-[13px] ${
+                          active ? "font-medium text-ink" : "text-muted"
+                        }`}
+                      >
+                        {project.name}
+                      </span>
+                      {project.system ? (
+                        <span
+                          className="mono shrink-0 text-[9px] uppercase tracking-[0.1em] text-muted-soft"
+                          title="System project"
+                        >
+                          sys
+                        </span>
+                      ) : null}
+                    </MenuItem>
+                  );
+                })
+              )}
+            </MenuSection>
+          </Menu>
+        </Popover>
+      </MenuTrigger>
+    </nav>
   );
 }

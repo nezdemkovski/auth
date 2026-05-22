@@ -1,3 +1,5 @@
+import { Button } from "react-aria-components";
+
 import { MoonIcon, SunIcon } from "../../../icons";
 import type { Theme } from "../../../theme";
 
@@ -11,36 +13,31 @@ export function ThemeToggle({
   compact?: boolean;
 }) {
   const next = theme === "dark" ? "light" : "dark";
-  const size = compact ? "h-9 w-9" : "h-9 w-9";
+  void compact;
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      data-press
+    <Button
+      onPress={onToggle}
       aria-label={`Switch to ${next} mode`}
-      title={`Switch to ${next} mode`}
-      className={`relative grid ${size} place-items-center rounded-lg border border-border bg-surface text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]`}
+      className="relative grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface text-ink-soft outline-none transition-colors hover:bg-surface-hover data-[focus-visible]:ring-2 data-[focus-visible]:ring-[var(--focus-ring)] data-[pressed]:scale-[0.97]"
     >
       <span
-        className="absolute inset-0 grid place-items-center transition-[opacity,transform,filter] duration-200"
+        className="absolute inset-0 grid place-items-center transition-[opacity,transform] duration-200"
         style={{
           opacity: theme === "dark" ? 1 : 0,
-          transform: theme === "dark" ? "scale(1)" : "scale(0.5)",
-          filter: theme === "dark" ? "blur(0)" : "blur(4px)"
+          transform: theme === "dark" ? "scale(1)" : "scale(0.6)"
         }}
       >
         <MoonIcon size={15} />
       </span>
       <span
-        className="absolute inset-0 grid place-items-center transition-[opacity,transform,filter] duration-200"
+        className="absolute inset-0 grid place-items-center transition-[opacity,transform] duration-200"
         style={{
           opacity: theme === "light" ? 1 : 0,
-          transform: theme === "light" ? "scale(1)" : "scale(0.5)",
-          filter: theme === "light" ? "blur(0)" : "blur(4px)"
+          transform: theme === "light" ? "scale(1)" : "scale(0.6)"
         }}
       >
         <SunIcon size={15} />
       </span>
-    </button>
+    </Button>
   );
 }

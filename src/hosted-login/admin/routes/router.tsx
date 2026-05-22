@@ -10,6 +10,7 @@ import { OverviewView } from "../screens/OverviewView";
 import { NewProjectView } from "../screens/NewProjectView";
 import { ProjectView } from "../screens/ProjectView";
 import { SettingsView } from "../screens/SettingsView";
+import { notifyError, notifySuccess } from "../toast";
 import type {
   CreateProjectInput,
   DashboardRouterContext,
@@ -191,10 +192,17 @@ function NewProjectRoute() {
     mutationFn: (input: CreateProjectInput) => createProject(input),
     onSuccess: async (project) => {
       await queryClient.invalidateQueries({ queryKey: ["admin", "projects"] });
+      notifySuccess("Realm created", `${project.name} is ready.`);
       await navigate({
         to: "/projects/$projectSlug",
         params: { projectSlug: project.slug }
       });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Could not create realm",
+        caught instanceof Error ? caught.message : undefined
+      );
     }
   });
 
@@ -282,9 +290,16 @@ function ProjectRoute() {
       resendVerificationEmail(input.project, input.email),
     onSuccess: async (_data, variables) => {
       setResentVerificationEmail(variables.email);
+      notifySuccess("Verification email sent", variables.email);
       await queryClient.invalidateQueries({
         queryKey: ["admin", "project-users", variables.project]
       });
+    },
+    onError: (caught, variables) => {
+      notifyError(
+        "Could not send verification email",
+        `to ${variables.email}: ${caught instanceof Error ? caught.message : "unknown error"}`
+      );
     }
   });
   const terminateSessions = useMutation({
@@ -292,24 +307,38 @@ function ProjectRoute() {
       terminateUserSessions(input.project, input.userId),
     onSuccess: async (_data, variables) => {
       setTerminatedSessionsUserId(variables.userId);
+      notifySuccess("Sessions terminated");
       await queryClient.invalidateQueries({
         queryKey: ["admin", "project-users", variables.project]
       });
       await queryClient.invalidateQueries({
         queryKey: ["admin", "projects"]
       });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Could not terminate sessions",
+        caught instanceof Error ? caught.message : undefined
+      );
     }
   });
   const updateProject = useMutation({
     mutationFn: (input: { project: string; patch: ProjectSettingsPatch }) =>
       updateProjectSettings(input.project, input.patch),
     onSuccess: async (_data, variables) => {
+      notifySuccess("Realm settings saved");
       await queryClient.invalidateQueries({
         queryKey: ["admin", "projects"]
       });
       await queryClient.invalidateQueries({
         queryKey: ["admin", "project-users", variables.project]
       });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Could not save realm settings",
+        caught instanceof Error ? caught.message : undefined
+      );
     }
   });
 
