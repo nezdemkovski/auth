@@ -136,10 +136,7 @@ function createBaseProjectAuthOptions(options: {
           project.features.oauthProvider.dynamicClientRegistration,
         allowUnauthenticatedClientRegistration:
           project.features.oauthProvider.dynamicClientRegistration,
-        validAudiences: [
-          `${publicBaseUrl}/${project.slug}`,
-          `${publicBaseUrl}/${project.slug}/api/auth`
-        ],
+        validAudiences: buildOAuthValidAudiences(project, publicBaseUrl),
         silenceWarnings: {
           oauthAuthServerConfig: true,
           openidConfig: true
@@ -215,6 +212,34 @@ function buildSocialProviders(project: AuthProject): BetterAuthOptions["socialPr
   ) as BetterAuthOptions["socialProviders"];
 }
 
+function buildOAuthValidAudiences(project: AuthProject, publicBaseUrl: string): string[] {
+  const audiences = new Set([
+    `${publicBaseUrl}/${project.slug}`,
+    `${publicBaseUrl}/${project.slug}/api/auth`
+  ]);
+
+  for (const origin of [project.appUrl, ...project.trustedOrigins]) {
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (!normalizedOrigin) {
+      continue;
+    }
+
+    audiences.add(normalizedOrigin);
+    audiences.add(`${normalizedOrigin}/mcp`);
+  }
+
+  return Array.from(audiences);
+}
+
+function normalizeOrigin(value: string): string | null {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
 export const __projectAuthTestUtils = {
+  buildOAuthValidAudiences,
   createBaseProjectAuthOptions
 };

@@ -229,7 +229,7 @@ export function ProjectSettingsForm({
 
           <FeatureToggle
             label="Dynamic client registration"
-            description="Allow authenticated users to register OAuth clients from the provider API."
+            description="Allow compatible OAuth clients, including MCP clients, to register themselves and receive a client ID."
             checked={form.oauthDynamicClientRegistration}
             disabled={project.system || !form.oauthProviderEnabled}
             onChange={(checked) => update("oauthDynamicClientRegistration", checked)}

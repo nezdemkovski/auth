@@ -80,6 +80,20 @@ describe("project auth options", () => {
     });
   });
 
+  test("allows OAuth tokens for trusted app resources", () => {
+    expect(
+      __projectAuthTestUtils.buildOAuthValidAudiences(
+        baseProject,
+        "https://auth.example.com"
+      )
+    ).toEqual([
+      "https://auth.example.com/openmarkers",
+      "https://auth.example.com/openmarkers/api/auth",
+      "https://openmarkers.app",
+      "https://openmarkers.app/mcp"
+    ]);
+  });
+
   test("enables social providers only when enabled and fully configured", () => {
     const options = createOptions({
       ...baseProject,
