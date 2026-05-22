@@ -134,7 +134,8 @@ function createBaseProjectAuthOptions(options: {
         consentPage: `/${project.slug}/oauth/consent`,
         allowDynamicClientRegistration:
           project.features.oauthProvider.dynamicClientRegistration,
-        allowUnauthenticatedClientRegistration: false,
+        allowUnauthenticatedClientRegistration:
+          project.features.oauthProvider.dynamicClientRegistration,
         validAudiences: [
           `${publicBaseUrl}/${project.slug}`,
           `${publicBaseUrl}/${project.slug}/api/auth`
