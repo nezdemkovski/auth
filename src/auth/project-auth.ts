@@ -98,7 +98,9 @@ function createBaseProjectAuthOptions(options: {
         rpID: publicHostname,
         origin: publicOrigin
       }),
-      twoFactor(),
+      twoFactor({
+        issuer: project.name
+      }),
       agentAuth({
         providerName: project.name,
         providerDescription: project.description || `${project.name} auth realm`,

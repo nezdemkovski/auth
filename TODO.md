@@ -2,11 +2,6 @@
 
 ## Application Readiness
 
-- Decide whether project configuration should stay in `AUTH_PROJECTS` or move to
-  a database-backed registry.
-- Add a project onboarding command that validates trusted origins and updates
-  `AUTH_PROJECTS` safely.
-- Provision Redis and set `REDIS_URL` before running multiple auth replicas.
 - Add structured request logging without leaking credentials, tokens, cookies, or
   PII.
 - Add a minimal read-only diagnostics endpoint for configured projects and auth
@@ -15,6 +10,8 @@
   isolation against Postgres.
 - Add a small example client showing how a product app should integrate with the
   project-scoped auth endpoint.
+- Enforce realm 2FA policies (`admins` / `everyone`) for users that have not
+  enrolled an authenticator yet.
 
 ## Security
 
@@ -22,6 +19,8 @@
   proxies.
 - Add audit events for sensitive auth actions.
 - Define a backup and restore procedure before accepting real users.
+- Require password confirmation and email verification before changing the admin
+  account email.
 
 ## Done
 
@@ -37,3 +36,5 @@
   password reset, and verification flows.
 - Optional Bun-native Redis-backed rate limiter through `REDIS_URL`, with
   in-memory fallback for local development.
+- Database-backed realm registry managed through the admin UI.
+- Redis-backed hosted auth code store for multi-replica deployments.
