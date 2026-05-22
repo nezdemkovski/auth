@@ -51,32 +51,23 @@ Example auth session endpoint:
 curl http://localhost:3000/demo/api/auth/session
 ```
 
-## Project Isolation
+## Realm Configuration
 
-Projects are configured through `AUTH_PROJECTS`.
+The admin realm is bootstrapped from the environment. Application realms are
+managed from the admin UI, including display metadata, trusted origins, feature
+flags, and social provider settings.
 
-```json
-[
-  {
-    "slug": "demo",
-    "name": "Demo",
-    "schema": "demo_auth",
-    "trustedOrigins": ["http://localhost:5173"]
-  }
-]
-```
-
-Each project gets:
+Each realm gets:
 
 - its own Better Auth instance
 - its own Postgres connection with `search_path` set to the project schema
-- idempotent startup bootstrap for the project schema and Better Auth tables
+- idempotent bootstrap for the project schema and Better Auth tables
 - its own cookie prefix
 - its own trusted origins
 - its own JWT issuer and JWKS endpoint
 
 Applications should store their own domain data in their own databases and only
-reference the project-local Better Auth `user.id`.
+reference the realm-local Better Auth `user.id`.
 
 ## Rate Limiting
 
@@ -99,3 +90,24 @@ The hosted login flow uses a short-lived authorization code plus PKCE S256. The
 client app sends `code_challenge` and `code_challenge_method=S256` to
 `/<project>/login`, stores the verifier in an HttpOnly app cookie, and sends
 `code_verifier` to `/<project>/hosted/token` during callback exchange.
+
+## OAuth Provider and MCP
+
+Realms can expose OAuth/OIDC endpoints for first-party apps and remote MCP
+clients. OAuth clients authenticate against the same realm-local user pool as
+the hosted login flow.
+
+Dynamic Client Registration can be enabled per realm. When enabled, compatible
+OAuth clients, including MCP clients, can register themselves and receive a
+client ID. Registration only creates client metadata; users still approve access
+through the consent screen.
+
+OAuth access tokens are audience-bound. The server accepts the realm auth URLs,
+the realm app URL, trusted origins, and each origin's `/mcp` resource URL as
+valid audiences. For example, an OpenMarkers MCP client can request:
+
+```text
+resource=https://openmarkers.app/mcp
+```
+
+and OpenMarkers can validate the token against the realm JWKS endpoint.
