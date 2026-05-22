@@ -1,14 +1,21 @@
-import type { FormEvent, ReactNode } from "react";
+import type { ComponentType, FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import {
   createHostedAuthClient,
   createHostedSessionRedirect,
+  signInWithSocial,
   signInWithEmail,
   signUpWithEmail,
   verifyTwoFactorCode
 } from "./auth-client";
+import {
+  SiFacebook,
+  SiGithub,
+  SiGoogle,
+  SiX
+} from "@icons-pack/react-simple-icons";
 import { MoonIcon, SunIcon } from "./icons";
 import "./style.css";
 import {
@@ -27,8 +34,11 @@ type HostedAuthConfig = {
   mode: "login" | "signup";
   codeChallenge: string;
   features: ProjectFeatures;
+  socialProviders: SocialProviderId[];
   error?: string;
 };
+
+type SocialProviderId = "github" | "google" | "twitter" | "facebook";
 
 type ProjectFeatures = {
   passkey: {
@@ -71,6 +81,7 @@ function LoginPage({ config }: { config: HostedAuthConfig }) {
   const isSignup = config.mode === "signup";
   const passkeysEnabled = config.features.passkey.enabled;
   const twoFactorEnabled = config.features.twoFactor.enabled;
+  const socialProviders = config.socialProviders;
   const title = getTitle(step, isSignup);
   const subtitle = getSubtitle(step, isSignup, config.projectName);
   const alternateUrl = useMemo(() => {
@@ -156,6 +167,34 @@ function LoginPage({ config }: { config: HostedAuthConfig }) {
     }
   }
 
+  async function startSocialSignIn(provider: SocialProviderId) {
+    setPending(true);
+    setError(null);
+
+    const callbackURL = new URL(`/${config.project}/login`, window.location.origin);
+    callbackURL.searchParams.set("redirect_uri", config.redirectUri);
+    callbackURL.searchParams.set("state", config.state);
+    callbackURL.searchParams.set("mode", config.mode);
+    callbackURL.searchParams.set("code_challenge", config.codeChallenge);
+    callbackURL.searchParams.set("code_challenge_method", "S256");
+    callbackURL.searchParams.set("social", "1");
+
+    try {
+      const started = await signInWithSocial({
+        project: config.project,
+        provider,
+        callbackURL: callbackURL.toString()
+      });
+      if (!started) {
+        setPending(false);
+        setError("Could not start social sign-in");
+      }
+    } catch (cause) {
+      setPending(false);
+      setError(cause instanceof Error ? cause.message : "Could not start social sign-in");
+    }
+  }
+
   async function submitTwoFactor(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
@@ -226,6 +265,15 @@ function LoginPage({ config }: { config: HostedAuthConfig }) {
     window.location.assign(redirectTo);
   }
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("social") !== "1") {
+      return;
+    }
+
+    void redirectWithCurrentSession();
+  }, []);
+
   const projectInitial = config.projectName.trim().charAt(0).toUpperCase() || "·";
 
   return (
@@ -261,6 +309,7 @@ function LoginPage({ config }: { config: HostedAuthConfig }) {
             <CredentialsStep
               isSignup={isSignup}
               passkeysEnabled={passkeysEnabled}
+              socialProviders={socialProviders}
               pending={pending}
               email={email}
               password={password}
@@ -268,6 +317,7 @@ function LoginPage({ config }: { config: HostedAuthConfig }) {
               onEmailChange={setEmail}
               onPasswordChange={setPassword}
               onPasskeySignIn={() => void signInWithPasskey()}
+              onSocialSignIn={(provider) => void startSocialSignIn(provider)}
               onSubmit={(event) => void submitCredentials(event)}
             />
           ) : null}
@@ -341,6 +391,7 @@ function AuthHeading({
 function CredentialsStep({
   isSignup,
   passkeysEnabled,
+  socialProviders,
   pending,
   email,
   password,
@@ -348,10 +399,12 @@ function CredentialsStep({
   onEmailChange,
   onPasswordChange,
   onPasskeySignIn,
+  onSocialSignIn,
   onSubmit
 }: {
   isSignup: boolean;
   passkeysEnabled: boolean;
+  socialProviders: SocialProviderId[];
   pending: boolean;
   email: string;
   password: string;
@@ -359,15 +412,32 @@ function CredentialsStep({
   onEmailChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
   onPasskeySignIn: () => void;
+  onSocialSignIn: (provider: SocialProviderId) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
+  const hasSocialProviders = socialProviders.length > 0;
+
   return (
     <>
-      {passkeysEnabled && !isSignup ? (
+      {(passkeysEnabled && !isSignup) || hasSocialProviders ? (
         <div className="enter enter-1 mt-8 space-y-3">
-          <ActionButton type="button" disabled={pending} onClick={onPasskeySignIn}>
-            {pending ? "Waiting…" : "Sign in with passkey"}
-          </ActionButton>
+          {passkeysEnabled && !isSignup ? (
+            <ActionButton type="button" disabled={pending} onClick={onPasskeySignIn}>
+              {pending ? "Waiting…" : "Sign in with passkey"}
+            </ActionButton>
+          ) : null}
+          {hasSocialProviders ? (
+            <div className="grid gap-2">
+              {socialProviders.map((provider) => (
+                <SocialButton
+                  key={provider}
+                  provider={provider}
+                  disabled={pending}
+                  onClick={() => onSocialSignIn(provider)}
+                />
+              ))}
+            </div>
+          ) : null}
           <div className="flex items-center gap-3 text-muted-soft">
             <span className="h-px flex-1 bg-border" />
             <span className="text-[11px] uppercase tracking-[0.08em]">or</span>
@@ -428,6 +498,57 @@ function CredentialsStep({
         </div>
       </div>
     </>
+  );
+}
+
+const socialProviderMeta: Record<
+  SocialProviderId,
+  {
+    label: string;
+    icon: ComponentType<{ size?: number }>;
+  }
+> = {
+  github: {
+    label: "GitHub",
+    icon: SiGithub
+  },
+  google: {
+    label: "Google",
+    icon: SiGoogle
+  },
+  twitter: {
+    label: "X",
+    icon: SiX
+  },
+  facebook: {
+    label: "Facebook",
+    icon: SiFacebook
+  }
+};
+
+function SocialButton({
+  provider,
+  disabled,
+  onClick
+}: {
+  provider: SocialProviderId;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const meta = socialProviderMeta[provider];
+  const Icon = meta.icon;
+
+  return (
+    <button
+      type="button"
+      data-press
+      disabled={disabled}
+      onClick={onClick}
+      className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface text-[14px] font-medium text-ink outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      <Icon size={16} />
+      Continue with {meta.label}
+    </button>
   );
 }
 

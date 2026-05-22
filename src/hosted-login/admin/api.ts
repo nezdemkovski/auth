@@ -2,6 +2,9 @@ import type {
   CreateProjectInput,
   MeResponse,
   ProjectSettingsPatch,
+  SocialProviderId,
+  SocialProviderPatch,
+  SocialProvidersResponse,
   ProjectSummary,
   ProjectUsersResponse,
   ProjectsResponse
@@ -66,6 +69,49 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectS
   }
 
   return ((await response.json()) as { project: ProjectSummary }).project;
+}
+
+export async function fetchSocialProviders(
+  project: string
+): Promise<SocialProvidersResponse> {
+  const response = await fetch(`/admin/api/projects/${project}/social-providers`, {
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error("Could not load social providers");
+  return (await response.json()) as SocialProvidersResponse;
+}
+
+export async function updateSocialProvider(input: {
+  project: string;
+  provider: SocialProviderId;
+  patch: SocialProviderPatch;
+}): Promise<SocialProvidersResponse> {
+  const response = await fetch(
+    `/admin/api/projects/${input.project}/social-providers/${input.provider}`,
+    {
+      method: "PATCH",
+      credentials: "include",
+      headers: jsonHeaders,
+      body: JSON.stringify(input.patch)
+    }
+  );
+  if (!response.ok) throw new Error("Could not save social provider");
+  return (await response.json()) as SocialProvidersResponse;
+}
+
+export async function verifySocialProvider(input: {
+  project: string;
+  provider: SocialProviderId;
+}): Promise<SocialProvidersResponse> {
+  const response = await fetch(
+    `/admin/api/projects/${input.project}/social-providers/${input.provider}/verify`,
+    {
+      method: "POST",
+      credentials: "include"
+    }
+  );
+  if (!response.ok) throw new Error("Could not verify social provider");
+  return (await response.json()) as SocialProvidersResponse;
 }
 
 export async function fetchProjectUsers(project: string): Promise<ProjectUsersResponse> {

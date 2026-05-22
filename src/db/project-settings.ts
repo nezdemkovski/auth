@@ -11,6 +11,11 @@ import {
   type AuthProject,
   type ProjectFeatures
 } from "../config/projects";
+import {
+  ensureSocialProviderSettingsTable,
+  cloneDefaultSocialProviders,
+  loadSocialProviderSettings
+} from "./social-provider-settings";
 
 export type ProjectSettingsPatch = {
   name: string;
@@ -131,17 +136,25 @@ export async function seedAdminProjectSettings(options: {
 export async function loadEffectiveProjects(options: {
   databaseUrl: string;
   adminProject: AuthProject;
+  encryptionSecret: string;
 }): Promise<{ adminProject: AuthProject; projects: AuthProject[] }> {
   await ensureProjectSettingsTable(options.databaseUrl, options.adminProject);
   await seedAdminProjectSettings(options);
+  await ensureSocialProviderSettingsTable(options);
 
   const all = await readProjectSettings(options.databaseUrl, options.adminProject);
-  const bySlug = new Map(all.map((project) => [project.slug, project]));
+  const socialProviders = await loadSocialProviderSettings(options);
+  const allWithSocialProviders = all.map((project) => ({
+    ...project,
+    socialProviders:
+      socialProviders.get(project.slug) ?? cloneDefaultSocialProviders()
+  }));
+  const bySlug = new Map(allWithSocialProviders.map((project) => [project.slug, project]));
   const adminProject = bySlug.get(options.adminProject.slug) ?? options.adminProject;
 
   return {
     adminProject,
-    projects: all.filter((project) => project.slug !== adminProject.slug)
+    projects: allWithSocialProviders.filter((project) => project.slug !== adminProject.slug)
   };
 }
 
@@ -323,7 +336,8 @@ export function createProjectFromInput(input: ProjectSettingsCreate): AuthProjec
     iconUrl: input.iconUrl.trim(),
     appUrl: input.appUrl.trim(),
     trustedOrigins: input.trustedOrigins.map((origin) => origin.trim()).filter(Boolean),
-    features: normalizeProjectFeatures(input.features)
+    features: normalizeProjectFeatures(input.features),
+    socialProviders: optionsDefaultSocialProviders()
   };
 
   validateProjectSchema(project.schema);
@@ -365,7 +379,8 @@ function rowToProject(row: ProjectSettingsRow): AuthProject {
     iconUrl: row.iconUrl ?? "",
     appUrl: row.appUrl ?? "",
     trustedOrigins: normalizeTrustedOrigins(row.trustedOrigins),
-    features: normalizeProjectFeatures(row.features)
+    features: normalizeProjectFeatures(row.features),
+    socialProviders: optionsDefaultSocialProviders()
   };
 }
 
@@ -423,6 +438,10 @@ function cloneDefaultFeatures(): ProjectFeatures {
       ...DEFAULT_PROJECT_FEATURES.oauthProvider
     }
   };
+}
+
+function optionsDefaultSocialProviders(): AuthProject["socialProviders"] {
+  return cloneDefaultSocialProviders();
 }
 
 function normalizeTrustedOrigins(value: unknown): string[] {

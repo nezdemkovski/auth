@@ -1,16 +1,26 @@
 import type { useQuery } from "@tanstack/react-query";
 
-import type { ProjectSettingsPatch, ProjectSummary, ProjectUsersResponse } from "../types";
+import type {
+  ProjectSettingsPatch,
+  ProjectSummary,
+  ProjectUsersResponse,
+  SocialProviderCatalogItem,
+  SocialProviderId,
+  SocialProviderPatch,
+  SocialProvidersResponse
+} from "../types";
 import { pad2 } from "../utils/format";
 import { Card, EmptyState, FormAlert, SysTag } from "../components/primitives";
 import { StatCard } from "../components/Stats";
 import { UsersSkeleton } from "../components/Skeletons";
 import { ProjectSettingsForm } from "./project/ProjectSettingsForm";
+import { SocialProviderSettings } from "./project/SocialProviderSettings";
 import { UserTable } from "./project/UserTable";
 
 export function ProjectView({
   project,
   usersQuery,
+  socialProvidersQuery,
   emailServiceEnabled,
   resendPendingEmail,
   resendErrorEmail,
@@ -20,12 +30,18 @@ export function ProjectView({
   terminatedSessionsUserId,
   updatePending,
   updateError,
+  socialProviderPending,
+  socialProviderVerifyPending,
+  socialProviderError,
   onResendVerification,
   onTerminateSessions,
-  onUpdateProject
+  onUpdateProject,
+  onUpdateSocialProvider,
+  onVerifySocialProvider
 }: {
   project: ProjectSummary;
   usersQuery: ReturnType<typeof useQuery<ProjectUsersResponse>>;
+  socialProvidersQuery: ReturnType<typeof useQuery<SocialProvidersResponse>>;
   emailServiceEnabled: boolean;
   resendPendingEmail: string | null;
   resendErrorEmail: string | null;
@@ -35,11 +51,22 @@ export function ProjectView({
   terminatedSessionsUserId: string | null;
   updatePending: boolean;
   updateError: string | null;
+  socialProviderPending: SocialProviderId | null;
+  socialProviderVerifyPending: SocialProviderId | null;
+  socialProviderError: string | null;
   onResendVerification: (email: string) => void;
   onTerminateSessions: (userId: string) => void;
   onUpdateProject: (patch: ProjectSettingsPatch) => void;
+  onUpdateSocialProvider: (
+    provider: SocialProviderId,
+    patch: SocialProviderPatch
+  ) => void;
+  onVerifySocialProvider: (provider: SocialProviderId) => void;
 }) {
   const users = usersQuery.data?.users ?? [];
+  const socialProviders = socialProvidersQuery.data?.providers ?? project.socialProviders;
+  const socialProviderCatalog =
+    socialProvidersQuery.data?.catalog ?? ([] as SocialProviderCatalogItem[]);
 
   return (
     <div className="space-y-10">
@@ -104,7 +131,35 @@ export function ProjectView({
 
       <section>
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="eyebrow">02 — Users</span>
+          <span className="eyebrow">02 — Social sign-in</span>
+          <span aria-hidden="true" className="h-px flex-1 bg-border" />
+        </div>
+
+        <Card>
+          {socialProvidersQuery.isLoading ? (
+            <div className="p-5 text-[13px] text-muted">Loading providers…</div>
+          ) : socialProvidersQuery.isError ? (
+            <div className="p-5">
+              <FormAlert>Could not load social providers.</FormAlert>
+            </div>
+          ) : (
+            <SocialProviderSettings
+              providers={socialProviders}
+              catalog={socialProviderCatalog}
+              disabled={project.system}
+              pendingProvider={socialProviderPending}
+              verifyPendingProvider={socialProviderVerifyPending}
+              error={socialProviderError}
+              onSave={onUpdateSocialProvider}
+              onVerify={onVerifySocialProvider}
+            />
+          )}
+        </Card>
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-baseline gap-3">
+          <span className="eyebrow">03 — Users</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
           {!usersQuery.isLoading && users.length > 0 ? (
             <span className="eyebrow text-muted-soft tabular">

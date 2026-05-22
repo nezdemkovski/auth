@@ -22,6 +22,7 @@ export type ProjectSummary = {
   appUrl: string;
   trustedOrigins: string[];
   features: ProjectFeatures;
+  socialProviders: PublicSocialProviderSettings[];
   system: boolean;
   userCount: number;
   activeSessionCount: number;
@@ -43,6 +44,38 @@ export type ProjectFeatures = {
     enabled: boolean;
     dynamicClientRegistration: boolean;
   };
+};
+
+export type SocialProviderId = "github" | "google" | "twitter" | "facebook";
+
+export type SocialProviderCatalogItem = {
+  id: SocialProviderId;
+  label: string;
+  shortLabel: string;
+  clientIdLabel: string;
+  clientSecretLabel: string;
+  defaultScopes: string[];
+  docsUrl: string;
+};
+
+export type PublicSocialProviderSettings = {
+  provider: SocialProviderId;
+  enabled: boolean;
+  clientId: string;
+  configured: boolean;
+  verifiedAt: string | null;
+  callbackUrl: string;
+};
+
+export type SocialProvidersResponse = {
+  providers: PublicSocialProviderSettings[];
+  catalog: SocialProviderCatalogItem[];
+};
+
+export type SocialProviderPatch = {
+  enabled: boolean;
+  clientId: string;
+  clientSecret?: string;
 };
 
 export type ProjectSettingsPatch = {

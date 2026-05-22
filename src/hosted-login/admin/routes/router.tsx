@@ -2,7 +2,17 @@ import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/re
 import { Navigate, Outlet, RouterProvider, createRootRouteWithContext, createRoute, createRouter, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
-import { createProject, fetchProjectUsers, fetchProjects, resendVerificationEmail, terminateUserSessions, updateProjectSettings } from "../api";
+import {
+  createProject,
+  fetchProjectUsers,
+  fetchProjects,
+  fetchSocialProviders,
+  resendVerificationEmail,
+  terminateUserSessions,
+  updateProjectSettings,
+  updateSocialProvider,
+  verifySocialProvider
+} from "../api";
 import { Topbar } from "../components/Topbar";
 import { Card, EmptyState, FormAlert } from "../components/primitives";
 import { UsersSkeleton } from "../components/Skeletons";
@@ -15,7 +25,9 @@ import type {
   CreateProjectInput,
   DashboardRouterContext,
   MeResponse,
-  ProjectSettingsPatch
+  ProjectSettingsPatch,
+  SocialProviderId,
+  SocialProviderPatch
 } from "../types";
 import type { Theme } from "../../theme";
 
@@ -285,6 +297,11 @@ function ProjectRoute() {
     queryFn: () => fetchProjectUsers(selected!.slug),
     enabled: Boolean(selected?.slug)
   });
+  const socialProvidersQuery = useQuery({
+    queryKey: ["admin", "social-providers", selected?.slug],
+    queryFn: () => fetchSocialProviders(selected!.slug),
+    enabled: Boolean(selected?.slug)
+  });
   const resendVerification = useMutation({
     mutationFn: (input: { project: string; email: string }) =>
       resendVerificationEmail(input.project, input.email),
@@ -341,6 +358,47 @@ function ProjectRoute() {
       );
     }
   });
+  const socialProviderUpdate = useMutation({
+    mutationFn: (input: {
+      project: string;
+      provider: SocialProviderId;
+      patch: SocialProviderPatch;
+    }) => updateSocialProvider(input),
+    onSuccess: async (_data, variables) => {
+      notifySuccess("Social provider saved");
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "social-providers", variables.project]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "projects"]
+      });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Could not save social provider",
+        caught instanceof Error ? caught.message : undefined
+      );
+    }
+  });
+  const socialProviderVerify = useMutation({
+    mutationFn: (input: { project: string; provider: SocialProviderId }) =>
+      verifySocialProvider(input),
+    onSuccess: async (_data, variables) => {
+      notifySuccess("Provider check passed");
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "social-providers", variables.project]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "projects"]
+      });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Provider check failed",
+        caught instanceof Error ? caught.message : undefined
+      );
+    }
+  });
 
   if (projectsQuery.isLoading) {
     return <UsersSkeleton />;
@@ -365,6 +423,7 @@ function ProjectRoute() {
     <ProjectView
       project={selected}
       usersQuery={usersQuery}
+      socialProvidersQuery={socialProvidersQuery}
       emailServiceEnabled={me.emailServiceEnabled}
       resendPendingEmail={
         resendVerification.isPending
@@ -390,6 +449,27 @@ function ProjectRoute() {
             : "Could not save project settings"
           : null
       }
+      socialProviderPending={
+        socialProviderUpdate.isPending
+          ? socialProviderUpdate.variables?.provider ?? null
+          : null
+      }
+      socialProviderVerifyPending={
+        socialProviderVerify.isPending
+          ? socialProviderVerify.variables?.provider ?? null
+          : null
+      }
+      socialProviderError={
+        socialProviderUpdate.isError
+          ? socialProviderUpdate.error instanceof Error
+            ? socialProviderUpdate.error.message
+            : "Could not save social provider"
+          : socialProviderVerify.isError
+          ? socialProviderVerify.error instanceof Error
+            ? socialProviderVerify.error.message
+            : "Provider check failed"
+          : null
+      }
       onResendVerification={(email) =>
         resendVerification.mutate({
           project: selected.slug,
@@ -406,6 +486,19 @@ function ProjectRoute() {
         updateProject.mutate({
           project: selected.slug,
           patch
+        })
+      }
+      onUpdateSocialProvider={(provider, patch) =>
+        socialProviderUpdate.mutate({
+          project: selected.slug,
+          provider,
+          patch
+        })
+      }
+      onVerifySocialProvider={(provider) =>
+        socialProviderVerify.mutate({
+          project: selected.slug,
+          provider
         })
       }
     />

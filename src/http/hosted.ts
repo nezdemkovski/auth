@@ -136,6 +136,9 @@ function renderLoginPage(options: {
     mode: isSignup ? "signup" : "login",
     codeChallenge: options.codeChallenge,
     features: options.registered.project.features,
+    socialProviders: Object.entries(options.registered.project.socialProviders)
+      .filter(([, provider]) => provider.enabled && provider.clientId && provider.clientSecret)
+      .map(([provider]) => provider),
     error: options.error
   });
 

@@ -17,6 +17,7 @@
     "@better-auth/drizzle-adapter": "1.6.11",
     "@better-auth/oauth-provider": "1.6.11",
     "@better-auth/passkey": "1.6.11",
+    "@icons-pack/react-simple-icons": "13.13.0",
     "@react-email/components": "1.0.12",
     "@react-email/render": "2.0.8",
     "@tanstack/react-query": "5.100.11",

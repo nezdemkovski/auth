@@ -1,3 +1,5 @@
+import { SOCIAL_PROVIDER_IDS, type SocialProviderId } from "./social-providers";
+
 export type AuthProject = {
   slug: string;
   name: string;
@@ -7,6 +9,7 @@ export type AuthProject = {
   appUrl: string;
   trustedOrigins: string[];
   features: ProjectFeatures;
+  socialProviders: ProjectSocialProviders;
 };
 
 export type ProjectFeatures = {
@@ -27,6 +30,15 @@ export type ProjectFeatures = {
   };
 };
 
+export type ProjectSocialProvider = {
+  enabled: boolean;
+  clientId: string;
+  clientSecret: string;
+  verifiedAt: string | null;
+};
+
+export type ProjectSocialProviders = Record<SocialProviderId, ProjectSocialProvider>;
+
 export const DEFAULT_PROJECT_FEATURES: ProjectFeatures = {
   passkey: {
     enabled: false
@@ -45,6 +57,18 @@ export const DEFAULT_PROJECT_FEATURES: ProjectFeatures = {
   }
 };
 
+export const DEFAULT_PROJECT_SOCIAL_PROVIDERS = Object.fromEntries(
+  SOCIAL_PROVIDER_IDS.map((provider) => [
+    provider,
+    {
+      enabled: false,
+      clientId: "",
+      clientSecret: "",
+      verifiedAt: null
+    }
+  ])
+) as ProjectSocialProviders;
+
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/;
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
 
@@ -56,7 +80,8 @@ export const ADMIN_PROJECT: AuthProject = {
   iconUrl: "",
   appUrl: "",
   trustedOrigins: [],
-  features: DEFAULT_PROJECT_FEATURES
+  features: DEFAULT_PROJECT_FEATURES,
+  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS
 };
 
 export function findProject(projects: AuthProject[], slug: string): AuthProject | null {

@@ -61,6 +61,35 @@ export async function signUpWithEmail(options: {
   return response.ok;
 }
 
+export async function signInWithSocial(options: {
+  project: string;
+  provider: string;
+  callbackURL: string;
+}): Promise<boolean> {
+  const response = await fetch(`/${options.project}/api/auth/sign-in/social`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      provider: options.provider,
+      callbackURL: options.callbackURL
+    })
+  });
+  const payload = (await response.json().catch(() => null)) as {
+    url?: string;
+    redirect?: boolean;
+  } | null;
+
+  if (!response.ok || !payload?.url) {
+    return false;
+  }
+
+  window.location.assign(payload.url);
+  return true;
+}
+
 export async function verifyTwoFactorCode(options: {
   project: string;
   code: string;

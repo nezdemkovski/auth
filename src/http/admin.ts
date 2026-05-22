@@ -5,6 +5,7 @@ import type { Pool } from "pg";
 
 import type { AuthRegistry } from "../auth/registry";
 import type { AuthProject } from "../config/projects";
+import { SOCIAL_PROVIDER_CATALOG, isSocialProviderId } from "../config/social-providers";
 import { prepareProjectSchema } from "../db/bootstrap";
 import {
   createProjectFromInput,
@@ -15,6 +16,14 @@ import {
   type ProjectSettingsCreate,
   type ProjectSettingsPatch
 } from "../db/project-settings";
+import {
+  loadProjectSocialProviders,
+  markSocialProviderVerified,
+  readProjectSocialProviders,
+  socialProviderCallbackUrl,
+  updateProjectSocialProvider,
+  type SocialProviderPatch
+} from "../db/social-provider-settings";
 
 type AdminApiOptions = {
   registry: AuthRegistry;
@@ -53,6 +62,11 @@ type ResendVerificationBody = {
 
 type UpdateProjectBody = Partial<Record<keyof ProjectSettingsPatch, unknown>>;
 type CreateProjectBody = Partial<Record<keyof ProjectSettingsCreate, unknown>>;
+type SocialProviderBody = {
+  enabled?: unknown;
+  clientId?: unknown;
+  clientSecret?: unknown;
+};
 
 type RegisteredProject = NonNullable<ReturnType<AuthRegistry["get"]>>;
 
@@ -182,7 +196,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
         }
 
         const counts = await readProjectCounts(registered.projectDb.pool);
-        return serializeProject(project, counts);
+        return serializeProject(project, counts, options.publicBaseUrl);
       })
     );
 
@@ -251,7 +265,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
 
       return c.json(
         {
-          project: serializeProject(created, counts)
+          project: serializeProject(created, counts, options.publicBaseUrl)
         },
         201
       );
@@ -299,12 +313,22 @@ export function createAdminApi(options: AdminApiOptions): Hono {
         return c.json({ error: "unknown_project" }, 404);
       }
 
-      await options.registry.updateProject(updated);
-      const next = options.registry.get(updated.slug);
+      const socialProviders = await loadProjectSocialProviders({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject,
+        project: updated,
+        encryptionSecret: options.secret
+      });
+      const nextProject = {
+        ...updated,
+        socialProviders
+      };
+      await options.registry.updateProject(nextProject);
+      const next = options.registry.get(nextProject.slug);
       const counts = next ? await readProjectCounts(next.projectDb.pool) : undefined;
 
       return c.json({
-        project: serializeProject(updated, counts)
+        project: serializeProject(nextProject, counts, options.publicBaseUrl)
       });
     } catch (error) {
       return c.json(
@@ -315,6 +339,148 @@ export function createAdminApi(options: AdminApiOptions): Hono {
         400
       );
     }
+  });
+
+  app.get("/projects/:project/social-providers", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const registered = options.registry.get(c.req.param("project"));
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+
+    return c.json({
+      providers: await readProjectSocialProviders({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject,
+        project: registered.project,
+        publicBaseUrl: options.publicBaseUrl
+      }),
+      catalog: Object.values(SOCIAL_PROVIDER_CATALOG)
+    });
+  });
+
+  app.patch("/projects/:project/social-providers/:provider", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const registered = options.registry.get(c.req.param("project"));
+    const provider = c.req.param("provider");
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+    if (!isSocialProviderId(provider)) {
+      return c.json({ error: "unknown_provider" }, 404);
+    }
+
+    const body = (await c.req.json().catch(() => ({}))) as SocialProviderBody;
+    const patch = parseSocialProviderPatch(body);
+    if (!patch) {
+      return c.json({ error: "invalid_body" }, 400);
+    }
+
+    const socialProviders = await updateProjectSocialProvider({
+      databaseUrl: options.databaseUrl,
+      adminProject: options.adminProject,
+      project: registered.project,
+      provider,
+      patch,
+      encryptionSecret: options.secret
+    });
+    await options.registry.updateProject({
+      ...registered.project,
+      socialProviders
+    });
+
+    return c.json({
+      providers: await readProjectSocialProviders({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject,
+        project: registered.project,
+        publicBaseUrl: options.publicBaseUrl
+      }),
+      catalog: Object.values(SOCIAL_PROVIDER_CATALOG)
+    });
+  });
+
+  app.post("/projects/:project/social-providers/:provider/verify", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const registered = options.registry.get(c.req.param("project"));
+    const provider = c.req.param("provider");
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+    if (!isSocialProviderId(provider)) {
+      return c.json({ error: "unknown_provider" }, 404);
+    }
+
+    const settings = registered.project.socialProviders[provider];
+    if (!settings.enabled || !settings.clientId || !settings.clientSecret) {
+      return c.json({ error: "provider_not_configured" }, 409);
+    }
+
+    const api = registered.auth.api as unknown as {
+      signInSocial(input: {
+        body: {
+          provider: string;
+          callbackURL: string;
+          errorCallbackURL: string;
+          disableRedirect: boolean;
+        };
+        headers: Headers;
+      }): Promise<{ url?: string; redirect: boolean }>;
+    };
+    const callbackURL = registered.project.trustedOrigins[0] ?? options.publicBaseUrl;
+    const result = await api.signInSocial({
+      body: {
+        provider,
+        callbackURL,
+        errorCallbackURL: callbackURL,
+        disableRedirect: true
+      },
+      headers: c.req.raw.headers
+    });
+
+    if (!result.url) {
+      return c.json({ error: "provider_check_failed" }, 409);
+    }
+
+    await markSocialProviderVerified({
+      databaseUrl: options.databaseUrl,
+      adminProject: options.adminProject,
+      project: registered.project,
+      provider
+    });
+    const socialProviders = await loadProjectSocialProviders({
+      databaseUrl: options.databaseUrl,
+      adminProject: options.adminProject,
+      project: registered.project,
+      encryptionSecret: options.secret
+    });
+    await options.registry.updateProject({
+      ...registered.project,
+      socialProviders
+    });
+
+    return c.json({
+      ok: true,
+      providers: await readProjectSocialProviders({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject,
+        project: registered.project,
+        publicBaseUrl: options.publicBaseUrl
+      }),
+      catalog: Object.values(SOCIAL_PROVIDER_CATALOG)
+    });
   });
 
   app.get("/projects/:project/users", async (c) => {
@@ -410,7 +576,8 @@ function serializeProject(
   counts: { userCount: number; activeSessionCount: number } = {
     userCount: 0,
     activeSessionCount: 0
-  }
+  },
+  publicBaseUrl = ""
 ) {
   return {
     slug: project.slug,
@@ -421,6 +588,17 @@ function serializeProject(
     appUrl: project.appUrl,
     trustedOrigins: project.trustedOrigins,
     features: project.features,
+    socialProviders: Object.values(SOCIAL_PROVIDER_CATALOG).map((provider) => {
+      const settings = project.socialProviders[provider.id];
+      return {
+        provider: provider.id,
+        enabled: settings.enabled,
+        clientId: settings.clientId,
+        configured: Boolean(settings.clientId && settings.clientSecret),
+        verifiedAt: settings.verifiedAt,
+        callbackUrl: socialProviderCallbackUrl(publicBaseUrl, project, provider.id)
+      };
+    }),
     system: project.slug === "admin",
     ...counts
   };
@@ -470,6 +648,23 @@ function parseProjectSettingsPatch(body: UpdateProjectBody): ProjectSettingsPatc
     trustedOrigins: body.trustedOrigins.map((origin) => origin.trim()).filter(Boolean),
     features: normalizeProjectFeatures(body.features)
   };
+}
+
+function parseSocialProviderPatch(body: SocialProviderBody): SocialProviderPatch | null {
+  if (typeof body.enabled !== "boolean" || typeof body.clientId !== "string") {
+    return null;
+  }
+
+  const patch: SocialProviderPatch = {
+    enabled: body.enabled,
+    clientId: body.clientId.trim()
+  };
+
+  if (typeof body.clientSecret === "string" && body.clientSecret.trim().length > 0) {
+    patch.clientSecret = body.clientSecret.trim();
+  }
+
+  return patch;
 }
 
 async function requireAdmin(

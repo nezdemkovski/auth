@@ -75,7 +75,8 @@ export async function createApp(env: Env) {
 
   ({ adminProject, projects } = await loadEffectiveProjects({
     databaseUrl: env.databaseUrl,
-    adminProject
+    adminProject,
+    encryptionSecret: env.betterAuthSecret
   }));
 
   if (env.autoMigrate) {

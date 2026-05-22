@@ -7,6 +7,7 @@ import { passkey } from "@better-auth/passkey";
 import type { Pool } from "pg";
 
 import type { AuthProject } from "../config/projects";
+import { SOCIAL_PROVIDER_IDS } from "../config/social-providers";
 import type { ProjectDatabase } from "../db/project-db";
 import type { EmailSender } from "../email/sender";
 import { createProjectEmailHandlers } from "../email/templates";
@@ -77,6 +78,7 @@ function createBaseProjectAuthOptions(options: {
     baseURL: `${publicBaseUrl}/${project.slug}/api/auth`,
     secret,
     trustedOrigins: project.trustedOrigins,
+    socialProviders: buildSocialProviders(project),
     emailAndPassword: {
       enabled: true,
       ...emailHandlers.emailAndPassword
@@ -182,4 +184,22 @@ function createBaseProjectAuthOptions(options: {
       enabled: false
     }
   };
+}
+
+function buildSocialProviders(project: AuthProject): BetterAuthOptions["socialProviders"] {
+  return Object.fromEntries(
+    SOCIAL_PROVIDER_IDS.map((provider) => {
+      const settings = project.socialProviders[provider];
+      const enabled = settings.enabled && Boolean(settings.clientId && settings.clientSecret);
+
+      return [
+        provider,
+        {
+          enabled,
+          clientId: settings.clientId,
+          clientSecret: settings.clientSecret
+        }
+      ];
+    })
+  ) as BetterAuthOptions["socialProviders"];
 }

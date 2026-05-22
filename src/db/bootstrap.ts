@@ -11,6 +11,7 @@ import {
 } from "../auth/project-auth";
 import { createProjectDatabase } from "./project-db";
 import { ensureProjectSettingsTable, seedAdminProjectSettings } from "./project-settings";
+import { ensureSocialProviderSettingsTable } from "./social-provider-settings";
 
 type BootstrapOptions = {
   databaseUrl: string;
@@ -41,6 +42,10 @@ export async function bootstrapProjects(options: BootstrapOptions): Promise<void
     await bootstrapInitialAdmin(options);
     await ensureProjectSettingsTable(options.databaseUrl, options.adminProject);
     await seedAdminProjectSettings({
+      databaseUrl: options.databaseUrl,
+      adminProject: options.adminProject
+    });
+    await ensureSocialProviderSettingsTable({
       databaseUrl: options.databaseUrl,
       adminProject: options.adminProject
     });

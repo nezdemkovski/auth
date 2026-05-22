@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   ADMIN_PROJECT,
   DEFAULT_PROJECT_FEATURES,
+  DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   normalizeProjectSlug,
   projectSchemaFromSlug,
   validateProjectSlug
@@ -19,7 +20,8 @@ describe("projects", () => {
       iconUrl: "",
       appUrl: "",
       trustedOrigins: [],
-      features: DEFAULT_PROJECT_FEATURES
+      features: DEFAULT_PROJECT_FEATURES,
+      socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS
     });
   });
 
