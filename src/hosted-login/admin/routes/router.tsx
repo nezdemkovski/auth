@@ -3,7 +3,6 @@ import { Outlet, RouterProvider, createRootRouteWithContext, createRoute, create
 import { useMemo, useState } from "react";
 
 import { fetchProjectUsers, fetchProjects, resendVerificationEmail, terminateUserSessions, updateProjectSettings } from "../api";
-import { Sidebar } from "../components/Sidebar";
 import { Topbar } from "../components/Topbar";
 import { Card, EmptyState, FormAlert } from "../components/primitives";
 import { UsersSkeleton } from "../components/Skeletons";
@@ -120,31 +119,26 @@ function DashboardLayout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-bg">
-      <Sidebar
-        me={me}
+    <div className="min-h-screen bg-bg">
+      <Topbar
+        selected={selected}
+        selectedSlug={selectedSlug}
         projects={projects}
         loading={projectsQuery.isLoading}
-        selectedSlug={selectedSlug}
         onSelect={(slug) => void selectProject(slug)}
-        onSignOut={onSignOut}
+        syncedAt={projectsQuery.dataUpdatedAt || Date.now()}
+        me={me}
         theme={theme}
         onToggleTheme={onToggleTheme}
+        onSignOut={onSignOut}
       />
 
-      <main className="relative min-w-0 flex-1">
-        <Topbar
-          selected={selected}
-          syncedAt={projectsQuery.dataUpdatedAt || Date.now()}
-        />
-
-        <div className="mx-auto w-full max-w-[1120px] px-6 py-8 lg:px-10 lg:py-10">
-          {projectsQuery.isError ? (
-            <FormAlert>Could not load admin data.</FormAlert>
-          ) : (
-            <Outlet />
-          )}
-        </div>
+      <main className="mx-auto w-full max-w-[1120px] px-6 py-8 lg:px-10 lg:py-10">
+        {projectsQuery.isError ? (
+          <FormAlert>Could not load admin data.</FormAlert>
+        ) : (
+          <Outlet />
+        )}
       </main>
     </div>
   );

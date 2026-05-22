@@ -65,6 +65,25 @@ export function MoonIcon({ size = 16, className }: IconProps) {
   );
 }
 
+export function ChevronDownIcon({ size = 14, className }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M6 9l6 6 6-6" />
+    </svg>
+  );
+}
+
 export function ChevronRightIcon({ size = 14, className }: IconProps) {
   return (
     <svg
