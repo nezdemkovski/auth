@@ -5,11 +5,16 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
 import type { AuthProject } from "../config/projects";
+import type { EmailConfig } from "../email/sender";
 import {
   createProjectAuth,
   createProjectMigrationAuthOptions
 } from "../auth/project-auth";
 import { createProjectDatabase } from "./project-db";
+import {
+  ensureDeliverySettingsTable,
+  seedDeliverySettingsFromEnv
+} from "./delivery-settings";
 import { ensureProjectSettingsTable, seedAdminProjectSettings } from "./project-settings";
 import { ensureSocialProviderSettingsTable } from "./social-provider-settings";
 
@@ -19,6 +24,7 @@ type BootstrapOptions = {
   secret: string;
   adminProject: AuthProject;
   adminEmail: string;
+  initialDeliveryConfig?: EmailConfig;
 };
 
 const BOOTSTRAP_LOCK_KEY = "nezdemkovski-auth-bootstrap";
@@ -49,6 +55,18 @@ export async function bootstrapProjects(options: BootstrapOptions): Promise<void
       databaseUrl: options.databaseUrl,
       adminProject: options.adminProject
     });
+    await ensureDeliverySettingsTable({
+      databaseUrl: options.databaseUrl,
+      adminProject: options.adminProject
+    });
+    if (options.initialDeliveryConfig) {
+      await seedDeliverySettingsFromEnv({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject,
+        encryptionSecret: options.secret,
+        email: options.initialDeliveryConfig
+      });
+    }
   } finally {
     await db
       .execute(sql`SELECT pg_advisory_unlock(hashtext(${BOOTSTRAP_LOCK_KEY}))`)
@@ -150,7 +168,7 @@ function generateTemporaryPassword(): string {
   return randomBytes(24).toString("base64url");
 }
 
-export async function prepareProjectSchema(options: Omit<BootstrapOptions, "adminEmail"> & {
+export async function prepareProjectSchema(options: Omit<BootstrapOptions, "adminEmail" | "initialDeliveryConfig"> & {
   project: AuthProject;
 }): Promise<void> {
   const adminPool = new Pool({

@@ -12,6 +12,7 @@ import type { Env } from "../config/env";
 import type { AuthProject } from "../config/projects";
 import { AuthRegistry } from "../auth/registry";
 import { bootstrapProjects, prepareProjectSchema } from "../db/bootstrap";
+import { loadDeliverySettings } from "../db/delivery-settings";
 import { loadEffectiveProjects } from "../db/project-settings";
 import { createEmailSender } from "../email/sender";
 import { createAdminApi } from "./admin";
@@ -60,7 +61,6 @@ function hostedAssetPath(path: string): string | null {
 }
 
 export async function createApp(env: Env) {
-  const emailSender = createEmailSender(env.email);
   const rateLimiter = createRateLimiter(env.redisUrl);
   const hostedCodeStore = createHostedCodeStore(env.redisUrl);
   await rateLimiter.connect();
@@ -74,9 +74,17 @@ export async function createApp(env: Env) {
       publicBaseUrl: env.publicBaseUrl,
       secret: env.betterAuthSecret,
       adminProject,
-      adminEmail: env.adminEmail
+      adminEmail: env.adminEmail,
+      initialDeliveryConfig: env.email
     });
   }
+
+  const deliverySettings = await loadDeliverySettings({
+    databaseUrl: env.databaseUrl,
+    adminProject,
+    encryptionSecret: env.betterAuthSecret
+  });
+  const emailSender = createEmailSender(deliverySettings);
 
   ({ adminProject, projects } = await loadEffectiveProjects({
     databaseUrl: env.databaseUrl,
@@ -158,7 +166,7 @@ export async function createApp(env: Env) {
     "/admin/api",
     createAdminApi({
       registry,
-      emailServiceEnabled: env.emailServiceEnabled,
+      deliverySettings,
       databaseUrl: env.databaseUrl,
       adminProject,
       publicBaseUrl: env.publicBaseUrl,

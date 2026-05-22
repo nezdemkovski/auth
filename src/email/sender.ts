@@ -1,4 +1,26 @@
-import { EmailProvider, type EmailConfig } from "../config/env";
+export const EmailProvider = {
+  None: "none",
+  Cloudflare: "cloudflare",
+  Resend: "resend"
+} as const;
+
+export type EmailProvider = (typeof EmailProvider)[keyof typeof EmailProvider];
+
+export type EmailConfig =
+  | {
+      provider: typeof EmailProvider.None;
+    }
+  | {
+      provider: typeof EmailProvider.Cloudflare;
+      accountId: string;
+      apiToken: string;
+      from: string;
+    }
+  | {
+      provider: typeof EmailProvider.Resend;
+      apiKey: string;
+      from: string;
+    };
 
 export type EmailSender = {
   send(input: {

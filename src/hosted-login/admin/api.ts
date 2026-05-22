@@ -1,5 +1,7 @@
 import type {
   CreateProjectInput,
+  DeliverySettings,
+  DeliverySettingsPatch,
   MeResponse,
   ProjectSettingsPatch,
   SocialProviderId,
@@ -47,6 +49,42 @@ export async function fetchProjects(): Promise<ProjectsResponse> {
   const response = await fetch("/admin/api/projects", { credentials: "include" });
   if (!response.ok) throw new Error("Could not load projects");
   return (await response.json()) as ProjectsResponse;
+}
+
+export async function fetchDeliverySettings(): Promise<DeliverySettings> {
+  const response = await fetch("/admin/api/delivery-settings", {
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error("Could not load delivery settings");
+  return ((await response.json()) as { settings: DeliverySettings }).settings;
+}
+
+export async function updateDeliverySettings(
+  patch: DeliverySettingsPatch
+): Promise<DeliverySettings> {
+  const response = await fetch("/admin/api/delivery-settings", {
+    method: "PATCH",
+    credentials: "include",
+    headers: jsonHeaders,
+    body: JSON.stringify(patch)
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      message?: string;
+    } | null;
+    throw new Error(body?.message ?? "Could not save delivery settings");
+  }
+
+  return ((await response.json()) as { settings: DeliverySettings }).settings;
+}
+
+export async function verifyDeliverySettings(): Promise<void> {
+  const response = await fetch("/admin/api/delivery-settings/verify", {
+    method: "POST",
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error("Could not send test email");
 }
 
 export async function createProject(input: CreateProjectInput): Promise<ProjectSummary> {

@@ -22,7 +22,7 @@ type RegistryOptions = {
 
 export class AuthRegistry {
   private readonly projects = new Map<string, RegisteredProject>();
-  private readonly options: RegistryOptions;
+  private options: RegistryOptions;
 
   constructor(options: RegistryOptions) {
     this.options = options;
@@ -45,6 +45,19 @@ export class AuthRegistry {
 
     this.projects.set(project.slug, next);
     await current?.projectDb.pool.end();
+  }
+
+  async updateEmailSender(emailSender: EmailSender | null): Promise<void> {
+    this.options = {
+      ...this.options,
+      emailSender
+    };
+    const projects = this.list();
+    await Promise.all([...this.projects.values()].map(({ projectDb }) => projectDb.pool.end()));
+    this.projects.clear();
+    for (const project of projects) {
+      this.projects.set(project.slug, this.createRegisteredProject(project));
+    }
   }
 
   isTrustedOrigin(slug: string, origin: string | undefined): boolean {

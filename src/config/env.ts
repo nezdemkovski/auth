@@ -1,4 +1,5 @@
 import { ADMIN_PROJECT, type AuthProject } from "./projects";
+import { EmailProvider, type EmailConfig } from "../email/sender";
 
 export type Env = {
   port: number;
@@ -9,34 +10,9 @@ export type Env = {
   adminProject: AuthProject;
   adminEmail: string;
   email: EmailConfig;
-  emailServiceEnabled: boolean;
   redisUrl: string | null;
   trustProxyHeaders: boolean;
 };
-
-export const EmailProvider = {
-  None: "none",
-  Cloudflare: "cloudflare",
-  Resend: "resend"
-} as const;
-
-export type EmailProvider = (typeof EmailProvider)[keyof typeof EmailProvider];
-
-export type EmailConfig =
-  | {
-      provider: typeof EmailProvider.None;
-    }
-  | {
-      provider: typeof EmailProvider.Cloudflare;
-      accountId: string;
-      apiToken: string;
-      from: string;
-    }
-  | {
-      provider: typeof EmailProvider.Resend;
-      apiKey: string;
-      from: string;
-    };
 
 const DEFAULT_PORT = 3000;
 const MIN_SECRET_LENGTH = 32;
@@ -66,7 +42,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     adminProject: ADMIN_PROJECT,
     adminEmail: source.AUTH_ADMIN_EMAIL ?? "admin@localhost",
     email,
-    emailServiceEnabled: email.provider !== "none",
     redisUrl: source.REDIS_URL?.trim() || null,
     trustProxyHeaders: parseBoolean(source.TRUST_PROXY_HEADERS, false, "TRUST_PROXY_HEADERS")
   };

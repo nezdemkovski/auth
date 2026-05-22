@@ -1,10 +1,3 @@
-import {
-  createCipheriv,
-  createDecipheriv,
-  hkdfSync,
-  randomBytes
-} from "node:crypto";
-
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
@@ -19,6 +12,7 @@ import {
   SOCIAL_PROVIDER_IDS,
   type SocialProviderId
 } from "../config/social-providers";
+import { decryptSecretValue, encryptSecretValue } from "./secret-crypto";
 
 export type PublicSocialProviderSettings = {
   provider: SocialProviderId;
@@ -299,13 +293,7 @@ function encryptSecret(
     return "";
   }
 
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", encryptionKey(secret), iv);
-  cipher.setAAD(encryptionContext(projectSlug, provider));
-  const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
-
-  return `v1:${iv.toString("base64url")}:${tag.toString("base64url")}:${encrypted.toString("base64url")}`;
+  return encryptSecretValue(value, secret, encryptionContext(projectSlug, provider));
 }
 
 function decryptSecret(
@@ -318,27 +306,7 @@ function decryptSecret(
     return "";
   }
 
-  const [version, iv, tag, encrypted] = value.split(":");
-  if (!iv || !tag || !encrypted) {
-    throw new Error("Invalid social provider secret cipher");
-  }
-
-  if (version !== "v1") {
-    throw new Error("Invalid social provider secret cipher");
-  }
-
-  const decipher = createDecipheriv(
-    "aes-256-gcm",
-    encryptionKey(secret),
-    Buffer.from(iv, "base64url")
-  );
-  decipher.setAAD(encryptionContext(projectSlug, provider));
-  decipher.setAuthTag(Buffer.from(tag, "base64url"));
-
-  return Buffer.concat([
-    decipher.update(Buffer.from(encrypted, "base64url")),
-    decipher.final()
-  ]).toString("utf8");
+  return decryptSecretValue(value, secret, encryptionContext(projectSlug, provider));
 }
 
 export const __socialProviderTestUtils = {
@@ -347,20 +315,8 @@ export const __socialProviderTestUtils = {
   normalizeDate
 };
 
-function encryptionKey(secret: string): Buffer {
-  return Buffer.from(
-    hkdfSync(
-      "sha256",
-      Buffer.from(secret),
-      Buffer.from("auth-encryption-v1"),
-      Buffer.from("social-provider-secret"),
-      32
-    )
-  );
-}
-
-function encryptionContext(projectSlug: string, provider: string): Buffer {
-  return Buffer.from(`${projectSlug}:${provider}`);
+function encryptionContext(projectSlug: string, provider: string): string {
+  return `social-provider:${projectSlug}:${provider}`;
 }
 
 function normalizeDate(value: Date | string | null | undefined): string | null {

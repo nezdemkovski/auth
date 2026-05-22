@@ -46,7 +46,6 @@ describe("loadEnv email config", () => {
       from: "Auth <auth@example.com>",
       apiKey: "re_test"
     });
-    expect(env.emailServiceEnabled).toBe(true);
   });
 
   test("rejects unknown email providers", () => {

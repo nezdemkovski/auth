@@ -24,10 +24,17 @@ import {
   updateProjectSocialProvider,
   type SocialProviderPatch
 } from "../db/social-provider-settings";
+import {
+  loadDeliverySettings,
+  readPublicDeliverySettings,
+  updateDeliverySettings,
+  type DeliverySettingsPatch,
+} from "../db/delivery-settings";
+import { createEmailSender, EmailProvider, type EmailConfig } from "../email/sender";
 
 type AdminApiOptions = {
   registry: AuthRegistry;
-  emailServiceEnabled: boolean;
+  deliverySettings: EmailConfig;
   databaseUrl: string;
   adminProject: AuthProject;
   publicBaseUrl: string;
@@ -68,6 +75,8 @@ type SocialProviderBody = {
   clientSecret?: unknown;
 };
 
+type DeliverySettingsBody = Partial<Record<keyof DeliverySettingsPatch, unknown>>;
+
 type RegisteredProject = NonNullable<ReturnType<AuthRegistry["get"]>>;
 
 type ProjectUserRow = {
@@ -85,6 +94,7 @@ type ProjectUserRow = {
 export function createAdminApi(options: AdminApiOptions): Hono {
   const app = new Hono();
   const adminOrigin = new URL(options.publicBaseUrl).origin;
+  let currentDeliverySettings = options.deliverySettings;
 
   app.use("*", async (c, next) => {
     if (!isStateChangingMethod(c.req.method)) {
@@ -113,8 +123,86 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     return c.json({
       user: session.user,
       mustChangePassword: await mustChangePassword(admin.projectDb.pool, session.user.id),
-      emailServiceEnabled: options.emailServiceEnabled
+      emailServiceEnabled: currentDeliverySettings.provider !== EmailProvider.None
     });
+  });
+
+  app.get("/delivery-settings", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    return c.json({
+      settings: await readPublicDeliverySettings({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject
+      })
+    });
+  });
+
+  app.patch("/delivery-settings", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const body = (await c.req.json().catch(() => ({}))) as DeliverySettingsBody;
+    const patch = parseDeliverySettingsPatch(body);
+    if (!patch) {
+      return c.json({ error: "invalid_body" }, 400);
+    }
+
+    try {
+      const settings = await updateDeliverySettings({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject,
+        encryptionSecret: options.secret,
+        patch
+      });
+      currentDeliverySettings = await loadDeliverySettings({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject,
+        encryptionSecret: options.secret
+      });
+      await options.registry.updateEmailSender(createEmailSender(currentDeliverySettings));
+
+      return c.json({ settings });
+    } catch (error) {
+      return c.json(
+        {
+          error: "invalid_delivery_settings",
+          message: error instanceof Error ? error.message : "Invalid delivery settings"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/delivery-settings/verify", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const settings = await loadDeliverySettings({
+      databaseUrl: options.databaseUrl,
+      adminProject: options.adminProject,
+      encryptionSecret: options.secret
+    });
+    const sender = createEmailSender(settings);
+    if (!sender) {
+      return c.json({ error: "delivery_not_configured" }, 409);
+    }
+
+    await sender.send({
+      to: admin.session.user.email,
+      subject: "Auth delivery test",
+      html: "<p>Delivery settings are working.</p>",
+      text: "Delivery settings are working."
+    });
+
+    return c.json({ ok: true });
   });
 
   app.patch("/profile", async (c) => {
@@ -560,7 +648,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    if (!options.emailServiceEnabled) {
+    if (currentDeliverySettings.provider === EmailProvider.None) {
       return c.json({ error: "email_service_disabled" }, 409);
     }
 
@@ -676,6 +764,31 @@ function parseSocialProviderPatch(body: SocialProviderBody): SocialProviderPatch
 
   if (typeof body.clientSecret === "string" && body.clientSecret.trim().length > 0) {
     patch.clientSecret = body.clientSecret.trim();
+  }
+
+  return patch;
+}
+
+function parseDeliverySettingsPatch(body: DeliverySettingsBody): DeliverySettingsPatch | null {
+  if (
+    typeof body.provider !== "string" ||
+    typeof body.from !== "string" ||
+    typeof body.cloudflareAccountId !== "string"
+  ) {
+    return null;
+  }
+
+  const patch: DeliverySettingsPatch = {
+    provider: body.provider as DeliverySettingsPatch["provider"],
+    from: body.from.trim(),
+    cloudflareAccountId: body.cloudflareAccountId.trim()
+  };
+
+  if (typeof body.cloudflareApiToken === "string" && body.cloudflareApiToken.trim()) {
+    patch.cloudflareApiToken = body.cloudflareApiToken.trim();
+  }
+  if (typeof body.resendApiKey === "string" && body.resendApiKey.trim()) {
+    patch.resendApiKey = body.resendApiKey.trim();
   }
 
   return patch;

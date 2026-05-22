@@ -78,6 +78,26 @@ export type SocialProviderPatch = {
   clientSecret?: string;
 };
 
+export type DeliveryProvider = "none" | "cloudflare" | "resend";
+
+export type DeliverySettings = {
+  provider: DeliveryProvider;
+  from: string;
+  cloudflareAccountId: string;
+  cloudflareApiTokenConfigured: boolean;
+  resendApiKeyConfigured: boolean;
+  configured: boolean;
+  updatedAt: string | null;
+};
+
+export type DeliverySettingsPatch = {
+  provider: DeliveryProvider;
+  from: string;
+  cloudflareAccountId: string;
+  cloudflareApiToken?: string;
+  resendApiKey?: string;
+};
+
 export type ProjectSettingsPatch = {
   name: string;
   description: string;
