@@ -161,26 +161,29 @@ function CenteredShell({
   onToggleTheme: () => void;
 }) {
   return (
-    <main className="relative min-h-screen overflow-hidden">
+    <main className="relative min-h-screen">
       <div
         aria-hidden="true"
         data-grid-bg
         className="pointer-events-none absolute inset-0"
       />
-      <div className="absolute right-4 top-4 z-10">
+      <header className="relative z-10 flex h-14 items-center justify-between px-6 lg:px-10">
+        <div className="flex items-center gap-2 text-ink">
+          <BrandMark size={20} />
+          <span className="text-[13.5px] font-medium tracking-[-0.005em]">
+            Auth Admin
+          </span>
+          <span aria-hidden="true" className="text-muted-soft">
+            /
+          </span>
+          <span className="mono text-[12px] uppercase tracking-[0.06em] text-muted">
+            Nezdemkovski Cloud
+          </span>
+        </div>
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />
-      </div>
-      <div className="relative grid min-h-screen place-items-center px-5 py-12">
-        <div className="w-full max-w-[400px]">
-          <div className="enter mb-7 flex items-center justify-center gap-2.5 text-ink">
-            <BrandMark size={26} />
-            <div className="leading-tight">
-              <div className="text-[15px] font-semibold tracking-[-0.01em] text-ink">
-                Auth Admin
-              </div>
-              <div className="text-[11.5px] text-muted">Nezdemkovski Cloud</div>
-            </div>
-          </div>
+      </header>
+      <div className="relative z-10 grid min-h-[calc(100vh-3.5rem)] place-items-center px-5 py-8">
+        <div className="w-full max-w-[420px]">
           <div className="enter enter-1">{children}</div>
         </div>
       </div>
@@ -188,17 +191,36 @@ function CenteredShell({
   );
 }
 
+function useRelativeNow(): number {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return tick;
+}
+
+function formatRelative(seconds: number): string {
+  if (seconds < 5) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const m = Math.floor(seconds / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  return `${h}h ago`;
+}
+
+function pad2(n: number): string {
+  return n < 10 ? `0${n}` : String(n);
+}
+
 function LoadingPanel() {
   return (
-    <Card>
-      <div className="flex items-center gap-3 px-7 py-7">
-        <Spinner />
-        <div>
-          <p className="text-[14px] font-medium text-ink">Checking session</p>
-          <p className="text-[13px] text-muted">Loading admin workspace…</p>
-        </div>
-      </div>
-    </Card>
+    <div className="flex items-center gap-3">
+      <Spinner />
+      <p className="mono text-[12px] uppercase tracking-[0.08em] text-muted">
+        Checking session…
+      </p>
+    </div>
   );
 }
 
@@ -234,40 +256,42 @@ function SignInPanel({
   }
 
   return (
-    <Card>
-      <div className="px-7 pb-6 pt-7">
-        <h1 className="text-[24px] font-semibold leading-[1.15] tracking-[-0.025em] text-ink">
-          Sign in
-        </h1>
-        <p className="mt-1.5 text-[13.5px] leading-[1.45] text-muted">
-          Access the admin control plane.
-        </p>
-
-        {error ? <FormAlert>{error}</FormAlert> : null}
-
-        <form onSubmit={(event) => void submit(event)} className="mt-5 space-y-3.5">
-          <FormField
-            id="admin-email"
-            name="email"
-            label="Email"
-            type="email"
-            autoComplete="email"
-            placeholder="admin@example.com"
-          />
-          <FormField
-            id="admin-password"
-            name="password"
-            label="Password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="••••••••"
-          />
-          <PrimaryButton type="submit" loading={pending}>
-            {pending ? "Signing in…" : "Sign in"}
-          </PrimaryButton>
-        </form>
+    <div>
+      <div className="mb-6 flex items-baseline gap-3">
+        <span className="eyebrow">Admin</span>
+        <span aria-hidden="true" className="h-px flex-1 bg-border" />
       </div>
-    </Card>
+      <h1 className="serif text-[52px] leading-[0.95] tracking-[-0.03em] text-ink">
+        Sign <em>in.</em>
+      </h1>
+      <p className="mt-3 text-[14px] leading-[1.5] text-muted">
+        Access the admin control plane.
+      </p>
+
+      {error ? <FormAlert>{error}</FormAlert> : null}
+
+      <form onSubmit={(event) => void submit(event)} className="mt-8 space-y-4">
+        <FormField
+          id="admin-email"
+          name="email"
+          label="Email"
+          type="email"
+          autoComplete="email"
+          placeholder="admin@example.com"
+        />
+        <FormField
+          id="admin-password"
+          name="password"
+          label="Password"
+          type="password"
+          autoComplete="current-password"
+          placeholder="••••••••"
+        />
+        <PrimaryButton type="submit" loading={pending}>
+          {pending ? "Signing in…" : "Sign in ↗"}
+        </PrimaryButton>
+      </form>
+    </div>
   );
 }
 
@@ -320,50 +344,52 @@ function ChangePasswordPanel({
   }
 
   return (
-    <Card>
-      <div className="px-7 pb-6 pt-7">
-        <h1 className="text-[24px] font-semibold leading-[1.15] tracking-[-0.025em] text-ink">
-          Set a permanent password
-        </h1>
-        <p className="mt-1.5 text-[13.5px] leading-[1.45] text-muted">
-          Signed in as{" "}
-          <span className="font-medium text-ink-soft">{me.user.email}</span>.
-          You need to change the temporary password before continuing.
-        </p>
-
-        {error ? <FormAlert>{error}</FormAlert> : null}
-
-        <form onSubmit={(event) => void submit(event)} className="mt-5 space-y-3.5">
-          <FormField
-            id="current-password"
-            name="currentPassword"
-            label="Temporary password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="••••••••"
-          />
-          <FormField
-            id="new-password"
-            name="newPassword"
-            label="New password"
-            type="password"
-            autoComplete="new-password"
-            placeholder="At least 12 characters"
-          />
-          <FormField
-            id="confirm-password"
-            name="confirmPassword"
-            label="Confirm new password"
-            type="password"
-            autoComplete="new-password"
-            placeholder="Repeat new password"
-          />
-          <PrimaryButton type="submit" loading={pending}>
-            {pending ? "Saving…" : "Save password"}
-          </PrimaryButton>
-        </form>
+    <div>
+      <div className="mb-6 flex items-baseline gap-3">
+        <span className="eyebrow">First login</span>
+        <span aria-hidden="true" className="h-px flex-1 bg-border" />
       </div>
-    </Card>
+      <h1 className="serif text-[48px] leading-[0.95] tracking-[-0.03em] text-ink">
+        Set a new <em>password.</em>
+      </h1>
+      <p className="mt-3 text-[14px] leading-[1.5] text-muted">
+        Signed in as{" "}
+        <span className="mono text-[13px] text-ink-soft">{me.user.email}</span>.
+        Change the temporary password before continuing.
+      </p>
+
+      {error ? <FormAlert>{error}</FormAlert> : null}
+
+      <form onSubmit={(event) => void submit(event)} className="mt-8 space-y-4">
+        <FormField
+          id="current-password"
+          name="currentPassword"
+          label="Temporary password"
+          type="password"
+          autoComplete="current-password"
+          placeholder="••••••••"
+        />
+        <FormField
+          id="new-password"
+          name="newPassword"
+          label="New password"
+          type="password"
+          autoComplete="new-password"
+          placeholder="At least 12 characters"
+        />
+        <FormField
+          id="confirm-password"
+          name="confirmPassword"
+          label="Confirm new password"
+          type="password"
+          autoComplete="new-password"
+          placeholder="Repeat new password"
+        />
+        <PrimaryButton type="submit" loading={pending}>
+          {pending ? "Saving…" : "Save password ↗"}
+        </PrimaryButton>
+      </form>
+    </div>
   );
 }
 
@@ -430,7 +456,14 @@ function DashboardShell({
       />
 
       <main className="relative min-w-0 flex-1">
-        <Topbar selected={selected} />
+        <Topbar
+          selected={selected}
+          syncedAt={
+            usersQuery.dataUpdatedAt ||
+            projectsQuery.dataUpdatedAt ||
+            Date.now()
+          }
+        />
 
         <div className="mx-auto w-full max-w-[1120px] px-6 py-8 lg:px-10 lg:py-10">
           {projectsQuery.isError ? (
@@ -691,26 +724,37 @@ function SidebarProjectItem({
   );
 }
 
-function Topbar({ selected }: { selected: ProjectSummary | undefined }) {
+function Topbar({
+  selected,
+  syncedAt
+}: {
+  selected: ProjectSummary | undefined;
+  syncedAt: number;
+}) {
+  useRelativeNow();
+  const seconds = Math.max(0, Math.floor((Date.now() - syncedAt) / 1000));
   return (
-    <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-bg/85 px-6 lg:px-10"
+    <header
+      className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-bg/85 px-6 lg:px-10"
       style={{ backdropFilter: "saturate(180%) blur(8px)" }}
     >
       <nav
         aria-label="Breadcrumb"
-        className="flex items-center gap-2 text-[13px] text-muted"
+        className="mono flex items-center text-[12px] uppercase tracking-[0.06em] text-muted"
       >
-        <span className="font-medium text-ink-soft">Nezdemkovski Cloud</span>
-        <ChevronRightIcon size={12} className="text-muted-soft" />
-        <span className="font-medium text-ink">
-          {selected ? selected.name : "Overview"}
+        <span className="text-muted-soft">/</span>
+        <span className="text-muted">nezdemkovski</span>
+        <span className="text-muted-soft">/</span>
+        <span className="text-ink">
+          {selected ? selected.slug : "overview"}
         </span>
       </nav>
 
-      <div className="hidden items-center gap-3 sm:flex">
-        <code className="rounded-md border border-border bg-surface px-2 py-1 text-[11.5px] font-mono text-muted-soft">
-          {selected ? selected.schema : "all projects"}
-        </code>
+      <div
+        className="mono hidden items-center gap-1.5 text-[11px] uppercase tracking-[0.08em] text-muted sm:flex"
+        title={`Last synced ${new Date(syncedAt).toLocaleTimeString()}`}
+      >
+        <span>Synced {formatRelative(seconds)}</span>
       </div>
     </header>
   );
@@ -728,28 +772,35 @@ function OverviewView({
   onOpenProject: (slug: string) => void;
 }) {
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <div>
-        <h1 className="text-[30px] font-semibold leading-[1.1] tracking-[-0.03em] text-ink">
-          Overview
+        <div className="mb-3 flex items-baseline gap-3">
+          <span className="eyebrow">00 — Workspace</span>
+          <span aria-hidden="true" className="h-px flex-1 bg-border" />
+        </div>
+        <h1 className="serif text-[56px] leading-[0.95] tracking-[-0.03em] text-ink sm:text-[64px]">
+          Over<em>view.</em>
         </h1>
-        <p className="mt-1.5 text-[14px] leading-[1.55] text-muted">
-          A summary of every auth realm running on this server.
+        <p className="mt-3 max-w-[36rem] text-[14.5px] leading-[1.55] text-muted">
+          A snapshot of every auth realm running on this server.
         </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <StatCard
+          index={1}
           label="Projects"
           value={loading ? null : projects.length}
           hint="isolated schemas"
         />
         <StatCard
+          index={2}
           label="Users"
           value={loading ? null : totals.users}
           hint="across all realms"
         />
         <StatCard
+          index={3}
           label="Active sessions"
           value={loading ? null : totals.sessions}
           hint="signed in right now"
@@ -757,13 +808,12 @@ function OverviewView({
       </div>
 
       <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">
-            Projects
-          </h2>
+        <div className="mb-4 flex items-baseline gap-3">
+          <span className="eyebrow">01 — Projects</span>
+          <span aria-hidden="true" className="h-px flex-1 bg-border" />
           {!loading && projects.length > 0 ? (
-            <span className="tabular text-[12.5px] text-muted">
-              {projects.length} total
+            <span className="eyebrow text-muted-soft tabular">
+              {pad2(projects.length)} total
             </span>
           ) : null}
         </div>
@@ -773,7 +823,7 @@ function OverviewView({
             {[0, 1, 2, 3].map((item) => (
               <div
                 key={item}
-                className="h-[88px] animate-pulse rounded-xl border border-border bg-surface"
+                className="h-[110px] animate-pulse rounded-xl border border-border bg-surface"
               />
             ))}
           </div>
@@ -786,9 +836,10 @@ function OverviewView({
           </Card>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
-            {projects.map((project) => (
+            {projects.map((project, idx) => (
               <ProjectCard
                 key={project.slug}
+                index={idx + 1}
                 project={project}
                 onOpen={() => onOpenProject(project.slug)}
               />
@@ -801,9 +852,11 @@ function OverviewView({
 }
 
 function ProjectCard({
+  index,
   project,
   onOpen
 }: {
+  index: number;
   project: ProjectSummary;
   onOpen: () => void;
 }) {
@@ -812,33 +865,30 @@ function ProjectCard({
       type="button"
       onClick={onOpen}
       data-press
-      className="group flex items-start gap-3 rounded-xl border border-border bg-surface p-4 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
+      className="group flex items-start gap-4 rounded-xl border border-border bg-surface p-5 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
       style={{ boxShadow: "var(--shadow-card)" }}
     >
-      <span
-        aria-hidden="true"
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent text-[13px] font-semibold tracking-[-0.02em] text-accent-ink"
-        style={{ boxShadow: "var(--shadow-button)" }}
-      >
-        {project.name.charAt(0).toUpperCase()}
+      <span className="eyebrow mt-1 shrink-0 tabular text-muted-soft">
+        {pad2(index)}
       </span>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-[14px] font-semibold tracking-[-0.005em] text-ink">
+        <div className="flex items-baseline gap-2">
+          <span className="serif truncate text-[22px] leading-[1.1] tracking-[-0.02em] text-ink">
             {project.name}
           </span>
           {project.system ? <SysTag /> : null}
         </div>
-        <code className="mt-0.5 block truncate text-[11.5px] font-mono text-muted">
+        <code className="mt-1 block truncate text-[11.5px] font-mono text-muted">
           {project.schema}
         </code>
-        <div className="mt-2 flex items-center gap-4 text-[12px] text-muted">
+        <div className="mt-3 flex items-center gap-4 text-[12px] text-muted">
           <span>
             <span className="tabular font-medium text-ink-soft">
               {project.userCount}
             </span>{" "}
             users
           </span>
+          <span aria-hidden="true">·</span>
           <span>
             <span className="tabular font-medium text-ink-soft">
               {project.activeSessionCount}
@@ -875,38 +925,39 @@ function ProjectView({
   const users = usersQuery.data?.users ?? [];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <div>
-        <div className="flex items-center gap-2 text-[12px] text-muted">
-          <ShieldIcon size={12} />
-          <span>Realm</span>
+        <div className="mb-3 flex items-baseline gap-3">
+          <span className="eyebrow">00 — Realm</span>
+          <span aria-hidden="true" className="h-px flex-1 bg-border" />
+          <code className="font-mono text-[11.5px] uppercase tracking-[0.06em] text-muted">
+            {project.schema}
+          </code>
         </div>
-        <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-2">
-          <h1 className="text-[30px] font-semibold leading-[1.05] tracking-[-0.03em] text-ink">
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+          <h1 className="serif text-[56px] leading-[0.95] tracking-[-0.03em] text-ink sm:text-[64px]">
             {project.name}
+            <em>.</em>
           </h1>
           {project.system ? <SysTag size="lg" /> : null}
         </div>
-        <p className="mt-2 flex items-center gap-2 text-[13px] text-muted">
-          <span>Schema</span>
-          <code className="rounded-md border border-border bg-surface px-1.5 py-0.5 font-mono text-[12px] text-ink-soft">
-            {project.schema}
-          </code>
-        </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <StatCard
+          index={1}
           label="Users"
           value={project.userCount}
           hint="total accounts"
         />
         <StatCard
+          index={2}
           label="Active sessions"
           value={project.activeSessionCount}
           hint="signed in right now"
         />
         <StatCard
+          index={3}
           label="Verified"
           value={users.filter((user) => user.emailVerified).length}
           hint={users.length === 0 ? "no users yet" : `of ${users.length} loaded`}
@@ -914,13 +965,12 @@ function ProjectView({
       </div>
 
       <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">
-            Users
-          </h2>
+        <div className="mb-4 flex items-baseline gap-3">
+          <span className="eyebrow">01 — Users</span>
+          <span aria-hidden="true" className="h-px flex-1 bg-border" />
           {!usersQuery.isLoading && users.length > 0 ? (
-            <span className="tabular text-[12.5px] text-muted">
-              {users.length} total
+            <span className="eyebrow text-muted-soft tabular">
+              {pad2(users.length)} total
             </span>
           ) : null}
         </div>
@@ -1140,30 +1190,33 @@ function UsersSkeleton() {
 }
 
 function StatCard({
+  index,
   label,
   value,
   hint
 }: {
+  index: number;
   label: string;
   value: number | null;
   hint: string;
 }) {
   return (
     <div
-      className="rounded-xl border border-border bg-surface px-5 py-4"
+      className="rounded-xl border border-border bg-surface px-5 py-5"
       style={{ boxShadow: "var(--shadow-card)" }}
     >
-      <div className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-soft">
-        {label}
+      <div className="flex items-baseline justify-between">
+        <div className="eyebrow">{label}</div>
+        <span className="eyebrow text-muted-soft">{pad2(index)}</span>
       </div>
-      <div className="mt-1.5 text-[28px] font-semibold leading-none tracking-[-0.025em] text-ink tabular">
+      <div className="serif mt-3 text-[44px] leading-none tracking-[-0.035em] text-ink tabular">
         {value === null ? (
-          <span className="inline-block h-7 w-12 animate-pulse rounded bg-surface-hover align-middle" />
+          <span className="inline-block h-9 w-16 animate-pulse rounded bg-surface-hover align-middle" />
         ) : (
-          value
+          value.toLocaleString()
         )}
       </div>
-      <div className="mt-1.5 text-[12px] text-muted">{hint}</div>
+      <div className="mt-2.5 text-[12.5px] text-muted">{hint}</div>
     </div>
   );
 }
