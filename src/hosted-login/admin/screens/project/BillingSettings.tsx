@@ -1,5 +1,5 @@
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type {
   BillingEntitlement,
@@ -26,6 +26,28 @@ const grantTypes = [
   "metered"
 ] as const;
 const resetPeriods = ["never", "monthly", "yearly"] as const;
+
+const productTypeLabels: Record<BillingProductMapping["type"], string> = {
+  subscription: "Subscription",
+  one_time: "One-time",
+  credit_pack: "Credit pack",
+  lifetime: "Lifetime",
+  metered: "Metered"
+};
+
+const grantLabels: Record<BillingEntitlement["grantType"], string> = {
+  boolean: "Feature access",
+  recurring_quota: "Recurring quota",
+  one_time_credits: "One-time credits",
+  lifetime: "Lifetime access",
+  metered: "Metered usage"
+};
+
+const resetLabels: Record<BillingEntitlement["resetPeriod"], string> = {
+  never: "Never",
+  monthly: "Monthly",
+  yearly: "Yearly"
+};
 
 export function BillingSettings({
   settings,
@@ -72,6 +94,11 @@ export function BillingSettings({
     setLocalError(null);
   }, [settings]);
 
+  const activeProducts = useMemo(
+    () => form.products.filter((product) => product.active).length,
+    [form.products]
+  );
+
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
@@ -91,8 +118,9 @@ export function BillingSettings({
     patch: Partial<BillingEntitlement>
   ) {
     updateProduct(productIndex, {
-      entitlements: form.products[productIndex].entitlements.map((entitlement, currentIndex) =>
-        currentIndex === entitlementIndex ? { ...entitlement, ...patch } : entitlement
+      entitlements: form.products[productIndex].entitlements.map(
+        (entitlement, currentIndex) =>
+          currentIndex === entitlementIndex ? { ...entitlement, ...patch } : entitlement
       )
     });
   }
@@ -165,7 +193,7 @@ export function BillingSettings({
       return;
     }
     if (createForm.priceAmount < 50) {
-      setLocalError("Price amount must be at least 50 cents.");
+      setLocalError("Price amount must be at least 50 minor currency units.");
       return;
     }
 
@@ -185,8 +213,13 @@ export function BillingSettings({
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (form.enabled && form.provider === "polar" && !form.accessTokenConfigured && !form.accessToken.trim()) {
-      setLocalError("Polar access token is required before enabling billing.");
+    if (
+      form.enabled &&
+      form.provider === "polar" &&
+      !form.accessTokenConfigured &&
+      !form.accessToken.trim()
+    ) {
+      setLocalError("Add a Polar access token before enabling billing.");
       return;
     }
 
@@ -219,8 +252,7 @@ export function BillingSettings({
             Billing
           </h2>
           <p className="mt-1 max-w-[42rem] text-[12.5px] leading-5 text-muted">
-            Connect Polar to this realm, map Polar products, and define the
-            entitlements your apps can consume.
+            Connect Polar once, then map products to the benefits your app grants.
           </p>
         </div>
         <button
@@ -240,7 +272,7 @@ export function BillingSettings({
           }
           className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
         >
-          {verifyPending ? "Checking…" : "Check Polar"}
+          {verifyPending ? "Checking…" : "Check connection"}
         </button>
       </div>
 
@@ -249,471 +281,325 @@ export function BillingSettings({
         <FormAlert>{polarProductsError ?? polarProductCreateError}</FormAlert>
       ) : null}
 
-      <label className="flex items-start gap-3 rounded-lg border border-border bg-surface-muted px-3 py-3">
-        <input
-          type="checkbox"
-          checked={form.enabled}
-          disabled={disabled || pending}
-          onChange={(event) => update("enabled", event.currentTarget.checked)}
-          className="mt-0.5 h-4 w-4 rounded border-border bg-surface text-accent focus:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+      <div className="grid gap-3 md:grid-cols-3">
+        <BillingStatusCard
+          label="Provider"
+          value={form.enabled ? "Polar" : "Disabled"}
+          tone={form.enabled ? "success" : "muted"}
         />
-        <span>
-          <span className="block text-[13px] font-medium text-ink">
-            Enable Polar billing
-          </span>
-          <span className="mt-0.5 block text-[12px] leading-5 text-muted">
-            Disabled realms do not expose checkout, customer portal, usage, or
-            Polar webhook endpoints.
-          </span>
-        </span>
-      </label>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="grid gap-1.5">
-          <span className="text-[12.5px] font-medium text-ink-soft">Environment</span>
-          <select
-            value={form.environment}
-            disabled={disabled || pending}
-            onChange={(event) =>
-              update("environment", event.currentTarget.value as BillingSettings["environment"])
-            }
-            className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <option value="sandbox">Sandbox</option>
-            <option value="production">Production</option>
-          </select>
-        </label>
-        <SettingsInput
-          id="polar-access-token"
-          label="Access token"
-          value={form.accessToken}
-          type="password"
-          disabled={disabled || pending}
-          placeholder={settings.accessTokenConfigured ? "Stored encrypted" : "Polar access token"}
-          onChange={(value) => update("accessToken", value)}
+        <BillingStatusCard
+          label="Environment"
+          value={form.environment}
+          tone={form.environment === "production" ? "warning" : "muted"}
         />
-        <SettingsInput
-          id="polar-webhook-secret"
-          label="Webhook secret"
-          value={form.webhookSecret}
-          type="password"
-          disabled={disabled || pending}
-          placeholder={settings.webhookSecretConfigured ? "Stored encrypted" : "Optional"}
-          onChange={(value) => update("webhookSecret", value)}
+        <BillingStatusCard
+          label="Products"
+          value={`${activeProducts}/${form.products.length} active`}
+          tone={activeProducts > 0 ? "success" : "muted"}
         />
       </div>
 
-      <SettingsTextarea
-        id="polar-webhook-url"
-        label="Webhook URL"
-        value={settings.webhookUrl}
-        disabled
-        rows={2}
-        onChange={() => {}}
-      />
-
-      <section className="space-y-3 rounded-lg border border-border bg-surface-muted p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 className="text-[13px] font-semibold tracking-[-0.005em] text-ink">
-              Polar catalog
-            </h3>
-            <p className="mt-1 max-w-[38rem] text-[12px] leading-5 text-muted">
-              Import existing Polar products or create a private product in Polar
-              and map it to this realm.
-            </p>
-          </div>
-          <button
-            type="button"
-            data-press
-            disabled={
-              disabled ||
-              polarProductsLoading ||
-              !settings.enabled ||
-              !settings.accessTokenConfigured
-            }
-            onClick={onRefreshPolarProducts}
-            className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
-          >
-            {polarProductsLoading ? "Loading…" : "Load from Polar"}
-          </button>
-        </div>
-
-        {polarProducts.length > 0 ? (
-          <div className="grid gap-2">
-            {polarProducts.map((product) => {
-              const mapped = form.products.some(
-                (mapping) => mapping.productId === product.id
-              );
-              return (
-                <div
-                  key={product.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-3"
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[13px] font-semibold text-ink">
-                        {product.name}
-                      </span>
-                      <span className="rounded-full border border-border bg-surface-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">
-                        {product.isRecurring ? "subscription" : "one-time"}
-                      </span>
-                    </div>
-                    <div className="mt-1 break-all font-mono text-[11.5px] text-muted">
-                      {product.id}
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    data-press
-                    disabled={disabled || pending || mapped}
-                    onClick={() => addImportedProduct(product)}
-                    className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
-                  >
-                    {mapped ? "Mapped" : "Import"}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
-
-        <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
-          <div className="grid gap-3 md:grid-cols-2">
-            <SettingsInput
-              id="polar-create-name"
-              label="Name"
-              value={createForm.name}
-              disabled={disabled || polarProductCreatePending}
-              onChange={(value) =>
-                setCreateForm((current) => ({
-                  ...current,
-                  name: value,
-                  slug: current.slug || slugFromName(value)
-                }))
-              }
-            />
-            <SettingsInput
-              id="polar-create-slug"
-              label="Slug"
-              value={createForm.slug}
-              disabled={disabled || polarProductCreatePending}
-              onChange={(value) =>
-                setCreateForm((current) => ({ ...current, slug: value }))
-              }
-            />
-            <label className="grid gap-1.5">
-              <span className="text-[12.5px] font-medium text-ink-soft">Type</span>
-              <select
-                value={createForm.type}
-                disabled={disabled || polarProductCreatePending}
-                onChange={(event) =>
-                  setCreateForm((current) => ({
-                    ...current,
-                    type: event.currentTarget.value as CreatePolarProductInput["type"]
-                  }))
-                }
-                className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <option value="subscription">Subscription</option>
-                <option value="one_time">One-time</option>
-                <option value="credit_pack">Credit pack</option>
-                <option value="lifetime">Lifetime</option>
-              </select>
-            </label>
-            <label className="grid gap-1.5">
-              <span className="text-[12.5px] font-medium text-ink-soft">
-                Billing interval
-              </span>
-              <select
-                value={createForm.recurringInterval}
-                disabled={
-                  disabled ||
-                  polarProductCreatePending ||
-                  createForm.type !== "subscription"
-                }
-                onChange={(event) =>
-                  setCreateForm((current) => ({
-                    ...current,
-                    recurringInterval: event.currentTarget.value as CreatePolarProductInput["recurringInterval"]
-                  }))
-                }
-                className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <option value="month">Monthly</option>
-                <option value="year">Yearly</option>
-              </select>
-            </label>
-            <SettingsInput
-              id="polar-create-price"
-              label="Price amount, cents"
-              value={String(createForm.priceAmount)}
-              disabled={disabled || polarProductCreatePending}
-              onChange={(value) =>
-                setCreateForm((current) => ({
-                  ...current,
-                  priceAmount: Number(value)
-                }))
-              }
-            />
-            <SettingsInput
-              id="polar-create-currency"
-              label="Currency"
-              value={createForm.priceCurrency}
-              disabled={disabled || polarProductCreatePending}
-              onChange={(value) =>
-                setCreateForm((current) => ({ ...current, priceCurrency: value }))
-              }
-            />
-          </div>
-          <SettingsTextarea
-            id="polar-create-description"
-            label="Description"
-            value={createForm.description}
-            disabled={disabled || polarProductCreatePending}
-            rows={2}
-            onChange={(value) =>
-              setCreateForm((current) => ({ ...current, description: value }))
-            }
+      <SettingsPanel
+        title="Connection"
+        description="Enable billing and store the credentials used by the server."
+        defaultOpen
+      >
+        <div className="space-y-4">
+          <ToggleRow
+            label="Enable Polar billing"
+            description="Checkout, customer portal, usage meters, and webhooks are only exposed when billing is enabled."
+            checked={form.enabled}
+            disabled={disabled || pending}
+            onChange={(checked) => update("enabled", checked)}
           />
-          <div className="flex justify-end">
+
+          {form.enabled ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <SelectField
+                label="Environment"
+                value={form.environment}
+                disabled={disabled || pending}
+                onChange={(value) =>
+                  update("environment", value as BillingSettings["environment"])
+                }
+                options={[
+                  ["sandbox", "Sandbox"],
+                  ["production", "Production"]
+                ]}
+              />
+              <SettingsInput
+                id="polar-access-token"
+                label="Access token"
+                value={form.accessToken}
+                type="password"
+                disabled={disabled || pending}
+                placeholder={
+                  settings.accessTokenConfigured ? "Stored encrypted" : "Polar access token"
+                }
+                onChange={(value) => update("accessToken", value)}
+              />
+              <SettingsInput
+                id="polar-webhook-secret"
+                label="Webhook secret"
+                value={form.webhookSecret}
+                type="password"
+                disabled={disabled || pending}
+                placeholder={
+                  settings.webhookSecretConfigured ? "Stored encrypted" : "Optional"
+                }
+                onChange={(value) => update("webhookSecret", value)}
+              />
+              <SettingsTextarea
+                id="polar-webhook-url"
+                label="Webhook URL"
+                value={settings.webhookUrl}
+                disabled
+                rows={2}
+                onChange={() => {}}
+              />
+            </div>
+          ) : null}
+        </div>
+      </SettingsPanel>
+
+      {form.enabled ? (
+        <SettingsPanel
+          title="Polar catalog"
+          description="Import existing products or create a private product without leaving the dashboard."
+        >
+          <div className="mb-4 flex justify-end">
             <button
               type="button"
               data-press
               disabled={
                 disabled ||
-                polarProductCreatePending ||
+                polarProductsLoading ||
                 !settings.enabled ||
                 !settings.accessTokenConfigured
               }
-              onClick={() => void createInPolar()}
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+              onClick={onRefreshPolarProducts}
+              className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-surface px-2.5 text-[12px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
             >
-              {polarProductCreatePending ? "Creating…" : "Create in Polar"}
+              {polarProductsLoading ? "Loading…" : "Load from Polar"}
             </button>
           </div>
-        </div>
-      </section>
+          <div className="grid gap-4 lg:grid-cols-[1fr_1.15fr]">
+            <div className="space-y-2">
+              {polarProducts.length > 0 ? (
+                polarProducts.map((product) => {
+                  const mapped = form.products.some(
+                    (mapping) => mapping.productId === product.id
+                  );
+                  return (
+                    <div
+                      key={product.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[13px] font-semibold text-ink">
+                            {product.name}
+                          </span>
+                          <span className="rounded-full border border-border bg-surface-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">
+                            {product.isRecurring ? "subscription" : "one-time"}
+                          </span>
+                        </div>
+                        <div className="mt-1 break-all font-mono text-[11.5px] text-muted">
+                          {product.id}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        data-press
+                        disabled={disabled || pending || mapped}
+                        onClick={() => addImportedProduct(product)}
+                        className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-surface-muted px-2.5 text-[12px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+                      >
+                        {mapped ? "Mapped" : "Import"}
+                      </button>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="rounded-lg border border-border bg-surface px-3 py-3 text-[12.5px] leading-5 text-muted">
+                  Load products from Polar when credentials are saved. You can also
+                  create a product here and map it automatically.
+                </div>
+              )}
+            </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-[13px] font-semibold tracking-[-0.005em] text-ink">
-            Products and entitlements
-          </h3>
+            <details className="group rounded-lg border border-border bg-surface">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 text-[13px] font-semibold text-ink outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+                Create product
+                <span className="text-[12px] font-medium text-muted group-open:hidden">
+                  Show
+                </span>
+                <span className="hidden text-[12px] font-medium text-muted group-open:inline">
+                  Hide
+                </span>
+              </summary>
+              <div className="border-t border-border p-3">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <SettingsInput
+                    id="polar-create-name"
+                    label="Name"
+                    value={createForm.name}
+                    disabled={disabled || polarProductCreatePending}
+                    onChange={(value) =>
+                      setCreateForm((current) => ({
+                        ...current,
+                        name: value,
+                        slug: current.slug || slugFromName(value)
+                      }))
+                    }
+                  />
+                  <SettingsInput
+                    id="polar-create-slug"
+                    label="Slug"
+                    value={createForm.slug}
+                    disabled={disabled || polarProductCreatePending}
+                    onChange={(value) =>
+                      setCreateForm((current) => ({ ...current, slug: value }))
+                    }
+                  />
+                  <SelectField
+                    label="Type"
+                    value={createForm.type}
+                    disabled={disabled || polarProductCreatePending}
+                    onChange={(value) =>
+                      setCreateForm((current) => ({
+                        ...current,
+                        type: value as CreatePolarProductInput["type"]
+                      }))
+                    }
+                    options={[
+                      ["subscription", "Subscription"],
+                      ["one_time", "One-time"],
+                      ["credit_pack", "Credit pack"],
+                      ["lifetime", "Lifetime"]
+                    ]}
+                  />
+                  <SelectField
+                    label="Billing interval"
+                    value={createForm.recurringInterval}
+                    disabled={
+                      disabled ||
+                      polarProductCreatePending ||
+                      createForm.type !== "subscription"
+                    }
+                    onChange={(value) =>
+                      setCreateForm((current) => ({
+                        ...current,
+                        recurringInterval:
+                          value as CreatePolarProductInput["recurringInterval"]
+                      }))
+                    }
+                    options={[
+                      ["month", "Monthly"],
+                      ["year", "Yearly"]
+                    ]}
+                  />
+                  <SettingsInput
+                    id="polar-create-price"
+                    label="Price in minor units"
+                    value={String(createForm.priceAmount)}
+                    disabled={disabled || polarProductCreatePending}
+                    onChange={(value) =>
+                      setCreateForm((current) => ({
+                        ...current,
+                        priceAmount: Number(value)
+                      }))
+                    }
+                  />
+                  <SettingsInput
+                    id="polar-create-currency"
+                    label="Currency"
+                    value={createForm.priceCurrency}
+                    disabled={disabled || polarProductCreatePending}
+                    onChange={(value) =>
+                      setCreateForm((current) => ({
+                        ...current,
+                        priceCurrency: value
+                      }))
+                    }
+                  />
+                </div>
+                <div className="mt-3">
+                  <SettingsTextarea
+                    id="polar-create-description"
+                    label="Description"
+                    value={createForm.description}
+                    disabled={disabled || polarProductCreatePending}
+                    rows={2}
+                    onChange={(value) =>
+                      setCreateForm((current) => ({ ...current, description: value }))
+                    }
+                  />
+                </div>
+                <div className="mt-3 flex justify-end">
+                  <button
+                    type="button"
+                    data-press
+                    disabled={
+                      disabled ||
+                      polarProductCreatePending ||
+                      !settings.enabled ||
+                      !settings.accessTokenConfigured
+                    }
+                    onClick={() => void createInPolar()}
+                    className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+                  >
+                    {polarProductCreatePending ? "Creating…" : "Create and map"}
+                  </button>
+                </div>
+              </div>
+            </details>
+          </div>
+        </SettingsPanel>
+      ) : null}
+
+      <SettingsPanel
+        title="Mapped products"
+        description="These are the products your application can request by slug."
+      >
+        <div className="mb-4 flex justify-end">
           <button
             type="button"
             data-press
             disabled={disabled || pending}
             onClick={addProduct}
-            className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+            className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-surface px-2.5 text-[12px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
           >
-            Add product
+            Add manually
           </button>
         </div>
-
         {form.products.length === 0 ? (
-          <div className="rounded-lg border border-border bg-surface-muted px-3 py-3 text-[12.5px] leading-5 text-muted">
-            Add products after creating them in Polar. The product ID maps checkout
-            requests to a Polar product; entitlements stay in this auth service.
+          <div className="rounded-lg border border-border bg-surface px-3 py-3 text-[12.5px] leading-5 text-muted">
+            No mapped products yet. Import from Polar or add one manually.
           </div>
-        ) : null}
-
-        {form.products.map((product, productIndex) => (
-          <div key={`${product.slug}-${productIndex}`} className="rounded-lg border border-border bg-surface p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <label className="flex items-center gap-2 text-[12.5px] font-medium text-ink-soft">
-                <input
-                  type="checkbox"
-                  checked={product.active}
-                  disabled={disabled || pending}
-                  onChange={(event) =>
-                    updateProduct(productIndex, { active: event.currentTarget.checked })
-                  }
-                  className="h-4 w-4 rounded border-border bg-surface text-accent focus:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
-                />
-                Active
-              </label>
-              <button
-                type="button"
-                data-press
+        ) : (
+          <div className="grid gap-3">
+            {form.products.map((product, productIndex) => (
+              <ProductEditor
+                key={`${product.slug}-${productIndex}`}
+                product={product}
+                productIndex={productIndex}
                 disabled={disabled || pending}
-                onClick={() =>
+                onUpdateProduct={updateProduct}
+                onUpdateEntitlement={updateEntitlement}
+                onRemove={() =>
                   update(
                     "products",
-                    form.products.filter((_item, currentIndex) => currentIndex !== productIndex)
+                    form.products.filter(
+                      (_item, currentIndex) => currentIndex !== productIndex
+                    )
                   )
                 }
-                className="text-[12.5px] font-medium text-muted underline-offset-[3px] hover:text-ink hover:underline disabled:cursor-not-allowed disabled:opacity-55"
-              >
-                Remove
-              </button>
-            </div>
-
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <SettingsInput
-                id={`billing-product-slug-${productIndex}`}
-                label="Slug"
-                value={product.slug}
-                disabled={disabled || pending}
-                onChange={(value) => updateProduct(productIndex, { slug: value })}
               />
-              <SettingsInput
-                id={`billing-product-name-${productIndex}`}
-                label="Name"
-                value={product.name}
-                disabled={disabled || pending}
-                onChange={(value) => updateProduct(productIndex, { name: value })}
-              />
-              <SettingsInput
-                id={`billing-product-id-${productIndex}`}
-                label="Polar product ID"
-                value={product.productId}
-                disabled={disabled || pending}
-                onChange={(value) => updateProduct(productIndex, { productId: value })}
-              />
-              <label className="grid gap-1.5">
-                <span className="text-[12.5px] font-medium text-ink-soft">Type</span>
-                <select
-                  value={product.type}
-                  disabled={disabled || pending}
-                  onChange={(event) =>
-                    updateProduct(productIndex, {
-                      type: event.currentTarget.value as BillingProductMapping["type"]
-                    })
-                  }
-                  className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {productTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type.replaceAll("_", " ")}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <SettingsTextarea
-              id={`billing-product-description-${productIndex}`}
-              label="Description"
-              value={product.description}
-              disabled={disabled || pending}
-              rows={2}
-              onChange={(value) => updateProduct(productIndex, { description: value })}
-            />
-
-            <div className="mt-4 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-[12.5px] font-semibold text-ink-soft">
-                  Entitlements
-                </span>
-                <button
-                  type="button"
-                  data-press
-                  disabled={disabled || pending}
-                  onClick={() =>
-                    updateProduct(productIndex, {
-                      entitlements: [
-                        ...product.entitlements,
-                        {
-                          key: "feature_access",
-                          grantType: "boolean",
-                          amount: null,
-                          resetPeriod: "never",
-                          priority: 100
-                        }
-                      ]
-                    })
-                  }
-                  className="text-[12.5px] font-medium text-muted underline-offset-[3px] hover:text-ink hover:underline disabled:cursor-not-allowed disabled:opacity-55"
-                >
-                  Add entitlement
-                </button>
-              </div>
-
-              {product.entitlements.map((entitlement, entitlementIndex) => (
-                <div
-                  key={`${entitlement.key}-${entitlementIndex}`}
-                  className="grid gap-3 rounded-lg border border-border bg-surface-muted p-3 md:grid-cols-[1fr_1fr_1fr_0.7fr_auto]"
-                >
-                  <SettingsInput
-                    id={`billing-entitlement-key-${productIndex}-${entitlementIndex}`}
-                    label="Key"
-                    value={entitlement.key}
-                    disabled={disabled || pending}
-                    onChange={(value) =>
-                      updateEntitlement(productIndex, entitlementIndex, { key: value })
-                    }
-                  />
-                  <label className="grid gap-1.5">
-                    <span className="text-[12.5px] font-medium text-ink-soft">Grant</span>
-                    <select
-                      value={entitlement.grantType}
-                      disabled={disabled || pending}
-                      onChange={(event) =>
-                        updateEntitlement(productIndex, entitlementIndex, {
-                          grantType: event.currentTarget.value as BillingEntitlement["grantType"]
-                        })
-                      }
-                      className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {grantTypes.map((type) => (
-                        <option key={type} value={type}>
-                          {type.replaceAll("_", " ")}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1.5">
-                    <span className="text-[12.5px] font-medium text-ink-soft">Reset</span>
-                    <select
-                      value={entitlement.resetPeriod}
-                      disabled={disabled || pending}
-                      onChange={(event) =>
-                        updateEntitlement(productIndex, entitlementIndex, {
-                          resetPeriod: event.currentTarget.value as BillingEntitlement["resetPeriod"]
-                        })
-                      }
-                      className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {resetPeriods.map((period) => (
-                        <option key={period} value={period}>
-                          {period}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <SettingsInput
-                    id={`billing-entitlement-amount-${productIndex}-${entitlementIndex}`}
-                    label="Amount"
-                    value={entitlement.amount === null ? "" : String(entitlement.amount)}
-                    disabled={disabled || pending}
-                    onChange={(value) =>
-                      updateEntitlement(productIndex, entitlementIndex, {
-                        amount: value.trim() ? Number(value) : null
-                      })
-                    }
-                  />
-                  <button
-                    type="button"
-                    data-press
-                    disabled={disabled || pending}
-                    onClick={() =>
-                      updateProduct(productIndex, {
-                        entitlements: product.entitlements.filter(
-                          (_item, currentIndex) => currentIndex !== entitlementIndex
-                        )
-                      })
-                    }
-                    className="self-end text-[12.5px] font-medium text-muted underline-offset-[3px] hover:text-ink hover:underline disabled:cursor-not-allowed disabled:opacity-55"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
-        ))}
-      </div>
+        )}
+      </SettingsPanel>
 
       <div className="flex justify-end">
         <button
@@ -727,6 +613,378 @@ export function BillingSettings({
         </button>
       </div>
     </form>
+  );
+}
+
+function ProductEditor({
+  product,
+  productIndex,
+  disabled,
+  onUpdateProduct,
+  onUpdateEntitlement,
+  onRemove
+}: {
+  product: BillingProductMapping;
+  productIndex: number;
+  disabled: boolean;
+  onUpdateProduct: (index: number, patch: Partial<BillingProductMapping>) => void;
+  onUpdateEntitlement: (
+    productIndex: number,
+    entitlementIndex: number,
+    patch: Partial<BillingEntitlement>
+  ) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <details className="group rounded-lg border border-border bg-surface" open>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="truncate text-[13.5px] font-semibold text-ink">
+              {product.name || product.slug || "Untitled product"}
+            </span>
+            <span className="rounded-full border border-border bg-surface-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">
+              {productTypeLabels[product.type]}
+            </span>
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${
+                product.active
+                  ? "border-success-border bg-success-bg text-success"
+                  : "border-border bg-surface-muted text-muted"
+              }`}
+            >
+              {product.active ? "active" : "paused"}
+            </span>
+          </div>
+          <div className="mt-1 flex flex-wrap gap-2 text-[11.5px] text-muted">
+            <code className="font-mono">{product.slug || "no-slug"}</code>
+            <span>·</span>
+            <span>{product.entitlements.length} benefits</span>
+          </div>
+        </div>
+        <span className="text-[12px] font-medium text-muted group-open:hidden">
+          Edit
+        </span>
+        <span className="hidden text-[12px] font-medium text-muted group-open:inline">
+          Done
+        </span>
+      </summary>
+
+      <div className="space-y-4 border-t border-border p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <TogglePill
+            checked={product.active}
+            disabled={disabled}
+            onChange={(checked) => onUpdateProduct(productIndex, { active: checked })}
+          />
+          <button
+            type="button"
+            data-press
+            disabled={disabled}
+            onClick={onRemove}
+            className="text-[12.5px] font-medium text-muted underline-offset-[3px] hover:text-ink hover:underline disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            Remove product
+          </button>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <SettingsInput
+            id={`billing-product-slug-${productIndex}`}
+            label="Slug used by apps"
+            value={product.slug}
+            disabled={disabled}
+            onChange={(value) => onUpdateProduct(productIndex, { slug: value })}
+          />
+          <SettingsInput
+            id={`billing-product-name-${productIndex}`}
+            label="Display name"
+            value={product.name}
+            disabled={disabled}
+            onChange={(value) => onUpdateProduct(productIndex, { name: value })}
+          />
+          <SettingsInput
+            id={`billing-product-id-${productIndex}`}
+            label="Polar product ID"
+            value={product.productId}
+            disabled={disabled}
+            onChange={(value) => onUpdateProduct(productIndex, { productId: value })}
+          />
+          <SelectField
+            label="Product type"
+            value={product.type}
+            disabled={disabled}
+            onChange={(value) =>
+              onUpdateProduct(productIndex, {
+                type: value as BillingProductMapping["type"]
+              })
+            }
+            options={productTypes.map((type) => [type, productTypeLabels[type]])}
+          />
+        </div>
+
+        <SettingsTextarea
+          id={`billing-product-description-${productIndex}`}
+          label="Checkout description"
+          value={product.description}
+          disabled={disabled}
+          rows={2}
+          onChange={(value) => onUpdateProduct(productIndex, { description: value })}
+        />
+
+        <div className="space-y-3 rounded-lg border border-border bg-surface-muted p-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[12.5px] font-semibold text-ink-soft">
+              Benefits granted after purchase
+            </span>
+            <button
+              type="button"
+              data-press
+              disabled={disabled}
+              onClick={() =>
+                onUpdateProduct(productIndex, {
+                  entitlements: [
+                    ...product.entitlements,
+                    {
+                      key: "feature_access",
+                      grantType: "boolean",
+                      amount: null,
+                      resetPeriod: "never",
+                      priority: 100
+                    }
+                  ]
+                })
+              }
+              className="text-[12.5px] font-medium text-muted underline-offset-[3px] hover:text-ink hover:underline disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              Add benefit
+            </button>
+          </div>
+
+          {product.entitlements.map((entitlement, entitlementIndex) => (
+            <div
+              key={`${entitlement.key}-${entitlementIndex}`}
+              className="grid gap-3 rounded-lg border border-border bg-surface p-3 md:grid-cols-[1fr_1fr_1fr_0.7fr_auto]"
+            >
+              <SettingsInput
+                id={`billing-entitlement-key-${productIndex}-${entitlementIndex}`}
+                label="Key"
+                value={entitlement.key}
+                disabled={disabled}
+                onChange={(value) =>
+                  onUpdateEntitlement(productIndex, entitlementIndex, { key: value })
+                }
+              />
+              <SelectField
+                label="Grant"
+                value={entitlement.grantType}
+                disabled={disabled}
+                onChange={(value) =>
+                  onUpdateEntitlement(productIndex, entitlementIndex, {
+                    grantType: value as BillingEntitlement["grantType"]
+                  })
+                }
+                options={grantTypes.map((type) => [type, grantLabels[type]])}
+              />
+              <SelectField
+                label="Reset"
+                value={entitlement.resetPeriod}
+                disabled={disabled}
+                onChange={(value) =>
+                  onUpdateEntitlement(productIndex, entitlementIndex, {
+                    resetPeriod: value as BillingEntitlement["resetPeriod"]
+                  })
+                }
+                options={resetPeriods.map((period) => [period, resetLabels[period]])}
+              />
+              <SettingsInput
+                id={`billing-entitlement-amount-${productIndex}-${entitlementIndex}`}
+                label="Amount"
+                value={entitlement.amount === null ? "" : String(entitlement.amount)}
+                disabled={disabled}
+                onChange={(value) =>
+                  onUpdateEntitlement(productIndex, entitlementIndex, {
+                    amount: value.trim() ? Number(value) : null
+                  })
+                }
+              />
+              <button
+                type="button"
+                data-press
+                disabled={disabled}
+                onClick={() =>
+                  onUpdateProduct(productIndex, {
+                    entitlements: product.entitlements.filter(
+                      (_item, currentIndex) => currentIndex !== entitlementIndex
+                    )
+                  })
+                }
+                className="self-end text-[12.5px] font-medium text-muted underline-offset-[3px] hover:text-ink hover:underline disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+}
+
+function BillingStatusCard({
+  label,
+  value,
+  tone
+}: {
+  label: string;
+  value: string;
+  tone: "success" | "warning" | "muted";
+}) {
+  const toneClass =
+    tone === "success"
+      ? "border-success-border bg-success-bg text-success"
+      : tone === "warning"
+        ? "border-warning-border bg-warning-bg text-warning"
+        : "border-border bg-surface-muted text-muted";
+
+  return (
+    <div className="rounded-lg border border-border bg-surface px-3 py-3">
+      <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
+        {label}
+      </div>
+      <div className={`mt-2 inline-flex rounded-full border px-2 py-1 text-[12px] font-semibold ${toneClass}`}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function SettingsPanel({
+  title,
+  description,
+  defaultOpen = false,
+  children
+}: {
+  title: string;
+  description: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <details
+      open={defaultOpen}
+      className="group rounded-lg border border-border bg-surface-muted"
+    >
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-4 px-4 py-4 outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+        <span>
+          <span className="block text-[13.5px] font-semibold text-ink">{title}</span>
+          <span className="mt-1 block max-w-[38rem] text-[12px] leading-5 text-muted">
+            {description}
+          </span>
+        </span>
+        <span className="shrink-0">
+          <span className="rounded-full border border-border bg-surface px-2 py-1 text-[11px] font-medium text-muted group-open:hidden">
+            Open
+          </span>
+          <span className="hidden rounded-full border border-border bg-surface px-2 py-1 text-[11px] font-medium text-muted group-open:inline">
+            Close
+          </span>
+        </span>
+      </summary>
+      <div className="border-t border-border p-4">{children}</div>
+    </details>
+  );
+}
+
+function ToggleRow({
+  label,
+  description,
+  checked,
+  disabled,
+  onChange
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex items-start justify-between gap-4 rounded-lg border border-border bg-surface px-3 py-3">
+      <span>
+        <span className="block text-[13px] font-medium text-ink">{label}</span>
+        <span className="mt-0.5 block text-[12px] leading-5 text-muted">
+          {description}
+        </span>
+      </span>
+      <TogglePill checked={checked} disabled={disabled} onChange={onChange} />
+    </label>
+  );
+}
+
+function TogglePill({
+  checked,
+  disabled,
+  onChange
+}: {
+  checked: boolean;
+  disabled: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="inline-flex items-center gap-2 text-[12.5px] font-medium text-ink-soft">
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.currentTarget.checked)}
+        className="sr-only"
+      />
+      <span
+        className={`relative h-6 w-10 rounded-full border border-border transition-colors ${
+          checked ? "bg-accent" : "bg-surface-muted"
+        } ${disabled ? "cursor-not-allowed opacity-55" : ""}`}
+      >
+        <span
+          className={`absolute left-1 top-1 h-4 w-4 rounded-full transition-transform ${
+            checked ? "translate-x-4 bg-accent-ink" : "bg-muted-soft"
+          }`}
+        />
+      </span>
+      {checked ? "On" : "Off"}
+    </label>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  disabled,
+  options,
+  onChange
+}: {
+  label: string;
+  value: string;
+  disabled: boolean;
+  options: Array<readonly [string, string]>;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid gap-1.5">
+      <span className="text-[12.5px] font-medium text-ink-soft">{label}</span>
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.currentTarget.value)}
+        className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {options.map(([optionValue, label]) => (
+          <option key={optionValue} value={optionValue}>
+            {label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
@@ -751,9 +1009,9 @@ function defaultCreateForm(): CreatePolarProductInput {
     slug: "",
     name: "",
     description: "",
-    type: "subscription",
-    priceAmount: 500,
-    priceCurrency: "usd",
+    type: "credit_pack",
+    priceAmount: 1000,
+    priceCurrency: "eur",
     recurringInterval: "month"
   };
 }

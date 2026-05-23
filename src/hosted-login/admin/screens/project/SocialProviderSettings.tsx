@@ -149,65 +149,103 @@ function SocialProviderCard({
         </label>
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <SettingsInput
-          id={`${item.id}-client-id`}
-          label={item.clientIdLabel}
-          value={clientId}
-          disabled={disabled || pending}
-          onChange={setClientId}
-        />
-        <SettingsInput
-          id={`${item.id}-client-secret`}
-          label={item.clientSecretLabel}
-          value={clientSecret}
-          type="password"
-          disabled={disabled || pending}
-          placeholder={provider.configured ? "Stored encrypted" : ""}
-          onChange={setClientSecret}
-        />
-      </div>
+      <details
+        open={enabled || provider.configured}
+        className="group mt-4 rounded-lg border border-border bg-surface-muted"
+      >
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+          <span className="text-[12.5px] font-semibold text-ink-soft">
+            Configuration
+          </span>
+          <span className="rounded-full border border-border bg-surface px-2 py-1 text-[11px] font-medium text-muted group-open:hidden">
+            Open
+          </span>
+          <span className="hidden rounded-full border border-border bg-surface px-2 py-1 text-[11px] font-medium text-muted group-open:inline">
+            Close
+          </span>
+        </summary>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="text-[12px] leading-5 text-muted">
-          {provider.verifiedAt ? (
-            <span>Last checked {new Date(provider.verifiedAt).toLocaleString()}</span>
-          ) : provider.configured ? (
-            <span>Saved, not checked yet</span>
-          ) : (
-            <span>Not configured</span>
-          )}
-          {" · "}
-          <a
-            href={item.docsUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="font-medium text-ink underline-offset-[3px] hover:underline"
-          >
-            Setup docs
-          </a>
-        </div>
+        <div className="border-t border-border p-3">
+          <div className="grid gap-3 md:grid-cols-2">
+            <SettingsInput
+              id={`${item.id}-client-id`}
+              label={item.clientIdLabel}
+              value={clientId}
+              disabled={disabled || pending}
+              onChange={setClientId}
+            />
+            <SettingsInput
+              id={`${item.id}-client-secret`}
+              label={item.clientSecretLabel}
+              value={clientSecret}
+              type="password"
+              disabled={disabled || pending}
+              placeholder={provider.configured ? "Stored encrypted" : ""}
+              onChange={setClientSecret}
+            />
+          </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            data-press
-            disabled={disabled || verifyPending || !provider.configured || !enabled}
-            onClick={() => onVerify(item.id)}
-            className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
-          >
-            {verifyPending ? "Checking…" : "Check"}
-          </button>
-          <button
-            type="submit"
-            data-press
-            disabled={disabled || pending}
-            className="inline-flex h-9 items-center justify-center rounded-lg bg-accent px-3 text-[12.5px] font-medium text-accent-ink outline-none transition-colors hover:bg-accent-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
-            style={{ boxShadow: "var(--shadow-button)" }}
-          >
-            {pending ? "Saving…" : "Save"}
-          </button>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="text-[12px] leading-5 text-muted">
+              {provider.verifiedAt ? (
+                <span>Last checked {new Date(provider.verifiedAt).toLocaleString()}</span>
+              ) : provider.configured ? (
+                <span>Saved, not checked yet</span>
+              ) : (
+                <span>Not configured</span>
+              )}
+              {" · "}
+              <a
+                href={item.docsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-ink underline-offset-[3px] hover:underline"
+              >
+                Setup docs
+              </a>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                data-press
+                disabled={disabled || verifyPending || !provider.configured || !enabled}
+                onClick={() => onVerify(item.id)}
+                className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                {verifyPending ? "Checking…" : "Check"}
+              </button>
+              <button
+                type="submit"
+                data-press
+                disabled={disabled || pending}
+                className="inline-flex h-9 items-center justify-center rounded-lg bg-accent px-3 text-[12.5px] font-medium text-accent-ink outline-none transition-colors hover:bg-accent-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+                style={{ boxShadow: "var(--shadow-button)" }}
+              >
+                {pending ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
         </div>
+      </details>
+
+      <div className="mt-3 text-[12px] leading-5 text-muted">
+        {provider.verifiedAt ? (
+          <span>Verified {new Date(provider.verifiedAt).toLocaleString()}</span>
+        ) : provider.configured ? (
+          <span>Configured, not checked yet</span>
+        ) : (
+          <span>Not configured</span>
+        )}
+        {" · "}
+        <a
+          href={item.docsUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="font-medium text-ink underline-offset-[3px] hover:underline"
+        >
+          Setup docs
+        </a>
       </div>
     </form>
   );
