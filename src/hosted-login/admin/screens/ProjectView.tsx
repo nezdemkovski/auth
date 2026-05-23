@@ -90,7 +90,6 @@ export function ProjectView({
   onVerifyBilling: (input: {
     accessToken?: string;
     environment?: BillingSettings["environment"];
-    organizationId?: string;
   }) => void;
   onRefreshPolarProducts: () => void;
   onCreatePolarProduct: (

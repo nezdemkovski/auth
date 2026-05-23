@@ -24,7 +24,7 @@ export type BillingSettingsPatch = {
   provider: ProjectBillingSettings["provider"];
   enabled: boolean;
   environment: ProjectBillingSettings["environment"];
-  organizationId: string;
+  organizationId?: string;
   accessToken?: string;
   webhookSecret?: string;
   products: BillingProductMapping[];
@@ -197,7 +197,7 @@ export async function updateBillingSettings(options: {
         ${options.patch.provider},
         ${options.patch.enabled},
         ${options.patch.environment},
-        ${options.patch.organizationId.trim()},
+        ${options.patch.organizationId?.trim() ?? ""},
         ${accessTokenCipher},
         ${webhookSecretCipher},
         ${JSON.stringify(options.patch.products)}::jsonb
@@ -321,7 +321,7 @@ function validateBillingPatch(patch: BillingSettingsPatch): void {
   if (!Array.isArray(patch.products)) {
     throw new Error("Products must be an array");
   }
-  if (typeof patch.organizationId !== "string") {
+  if (patch.organizationId !== undefined && typeof patch.organizationId !== "string") {
     throw new Error("Invalid organization ID");
   }
 

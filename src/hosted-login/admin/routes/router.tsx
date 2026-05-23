@@ -440,7 +440,6 @@ function ProjectRoute() {
       project: string;
       accessToken?: string;
       environment?: "sandbox" | "production";
-      organizationId?: string;
     }) => verifyBillingSettings(input),
     onSuccess: () => {
       notifySuccess("Polar check passed");

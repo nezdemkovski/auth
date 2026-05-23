@@ -57,7 +57,6 @@ export function BillingSettings({
   onVerify: (input: {
     accessToken?: string;
     environment?: BillingSettings["environment"];
-    organizationId?: string;
   }) => void;
   onRefreshPolarProducts: () => void;
   onCreatePolarProduct: (
@@ -196,7 +195,6 @@ export function BillingSettings({
       provider: form.enabled ? "polar" : "none",
       enabled: form.enabled,
       environment: form.environment,
-      organizationId: form.organizationId.trim(),
       products: form.products.map((product) => ({
         ...product,
         slug: product.slug.trim(),
@@ -237,8 +235,7 @@ export function BillingSettings({
           onClick={() =>
             onVerify({
               ...(form.accessToken.trim() ? { accessToken: form.accessToken.trim() } : {}),
-              environment: form.environment,
-              organizationId: form.organizationId.trim()
+              environment: form.environment
             })
           }
           className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
@@ -286,14 +283,6 @@ export function BillingSettings({
             <option value="production">Production</option>
           </select>
         </label>
-        <SettingsInput
-          id="polar-organization-id"
-          label="Organization ID"
-          value={form.organizationId}
-          disabled={disabled || pending}
-          placeholder="Optional"
-          onChange={(value) => update("organizationId", value)}
-        />
         <SettingsInput
           id="polar-access-token"
           label="Access token"
@@ -746,7 +735,7 @@ function settingsToForm(settings: BillingSettings) {
     provider: settings.provider,
     enabled: settings.enabled && settings.provider === "polar",
     environment: settings.environment,
-    organizationId: settings.organizationId,
+    organizationId: "",
     accessToken: "",
     webhookSecret: "",
     accessTokenConfigured: settings.accessTokenConfigured,

@@ -125,7 +125,6 @@ export async function verifyBillingSettings(input: {
   project: string;
   accessToken?: string;
   environment?: BillingSettings["environment"];
-  organizationId?: string;
 }): Promise<void> {
   const response = await fetch(`/admin/api/projects/${input.project}/billing/verify`, {
     method: "POST",
@@ -133,10 +132,7 @@ export async function verifyBillingSettings(input: {
     headers: jsonHeaders,
     body: JSON.stringify({
       ...(input.accessToken ? { accessToken: input.accessToken } : {}),
-      ...(input.environment ? { environment: input.environment } : {}),
-      ...(input.organizationId !== undefined
-        ? { organizationId: input.organizationId }
-        : {})
+      ...(input.environment ? { environment: input.environment } : {})
     })
   });
   if (!response.ok) {

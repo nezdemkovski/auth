@@ -89,7 +89,6 @@ type BillingSettingsBody = Partial<Record<keyof BillingSettingsPatch, unknown>>;
 type BillingVerifyBody = {
   accessToken?: unknown;
   environment?: unknown;
-  organizationId?: unknown;
 };
 type CreatePolarProductBody = {
   slug?: unknown;
@@ -731,11 +730,6 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       body.environment === "production" || body.environment === "sandbox"
         ? body.environment
         : billing.environment;
-    const organizationId =
-      typeof body.organizationId === "string"
-        ? body.organizationId.trim()
-        : billing.organizationId;
-
     if (!accessToken) {
       return c.json({ error: "billing_not_configured" }, 409);
     }
@@ -746,7 +740,6 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     });
     try {
       await client.products.list({
-        organizationId: organizationId || undefined,
         limit: 1
       });
     } catch (error) {
@@ -786,7 +779,6 @@ export function createAdminApi(options: AdminApiOptions): Hono {
 
     try {
       const page = await client.products.list({
-        organizationId: registered.project.billing.organizationId || undefined,
         isArchived: false,
         limit: 50
       });
@@ -847,7 +839,6 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       const product = await client.products.create({
         name: input.name,
         description: input.description || null,
-        organizationId: registered.project.billing.organizationId || undefined,
         visibility: "private",
         prices: [
           {
@@ -1106,7 +1097,6 @@ function parseBillingSettingsPatch(body: BillingSettingsBody): BillingSettingsPa
     typeof body.provider !== "string" ||
     typeof body.enabled !== "boolean" ||
     typeof body.environment !== "string" ||
-    typeof body.organizationId !== "string" ||
     !Array.isArray(body.products)
   ) {
     return null;
@@ -1168,7 +1158,7 @@ function parseBillingSettingsPatch(body: BillingSettingsBody): BillingSettingsPa
     provider: body.provider as BillingSettingsPatch["provider"],
     enabled: body.enabled,
     environment: body.environment as BillingSettingsPatch["environment"],
-    organizationId: body.organizationId.trim(),
+    organizationId: typeof body.organizationId === "string" ? body.organizationId.trim() : "",
     products
   };
 

@@ -147,7 +147,7 @@ export type BillingSettingsPatch = {
   provider: BillingProvider;
   enabled: boolean;
   environment: BillingEnvironment;
-  organizationId: string;
+  organizationId?: string;
   accessToken?: string;
   webhookSecret?: string;
   products: BillingProductMapping[];
