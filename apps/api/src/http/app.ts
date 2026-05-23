@@ -97,7 +97,7 @@ export async function createApp(env: Env) {
     });
   });
 
-  app.get("/projects", (c) => {
+  app.get("/api/projects", (c) => {
     const publicProjects = registry
       .list()
       .filter((project) => project.slug !== adminProject.slug);
@@ -122,17 +122,17 @@ export async function createApp(env: Env) {
     })
   );
 
-  app.get("/:project/login/config/login", (c) =>
+  app.get("/api/:project/login/config/login", (c) =>
     getLoginConfig(c.req.raw, c.req.param("project"), { registry })
   );
-  app.get("/:project/login/config/reset-password", (c) =>
+  app.get("/api/:project/login/config/reset-password", (c) =>
     getPasswordResetConfig(c.req.raw, c.req.param("project"), { registry })
   );
-  app.get("/:project/login/config/oauth-consent", (c) =>
+  app.get("/api/:project/login/config/oauth-consent", (c) =>
     getOAuthConsentConfig(c.req.raw, c.req.param("project"), { registry })
   );
 
-  app.post("/:project/login/token", (c) => {
+  app.post("/api/:project/login/token", (c) => {
     return exchangeLoginCode(c.req.raw, c.req.param("project"), {
       registry,
       secret: env.betterAuthSecret,
@@ -140,7 +140,7 @@ export async function createApp(env: Env) {
     });
   });
 
-  app.post("/:project/login/session-code", (c) => {
+  app.post("/api/:project/login/session-code", (c) => {
     return createLoginSessionCode(c.req.raw, c.req.param("project"), {
       registry,
       secret: env.betterAuthSecret,
@@ -149,7 +149,7 @@ export async function createApp(env: Env) {
     });
   });
 
-  app.get("/:project/.well-known/jwks.json", (c) => {
+  app.get("/api/:project/.well-known/jwks.json", (c) => {
     const projectSlug = c.req.param("project");
     const registered = registry.get(projectSlug);
 
@@ -165,7 +165,7 @@ export async function createApp(env: Env) {
     return registered.auth.handler(c.req.raw);
   });
 
-  app.get("/.well-known/oauth-authorization-server/:project", (c) => {
+  app.get("/api/:project/.well-known/oauth-authorization-server", (c) => {
     const registered = registry.get(c.req.param("project"));
     if (!registered || !registered.project.features.oauthProvider.enabled) {
       return c.notFound();
@@ -174,7 +174,7 @@ export async function createApp(env: Env) {
     return oauthProviderAuthServerMetadata(registered.auth)(c.req.raw);
   });
 
-  app.get("/:project/.well-known/openid-configuration", (c) => {
+  app.get("/api/:project/.well-known/openid-configuration", (c) => {
     const registered = registry.get(c.req.param("project"));
     if (!registered || !registered.project.features.oauthProvider.enabled) {
       return c.notFound();
@@ -183,7 +183,7 @@ export async function createApp(env: Env) {
     return oauthProviderOpenIdConfigMetadata(registered.auth)(c.req.raw);
   });
 
-  app.get("/:project/.well-known/agent-configuration", async (c) => {
+  app.get("/api/:project/.well-known/agent-configuration", async (c) => {
     const projectSlug = c.req.param("project");
     const registered = registry.get(projectSlug);
 
@@ -207,7 +207,7 @@ export async function createApp(env: Env) {
   });
 
   app.use(
-    "/:project/api/auth/*",
+    "/api/:project/auth/*",
     cors({
       origin: (origin, c) => {
         const project = c.req.param("project");
@@ -224,7 +224,7 @@ export async function createApp(env: Env) {
     })
   );
 
-  app.on(["GET", "POST"], "/:project/api/auth/*", (c) => {
+  app.on(["GET", "POST"], "/api/:project/auth/*", (c) => {
     const projectSlug = c.req.param("project");
     const registered = registry.get(projectSlug);
 
@@ -263,7 +263,7 @@ export async function createApp(env: Env) {
 }
 
 function isEnabledAuthFeaturePath(project: AuthProject, path: string): boolean {
-  const authPath = path.replace(new RegExp(`^/${project.slug}/api/auth`), "") || "/";
+  const authPath = path.replace(new RegExp(`^/api/${project.slug}/auth`), "") || "/";
 
   if (project.slug === "admin" && authPath.startsWith("/sign-up/")) {
     return false;

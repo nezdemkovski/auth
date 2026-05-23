@@ -7,13 +7,13 @@ and Postgres schema, so the same email can register independently in different
 projects.
 
 ```text
-https://auth.nezdemkovski.cloud/<project>/api/auth/*
+https://auth.nezdemkovski.cloud/api/<project>/auth/*
 ```
 
 JWT verification keys are exposed per project:
 
 ```text
-https://auth.nezdemkovski.cloud/<project>/.well-known/jwks.json
+https://auth.nezdemkovski.cloud/api/<project>/.well-known/jwks.json
 ```
 
 ## Stack
@@ -59,13 +59,13 @@ curl http://localhost:3000/healthz
 List configured projects:
 
 ```bash
-curl http://localhost:3000/projects
+curl http://localhost:3000/api/projects
 ```
 
 Example auth session endpoint:
 
 ```bash
-curl http://localhost:3000/demo/api/auth/session
+curl http://localhost:3000/api/demo/auth/session
 ```
 
 ### Frontends
@@ -81,15 +81,8 @@ They expect to be routed with the API under the same public auth origin:
 
 ```text
 /admin/*                       -> admin web
-/login/assets/*                -> login web assets
-/<realm>/login                 -> login web
-/<realm>/reset-password        -> login web
-/<realm>/oauth/consent         -> login web
-/admin/api/*                   -> auth API
-/<realm>/api/auth/*            -> auth API
-/<realm>/login/config/*        -> auth API
-/<realm>/login/session-code    -> auth API
-/<realm>/login/token           -> auth API
+/login/*                       -> login web
+/api/*                         -> auth API
 ```
 
 For local end-to-end testing, use a reverse proxy or compose setup that mirrors
@@ -99,9 +92,9 @@ auth flows should go through a single local origin.
 The login frontend loads runtime realm config from the API:
 
 ```text
-GET /<realm>/login/config/login
-GET /<realm>/login/config/reset-password
-GET /<realm>/login/config/oauth-consent
+GET /api/<realm>/login/config/login
+GET /api/<realm>/login/config/reset-password
+GET /api/<realm>/login/config/oauth-consent
 ```
 
 Build frontends separately:
@@ -166,8 +159,8 @@ incoming forwarding headers from clients before adding its own.
 
 The login flow uses a short-lived authorization code plus PKCE S256. The
 client app sends `code_challenge` and `code_challenge_method=S256` to
-`/<project>/login`, stores the verifier in an HttpOnly app cookie, and sends
-`code_verifier` to `/<project>/login/token` during callback exchange.
+`/login/<project>`, stores the verifier in an HttpOnly app cookie, and sends
+`code_verifier` to `/api/<project>/login/token` during callback exchange.
 
 ## OAuth Provider and MCP
 

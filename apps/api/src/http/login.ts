@@ -277,7 +277,7 @@ async function issueLoginCodeFromSession(options: {
   trustProxyHeaders: boolean;
   codeStore: LoginCodeStore;
 }): Promise<{ redirectTo: string; email: string } | null> {
-  const authPath = `/${options.registered.project.slug}/api/auth`;
+  const authPath = `/api/${options.registered.project.slug}/auth`;
   const sessionRes = await options.registered.auth.handler(
     new Request(`http://auth.local${authPath}/get-session`, {
       headers: internalAuthHeaders(options.headers, {

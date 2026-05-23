@@ -27,7 +27,7 @@ describe("auth route feature gates", () => {
     expect(
       __appTestUtils.isEnabledAuthFeaturePath(
         ADMIN_PROJECT,
-        "/admin/api/auth/sign-up/email"
+        "/api/admin/auth/sign-up/email"
       )
     ).toBe(false);
   });
@@ -36,7 +36,7 @@ describe("auth route feature gates", () => {
     expect(
       __appTestUtils.isEnabledAuthFeaturePath(
         project,
-        "/openmarkers/api/auth/sign-up/email"
+        "/api/openmarkers/auth/sign-up/email"
       )
     ).toBe(true);
   });
@@ -45,19 +45,19 @@ describe("auth route feature gates", () => {
     expect(
       __appTestUtils.isEnabledAuthFeaturePath(
         project,
-        "/openmarkers/api/auth/passkey/verify-authentication"
+        "/api/openmarkers/auth/passkey/verify-authentication"
       )
     ).toBe(false);
     expect(
       __appTestUtils.isEnabledAuthFeaturePath(
         project,
-        "/openmarkers/api/auth/oauth2/authorize"
+        "/api/openmarkers/auth/oauth2/authorize"
       )
     ).toBe(false);
     expect(
       __appTestUtils.isEnabledAuthFeaturePath(
         project,
-        "/openmarkers/api/auth/checkout"
+        "/api/openmarkers/auth/checkout"
       )
     ).toBe(false);
   });

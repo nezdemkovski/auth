@@ -33,13 +33,13 @@ describe("project email handlers", () => {
       user: {
         email: "user@example.com"
       },
-      url: "https://auth.example.com/openmarkers/api/auth/verify-email?token=token"
+      url: "https://auth.example.com/api/openmarkers/auth/verify-email?token=token"
     });
 
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toBe("user@example.com");
     expect(sent[0].subject).toBe("Verify your OpenMarkers account");
-    expect(sent[0].html).toContain("https://auth.example.com/openmarkers");
+    expect(sent[0].html).toContain("https://auth.example.com/api/openmarkers/auth");
     expect(sent[0].text).toContain("Confirm this email address");
   });
 
@@ -62,7 +62,7 @@ describe("project email handlers", () => {
       user: {
         email: "user@example.com"
       },
-      url: "https://auth.example.com/openmarkers/api/auth/reset-password/token"
+      url: "https://auth.example.com/api/openmarkers/auth/reset-password/token"
     });
 
     expect(sent).toHaveLength(1);

@@ -39,10 +39,10 @@ describe("http security helpers", () => {
 
   test("normalizes project auth paths into one rate-limit bucket", () => {
     expect(
-      __securityTestUtils.normalizePath("/openmarkers/api/auth/sign-in/email")
-    ).toBe("/:project/api/auth/sign-in/email");
-    expect(__securityTestUtils.normalizePath("/admin/api/auth/sign-in/email")).toBe(
-      "/:project/api/auth/sign-in/email"
+      __securityTestUtils.normalizePath("/api/openmarkers/auth/sign-in/email")
+    ).toBe("/api/:project/auth/sign-in/email");
+    expect(__securityTestUtils.normalizePath("/api/admin/auth/sign-in/email")).toBe(
+      "/api/:project/auth/sign-in/email"
     );
     expect(__securityTestUtils.normalizePath("/admin/login")).toBe("/admin/login");
   });

@@ -77,7 +77,7 @@ function createBaseProjectAuthOptions(options: {
 
   return {
     appName: project.name,
-    baseURL: `${publicBaseUrl}/${project.slug}/api/auth`,
+    baseURL: `${publicBaseUrl}/api/${project.slug}/auth`,
     secret,
     trustedOrigins: project.trustedOrigins,
     socialProviders: buildSocialProviders(project),
@@ -136,8 +136,8 @@ function createBaseProjectAuthOptions(options: {
         trustProxy: options.trustProxyHeaders
       }),
       oauthProvider({
-        loginPage: `/${project.slug}/login`,
-        consentPage: `/${project.slug}/oauth/consent`,
+        loginPage: `/login/${project.slug}`,
+        consentPage: `/login/${project.slug}/oauth/consent`,
         allowDynamicClientRegistration:
           project.features.oauthProvider.dynamicClientRegistration,
         allowUnauthenticatedClientRegistration:
@@ -168,7 +168,7 @@ function createBaseProjectAuthOptions(options: {
           }
         },
         jwt: {
-          issuer: `${publicBaseUrl}/${project.slug}`,
+          issuer: `${publicBaseUrl}/api/${project.slug}`,
           audience: project.slug,
           expirationTime: "15 minutes",
           definePayload: ({ user }) => ({
@@ -276,8 +276,8 @@ function buildSocialProviders(project: AuthProject): BetterAuthOptions["socialPr
 
 function buildOAuthValidAudiences(project: AuthProject, publicBaseUrl: string): string[] {
   const audiences = new Set([
-    `${publicBaseUrl}/${project.slug}`,
-    `${publicBaseUrl}/${project.slug}/api/auth`
+    `${publicBaseUrl}/api/${project.slug}`,
+    `${publicBaseUrl}/api/${project.slug}/auth`
   ]);
 
   for (const origin of [project.appUrl, ...project.trustedOrigins]) {

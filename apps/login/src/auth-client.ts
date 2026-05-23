@@ -6,7 +6,7 @@ export type LoginAuthClient = ReturnType<typeof createLoginAuthClient>;
 
 export function createLoginAuthClient(project: string) {
   return createAuthClient({
-    baseURL: `${window.location.origin}/${project}/api/auth`,
+    baseURL: `${window.location.origin}/api/${project}/auth`,
     plugins: [passkeyClient(), twoFactorClient(), lastLoginMethodClient()]
   });
 }
@@ -25,7 +25,7 @@ export async function signInWithEmail(options: {
   email: string;
   password: string;
 }): Promise<{ ok: true; twoFactorRedirect: boolean } | { ok: false }> {
-  const response = await fetch(`/${options.project}/api/auth/sign-in/email`, {
+  const response = await fetch(`/api/${options.project}/auth/sign-in/email`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -54,7 +54,7 @@ export async function signUpWithEmail(options: {
   password: string;
   callbackURL: string;
 }): Promise<boolean> {
-  const response = await fetch(`/${options.project}/api/auth/sign-up/email`, {
+  const response = await fetch(`/api/${options.project}/auth/sign-up/email`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -76,7 +76,7 @@ export async function signInWithSocial(options: {
   provider: string;
   callbackURL: string;
 }): Promise<boolean> {
-  const response = await fetch(`/${options.project}/api/auth/sign-in/social`, {
+  const response = await fetch(`/api/${options.project}/auth/sign-in/social`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -119,7 +119,7 @@ export async function verifyTwoFactorCode(options: {
 }
 
 export async function getLoginSession(project: string): Promise<LoginSession> {
-  const response = await fetch(`/${project}/api/auth/get-session`, {
+  const response = await fetch(`/api/${project}/auth/get-session`, {
     credentials: "include"
   });
 
@@ -135,7 +135,7 @@ export async function requestLoginPasswordReset(options: {
   email: string;
   redirectTo: string;
 }): Promise<boolean> {
-  const response = await fetch(`/${options.project}/api/auth/request-password-reset`, {
+  const response = await fetch(`/api/${options.project}/auth/request-password-reset`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -155,7 +155,7 @@ export async function resetLoginPassword(options: {
   token: string;
   newPassword: string;
 }): Promise<boolean> {
-  const response = await fetch(`/${options.project}/api/auth/reset-password`, {
+  const response = await fetch(`/api/${options.project}/auth/reset-password`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -171,7 +171,7 @@ export async function resetLoginPassword(options: {
 }
 
 export async function hasPasskeys(project: string): Promise<boolean> {
-  const response = await fetch(`/${project}/api/auth/passkey/list-user-passkeys`, {
+  const response = await fetch(`/api/${project}/auth/passkey/list-user-passkeys`, {
     credentials: "include"
   });
   const payload = await response.json().catch(() => null);
@@ -185,7 +185,7 @@ export async function createLoginSessionRedirect(options: {
   state: string;
   codeChallenge: string;
 }): Promise<string | null> {
-  const response = await fetch(`/${options.project}/login/session-code`, {
+  const response = await fetch(`/api/${options.project}/login/session-code`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -216,7 +216,7 @@ export async function getOAuthPublicClient(options: {
   clientId: string;
 }): Promise<OAuthPublicClient | null> {
   const url = new URL(
-    `/${options.project}/api/auth/oauth2/public-client`,
+    `/api/${options.project}/auth/oauth2/public-client`,
     window.location.origin
   );
   url.searchParams.set("client_id", options.clientId);
@@ -237,7 +237,7 @@ export async function submitOAuthConsent(options: {
   scopes: string[];
   oauthQuery: string;
 }): Promise<string | null> {
-  const response = await fetch(`/${options.project}/api/auth/oauth2/consent`, {
+  const response = await fetch(`/api/${options.project}/auth/oauth2/consent`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -266,7 +266,7 @@ async function postTwoFactor(
   path: string,
   body: Record<string, unknown>
 ): Promise<boolean> {
-  const response = await fetch(`/${project}/api/auth${path}`, {
+  const response = await fetch(`/api/${project}/auth${path}`, {
     method: "POST",
     credentials: "include",
     headers: {

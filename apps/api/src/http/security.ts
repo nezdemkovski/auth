@@ -41,7 +41,7 @@ const RATE_LIMIT_RULES: RateLimitRule[] = [
     windowMs: 10 * 60 * 1000,
     max: 10,
     match: (method, path) =>
-      method === "POST" && path === "/admin/api/auth/sign-in/email"
+      method === "POST" && path === "/api/admin/auth/sign-in/email"
   },
   {
     name: "project-signin",
@@ -317,7 +317,7 @@ function clientKey(
 }
 
 function normalizePath(path: string): string {
-  return path.replace(/^\/[^/]+\/api\/auth\//, "/:project/api/auth/");
+  return path.replace(/^\/api\/[^/]+\/auth\//, "/api/:project/auth/");
 }
 
 export const __securityTestUtils = {

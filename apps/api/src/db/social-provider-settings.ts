@@ -269,7 +269,7 @@ export function socialProviderCallbackUrl(
   project: AuthProject,
   provider: SocialProviderId
 ): string {
-  return `${publicBaseUrl}/${project.slug}/api/auth/callback/${provider}`;
+  return `${publicBaseUrl}/api/${project.slug}/auth/callback/${provider}`;
 }
 
 export function cloneDefaultSocialProviders(): ProjectSocialProviders {

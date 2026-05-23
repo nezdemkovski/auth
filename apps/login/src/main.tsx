@@ -1,6 +1,13 @@
 import type { ComponentType, FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
+import {
+  Outlet,
+  RouterProvider,
+  createRootRoute,
+  createRoute,
+  createRouter
+} from "@tanstack/react-router";
 
 import {
   createLoginAuthClient,
@@ -96,35 +103,149 @@ type AuthStep =
 
 const root = createRoot(document.querySelector<HTMLDivElement>("#app")!);
 
-void boot();
+const rootRoute = createRootRoute({
+  component: () => <Outlet />,
+  notFoundComponent: LoginConfigError
+});
 
-async function boot() {
-  const loadedConfig = await loadLoginAuthConfig();
-  if (!loadedConfig) {
-    root.render(<LoginConfigError />);
-    return;
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "$project",
+  component: LoginRoute
+});
+
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "$project/reset-password",
+  component: ResetPasswordRoute
+});
+
+const oauthConsentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "$project/oauth/consent",
+  component: OAuthConsentRoute
+});
+
+const routeTree = rootRoute.addChildren([
+  loginRoute,
+  resetPasswordRoute,
+  oauthConsentRoute
+]);
+
+const loginRouter = createRouter({
+  routeTree,
+  basepath: "/login"
+});
+
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: typeof loginRouter;
   }
-
-  if (loadedConfig.page === "oauth-consent") {
-    root.render(<OAuthConsentPage config={loadedConfig} />);
-    return;
-  }
-
-  if (loadedConfig.page === "reset-password") {
-    root.render(<PasswordResetPage config={loadedConfig} />);
-    return;
-  }
-
-  root.render(<LoginPage config={loadedConfig} />);
 }
 
-async function loadLoginAuthConfig(): Promise<LoginAuthConfig | null> {
-  const configUrl = loginConfigUrl();
-  if (!configUrl) {
+root.render(<RouterProvider router={loginRouter} />);
+
+function LoginRoute() {
+  const { project } = loginRoute.useParams();
+  return (
+    <LoginConfigLoader project={project} configPath="login">
+      {(config) =>
+        config.page === "oauth-consent" || config.page === "reset-password" ? (
+          <LoginConfigError />
+        ) : (
+          <LoginPage config={config} />
+        )
+      }
+    </LoginConfigLoader>
+  );
+}
+
+function ResetPasswordRoute() {
+  const { project } = resetPasswordRoute.useParams();
+  return (
+    <LoginConfigLoader project={project} configPath="reset-password">
+      {(config) =>
+        config.page === "reset-password" ? (
+          <PasswordResetPage config={config} />
+        ) : (
+          <LoginConfigError />
+        )
+      }
+    </LoginConfigLoader>
+  );
+}
+
+function OAuthConsentRoute() {
+  const { project } = oauthConsentRoute.useParams();
+  return (
+    <LoginConfigLoader project={project} configPath="oauth-consent">
+      {(config) =>
+        config.page === "oauth-consent" ? (
+          <OAuthConsentPage config={config} />
+        ) : (
+          <LoginConfigError />
+        )
+      }
+    </LoginConfigLoader>
+  );
+}
+
+function LoginConfigLoader({
+  project,
+  configPath,
+  children
+}: {
+  project: string;
+  configPath: "login" | "reset-password" | "oauth-consent";
+  children: (config: LoginAuthConfig) => ReactNode;
+}) {
+  const [config, setConfig] = useState<LoginAuthConfig | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void loadLoginAuthConfig(project, configPath).then((loadedConfig) => {
+      if (cancelled) {
+        return;
+      }
+
+      if (!loadedConfig) {
+        setFailed(true);
+        return;
+      }
+
+      setConfig(loadedConfig);
+      setFailed(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [project, configPath]);
+
+  if (failed) {
+    return <LoginConfigError />;
+  }
+
+  if (!config) {
     return null;
   }
 
-  const response = await fetch(configUrl, {
+  return <>{children(config)}</>;
+}
+
+async function loadLoginAuthConfig(
+  project: string,
+  configPath: "login" | "reset-password" | "oauth-consent"
+): Promise<LoginAuthConfig | null> {
+  const url = new URL(
+    `/api/${project}/login/config/${configPath}`,
+    window.location.origin
+  );
+  url.search = window.location.search;
+
+  const response = await fetch(url, {
     credentials: "include"
   });
 
@@ -133,37 +254,6 @@ async function loadLoginAuthConfig(): Promise<LoginAuthConfig | null> {
   }
 
   return (await response.json()) as LoginAuthConfig;
-}
-
-function loginConfigUrl(): URL | null {
-  const login = window.location.pathname.match(/^\/([^/]+)\/login\/?$/);
-  if (login) {
-    const url = new URL(`/${login[1]}/login/config/login`, window.location.origin);
-    url.search = window.location.search;
-    return url;
-  }
-
-  const reset = window.location.pathname.match(/^\/([^/]+)\/reset-password\/?$/);
-  if (reset) {
-    const url = new URL(
-      `/${reset[1]}/login/config/reset-password`,
-      window.location.origin
-    );
-    url.search = window.location.search;
-    return url;
-  }
-
-  const consent = window.location.pathname.match(/^\/([^/]+)\/oauth\/consent\/?$/);
-  if (consent) {
-    const url = new URL(
-      `/${consent[1]}/login/config/oauth-consent`,
-      window.location.origin
-    );
-    url.search = window.location.search;
-    return url;
-  }
-
-  return null;
 }
 
 function LoginConfigError() {
@@ -180,15 +270,26 @@ function LoginConfigError() {
   }
 
   return (
-    <Shell theme={theme} onToggle={toggleTheme}>
-      <SectionEyebrow label="Error" />
-      <h1 className="serif mt-6 text-[64px] leading-none tracking-[-0.03em] text-ink">
-        Cannot start.
-      </h1>
-      <p className="mt-5 max-w-[34rem] text-[16px] leading-7 text-muted">
-        This auth page is missing the required runtime configuration.
-      </p>
-    </Shell>
+    <div className="relative min-h-screen">
+      <div
+        aria-hidden="true"
+        data-grid-bg
+        className="pointer-events-none absolute inset-0"
+      />
+      <header className="relative z-10 flex h-14 items-center justify-end px-6 lg:px-10">
+        <ThemeToggle theme={theme} onToggle={toggleTheme} />
+      </header>
+      <section className="relative z-10 grid min-h-[calc(100vh-3.5rem)] place-items-center px-5 py-8">
+        <div className="w-full max-w-[440px]">
+          <AuthHeading
+            step="credentials"
+            isSignup={false}
+            subtitle="This auth page is missing the required runtime configuration."
+          />
+          <ErrorAlert>Cannot start.</ErrorAlert>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -217,7 +318,7 @@ function LoginPage({ config }: { config: LoginConfig }) {
   const title = getTitle(step, isSignup);
   const subtitle = getSubtitle(step, isSignup, config.projectName);
   const alternateUrl = useMemo(() => {
-    const url = new URL(`/${config.project}/login`, window.location.origin);
+    const url = new URL(`/login/${config.project}`, window.location.origin);
     url.searchParams.set("redirect_uri", config.redirectUri);
     url.searchParams.set("state", config.state);
     url.searchParams.set("mode", isSignup ? "login" : "signup");
@@ -309,7 +410,7 @@ function LoginPage({ config }: { config: LoginConfig }) {
     setPending(true);
     setError(null);
 
-    const callbackURL = new URL(`/${config.project}/login`, window.location.origin);
+    const callbackURL = new URL(`/login/${config.project}`, window.location.origin);
     callbackURL.searchParams.set("redirect_uri", config.redirectUri);
     callbackURL.searchParams.set("state", config.state);
     callbackURL.searchParams.set("mode", config.mode);
@@ -361,7 +462,10 @@ function LoginPage({ config }: { config: LoginConfig }) {
     setError(null);
 
     try {
-      const resetUrl = new URL(`/${config.project}/reset-password`, window.location.origin);
+      const resetUrl = new URL(
+        `/login/${config.project}/reset-password`,
+        window.location.origin
+      );
       const sent = await requestLoginPasswordReset({
         project: config.project,
         email,

@@ -72,6 +72,6 @@ describe("social provider settings", () => {
   test("builds provider callback URLs under the realm auth endpoint", () => {
     expect(
       socialProviderCallbackUrl("https://auth.example.com", ADMIN_PROJECT, "github")
-    ).toBe("https://auth.example.com/admin/api/auth/callback/github");
+    ).toBe("https://auth.example.com/api/admin/auth/callback/github");
   });
 });

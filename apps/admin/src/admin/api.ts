@@ -39,7 +39,7 @@ export async function signInAdmin(input: {
   email: string;
   password: string;
 }): Promise<void> {
-  const response = await fetch("/admin/api/auth/sign-in/email", {
+  const response = await fetch("/api/admin/auth/sign-in/email", {
     method: "POST",
     credentials: "include",
     headers: jsonHeaders,
@@ -348,7 +348,7 @@ export async function changeAdminPassword(input: {
 }
 
 export async function signOut(): Promise<void> {
-  await fetch("/admin/api/auth/sign-out", {
+  await fetch("/api/admin/auth/sign-out", {
     method: "POST",
     credentials: "include"
   }).catch(() => {});

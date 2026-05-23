@@ -49,7 +49,7 @@ describe("project auth options", () => {
     const options = createOptions(baseProject);
 
     expect(options.appName).toBe("OpenMarkers");
-    expect(options.baseURL).toBe("https://auth.example.com/openmarkers/api/auth");
+    expect(options.baseURL).toBe("https://auth.example.com/api/openmarkers/auth");
     expect(options.trustedOrigins).toEqual(["https://openmarkers.app"]);
     expect(options.advanced?.cookiePrefix).toBe("auth_openmarkers");
   });
@@ -110,8 +110,8 @@ describe("project auth options", () => {
         "https://auth.example.com"
       )
     ).toEqual([
-      "https://auth.example.com/openmarkers",
-      "https://auth.example.com/openmarkers/api/auth",
+      "https://auth.example.com/api/openmarkers",
+      "https://auth.example.com/api/openmarkers/auth",
       "https://openmarkers.app",
       "https://openmarkers.app/mcp"
     ]);

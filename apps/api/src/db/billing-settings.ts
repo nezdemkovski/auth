@@ -235,7 +235,7 @@ export function cloneDefaultBilling(): ProjectBillingSettings {
 }
 
 export function billingWebhookUrl(publicBaseUrl: string, project: AuthProject): string {
-  return `${publicBaseUrl}/${project.slug}/api/auth/polar/webhooks`;
+  return `${publicBaseUrl}/api/${project.slug}/auth/polar/webhooks`;
 }
 
 function rowToBilling(row: BillingSettingsRow, encryptionSecret: string): ProjectBillingSettings {
