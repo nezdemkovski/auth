@@ -3,6 +3,24 @@ import { describe, expect, test } from "bun:test";
 import { __adminTestUtils } from "../src/http/admin";
 
 describe("admin API security helpers", () => {
+  test("detects Polar invalid token errors for environment diagnostics", () => {
+    expect(
+      __adminTestUtils.isPolarInvalidTokenError({
+        body: JSON.stringify({
+          error: "invalid_token",
+          error_description: "The access token is invalid"
+        })
+      })
+    ).toBe(true);
+    expect(
+      __adminTestUtils.isPolarInvalidTokenError({
+        body: JSON.stringify({
+          error: "insufficient_scope"
+        })
+      })
+    ).toBe(false);
+  });
+
   test("accepts same-origin state-changing admin requests", () => {
     expect(
       __adminTestUtils.isTrustedAdminRequest(

@@ -750,10 +750,16 @@ export function createAdminApi(options: AdminApiOptions): Hono {
         limit: 1
       });
     } catch (error) {
+      const environmentHint = await polarEnvironmentMismatchMessage(
+        error,
+        accessToken,
+        environment,
+        organizationId
+      );
       return c.json(
         {
           error: "polar_check_failed",
-          message: polarErrorMessage(error, "Polar check failed")
+          message: environmentHint ?? polarErrorMessage(error, "Polar check failed")
         },
         400
       );
@@ -802,10 +808,16 @@ export function createAdminApi(options: AdminApiOptions): Hono {
         }))
       });
     } catch (error) {
+      const environmentHint = await polarEnvironmentMismatchMessage(
+        error,
+        registered.project.billing.accessToken,
+        registered.project.billing.environment,
+        registered.project.billing.organizationId
+      );
       return c.json(
         {
           error: "polar_products_failed",
-          message: polarErrorMessage(error, "Could not load Polar products")
+          message: environmentHint ?? polarErrorMessage(error, "Could not load Polar products")
         },
         400
       );
@@ -882,10 +894,16 @@ export function createAdminApi(options: AdminApiOptions): Hono {
         201
       );
     } catch (error) {
+      const environmentHint = await polarEnvironmentMismatchMessage(
+        error,
+        registered.project.billing.accessToken,
+        registered.project.billing.environment,
+        registered.project.billing.organizationId
+      );
       return c.json(
         {
           error: "polar_product_create_failed",
-          message: polarErrorMessage(error, "Could not create Polar product")
+          message: environmentHint ?? polarErrorMessage(error, "Could not create Polar product")
         },
         400
       );
@@ -1306,6 +1324,52 @@ function polarErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+async function polarEnvironmentMismatchMessage(
+  error: unknown,
+  accessToken: string,
+  environment: "sandbox" | "production",
+  organizationId: string
+): Promise<string | null> {
+  if (!accessToken || !isPolarInvalidTokenError(error)) {
+    return null;
+  }
+
+  const oppositeEnvironment = environment === "sandbox" ? "production" : "sandbox";
+  const client = new Polar({
+    accessToken,
+    server: oppositeEnvironment
+  });
+
+  try {
+    await client.products.list({
+      organizationId: organizationId || undefined,
+      limit: 1
+    });
+  } catch {
+    return null;
+  }
+
+  return `Polar token is valid for ${oppositeEnvironment}, but this realm is set to ${environment}. Switch the billing environment to ${oppositeEnvironment} or create an Organization Access Token in ${environment}.`;
+}
+
+function isPolarInvalidTokenError(error: unknown): boolean {
+  if (!isRecord(error)) {
+    return false;
+  }
+
+  const body = typeof error.body === "string" ? error.body : "";
+  if (!body) {
+    return false;
+  }
+
+  try {
+    const data = JSON.parse(body) as unknown;
+    return isRecord(data) && data.error === "invalid_token";
+  } catch {
+    return body.includes("invalid_token");
+  }
+}
+
 function parsePolarErrorBody(body: string): string | null {
   if (!body) {
     return null;
@@ -1617,5 +1681,6 @@ function toIsoString(value: Date | string): string {
 }
 
 export const __adminTestUtils = {
+  isPolarInvalidTokenError,
   isTrustedAdminRequest
 };
