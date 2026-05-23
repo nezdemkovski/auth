@@ -54,7 +54,11 @@ export function BillingSettings({
   polarProductCreatePending: boolean;
   polarProductCreateError: string | null;
   onSave: (patch: BillingSettingsPatch) => void;
-  onVerify: () => void;
+  onVerify: (input: {
+    accessToken?: string;
+    environment?: BillingSettings["environment"];
+    organizationId?: string;
+  }) => void;
   onRefreshPolarProducts: () => void;
   onCreatePolarProduct: (
     input: CreatePolarProductInput
@@ -224,8 +228,19 @@ export function BillingSettings({
         <button
           type="button"
           data-press
-          disabled={disabled || verifyPending || !settings.enabled || !settings.accessTokenConfigured}
-          onClick={onVerify}
+          disabled={
+            disabled ||
+            verifyPending ||
+            !form.enabled ||
+            (!settings.accessTokenConfigured && !form.accessToken.trim())
+          }
+          onClick={() =>
+            onVerify({
+              ...(form.accessToken.trim() ? { accessToken: form.accessToken.trim() } : {}),
+              environment: form.environment,
+              organizationId: form.organizationId.trim()
+            })
+          }
           className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
         >
           {verifyPending ? "Checking…" : "Check Polar"}

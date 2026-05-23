@@ -87,7 +87,11 @@ export function ProjectView({
   ) => void;
   onVerifySocialProvider: (provider: SocialProviderId) => void;
   onUpdateBilling: (patch: BillingSettingsPatch) => void;
-  onVerifyBilling: () => void;
+  onVerifyBilling: (input: {
+    accessToken?: string;
+    environment?: BillingSettings["environment"];
+    organizationId?: string;
+  }) => void;
   onRefreshPolarProducts: () => void;
   onCreatePolarProduct: (
     input: CreatePolarProductInput

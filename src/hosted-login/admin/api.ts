@@ -121,10 +121,23 @@ export async function updateBillingSettings(input: {
   return ((await response.json()) as { settings: BillingSettings }).settings;
 }
 
-export async function verifyBillingSettings(project: string): Promise<void> {
-  const response = await fetch(`/admin/api/projects/${project}/billing/verify`, {
+export async function verifyBillingSettings(input: {
+  project: string;
+  accessToken?: string;
+  environment?: BillingSettings["environment"];
+  organizationId?: string;
+}): Promise<void> {
+  const response = await fetch(`/admin/api/projects/${input.project}/billing/verify`, {
     method: "POST",
-    credentials: "include"
+    credentials: "include",
+    headers: jsonHeaders,
+    body: JSON.stringify({
+      ...(input.accessToken ? { accessToken: input.accessToken } : {}),
+      ...(input.environment ? { environment: input.environment } : {}),
+      ...(input.organizationId !== undefined
+        ? { organizationId: input.organizationId }
+        : {})
+    })
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as {

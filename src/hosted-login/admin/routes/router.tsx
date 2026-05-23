@@ -436,7 +436,12 @@ function ProjectRoute() {
     }
   });
   const billingVerify = useMutation({
-    mutationFn: (project: string) => verifyBillingSettings(project),
+    mutationFn: (input: {
+      project: string;
+      accessToken?: string;
+      environment?: "sandbox" | "production";
+      organizationId?: string;
+    }) => verifyBillingSettings(input),
     onSuccess: () => {
       notifySuccess("Polar check passed");
     },
@@ -594,7 +599,12 @@ function ProjectRoute() {
           patch
         })
       }
-      onVerifyBilling={() => billingVerify.mutate(selected.slug)}
+      onVerifyBilling={(input) =>
+        billingVerify.mutate({
+          project: selected.slug,
+          ...input
+        })
+      }
       onRefreshPolarProducts={() => void polarProductsQuery.refetch()}
       onCreatePolarProduct={(product) =>
         polarProductCreate.mutateAsync({

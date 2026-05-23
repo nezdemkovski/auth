@@ -86,6 +86,11 @@ type SocialProviderBody = {
 
 type DeliverySettingsBody = Partial<Record<keyof DeliverySettingsPatch, unknown>>;
 type BillingSettingsBody = Partial<Record<keyof BillingSettingsPatch, unknown>>;
+type BillingVerifyBody = {
+  accessToken?: unknown;
+  environment?: unknown;
+  organizationId?: unknown;
+};
 type CreatePolarProductBody = {
   slug?: unknown;
   name?: unknown;
@@ -716,18 +721,32 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       return c.json({ error: "unknown_project" }, 404);
     }
 
+    const body = (await c.req.json().catch(() => ({}))) as BillingVerifyBody;
     const billing = registered.project.billing;
-    if (billing.provider !== "polar" || !billing.enabled || !billing.accessToken) {
+    const accessToken =
+      typeof body.accessToken === "string" && body.accessToken.trim()
+        ? body.accessToken.trim()
+        : billing.accessToken;
+    const environment =
+      body.environment === "production" || body.environment === "sandbox"
+        ? body.environment
+        : billing.environment;
+    const organizationId =
+      typeof body.organizationId === "string"
+        ? body.organizationId.trim()
+        : billing.organizationId;
+
+    if (!accessToken) {
       return c.json({ error: "billing_not_configured" }, 409);
     }
 
     const client = new Polar({
-      accessToken: billing.accessToken,
-      server: billing.environment
+      accessToken,
+      server: environment
     });
     try {
       await client.products.list({
-        organizationId: billing.organizationId || undefined,
+        organizationId: organizationId || undefined,
         limit: 1
       });
     } catch (error) {
