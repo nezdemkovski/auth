@@ -25,18 +25,22 @@ https://auth.nezdemkovski.cloud/<project>/.well-known/jwks.json
 - Postgres
 - Drizzle ORM `1.0.0-rc.3`
 - optional Redis for shared auth rate limiting
+- Caddy for static frontend images
 
 ## Layout
 
 ```text
-apps/server              Hono/Bun auth backend
+apps/api                 Hono/Bun auth API
 apps/admin               Vite React admin dashboard
-apps/hosted              Vite React hosted auth pages
-packages/client-shared   Shared frontend theme, icons, and CSS
+apps/login               Vite React login experience
+packages/client-shared   Shared frontend theme and CSS
+packages/ui              Shared React UI primitives
+charts/auth              OCI Helm chart for the full runtime stack
 ```
 
-The frontend apps build into their own `dist` directories. The server container
-ships those built assets and serves them from the same auth origin.
+The frontend apps build into their own `dist` directories and run as separate
+web images served by Caddy. The API server does not read or serve frontend
+assets.
 
 ## Local Development
 
@@ -64,38 +68,47 @@ Example auth session endpoint:
 curl http://localhost:3000/demo/api/auth/session
 ```
 
-### Admin UI
+### Frontends
 
-Run only the admin frontend with Vite. The admin UI has its own Vite config and
-serves the SPA locally while proxying `/admin/api/*` to a real auth backend:
+The frontend apps are standalone static apps:
 
 ```bash
 bun run dev:admin
+bun run dev:login
 ```
 
-Open:
+They expect to be routed with the API under the same public auth origin:
 
 ```text
-http://127.0.0.1:5173/admin
+/admin/*                       -> admin web
+/login/assets/*                -> login web assets
+/<realm>/login                 -> login web
+/<realm>/reset-password        -> login web
+/<realm>/oauth/consent         -> login web
+/admin/api/*                   -> auth API
+/<realm>/api/auth/*            -> auth API
+/<realm>/login/config/*        -> auth API
+/<realm>/login/session-code    -> auth API
+/<realm>/login/token           -> auth API
 ```
 
-By default the Vite server proxies `/admin/api/*` to:
+For local end-to-end testing, use a reverse proxy or compose setup that mirrors
+those routes. Running Vite directly is useful for UI-only iteration, but real
+auth flows should go through a single local origin.
+
+The login frontend loads runtime realm config from the API:
 
 ```text
-https://auth.nezdemkovski.cloud
+GET /<realm>/login/config/login
+GET /<realm>/login/config/reset-password
+GET /<realm>/login/config/oauth-consent
 ```
 
-To point the local admin frontend at a local backend instead:
+Build frontends separately:
 
 ```bash
-AUTH_ADMIN_API_TARGET=http://localhost:3000 bun run dev:admin
-```
-
-The hosted login bundle is built separately from the admin bundle:
-
-```bash
-bun run build:hosted
 bun run build:admin
+bun run build:login
 ```
 
 Full repo build/test goes through Turbo:
@@ -104,6 +117,17 @@ Full repo build/test goes through Turbo:
 bun run build
 bun run test
 ```
+
+## Helm Chart
+
+The repository publishes the umbrella chart to GHCR:
+
+```text
+oci://ghcr.io/nezdemkovski/charts/auth
+```
+
+The chart deploys the API, admin UI, login UI, internal Caddy router, Redis,
+CloudNativePG Postgres, and External Secrets wiring.
 
 ## Realm Configuration
 
@@ -138,18 +162,18 @@ Set `TRUST_PROXY_HEADERS=true` only when the service is reachable exclusively
 through a trusted reverse proxy, such as Cloudflare Tunnel or nginx, that strips
 incoming forwarding headers from clients before adding its own.
 
-## Hosted Auth Handoff
+## Login Auth Handoff
 
-The hosted login flow uses a short-lived authorization code plus PKCE S256. The
+The login flow uses a short-lived authorization code plus PKCE S256. The
 client app sends `code_challenge` and `code_challenge_method=S256` to
 `/<project>/login`, stores the verifier in an HttpOnly app cookie, and sends
-`code_verifier` to `/<project>/hosted/token` during callback exchange.
+`code_verifier` to `/<project>/login/token` during callback exchange.
 
 ## OAuth Provider and MCP
 
 Realms can expose OAuth/OIDC endpoints for first-party apps and remote MCP
 clients. OAuth clients authenticate against the same realm-local user pool as
-the hosted login flow.
+the login flow.
 
 Dynamic Client Registration can be enabled per realm. When enabled, compatible
 OAuth clients, including MCP clients, can register themselves and receive a

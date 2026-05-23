@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-router
+  labels:
+    {{- include "auth.componentLabels" (dict "root" . "component" "router") | nindent 4 }}
+data:
+  Caddyfile: |
+    :{{ .Values.router.service.targetPort }} {
+      header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+      }
+
+      handle /admin/api/* {
+        reverse_proxy {{ .Values.api.service.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.api.service.port }}
+      }
+
+      @login_api path_regexp login_api ^/[^/]+/login/(config/.*|session-code|token)$
+      handle @login_api {
+        reverse_proxy {{ .Values.api.service.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.api.service.port }}
+      }
+
+      handle /admin* {
+        reverse_proxy {{ .Values.admin.service.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.admin.service.port }}
+      }
+
+      handle /login/assets/* {
+        reverse_proxy {{ .Values.login.service.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.login.service.port }}
+      }
+
+      @login_pages path_regexp login_pages ^/[^/]+/(login|reset-password|oauth/consent)/?$
+      handle @login_pages {
+        reverse_proxy {{ .Values.login.service.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.login.service.port }}
+      }
+
+      handle {
+        reverse_proxy {{ .Values.api.service.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.api.service.port }}
+      }
+    }

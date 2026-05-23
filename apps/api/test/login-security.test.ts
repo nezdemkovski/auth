@@ -1,28 +1,17 @@
 import { describe, expect, test } from "bun:test";
 
-import { __hostedTestUtils } from "../src/http/hosted";
+import { __loginTestUtils } from "../src/http/login";
 
 const verifier = "A".repeat(43);
 
-describe("hosted auth security helpers", () => {
-  test("escapes injected HTML and serializes config safely inside script tags", () => {
-    expect(__hostedTestUtils.escapeHtml(`<img src=x onerror="alert(1)">`)).toBe(
-      "&lt;img src=x onerror=&quot;alert(1)&quot;&gt;"
-    );
-    expect(
-      __hostedTestUtils.serializeHostedConfig({
-        value: "</script><script>alert(1)</script>"
-      })
-    ).not.toContain("</script>");
-  });
-
+describe("login auth security helpers", () => {
   test("requires S256-shaped PKCE values and verifies the matching verifier", () => {
-    const challenge = __hostedTestUtils.pkceChallenge(verifier);
+    const challenge = __loginTestUtils.pkceChallenge(verifier);
 
-    expect(__hostedTestUtils.validPkceChallenge(challenge)).toBe(true);
-    expect(__hostedTestUtils.verifyPkce(challenge, verifier)).toBe(true);
-    expect(__hostedTestUtils.verifyPkce(challenge, "B".repeat(43))).toBe(false);
-    expect(__hostedTestUtils.validPkceChallenge("too-short")).toBe(false);
+    expect(__loginTestUtils.validPkceChallenge(challenge)).toBe(true);
+    expect(__loginTestUtils.verifyPkce(challenge, verifier)).toBe(true);
+    expect(__loginTestUtils.verifyPkce(challenge, "B".repeat(43))).toBe(false);
+    expect(__loginTestUtils.validPkceChallenge("too-short")).toBe(false);
   });
 
   test("allows redirects by exact trusted origin only", () => {
@@ -33,21 +22,21 @@ describe("hosted auth security helpers", () => {
     };
 
     expect(
-      __hostedTestUtils.redirectUriAllowed(
+      __loginTestUtils.redirectUriAllowed(
         registry as never,
         "openmarkers",
         "https://openmarkers.app/auth/callback"
       )
     ).toBe(true);
     expect(
-      __hostedTestUtils.redirectUriAllowed(
+      __loginTestUtils.redirectUriAllowed(
         registry as never,
         "openmarkers",
         "https://evil.example/auth/callback"
       )
     ).toBe(false);
     expect(
-      __hostedTestUtils.redirectUriAllowed(
+      __loginTestUtils.redirectUriAllowed(
         registry as never,
         "openmarkers",
         "not a url"
@@ -64,7 +53,7 @@ describe("hosted auth security helpers", () => {
       "user-agent": "test-agent"
     });
 
-    const direct = __hostedTestUtils.internalAuthHeaders(
+    const direct = __loginTestUtils.internalAuthHeaders(
       source,
       {},
       { trustProxyHeaders: false }
@@ -73,7 +62,7 @@ describe("hosted auth security helpers", () => {
     expect(direct.get("cf-connecting-ip")).toBeNull();
     expect(direct.get("x-forwarded-for")).toBeNull();
 
-    const proxied = __hostedTestUtils.internalAuthHeaders(
+    const proxied = __loginTestUtils.internalAuthHeaders(
       source,
       {},
       { trustProxyHeaders: true }
@@ -82,22 +71,14 @@ describe("hosted auth security helpers", () => {
     expect(proxied.get("x-forwarded-for")).toBe("203.0.113.10, 10.0.0.1");
   });
 
-  test("uses only the origin as Better Auth callbackURL", () => {
-    expect(
-      __hostedTestUtils.callbackUrlFromRedirectUri(
-        "https://openmarkers.app/auth/callback?state=secret"
-      )
-    ).toBe("https://openmarkers.app");
-  });
-
-  test("memory hosted-code store expires codes and deletes only when asked", async () => {
-    const store = __hostedTestUtils.createHostedCodeStore(null);
+  test("memory login-code store expires codes and deletes only when asked", async () => {
+    const store = __loginTestUtils.createLoginCodeStore(null);
     await store.set("valid-code", {
       project: "openmarkers",
       sessionCookie: "auth.session=value",
       email: "user@example.com",
       redirectUri: "https://openmarkers.app/auth/callback",
-      codeChallenge: __hostedTestUtils.pkceChallenge(verifier),
+      codeChallenge: __loginTestUtils.pkceChallenge(verifier),
       expiresAt: Date.now() + 60_000
     });
 
@@ -112,7 +93,7 @@ describe("hosted auth security helpers", () => {
       sessionCookie: "auth.session=value",
       email: "user@example.com",
       redirectUri: "https://openmarkers.app/auth/callback",
-      codeChallenge: __hostedTestUtils.pkceChallenge(verifier),
+      codeChallenge: __loginTestUtils.pkceChallenge(verifier),
       expiresAt: Date.now() - 1
     });
 

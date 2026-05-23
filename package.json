@@ -9,17 +9,17 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "turbo run dev --filter=@nezdemkovski/auth-server",
+    "dev": "turbo run dev --filter=@nezdemkovski/auth-api",
     "dev:admin": "turbo run dev --filter=@nezdemkovski/auth-admin",
-    "dev:hosted": "turbo run dev --filter=@nezdemkovski/auth-hosted",
-    "email:dev": "turbo run email:dev --filter=@nezdemkovski/auth-server",
-    "start": "turbo run start --filter=@nezdemkovski/auth-server",
+    "dev:login": "turbo run dev --filter=@nezdemkovski/auth-login",
+    "email:dev": "turbo run email:dev --filter=@nezdemkovski/auth-api",
+    "start": "turbo run start --filter=@nezdemkovski/auth-api",
     "build:admin": "turbo run build --filter=@nezdemkovski/auth-admin",
-    "build:hosted": "turbo run build --filter=@nezdemkovski/auth-hosted",
-    "build:server": "turbo run build --filter=@nezdemkovski/auth-server",
+    "build:login": "turbo run build --filter=@nezdemkovski/auth-login",
+    "build:api": "turbo run build --filter=@nezdemkovski/auth-api",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test --filter=@nezdemkovski/auth-server"
+    "test": "turbo run test --filter=@nezdemkovski/auth-api"
   },
   "devDependencies": {
     "@react-email/ui": "6.3.0",

@@ -3,15 +3,22 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ADMIN_ROOT = join(import.meta.dir, "apps", "admin", "dist");
-const HOSTED_ROOT = join(import.meta.dir, "apps", "hosted", "dist");
+const LOGIN_ROOT = join(import.meta.dir, "apps", "login", "dist");
 
-const HOSTED_CONFIG = {
+const LOGIN_CONFIG = {
+  page: "login",
   project: "openmarkers",
   projectName: "OpenMarkers",
   redirectUri: "https://app.openmarkers.com/callback",
   state: "preview-state",
   mode: "login" as const,
-  codeChallenge: "preview-challenge-43-chars-or-more-padding-here-yep"
+  codeChallenge: "preview-challenge-43-chars-or-more-padding-here-yep",
+  features: {
+    passkey: { enabled: true },
+    twoFactor: { enabled: true, required: "optional" },
+    agentAuth: { enabled: false, mode: "read-only" }
+  },
+  socialProviders: ["github", "google"]
 };
 
 const ME_RESPONSE = {
@@ -163,11 +170,6 @@ const USERS_BY_PROJECT: Record<string, unknown[]> = {
   lobby: []
 };
 
-function injectHostedConfig(html: string): string {
-  const tag = `<script>window.__HOSTED_AUTH__ = ${JSON.stringify(HOSTED_CONFIG)};</script>`;
-  return html.replace("<!-- hosted-auth-config -->", tag);
-}
-
 function json(value: unknown, status = 200): Response {
   return new Response(JSON.stringify(value), {
     status,
@@ -224,6 +226,10 @@ serve({
       });
     }
     if (path.startsWith("/admin/api/")) return json({ ok: true });
+    if (path === "/openmarkers/login/config/login") return json(LOGIN_CONFIG);
+    if (path === "/openmarkers/login/session-code") {
+      return json({ redirectTo: "https://app.openmarkers.com/callback?code=preview-code" });
+    }
 
     if (
       path === "/" ||
@@ -236,19 +242,19 @@ serve({
     }
 
     if (path === "/login" || path === "/openmarkers/login") {
-      const html = readFileSync(join(HOSTED_ROOT, "index.html"), "utf8");
-      return new Response(injectHostedConfig(html), {
+      const html = readFileSync(join(LOGIN_ROOT, "index.html"), "utf8");
+      return new Response(html, {
         headers: { "Content-Type": "text/html" }
       });
     }
 
-    let root = HOSTED_ROOT;
+    let root = LOGIN_ROOT;
     let file = path;
     if (file.startsWith("/admin/assets/")) {
       root = ADMIN_ROOT;
       file = file.slice("/admin".length);
     }
-    if (file.startsWith("/hosted/")) file = file.slice("/hosted".length);
+    if (file.startsWith("/login/")) file = file.slice("/login".length);
     return new Response(Bun.file(join(root, file)));
   }
 });

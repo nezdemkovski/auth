@@ -1,5 +1,5 @@
 {
-  "name": "@nezdemkovski/auth-hosted",
+  "name": "@nezdemkovski/auth-login",
   "private": true,
   "type": "module",
   "scripts": {

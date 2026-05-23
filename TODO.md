@@ -63,9 +63,9 @@
 - Email verification and password reset delivery through Cloudflare Email.
 - React Email templates and local preview server.
 - Basic security headers for all responses.
-- Rate limiting for signin, signup, hosted login, hosted token exchange,
+- Rate limiting for signin, signup, login, login token exchange,
   password reset, and verification flows.
 - Optional Bun-native Redis-backed rate limiter through `REDIS_URL`, with
   in-memory fallback for local development.
 - Database-backed realm registry managed through the admin UI.
-- Redis-backed hosted auth code store for multi-replica deployments.
+- Redis-backed login auth code store for multi-replica deployments.

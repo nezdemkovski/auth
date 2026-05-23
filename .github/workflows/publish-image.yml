@@ -1,15 +1,25 @@
-name: Publish image
+name: Publish Image
 
 on:
   push:
-    branches:
-      - master
-    tags:
-      - "v*"
+    branches: [master]
+    paths:
+      - package.json
+      - bun.lock
+      - turbo.json
+      - tsconfig*.json
+      - apps/**
+      - packages/**
+      - charts/auth/Chart.yaml
+      - .github/workflows/publish-image.yml
 
 permissions:
   contents: read
   packages: write
+
+concurrency:
+  group: publish-image-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -26,21 +36,34 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          password: ${{ github.token }}
 
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/nezdemkovski/auth
-          tags: |
-            type=sha,prefix=
-            type=ref,event=tag
+      - name: Read app version
+        id: chart
+        run: |
+          app_version="$(grep '^appVersion:' charts/auth/Chart.yaml | sed -E 's/appVersion:[[:space:]]*"?([^"]+)"?/\1/')"
+          echo "app_version=$app_version" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push
+      - name: Build and push api
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: apps/api/Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ghcr.io/nezdemkovski/auth-api:${{ steps.chart.outputs.app_version }}
+
+      - name: Build and push admin
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/admin/Dockerfile
+          push: true
+          tags: ghcr.io/nezdemkovski/auth-admin:${{ steps.chart.outputs.app_version }}
+
+      - name: Build and push login
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/login/Dockerfile
+          push: true
+          tags: ghcr.io/nezdemkovski/auth-login:${{ steps.chart.outputs.app_version }}

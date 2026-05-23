@@ -1,0 +1,117 @@
+api:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/nezdemkovski/auth-api
+    tag: ""
+    pullPolicy: IfNotPresent
+  service:
+    name: auth-api
+    port: 80
+    targetPort: 3000
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  livenessProbe:
+    initialDelaySeconds: 15
+    periodSeconds: 20
+
+admin:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/nezdemkovski/auth-admin
+    tag: ""
+    pullPolicy: IfNotPresent
+  service:
+    name: auth-admin
+    port: 80
+    targetPort: 8080
+  resources:
+    requests:
+      cpu: 5m
+      memory: 32Mi
+    limits:
+      memory: 96Mi
+
+login:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/nezdemkovski/auth-login
+    tag: ""
+    pullPolicy: IfNotPresent
+  service:
+    name: auth-login
+    port: 80
+    targetPort: 8080
+  resources:
+    requests:
+      cpu: 5m
+      memory: 32Mi
+    limits:
+      memory: 96Mi
+
+router:
+  replicaCount: 1
+  image:
+    repository: caddy
+    tag: "2.11.3-alpine"
+    pullPolicy: IfNotPresent
+  service:
+    port: 80
+    targetPort: 8080
+  resources:
+    requests:
+      cpu: 5m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+
+env:
+  autoMigrate: "true"
+  trustProxyHeaders: "true"
+  publicBaseUrl: https://auth.nezdemkovski.cloud
+  adminEmail: yuri@nezdemkovski.com
+  redisUrlSecret:
+    name: auth-redis
+    key: REDIS_URL
+  postgresHost: auth-postgres-rw.auth.svc.cluster.local
+  postgresPort: "5432"
+  postgresDb: auth
+
+postgres:
+  clusterName: auth-postgres
+  database: auth
+  owner: auth
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.10-system-trixie
+  storage:
+    storageClass: local-path
+    size: 2Gi
+
+redis:
+  enabled: true
+  fullname: auth-redis
+  image:
+    repository: redis
+    tag: "8.6.2-trixie"
+    pullPolicy: IfNotPresent
+  service:
+    port: 6379
+  maxmemory: 64mb
+  maxmemoryPolicy: allkeys-lru
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+onepassword:
+  appItem: auth
+  postgresItem: auth-postgres
+  redisItem: auth-redis
+  redisPasswordProperty: password

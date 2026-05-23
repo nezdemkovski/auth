@@ -3,13 +3,13 @@ import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import {
-  createHostedAuthClient,
-  createHostedSessionRedirect,
-  getHostedSession,
+  createLoginAuthClient,
+  createLoginSessionRedirect,
+  getLoginSession,
   getOAuthPublicClient,
   hasPasskeys,
-  requestHostedPasswordReset,
-  resetHostedPassword,
+  requestLoginPasswordReset,
+  resetLoginPassword,
   type OAuthPublicClient,
   signInWithSocial,
   signInWithEmail,
@@ -33,7 +33,7 @@ import {
   type Theme
 } from "@nezdemkovski/auth-client-shared/theme";
 
-type HostedLoginConfig = {
+type LoginConfig = {
   page?: "login";
   project: string;
   projectName: string;
@@ -46,7 +46,7 @@ type HostedLoginConfig = {
   error?: string;
 };
 
-type HostedOAuthConsentConfig = {
+type LoginOAuthConsentConfig = {
   page: "oauth-consent";
   project: string;
   projectName: string;
@@ -55,7 +55,7 @@ type HostedOAuthConsentConfig = {
   oauthQuery: string;
 };
 
-type HostedPasswordResetConfig = {
+type LoginPasswordResetConfig = {
   page: "reset-password";
   project: string;
   projectName: string;
@@ -64,10 +64,10 @@ type HostedPasswordResetConfig = {
   error?: string;
 };
 
-type HostedAuthConfig =
-  | HostedLoginConfig
-  | HostedOAuthConsentConfig
-  | HostedPasswordResetConfig;
+type LoginAuthConfig =
+  | LoginConfig
+  | LoginOAuthConsentConfig
+  | LoginPasswordResetConfig;
 
 type SocialProviderId = "github" | "google" | "twitter" | "facebook";
 
@@ -94,35 +94,109 @@ type AuthStep =
   | "passkey-enroll"
   | "redirecting";
 
-declare global {
-  interface Window {
-    __HOSTED_AUTH__?: HostedAuthConfig;
+const root = createRoot(document.querySelector<HTMLDivElement>("#app")!);
+
+void boot();
+
+async function boot() {
+  const loadedConfig = await loadLoginAuthConfig();
+  if (!loadedConfig) {
+    root.render(<LoginConfigError />);
+    return;
   }
+
+  if (loadedConfig.page === "oauth-consent") {
+    root.render(<OAuthConsentPage config={loadedConfig} />);
+    return;
+  }
+
+  if (loadedConfig.page === "reset-password") {
+    root.render(<PasswordResetPage config={loadedConfig} />);
+    return;
+  }
+
+  root.render(<LoginPage config={loadedConfig} />);
 }
 
-const config = window.__HOSTED_AUTH__;
+async function loadLoginAuthConfig(): Promise<LoginAuthConfig | null> {
+  const configUrl = loginConfigUrl();
+  if (!configUrl) {
+    return null;
+  }
 
-if (!config) {
-  throw new Error("Hosted auth config is missing");
+  const response = await fetch(configUrl, {
+    credentials: "include"
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as LoginAuthConfig;
 }
 
-const authClient = createHostedAuthClient(config.project);
+function loginConfigUrl(): URL | null {
+  const login = window.location.pathname.match(/^\/([^/]+)\/login\/?$/);
+  if (login) {
+    const url = new URL(`/${login[1]}/login/config/login`, window.location.origin);
+    url.search = window.location.search;
+    return url;
+  }
 
-if (config.page === "oauth-consent") {
-  createRoot(document.querySelector<HTMLDivElement>("#app")!).render(
-    <OAuthConsentPage config={config} />
-  );
-} else if (config.page === "reset-password") {
-  createRoot(document.querySelector<HTMLDivElement>("#app")!).render(
-    <PasswordResetPage config={config} />
-  );
-} else {
-  createRoot(document.querySelector<HTMLDivElement>("#app")!).render(
-    <LoginPage config={config} />
+  const reset = window.location.pathname.match(/^\/([^/]+)\/reset-password\/?$/);
+  if (reset) {
+    const url = new URL(
+      `/${reset[1]}/login/config/reset-password`,
+      window.location.origin
+    );
+    url.search = window.location.search;
+    return url;
+  }
+
+  const consent = window.location.pathname.match(/^\/([^/]+)\/oauth\/consent\/?$/);
+  if (consent) {
+    const url = new URL(
+      `/${consent[1]}/login/config/oauth-consent`,
+      window.location.origin
+    );
+    url.search = window.location.search;
+    return url;
+  }
+
+  return null;
+}
+
+function LoginConfigError() {
+  const [theme, setThemeState] = useState<Theme>(() => resolveTheme());
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
+  function toggleTheme() {
+    const next: Theme = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    setThemeState(next);
+  }
+
+  return (
+    <Shell theme={theme} onToggle={toggleTheme}>
+      <SectionEyebrow label="Error" />
+      <h1 className="serif mt-6 text-[64px] leading-none tracking-[-0.03em] text-ink">
+        Cannot start.
+      </h1>
+      <p className="mt-5 max-w-[34rem] text-[16px] leading-7 text-muted">
+        This auth page is missing the required runtime configuration.
+      </p>
+    </Shell>
   );
 }
 
-function LoginPage({ config }: { config: HostedLoginConfig }) {
+function LoginPage({ config }: { config: LoginConfig }) {
+  const authClient = useMemo(
+    () => createLoginAuthClient(config.project),
+    [config.project]
+  );
   const [theme, setThemeState] = useState<Theme>(() => resolveTheme());
   const [step, setStep] = useState<AuthStep>("credentials");
   const [error, setError] = useState<string | null>(config.error ?? null);
@@ -288,7 +362,7 @@ function LoginPage({ config }: { config: HostedLoginConfig }) {
 
     try {
       const resetUrl = new URL(`/${config.project}/reset-password`, window.location.origin);
-      const sent = await requestHostedPasswordReset({
+      const sent = await requestLoginPasswordReset({
         project: config.project,
         email,
         redirectTo: resetUrl.toString()
@@ -378,7 +452,7 @@ function LoginPage({ config }: { config: HostedLoginConfig }) {
     offerPasskey: boolean;
     password: string | null;
   }) {
-    const session = await getHostedSession(config.project);
+    const session = await getLoginSession(config.project);
     if (mustEnrollTwoFactor(config.features.twoFactor, session?.user)) {
       setVerifiedPassword(password);
       setStep("two-factor-enroll");
@@ -401,7 +475,7 @@ function LoginPage({ config }: { config: HostedLoginConfig }) {
 
   async function redirectWithCurrentSession() {
     setStep("redirecting");
-    const redirectTo = await createHostedSessionRedirect({
+    const redirectTo = await createLoginSessionRedirect({
       project: config.project,
       redirectUri: config.redirectUri,
       state: config.state,
@@ -523,14 +597,14 @@ function LoginPage({ config }: { config: HostedLoginConfig }) {
           ) : null}
 
           {step === "redirecting" ? <RedirectingPanel /> : null}
-          <HostedFooter />
+          <LoginFooter />
         </div>
       </section>
     </div>
   );
 }
 
-function OAuthConsentPage({ config }: { config: HostedOAuthConsentConfig }) {
+function OAuthConsentPage({ config }: { config: LoginOAuthConsentConfig }) {
   const [theme, setThemeState] = useState<Theme>(() => resolveTheme());
   const [client, setClient] = useState<OAuthPublicClient | null>(null);
   const [pending, setPending] = useState<"approve" | "deny" | null>(null);
@@ -719,14 +793,14 @@ function OAuthConsentPage({ config }: { config: HostedOAuthConsentConfig }) {
             </ActionButton>
           </div>
 
-          <HostedFooter />
+          <LoginFooter />
         </div>
       </section>
     </div>
   );
 }
 
-function PasswordResetPage({ config }: { config: HostedPasswordResetConfig }) {
+function PasswordResetPage({ config }: { config: LoginPasswordResetConfig }) {
   const [theme, setThemeState] = useState<Theme>(() => resolveTheme());
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -771,7 +845,7 @@ function PasswordResetPage({ config }: { config: HostedPasswordResetConfig }) {
 
     setPending(true);
     try {
-      const ok = await resetHostedPassword({
+      const ok = await resetLoginPassword({
         project: config.project,
         token: config.token,
         newPassword: password
@@ -867,7 +941,7 @@ function PasswordResetPage({ config }: { config: HostedPasswordResetConfig }) {
             </form>
           )}
 
-          <HostedFooter />
+          <LoginFooter />
         </div>
       </section>
     </div>
@@ -1340,10 +1414,10 @@ function InfoPanel({ children }: { children: ReactNode }) {
   );
 }
 
-function HostedFooter() {
+function LoginFooter() {
   return (
     <footer className="enter enter-3 mono mt-12 text-center text-[10.5px] uppercase tracking-[0.08em] text-muted-soft sm:-mx-20 sm:whitespace-nowrap">
-      ↳ Proudly hosted on homelab ·{" "}
+      ↳ Running on homelab ·{" "}
       <a
         href="https://github.com/nezdemkovski/auth"
         target="_blank"

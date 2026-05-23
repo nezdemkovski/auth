@@ -2,16 +2,16 @@ import { createAuthClient } from "better-auth/client";
 import { lastLoginMethodClient, twoFactorClient } from "better-auth/client/plugins";
 import { passkeyClient } from "@better-auth/passkey/client";
 
-export type HostedAuthClient = ReturnType<typeof createHostedAuthClient>;
+export type LoginAuthClient = ReturnType<typeof createLoginAuthClient>;
 
-export function createHostedAuthClient(project: string) {
+export function createLoginAuthClient(project: string) {
   return createAuthClient({
     baseURL: `${window.location.origin}/${project}/api/auth`,
     plugins: [passkeyClient(), twoFactorClient(), lastLoginMethodClient()]
   });
 }
 
-export type HostedSession = {
+export type LoginSession = {
   user?: {
     id?: string;
     email?: string;
@@ -118,7 +118,7 @@ export async function verifyTwoFactorCode(options: {
   });
 }
 
-export async function getHostedSession(project: string): Promise<HostedSession> {
+export async function getLoginSession(project: string): Promise<LoginSession> {
   const response = await fetch(`/${project}/api/auth/get-session`, {
     credentials: "include"
   });
@@ -127,10 +127,10 @@ export async function getHostedSession(project: string): Promise<HostedSession> 
     return null;
   }
 
-  return (await response.json().catch(() => null)) as HostedSession;
+  return (await response.json().catch(() => null)) as LoginSession;
 }
 
-export async function requestHostedPasswordReset(options: {
+export async function requestLoginPasswordReset(options: {
   project: string;
   email: string;
   redirectTo: string;
@@ -150,7 +150,7 @@ export async function requestHostedPasswordReset(options: {
   return response.ok;
 }
 
-export async function resetHostedPassword(options: {
+export async function resetLoginPassword(options: {
   project: string;
   token: string;
   newPassword: string;
@@ -179,13 +179,13 @@ export async function hasPasskeys(project: string): Promise<boolean> {
   return response.ok && Array.isArray(payload) && payload.length > 0;
 }
 
-export async function createHostedSessionRedirect(options: {
+export async function createLoginSessionRedirect(options: {
   project: string;
   redirectUri: string;
   state: string;
   codeChallenge: string;
 }): Promise<string | null> {
-  const response = await fetch(`/${options.project}/hosted/session-code`, {
+  const response = await fetch(`/${options.project}/login/session-code`, {
     method: "POST",
     credentials: "include",
     headers: {

@@ -1,5 +1,3 @@
-import { randomBytes } from "node:crypto";
-
 import type { MiddlewareHandler } from "hono";
 import { RedisClient } from "bun";
 
@@ -60,16 +58,17 @@ const RATE_LIMIT_RULES: RateLimitRule[] = [
       method === "POST" && /\/api\/auth\/sign-up\/email$/.test(path)
   },
   {
-    name: "hosted-login",
+    name: "login-session-code",
     windowMs: 10 * 60 * 1000,
     max: 10,
-    match: (method, path) => method === "POST" && /\/login$/.test(path)
+    match: (method, path) =>
+      method === "POST" && /\/login\/session-code$/.test(path)
   },
   {
-    name: "hosted-token",
+    name: "login-token",
     windowMs: 60 * 1000,
     max: 30,
-    match: (method, path) => method === "POST" && /\/hosted\/token$/.test(path)
+    match: (method, path) => method === "POST" && /\/login\/token$/.test(path)
   },
   {
     name: "password-reset",
@@ -91,8 +90,6 @@ export function securityHeaders(publicBaseUrl: string): MiddlewareHandler {
   const isHttps = publicBaseUrl.startsWith("https://");
 
   return async (c, next) => {
-    const nonce = randomBytes(16).toString("base64url");
-    c.set("cspNonce", nonce);
     await next();
 
     c.header("X-Content-Type-Options", "nosniff");
@@ -109,7 +106,7 @@ export function securityHeaders(publicBaseUrl: string): MiddlewareHandler {
         "img-src 'self' data:",
         "font-src 'self' https://cdn.jsdelivr.net",
         "style-src 'self' 'unsafe-inline'",
-        `script-src 'self' 'nonce-${nonce}'`,
+        "script-src 'self'",
         "connect-src 'self'"
       ].join("; ")
     );

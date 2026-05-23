@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { extname, join, normalize } from "node:path";
-
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import {
@@ -17,64 +14,24 @@ import { loadEffectiveProjects } from "../db/project-settings";
 import { createEmailSender } from "../email/sender";
 import { createAdminApi } from "./admin";
 import {
-  createHostedSessionCode,
-  createHostedCodeStore,
-  exchangeHostedCode,
-  renderHostedLogin,
-  renderHostedPasswordReset,
-  renderHostedOAuthConsent,
-  submitHostedLogin
-} from "./hosted";
+  createLoginSessionCode,
+  createLoginCodeStore,
+  exchangeLoginCode,
+  getLoginConfig,
+  getOAuthConsentConfig,
+  getPasswordResetConfig
+} from "./login";
 import { createRateLimiter, rateLimit, securityHeaders } from "./security";
 
 type AppVariables = {
   registry: AuthRegistry;
-  cspNonce: string;
 };
-
-const APPS_DIR = join(import.meta.dir, "..", "..", "..");
-const HOSTED_ASSETS_DIR = join(APPS_DIR, "hosted", "dist");
-const ADMIN_ASSETS_DIR = join(APPS_DIR, "admin", "dist");
-const ADMIN_INDEX_PATH = join(ADMIN_ASSETS_DIR, "index.html");
-
-const CONTENT_TYPES: Record<string, string> = {
-  ".css": "text/css; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".svg": "image/svg+xml",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".webp": "image/webp",
-  ".woff2": "font/woff2"
-};
-
-function staticAssetPath(
-  path: string,
-  urlPrefix: RegExp,
-  assetsDir: string
-): string | null {
-  const relative = path.replace(urlPrefix, "");
-  const normalized = normalize(relative);
-  if (normalized.startsWith("..") || normalized.startsWith("/")) {
-    return null;
-  }
-
-  return join(assetsDir, normalized);
-}
-
-function hostedAssetPath(path: string): string | null {
-  return staticAssetPath(path, /^\/hosted\//, HOSTED_ASSETS_DIR);
-}
-
-function adminAssetPath(path: string): string | null {
-  return staticAssetPath(path, /^\/admin\/assets\//, join(ADMIN_ASSETS_DIR, "assets"));
-}
 
 export async function createApp(env: Env) {
   const rateLimiter = createRateLimiter(env.redisUrl);
-  const hostedCodeStore = createHostedCodeStore(env.redisUrl);
+  const loginCodeStore = createLoginCodeStore(env.redisUrl);
   await rateLimiter.connect();
-  await hostedCodeStore.connect();
+  await loginCodeStore.connect();
   let adminProject = env.adminProject;
   let projects: AuthProject[] = [];
 
@@ -153,44 +110,6 @@ export async function createApp(env: Env) {
     });
   });
 
-  app.get("/hosted/*", async (c) => {
-    const assetPath = hostedAssetPath(c.req.path);
-    if (!assetPath) {
-      return c.notFound();
-    }
-
-    const file = Bun.file(assetPath);
-    if (!(await file.exists())) {
-      return c.notFound();
-    }
-
-    return new Response(file, {
-      headers: {
-        "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Type": CONTENT_TYPES[extname(assetPath)] ?? "application/octet-stream"
-      }
-    });
-  });
-
-  app.get("/admin/assets/*", async (c) => {
-    const assetPath = adminAssetPath(c.req.path);
-    if (!assetPath) {
-      return c.notFound();
-    }
-
-    const file = Bun.file(assetPath);
-    if (!(await file.exists())) {
-      return c.notFound();
-    }
-
-    return new Response(file, {
-      headers: {
-        "Cache-Control": "public, max-age=31536000, immutable",
-        "Content-Type": CONTENT_TYPES[extname(assetPath)] ?? "application/octet-stream"
-      }
-    });
-  });
-
   app.route(
     "/admin/api",
     createAdminApi({
@@ -203,60 +122,30 @@ export async function createApp(env: Env) {
     })
   );
 
-  app.get("/admin", (c) => renderAdminApp(c.get("cspNonce")));
-  app.get("/admin/*", (c) => renderAdminApp(c.get("cspNonce")));
+  app.get("/:project/login/config/login", (c) =>
+    getLoginConfig(c.req.raw, c.req.param("project"), { registry })
+  );
+  app.get("/:project/login/config/reset-password", (c) =>
+    getPasswordResetConfig(c.req.raw, c.req.param("project"), { registry })
+  );
+  app.get("/:project/login/config/oauth-consent", (c) =>
+    getOAuthConsentConfig(c.req.raw, c.req.param("project"), { registry })
+  );
 
-  app.get("/:project/login", (c) => {
-    return renderHostedLogin(c.req.raw, c.req.param("project"), {
+  app.post("/:project/login/token", (c) => {
+    return exchangeLoginCode(c.req.raw, c.req.param("project"), {
       registry,
       secret: env.betterAuthSecret,
-      codeStore: hostedCodeStore,
-      cspNonce: c.get("cspNonce")
+      codeStore: loginCodeStore
     });
   });
 
-  app.get("/:project/oauth/consent", (c) => {
-    return renderHostedOAuthConsent(c.req.raw, c.req.param("project"), {
-      registry,
-      secret: env.betterAuthSecret,
-      codeStore: hostedCodeStore,
-      cspNonce: c.get("cspNonce")
-    });
-  });
-
-  app.get("/:project/reset-password", (c) => {
-    return renderHostedPasswordReset(c.req.raw, c.req.param("project"), {
-      registry,
-      secret: env.betterAuthSecret,
-      codeStore: hostedCodeStore,
-      cspNonce: c.get("cspNonce")
-    });
-  });
-
-  app.post("/:project/login", (c) => {
-    return submitHostedLogin(c.req.raw, c.req.param("project"), {
+  app.post("/:project/login/session-code", (c) => {
+    return createLoginSessionCode(c.req.raw, c.req.param("project"), {
       registry,
       secret: env.betterAuthSecret,
       trustProxyHeaders: env.trustProxyHeaders,
-      codeStore: hostedCodeStore,
-      cspNonce: c.get("cspNonce")
-    });
-  });
-
-  app.post("/:project/hosted/token", (c) => {
-    return exchangeHostedCode(c.req.raw, c.req.param("project"), {
-      registry,
-      secret: env.betterAuthSecret,
-      codeStore: hostedCodeStore
-    });
-  });
-
-  app.post("/:project/hosted/session-code", (c) => {
-    return createHostedSessionCode(c.req.raw, c.req.param("project"), {
-      registry,
-      secret: env.betterAuthSecret,
-      trustProxyHeaders: env.trustProxyHeaders,
-      codeStore: hostedCodeStore
+      codeStore: loginCodeStore
     });
   });
 
@@ -368,7 +257,7 @@ export async function createApp(env: Env) {
     app,
     registry,
     async close() {
-      await Promise.all([registry.close(), rateLimiter.close(), hostedCodeStore.close()]);
+      await Promise.all([registry.close(), rateLimiter.close(), loginCodeStore.close()]);
     }
   };
 }
@@ -436,20 +325,6 @@ function isPolarEnabled(project: AuthProject): boolean {
     project.billing.enabled &&
     Boolean(project.billing.accessToken.trim())
   );
-}
-
-function renderAdminApp(cspNonce: string) {
-  const index = readFileSync(ADMIN_INDEX_PATH, "utf8").replaceAll(
-    "__CSP_NONCE__",
-    cspNonce
-  );
-
-  return new Response(index, {
-    headers: {
-      "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "no-store"
-    }
-  });
 }
 
 export const __appTestUtils = {

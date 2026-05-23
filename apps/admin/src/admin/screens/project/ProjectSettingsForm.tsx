@@ -77,7 +77,7 @@ export function ProjectSettingsForm({
             App details
           </h2>
           <p className="mt-1 max-w-[34rem] text-[12.5px] leading-5 text-muted">
-            These settings control the hosted login experience, trusted origins,
+            These settings control the login experience, trusted origins,
             and application metadata.
           </p>
         </div>

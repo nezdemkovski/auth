@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.admin.service.name }}
+  labels:
+    {{- include "auth.componentLabels" (dict "root" . "component" "admin") | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "auth.componentSelectorLabels" (dict "root" . "component" "admin") | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.admin.service.port }}
+      targetPort: http
