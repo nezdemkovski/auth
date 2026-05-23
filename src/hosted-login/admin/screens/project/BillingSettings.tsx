@@ -6,7 +6,8 @@ import type {
   BillingProductMapping,
   BillingSettings,
   BillingSettingsPatch,
-  CreatePolarProductInput
+  CreatePolarProductInput,
+  PolarProductSummary
 } from "../../types";
 import { FormAlert, SettingsInput, SettingsTextarea } from "../../components/primitives";
 
@@ -59,6 +60,9 @@ export function BillingSettings({
   pending,
   verifyPending,
   error,
+  polarProducts,
+  polarProductsLoading,
+  polarProductsError,
   polarProductCreatePending,
   polarProductCreateError,
   onSave,
@@ -70,6 +74,9 @@ export function BillingSettings({
   pending: boolean;
   verifyPending: boolean;
   error: string | null;
+  polarProducts: PolarProductSummary[];
+  polarProductsLoading: boolean;
+  polarProductsError: string | null;
   polarProductCreatePending: boolean;
   polarProductCreateError: string | null;
   onSave: (patch: BillingSettingsPatch) => void;
@@ -106,6 +113,15 @@ export function BillingSettings({
   );
   const selectedProduct =
     workspace.mode === "product" ? form.products[workspace.index] : null;
+  const mappedProductIds = useMemo(
+    () =>
+      new Set(
+        form.products
+          .map((product) => product.productId.trim())
+          .filter((productId) => productId.length > 0)
+      ),
+    [form.products]
+  );
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -148,6 +164,11 @@ export function BillingSettings({
       return;
     }
     setWorkspace({ mode: "product", index: Math.min(index, products.length - 1) });
+  }
+
+  function connectPolarProduct(product: PolarProductSummary) {
+    if (mappedProductIds.has(product.id)) return;
+    addProduct(productFromPolar(product));
   }
 
   async function createInPolar() {
@@ -234,9 +255,9 @@ export function BillingSettings({
           <FormAlert>{localError ?? error}</FormAlert>
         </div>
       ) : null}
-      {polarProductCreateError ? (
+      {polarProductsError || polarProductCreateError ? (
         <div className="mt-4">
-          <FormAlert>{polarProductCreateError}</FormAlert>
+          <FormAlert>{polarProductsError ?? polarProductCreateError}</FormAlert>
         </div>
       ) : null}
 
@@ -283,11 +304,15 @@ export function BillingSettings({
           selectedProduct={selectedProduct}
           workspace={workspace}
           createForm={createForm}
+          polarProducts={polarProducts}
+          mappedProductIds={mappedProductIds}
+          polarProductsLoading={polarProductsLoading}
           polarProductCreatePending={polarProductCreatePending}
           disabled={disabled || pending}
           onWorkspaceChange={setWorkspace}
           onCreateFormChange={setCreateForm}
           onCreateInPolar={createInPolar}
+          onConnectPolarProduct={connectPolarProduct}
           onAddManual={() => addProduct()}
           onUpdateProduct={updateProduct}
           onUpdateEntitlement={updateEntitlement}
@@ -413,11 +438,15 @@ function ProductsView({
   selectedProduct,
   workspace,
   createForm,
+  polarProducts,
+  mappedProductIds,
+  polarProductsLoading,
   polarProductCreatePending,
   disabled,
   onWorkspaceChange,
   onCreateFormChange,
   onCreateInPolar,
+  onConnectPolarProduct,
   onAddManual,
   onUpdateProduct,
   onUpdateEntitlement,
@@ -427,11 +456,15 @@ function ProductsView({
   selectedProduct: BillingProductMapping | null;
   workspace: ProductWorkspace;
   createForm: CreatePolarProductInput;
+  polarProducts: PolarProductSummary[];
+  mappedProductIds: Set<string>;
+  polarProductsLoading: boolean;
   polarProductCreatePending: boolean;
   disabled: boolean;
   onWorkspaceChange: (workspace: ProductWorkspace) => void;
   onCreateFormChange: React.Dispatch<React.SetStateAction<CreatePolarProductInput>>;
   onCreateInPolar: () => void;
+  onConnectPolarProduct: (product: PolarProductSummary) => void;
   onAddManual: () => void;
   onUpdateProduct: (index: number, patch: Partial<BillingProductMapping>) => void;
   onUpdateEntitlement: (
@@ -497,12 +530,57 @@ function ProductsView({
         </div>
 
         <div className="rounded-xl border border-border bg-surface p-3">
-          <div className="text-[13px] font-semibold text-ink">Workflow</div>
-          <p className="mt-2 text-[12px] leading-5 text-muted">
-            Create products from here, then keep the app contract stable through
-            the local slug and benefits. Existing products can still be mapped
-            manually when needed.
-          </p>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <span className="text-[13px] font-semibold text-ink">Polar products</span>
+            {polarProductsLoading ? (
+              <span className="text-[11.5px] text-muted">Loading…</span>
+            ) : null}
+          </div>
+          {polarProducts.length === 0 ? (
+            <p className="rounded-lg border border-border bg-surface-muted px-3 py-3 text-[12px] leading-5 text-muted">
+              Products appear here automatically after Polar is connected.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {polarProducts.map((product) => {
+                const mapped = mappedProductIds.has(product.id);
+                return (
+                  <div
+                    key={product.id}
+                    className="rounded-lg border border-border bg-surface-muted px-3 py-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-[12.5px] font-semibold text-ink">
+                          {product.name}
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted">
+                          <span>{product.isRecurring ? "Subscription" : "One-time"}</span>
+                          <span>·</span>
+                          <code className="truncate font-mono">{product.id}</code>
+                        </div>
+                      </div>
+                      {mapped ? (
+                        <span className="rounded-full border border-success-border bg-success-bg px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-success">
+                          Mapped
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          data-press
+                          disabled={disabled}
+                          onClick={() => onConnectPolarProduct(product)}
+                          className="inline-flex h-7 items-center justify-center rounded-md border border-border bg-surface px-2 text-[11.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+                        >
+                          Connect
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </aside>
 
@@ -1106,6 +1184,36 @@ function defaultProduct(): BillingProductMapping {
         priority: 100
       }
     ]
+  };
+}
+
+function productFromPolar(product: PolarProductSummary): BillingProductMapping {
+  return {
+    slug: slugFromName(product.name),
+    name: product.name,
+    description: product.description,
+    productId: product.id,
+    type: product.isRecurring ? "subscription" : "one_time",
+    active: true,
+    entitlements: product.isRecurring
+      ? [
+          {
+            key: "ai_requests",
+            grantType: "recurring_quota",
+            amount: 100,
+            resetPeriod: "monthly",
+            priority: 100
+          }
+        ]
+      : [
+          {
+            key: "access",
+            grantType: "boolean",
+            amount: null,
+            resetPeriod: "never",
+            priority: 100
+          }
+        ]
   };
 }
 

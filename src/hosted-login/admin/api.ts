@@ -11,6 +11,7 @@ import type {
   SocialProviderId,
   SocialProviderPatch,
   SocialProvidersResponse,
+  PolarProductsResponse,
   ProjectSummary,
   ProjectUsersResponse,
   ProjectsResponse
@@ -140,6 +141,19 @@ export async function verifyBillingSettings(input: {
     } | null;
     throw new Error(body?.message ?? "Could not verify Polar settings");
   }
+}
+
+export async function fetchPolarProducts(project: string): Promise<PolarProductsResponse> {
+  const response = await fetch(`/admin/api/projects/${project}/billing/polar-products`, {
+    credentials: "include"
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      message?: string;
+    } | null;
+    throw new Error(body?.message ?? "Could not load Polar products");
+  }
+  return (await response.json()) as PolarProductsResponse;
 }
 
 export async function createPolarProduct(input: {

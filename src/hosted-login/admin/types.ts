@@ -162,6 +162,10 @@ export type PolarProductSummary = {
   organizationId: string;
 };
 
+export type PolarProductsResponse = {
+  products: PolarProductSummary[];
+};
+
 export type CreatePolarProductInput = {
   slug: string;
   name: string;

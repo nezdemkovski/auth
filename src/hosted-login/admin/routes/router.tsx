@@ -6,6 +6,7 @@ import {
   createProject,
   createPolarProduct,
   fetchBillingSettings,
+  fetchPolarProducts,
   fetchProjectUsers,
   fetchProjects,
   fetchSocialProviders,
@@ -313,6 +314,15 @@ function ProjectRoute() {
     queryFn: () => fetchBillingSettings(selected!.slug),
     enabled: Boolean(selected?.slug)
   });
+  const polarProductsQuery = useQuery({
+    queryKey: ["admin", "polar-products", selected?.slug],
+    queryFn: () => fetchPolarProducts(selected!.slug),
+    enabled: Boolean(
+      selected?.slug &&
+        billingQuery.data?.enabled &&
+        billingQuery.data?.accessTokenConfigured
+    )
+  });
   const resendVerification = useMutation({
     mutationFn: (input: { project: string; email: string }) =>
       resendVerificationEmail(input.project, input.email),
@@ -451,6 +461,9 @@ function ProjectRoute() {
     onSuccess: async (_data, variables) => {
       notifySuccess("Polar product created");
       await queryClient.invalidateQueries({ queryKey: ["admin", "billing", variables.project] });
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "polar-products", variables.project]
+      });
     },
     onError: (caught) => {
       notifyError(
@@ -485,6 +498,7 @@ function ProjectRoute() {
       usersQuery={usersQuery}
       socialProvidersQuery={socialProvidersQuery}
       billingQuery={billingQuery}
+      polarProductsQuery={polarProductsQuery}
       emailServiceEnabled={me.emailServiceEnabled}
       resendPendingEmail={
         resendVerification.isPending
