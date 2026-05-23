@@ -1,0 +1,19 @@
+{
+  "name": "@nezdemkovski/auth-admin",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@icons-pack/react-simple-icons": "13.13.0",
+    "@nezdemkovski/auth-client-shared": "workspace:*",
+    "@tanstack/react-query": "5.100.11",
+    "@tanstack/react-router": "1.170.7",
+    "react": "19.2.1",
+    "react-aria-components": "1.17.0",
+    "react-dom": "19.2.1"
+  }
+}

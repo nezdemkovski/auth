@@ -1,0 +1,17 @@
+{
+  "name": "@nezdemkovski/auth-client-shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./icons": "./src/icons.tsx",
+    "./style.css": "./src/style.css",
+    "./theme": "./src/theme.ts"
+  },
+  "scripts": {
+    "build": "bun run typecheck && mkdir -p dist && touch dist/.build",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "react": "19.2.1"
+  }
+}

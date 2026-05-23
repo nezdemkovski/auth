@@ -19,11 +19,24 @@ https://auth.nezdemkovski.cloud/<project>/.well-known/jwks.json
 ## Stack
 
 - Bun
+- Turborepo
 - Hono
 - Better Auth
 - Postgres
 - Drizzle ORM `1.0.0-rc.3`
 - optional Redis for shared auth rate limiting
+
+## Layout
+
+```text
+apps/server              Hono/Bun auth backend
+apps/admin               Vite React admin dashboard
+apps/hosted              Vite React hosted auth pages
+packages/client-shared   Shared frontend theme, icons, and CSS
+```
+
+The frontend apps build into their own `dist` directories. The server container
+ships those built assets and serves them from the same auth origin.
 
 ## Local Development
 
@@ -49,6 +62,47 @@ Example auth session endpoint:
 
 ```bash
 curl http://localhost:3000/demo/api/auth/session
+```
+
+### Admin UI
+
+Run only the admin frontend with Vite. The admin UI has its own Vite config and
+serves the SPA locally while proxying `/admin/api/*` to a real auth backend:
+
+```bash
+bun run dev:admin
+```
+
+Open:
+
+```text
+http://127.0.0.1:5173/admin
+```
+
+By default the Vite server proxies `/admin/api/*` to:
+
+```text
+https://auth.nezdemkovski.cloud
+```
+
+To point the local admin frontend at a local backend instead:
+
+```bash
+AUTH_ADMIN_API_TARGET=http://localhost:3000 bun run dev:admin
+```
+
+The hosted login bundle is built separately from the admin bundle:
+
+```bash
+bun run build:hosted
+bun run build:admin
+```
+
+Full repo build/test goes through Turbo:
+
+```bash
+bun run build
+bun run test
 ```
 
 ## Realm Configuration

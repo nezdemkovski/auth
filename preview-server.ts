@@ -2,7 +2,8 @@ import { serve } from "bun";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const ROOT = join(import.meta.dir, "dist", "hosted-login");
+const ADMIN_ROOT = join(import.meta.dir, "apps", "admin", "dist");
+const HOSTED_ROOT = join(import.meta.dir, "apps", "hosted", "dist");
 
 const HOSTED_CONFIG = {
   project: "openmarkers",
@@ -230,20 +231,25 @@ serve({
       path === "/admin/" ||
       (path.startsWith("/admin/") && !path.startsWith("/admin/assets/") && !path.includes("."))
     ) {
-      const html = readFileSync(join(ROOT, "admin.html"), "utf8");
+      const html = readFileSync(join(ADMIN_ROOT, "index.html"), "utf8");
       return new Response(html, { headers: { "Content-Type": "text/html" } });
     }
 
     if (path === "/login" || path === "/openmarkers/login") {
-      const html = readFileSync(join(ROOT, "index.html"), "utf8");
+      const html = readFileSync(join(HOSTED_ROOT, "index.html"), "utf8");
       return new Response(injectHostedConfig(html), {
         headers: { "Content-Type": "text/html" }
       });
     }
 
+    let root = HOSTED_ROOT;
     let file = path;
+    if (file.startsWith("/admin/assets/")) {
+      root = ADMIN_ROOT;
+      file = file.slice("/admin".length);
+    }
     if (file.startsWith("/hosted/")) file = file.slice("/hosted".length);
-    return new Response(Bun.file(join(ROOT, file)));
+    return new Response(Bun.file(join(root, file)));
   }
 });
 
