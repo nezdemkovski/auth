@@ -11,6 +11,7 @@ import {
   type AuthProject,
   type ProjectFeatures
 } from "../config/projects";
+import { cloneDefaultBilling, loadBillingSettings } from "./billing-settings";
 import {
   ensureSocialProviderSettingsTable,
   cloneDefaultSocialProviders,
@@ -144,17 +145,19 @@ export async function loadEffectiveProjects(options: {
 
   const all = await readProjectSettings(options.databaseUrl, options.adminProject);
   const socialProviders = await loadSocialProviderSettings(options);
-  const allWithSocialProviders = all.map((project) => ({
+  const billingSettings = await loadBillingSettings(options);
+  const allWithSettings = all.map((project) => ({
     ...project,
     socialProviders:
-      socialProviders.get(project.slug) ?? cloneDefaultSocialProviders()
+      socialProviders.get(project.slug) ?? cloneDefaultSocialProviders(),
+    billing: billingSettings.get(project.slug) ?? cloneDefaultBilling()
   }));
-  const bySlug = new Map(allWithSocialProviders.map((project) => [project.slug, project]));
+  const bySlug = new Map(allWithSettings.map((project) => [project.slug, project]));
   const adminProject = bySlug.get(options.adminProject.slug) ?? options.adminProject;
 
   return {
     adminProject,
-    projects: allWithSocialProviders.filter((project) => project.slug !== adminProject.slug)
+    projects: allWithSettings.filter((project) => project.slug !== adminProject.slug)
   };
 }
 
@@ -337,7 +340,8 @@ export function createProjectFromInput(input: ProjectSettingsCreate): AuthProjec
     appUrl: input.appUrl.trim(),
     trustedOrigins: input.trustedOrigins.map((origin) => origin.trim()).filter(Boolean),
     features: normalizeProjectFeatures(input.features),
-    socialProviders: optionsDefaultSocialProviders()
+    socialProviders: optionsDefaultSocialProviders(),
+    billing: cloneDefaultBilling()
   };
 
   validateProjectSchema(project.schema);
@@ -380,7 +384,8 @@ function rowToProject(row: ProjectSettingsRow): AuthProject {
     appUrl: row.appUrl ?? "",
     trustedOrigins: normalizeTrustedOrigins(row.trustedOrigins),
     features: normalizeProjectFeatures(row.features),
-    socialProviders: optionsDefaultSocialProviders()
+    socialProviders: optionsDefaultSocialProviders(),
+    billing: cloneDefaultBilling()
   };
 }
 

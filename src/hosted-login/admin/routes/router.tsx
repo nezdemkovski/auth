@@ -4,13 +4,16 @@ import { useMemo, useState } from "react";
 
 import {
   createProject,
+  fetchBillingSettings,
   fetchProjectUsers,
   fetchProjects,
   fetchSocialProviders,
   resendVerificationEmail,
   terminateUserSessions,
+  updateBillingSettings,
   updateProjectSettings,
   updateSocialProvider,
+  verifyBillingSettings,
   verifySocialProvider
 } from "../api";
 import { Topbar } from "../components/Topbar";
@@ -23,6 +26,7 @@ import { SettingsView } from "../screens/SettingsView";
 import { notifyError, notifySuccess } from "../toast";
 import type {
   CreateProjectInput,
+  BillingSettingsPatch,
   DashboardRouterContext,
   MeResponse,
   ProjectSettingsPatch,
@@ -302,6 +306,11 @@ function ProjectRoute() {
     queryFn: () => fetchSocialProviders(selected!.slug),
     enabled: Boolean(selected?.slug)
   });
+  const billingQuery = useQuery({
+    queryKey: ["admin", "billing", selected?.slug],
+    queryFn: () => fetchBillingSettings(selected!.slug),
+    enabled: Boolean(selected?.slug)
+  });
   const resendVerification = useMutation({
     mutationFn: (input: { project: string; email: string }) =>
       resendVerificationEmail(input.project, input.email),
@@ -399,6 +408,37 @@ function ProjectRoute() {
       );
     }
   });
+  const billingUpdate = useMutation({
+    mutationFn: (input: { project: string; patch: BillingSettingsPatch }) =>
+      updateBillingSettings(input),
+    onSuccess: async (_data, variables) => {
+      notifySuccess("Billing settings saved");
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "billing", variables.project]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "projects"]
+      });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Could not save billing settings",
+        caught instanceof Error ? caught.message : undefined
+      );
+    }
+  });
+  const billingVerify = useMutation({
+    mutationFn: (project: string) => verifyBillingSettings(project),
+    onSuccess: () => {
+      notifySuccess("Polar check passed");
+    },
+    onError: (caught) => {
+      notifyError(
+        "Polar check failed",
+        caught instanceof Error ? caught.message : undefined
+      );
+    }
+  });
 
   if (projectsQuery.isLoading) {
     return <UsersSkeleton />;
@@ -424,6 +464,7 @@ function ProjectRoute() {
       project={selected}
       usersQuery={usersQuery}
       socialProvidersQuery={socialProvidersQuery}
+      billingQuery={billingQuery}
       emailServiceEnabled={me.emailServiceEnabled}
       resendPendingEmail={
         resendVerification.isPending
@@ -470,6 +511,19 @@ function ProjectRoute() {
             : "Provider check failed"
           : null
       }
+      billingPending={billingUpdate.isPending}
+      billingVerifyPending={billingVerify.isPending}
+      billingError={
+        billingUpdate.isError
+          ? billingUpdate.error instanceof Error
+            ? billingUpdate.error.message
+            : "Could not save billing settings"
+          : billingVerify.isError
+          ? billingVerify.error instanceof Error
+            ? billingVerify.error.message
+            : "Polar check failed"
+          : null
+      }
       onResendVerification={(email) =>
         resendVerification.mutate({
           project: selected.slug,
@@ -501,6 +555,13 @@ function ProjectRoute() {
           provider
         })
       }
+      onUpdateBilling={(patch) =>
+        billingUpdate.mutate({
+          project: selected.slug,
+          patch
+        })
+      }
+      onVerifyBilling={() => billingVerify.mutate(selected.slug)}
     />
   );
 }

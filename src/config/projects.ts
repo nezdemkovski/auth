@@ -10,6 +10,7 @@ export type AuthProject = {
   trustedOrigins: string[];
   features: ProjectFeatures;
   socialProviders: ProjectSocialProviders;
+  billing: ProjectBillingSettings;
 };
 
 export type ProjectFeatures = {
@@ -38,6 +39,60 @@ export type ProjectSocialProvider = {
 };
 
 export type ProjectSocialProviders = Record<SocialProviderId, ProjectSocialProvider>;
+
+export type BillingProvider = "none" | "polar";
+export type BillingEnvironment = "sandbox" | "production";
+export type BillingProductType =
+  | "subscription"
+  | "one_time"
+  | "credit_pack"
+  | "lifetime"
+  | "metered";
+export type EntitlementGrantType =
+  | "boolean"
+  | "recurring_quota"
+  | "one_time_credits"
+  | "lifetime"
+  | "metered";
+export type EntitlementResetPeriod = "never" | "monthly" | "yearly";
+
+export type BillingEntitlement = {
+  key: string;
+  grantType: EntitlementGrantType;
+  amount: number | null;
+  resetPeriod: EntitlementResetPeriod;
+  priority: number;
+};
+
+export type BillingProductMapping = {
+  slug: string;
+  name: string;
+  description: string;
+  productId: string;
+  type: BillingProductType;
+  active: boolean;
+  entitlements: BillingEntitlement[];
+};
+
+export type ProjectBillingSettings = {
+  provider: BillingProvider;
+  enabled: boolean;
+  environment: BillingEnvironment;
+  organizationId: string;
+  accessToken: string;
+  webhookSecret: string;
+  products: BillingProductMapping[];
+};
+
+export const DEFAULT_PROJECT_BILLING: ProjectBillingSettings = {
+  provider: "none",
+  enabled: false,
+  environment: "sandbox",
+  organizationId: "",
+  accessToken: "",
+  webhookSecret: "",
+  products: []
+};
 
 export const DEFAULT_PROJECT_FEATURES: ProjectFeatures = {
   passkey: {
@@ -81,7 +136,8 @@ export const ADMIN_PROJECT: AuthProject = {
   appUrl: "",
   trustedOrigins: [],
   features: DEFAULT_PROJECT_FEATURES,
-  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS
+  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
+  billing: DEFAULT_PROJECT_BILLING
 };
 
 export function findProject(projects: AuthProject[], slug: string): AuthProject | null {

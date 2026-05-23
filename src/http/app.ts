@@ -369,6 +369,10 @@ function isEnabledAuthFeaturePath(project: AuthProject, path: string): boolean {
     return false;
   }
 
+  if (isPolarPath(authPath) && !isPolarEnabled(project)) {
+    return false;
+  }
+
   return true;
 }
 
@@ -387,6 +391,23 @@ function isOAuthProviderPath(path: string): boolean {
     path === "/.well-known/openid-configuration" ||
     path.startsWith("/oauth2/") ||
     path.startsWith("/admin/oauth2/")
+  );
+}
+
+function isPolarPath(path: string): boolean {
+  return (
+    path === "/checkout" ||
+    path.startsWith("/customer/") ||
+    path.startsWith("/usage/") ||
+    path === "/polar/webhooks"
+  );
+}
+
+function isPolarEnabled(project: AuthProject): boolean {
+  return (
+    project.billing.provider === "polar" &&
+    project.billing.enabled &&
+    Boolean(project.billing.accessToken.trim())
   );
 }
 

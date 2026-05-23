@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   ADMIN_PROJECT,
+  DEFAULT_PROJECT_BILLING,
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   normalizeProjectSlug,
@@ -25,7 +26,8 @@ describe("projects", () => {
       appUrl: "",
       trustedOrigins: [],
       features: DEFAULT_PROJECT_FEATURES,
-      socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS
+      socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
+      billing: DEFAULT_PROJECT_BILLING
     });
   });
 

@@ -7,6 +7,7 @@ import {
 } from "../src/auth/project-auth";
 import {
   DEFAULT_PROJECT_FEATURES,
+  DEFAULT_PROJECT_BILLING,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   type AuthProject
 } from "../src/config/projects";
@@ -20,7 +21,8 @@ const baseProject: AuthProject = {
   appUrl: "https://openmarkers.app",
   trustedOrigins: ["https://openmarkers.app"],
   features: DEFAULT_PROJECT_FEATURES,
-  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS
+  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
+  billing: DEFAULT_PROJECT_BILLING
 };
 
 function createOptions(project: AuthProject, trustProxyHeaders = false) {
@@ -65,7 +67,28 @@ describe("project auth options", () => {
     expect(pluginIds).toContain("last-login-method");
     expect(pluginIds).toContain("bearer");
     expect(pluginIds).toContain("jwt");
+    expect(pluginIds).not.toContain("polar");
     expect(pluginIds).not.toContain("test-utils");
+  });
+
+  test("adds Polar only when billing is enabled and configured", () => {
+    const disabledPluginIds = (createOptions(baseProject).plugins ?? []).map(
+      (plugin) => plugin.id
+    );
+    const enabledPluginIds = (
+      createOptions({
+        ...baseProject,
+        billing: {
+          ...DEFAULT_PROJECT_BILLING,
+          provider: "polar",
+          enabled: true,
+          accessToken: "polar-token"
+        }
+      }).plugins ?? []
+    ).map((plugin) => plugin.id);
+
+    expect(disabledPluginIds).not.toContain("polar");
+    expect(enabledPluginIds).toContain("polar");
   });
 
   test("trusts proxy IP headers only when explicitly enabled", () => {

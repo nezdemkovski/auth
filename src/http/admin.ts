@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Hono } from "hono";
+import { Polar } from "@polar-sh/sdk";
 import type { Pool } from "pg";
 
 import type { AuthRegistry } from "../auth/registry";
@@ -31,6 +32,12 @@ import {
   type DeliverySettingsPatch,
 } from "../db/delivery-settings";
 import { createEmailSender, EmailProvider, type EmailConfig } from "../email/sender";
+import {
+  readPublicBillingSettings,
+  updateBillingSettings,
+  loadProjectBillingSettings,
+  type BillingSettingsPatch
+} from "../db/billing-settings";
 
 type AdminApiOptions = {
   registry: AuthRegistry;
@@ -77,6 +84,7 @@ type SocialProviderBody = {
 };
 
 type DeliverySettingsBody = Partial<Record<keyof DeliverySettingsPatch, unknown>>;
+type BillingSettingsBody = Partial<Record<keyof BillingSettingsPatch, unknown>>;
 
 type RegisteredProject = NonNullable<ReturnType<AuthRegistry["get"]>>;
 
@@ -443,9 +451,16 @@ export function createAdminApi(options: AdminApiOptions): Hono {
         project: updated,
         encryptionSecret: options.secret
       });
+      const billing = await loadProjectBillingSettings({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject,
+        project: updated,
+        encryptionSecret: options.secret
+      });
       const nextProject = {
         ...updated,
-        socialProviders
+        socialProviders,
+        billing
       };
       await options.registry.updateProject(nextProject);
       const next = options.registry.get(nextProject.slug);
@@ -605,6 +620,117 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       }),
       catalog: Object.values(SOCIAL_PROVIDER_CATALOG)
     });
+  });
+
+  app.get("/projects/:project/billing", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const registered = options.registry.get(c.req.param("project"));
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+
+    return c.json({
+      settings: await readPublicBillingSettings({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject,
+        project: registered.project,
+        publicBaseUrl: options.publicBaseUrl
+      })
+    });
+  });
+
+  app.patch("/projects/:project/billing", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const registered = options.registry.get(c.req.param("project"));
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+    if (registered.project.slug === options.adminProject.slug) {
+      return c.json({ error: "system_project_locked" }, 409);
+    }
+
+    const body = (await c.req.json().catch(() => ({}))) as BillingSettingsBody;
+    const patch = parseBillingSettingsPatch(body);
+    if (!patch) {
+      return c.json({ error: "invalid_body" }, 400);
+    }
+
+    try {
+      const billing = await updateBillingSettings({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject,
+        project: registered.project,
+        encryptionSecret: options.secret,
+        patch
+      });
+      await options.registry.updateProject({
+        ...registered.project,
+        billing
+      });
+
+      return c.json({
+        settings: await readPublicBillingSettings({
+          databaseUrl: options.databaseUrl,
+          adminProject: options.adminProject,
+          project: registered.project,
+          publicBaseUrl: options.publicBaseUrl
+        })
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error: "invalid_billing_settings",
+          message: error instanceof Error ? error.message : "Invalid billing settings"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/projects/:project/billing/verify", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const registered = options.registry.get(c.req.param("project"));
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+
+    const billing = registered.project.billing;
+    if (billing.provider !== "polar" || !billing.enabled || !billing.accessToken) {
+      return c.json({ error: "billing_not_configured" }, 409);
+    }
+
+    const client = new Polar({
+      accessToken: billing.accessToken,
+      server: billing.environment
+    });
+    try {
+      await client.products.list({
+        organizationId: billing.organizationId || undefined,
+        limit: 1
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error: "polar_check_failed",
+          message: error instanceof Error ? error.message : "Polar check failed"
+        },
+        400
+      );
+    }
+
+    return c.json({ ok: true });
   });
 
   app.get("/projects/:project/users", async (c) => {
@@ -811,6 +937,87 @@ function parseDeliverySettingsPatch(body: DeliverySettingsBody): DeliverySetting
   }
   if (typeof body.resendApiKey === "string" && body.resendApiKey.trim()) {
     patch.resendApiKey = body.resendApiKey.trim();
+  }
+
+  return patch;
+}
+
+function parseBillingSettingsPatch(body: BillingSettingsBody): BillingSettingsPatch | null {
+  if (
+    typeof body.provider !== "string" ||
+    typeof body.enabled !== "boolean" ||
+    typeof body.environment !== "string" ||
+    typeof body.organizationId !== "string" ||
+    !Array.isArray(body.products)
+  ) {
+    return null;
+  }
+
+  const products = body.products
+    .filter(isRecord)
+    .map((product) => {
+      if (
+        typeof product.slug !== "string" ||
+        typeof product.name !== "string" ||
+        typeof product.description !== "string" ||
+        typeof product.productId !== "string" ||
+        typeof product.type !== "string" ||
+        typeof product.active !== "boolean" ||
+        !Array.isArray(product.entitlements)
+      ) {
+        return null;
+      }
+
+      const entitlements = product.entitlements
+        .filter(isRecord)
+        .map((entitlement) => {
+          if (
+            typeof entitlement.key !== "string" ||
+            typeof entitlement.grantType !== "string" ||
+            typeof entitlement.resetPeriod !== "string" ||
+            typeof entitlement.priority !== "number"
+          ) {
+            return null;
+          }
+
+          return {
+            key: entitlement.key.trim(),
+            grantType: entitlement.grantType as BillingSettingsPatch["products"][number]["entitlements"][number]["grantType"],
+            amount:
+              typeof entitlement.amount === "number" && Number.isFinite(entitlement.amount)
+                ? entitlement.amount
+                : null,
+            resetPeriod: entitlement.resetPeriod as BillingSettingsPatch["products"][number]["entitlements"][number]["resetPeriod"],
+            priority: entitlement.priority
+          };
+        })
+        .filter((entitlement) => entitlement !== null);
+
+      return {
+        slug: product.slug.trim(),
+        name: product.name.trim(),
+        description: product.description.trim(),
+        productId: product.productId.trim(),
+        type: product.type as BillingSettingsPatch["products"][number]["type"],
+        active: product.active,
+        entitlements
+      };
+    })
+    .filter((product) => product !== null);
+
+  const patch: BillingSettingsPatch = {
+    provider: body.provider as BillingSettingsPatch["provider"],
+    enabled: body.enabled,
+    environment: body.environment as BillingSettingsPatch["environment"],
+    organizationId: body.organizationId.trim(),
+    products
+  };
+
+  if (typeof body.accessToken === "string" && body.accessToken.trim()) {
+    patch.accessToken = body.accessToken.trim();
+  }
+  if (typeof body.webhookSecret === "string" && body.webhookSecret.trim()) {
+    patch.webhookSecret = body.webhookSecret.trim();
   }
 
   return patch;
@@ -1081,6 +1288,10 @@ async function terminateUserSessions(pool: Pool, userId: string): Promise<number
   `);
 
   return result.rows.length;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function toIsoString(value: Date | string): string {

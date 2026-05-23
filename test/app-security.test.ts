@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   ADMIN_PROJECT,
+  DEFAULT_PROJECT_BILLING,
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   type AuthProject
@@ -17,7 +18,8 @@ const project: AuthProject = {
   appUrl: "",
   trustedOrigins: ["https://openmarkers.app"],
   features: DEFAULT_PROJECT_FEATURES,
-  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS
+  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
+  billing: DEFAULT_PROJECT_BILLING
 };
 
 describe("auth route feature gates", () => {
@@ -50,6 +52,12 @@ describe("auth route feature gates", () => {
       __appTestUtils.isEnabledAuthFeaturePath(
         project,
         "/openmarkers/api/auth/oauth2/authorize"
+      )
+    ).toBe(false);
+    expect(
+      __appTestUtils.isEnabledAuthFeaturePath(
+        project,
+        "/openmarkers/api/auth/checkout"
       )
     ).toBe(false);
   });

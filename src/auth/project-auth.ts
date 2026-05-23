@@ -4,6 +4,8 @@ import { admin, bearer, jwt, lastLoginMethod, twoFactor } from "better-auth/plug
 import { agentAuth } from "@better-auth/agent-auth";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { passkey } from "@better-auth/passkey";
+import { checkout, polar, portal, usage, webhooks } from "@polar-sh/better-auth";
+import { Polar } from "@polar-sh/sdk";
 import type { Pool } from "pg";
 
 import type { AuthProject } from "../config/projects";
@@ -155,6 +157,7 @@ function createBaseProjectAuthOptions(options: {
           return null;
         }
       }),
+      ...buildPolarPlugins(project),
       bearer(),
       jwt({
         jwks: {
@@ -196,6 +199,61 @@ function createBaseProjectAuthOptions(options: {
       enabled: false
     }
   };
+}
+
+function buildPolarPlugins(project: AuthProject): Array<ReturnType<typeof polar>> {
+  const settings = project.billing;
+  const products = settings.products
+    .filter((product) => product.active && product.productId.trim())
+    .map((product) => ({
+      slug: product.slug,
+      productId: product.productId
+    }));
+
+  if (settings.provider !== "polar" || !settings.enabled || !settings.accessToken.trim()) {
+    return [];
+  }
+
+  const client = new Polar({
+    accessToken: settings.accessToken,
+    server: settings.environment
+  });
+  const returnUrl = project.appUrl || project.trustedOrigins[0] || undefined;
+  const polarUse = [
+    checkout({
+      products,
+      authenticatedUsersOnly: true,
+      returnUrl,
+      successUrl: returnUrl
+    }),
+    portal({
+      returnUrl
+    }),
+    usage({
+      creditProducts: products
+    }),
+    ...(settings.webhookSecret.trim()
+      ? [
+          webhooks({
+            secret: settings.webhookSecret,
+            onPayload: async (payload) => {
+              console.info("[polar] webhook received", {
+                project: project.slug,
+                type: payload.type
+              });
+            }
+          })
+        ]
+      : [])
+  ];
+
+  return [
+    polar({
+      client,
+      createCustomerOnSignUp: true,
+      use: polarUse as Parameters<typeof polar>[0]["use"]
+    })
+  ];
 }
 
 function buildSocialProviders(project: AuthProject): BetterAuthOptions["socialProviders"] {

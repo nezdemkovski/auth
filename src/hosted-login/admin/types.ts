@@ -98,6 +98,61 @@ export type DeliverySettingsPatch = {
   resendApiKey?: string;
 };
 
+export type BillingProvider = "none" | "polar";
+export type BillingEnvironment = "sandbox" | "production";
+export type BillingProductType =
+  | "subscription"
+  | "one_time"
+  | "credit_pack"
+  | "lifetime"
+  | "metered";
+export type EntitlementGrantType =
+  | "boolean"
+  | "recurring_quota"
+  | "one_time_credits"
+  | "lifetime"
+  | "metered";
+export type EntitlementResetPeriod = "never" | "monthly" | "yearly";
+
+export type BillingEntitlement = {
+  key: string;
+  grantType: EntitlementGrantType;
+  amount: number | null;
+  resetPeriod: EntitlementResetPeriod;
+  priority: number;
+};
+
+export type BillingProductMapping = {
+  slug: string;
+  name: string;
+  description: string;
+  productId: string;
+  type: BillingProductType;
+  active: boolean;
+  entitlements: BillingEntitlement[];
+};
+
+export type BillingSettings = {
+  provider: BillingProvider;
+  enabled: boolean;
+  environment: BillingEnvironment;
+  organizationId: string;
+  accessTokenConfigured: boolean;
+  webhookSecretConfigured: boolean;
+  products: BillingProductMapping[];
+  webhookUrl: string;
+};
+
+export type BillingSettingsPatch = {
+  provider: BillingProvider;
+  enabled: boolean;
+  environment: BillingEnvironment;
+  organizationId: string;
+  accessToken?: string;
+  webhookSecret?: string;
+  products: BillingProductMapping[];
+};
+
 export type ProjectSettingsPatch = {
   name: string;
   description: string;

@@ -1,6 +1,8 @@
 import type { useQuery } from "@tanstack/react-query";
 
 import type {
+  BillingSettings,
+  BillingSettingsPatch,
   ProjectSettingsPatch,
   ProjectSummary,
   ProjectUsersResponse,
@@ -14,6 +16,7 @@ import { Card, EmptyState, FormAlert, SysTag } from "../components/primitives";
 import { StatCard } from "../components/Stats";
 import { UsersSkeleton } from "../components/Skeletons";
 import { ProjectSettingsForm } from "./project/ProjectSettingsForm";
+import { BillingSettings as BillingSettingsForm } from "./project/BillingSettings";
 import { SocialProviderSettings } from "./project/SocialProviderSettings";
 import { UserTable } from "./project/UserTable";
 
@@ -21,6 +24,7 @@ export function ProjectView({
   project,
   usersQuery,
   socialProvidersQuery,
+  billingQuery,
   emailServiceEnabled,
   resendPendingEmail,
   resendErrorEmail,
@@ -33,15 +37,21 @@ export function ProjectView({
   socialProviderPending,
   socialProviderVerifyPending,
   socialProviderError,
+  billingPending,
+  billingVerifyPending,
+  billingError,
   onResendVerification,
   onTerminateSessions,
   onUpdateProject,
   onUpdateSocialProvider,
-  onVerifySocialProvider
+  onVerifySocialProvider,
+  onUpdateBilling,
+  onVerifyBilling
 }: {
   project: ProjectSummary;
   usersQuery: ReturnType<typeof useQuery<ProjectUsersResponse>>;
   socialProvidersQuery: ReturnType<typeof useQuery<SocialProvidersResponse>>;
+  billingQuery: ReturnType<typeof useQuery<BillingSettings>>;
   emailServiceEnabled: boolean;
   resendPendingEmail: string | null;
   resendErrorEmail: string | null;
@@ -54,6 +64,9 @@ export function ProjectView({
   socialProviderPending: SocialProviderId | null;
   socialProviderVerifyPending: SocialProviderId | null;
   socialProviderError: string | null;
+  billingPending: boolean;
+  billingVerifyPending: boolean;
+  billingError: string | null;
   onResendVerification: (email: string) => void;
   onTerminateSessions: (userId: string) => void;
   onUpdateProject: (patch: ProjectSettingsPatch) => void;
@@ -62,6 +75,8 @@ export function ProjectView({
     patch: SocialProviderPatch
   ) => void;
   onVerifySocialProvider: (provider: SocialProviderId) => void;
+  onUpdateBilling: (patch: BillingSettingsPatch) => void;
+  onVerifyBilling: () => void;
 }) {
   const users = usersQuery.data?.users ?? [];
   const socialProviders = socialProvidersQuery.data?.providers ?? project.socialProviders;
@@ -159,7 +174,34 @@ export function ProjectView({
 
       <section>
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="eyebrow">03 — Users</span>
+          <span className="eyebrow">03 — Billing</span>
+          <span aria-hidden="true" className="h-px flex-1 bg-border" />
+        </div>
+
+        <Card>
+          {billingQuery.isLoading ? (
+            <div className="p-5 text-[13px] text-muted">Loading billing…</div>
+          ) : billingQuery.isError || !billingQuery.data ? (
+            <div className="p-5">
+              <FormAlert>Could not load billing settings.</FormAlert>
+            </div>
+          ) : (
+            <BillingSettingsForm
+              settings={billingQuery.data}
+              disabled={project.system}
+              pending={billingPending}
+              verifyPending={billingVerifyPending}
+              error={billingError}
+              onSave={onUpdateBilling}
+              onVerify={onVerifyBilling}
+            />
+          )}
+        </Card>
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-baseline gap-3">
+          <span className="eyebrow">04 — Users</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
           {!usersQuery.isLoading && users.length > 0 ? (
             <span className="eyebrow text-muted-soft tabular">

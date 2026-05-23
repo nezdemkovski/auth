@@ -1,5 +1,7 @@
 import type {
   CreateProjectInput,
+  BillingSettings,
+  BillingSettingsPatch,
   DeliverySettings,
   DeliverySettingsPatch,
   MeResponse,
@@ -85,6 +87,43 @@ export async function verifyDeliverySettings(): Promise<void> {
     credentials: "include"
   });
   if (!response.ok) throw new Error("Could not send test email");
+}
+
+export async function fetchBillingSettings(project: string): Promise<BillingSettings> {
+  const response = await fetch(`/admin/api/projects/${project}/billing`, {
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error("Could not load billing settings");
+  return ((await response.json()) as { settings: BillingSettings }).settings;
+}
+
+export async function updateBillingSettings(input: {
+  project: string;
+  patch: BillingSettingsPatch;
+}): Promise<BillingSettings> {
+  const response = await fetch(`/admin/api/projects/${input.project}/billing`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: jsonHeaders,
+    body: JSON.stringify(input.patch)
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      message?: string;
+    } | null;
+    throw new Error(body?.message ?? "Could not save billing settings");
+  }
+
+  return ((await response.json()) as { settings: BillingSettings }).settings;
+}
+
+export async function verifyBillingSettings(project: string): Promise<void> {
+  const response = await fetch(`/admin/api/projects/${project}/billing/verify`, {
+    method: "POST",
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error("Could not verify Polar settings");
 }
 
 export async function createProject(input: CreateProjectInput): Promise<ProjectSummary> {
