@@ -1,6 +1,6 @@
+import { Moon, Sun } from "lucide-react";
 import { Button } from "react-aria-components";
 
-import { MoonIcon, SunIcon } from "@nezdemkovski/auth-client-shared/icons";
 import type { Theme } from "@nezdemkovski/auth-client-shared/theme";
 
 export function ThemeToggle({
@@ -27,7 +27,7 @@ export function ThemeToggle({
           transform: theme === "dark" ? "scale(1)" : "scale(0.6)"
         }}
       >
-        <MoonIcon size={15} />
+        <Moon size={15} strokeWidth={1.8} />
       </span>
       <span
         className="absolute inset-0 grid place-items-center transition-[opacity,transform] duration-200"
@@ -36,7 +36,7 @@ export function ThemeToggle({
           transform: theme === "light" ? "scale(1)" : "scale(0.6)"
         }}
       >
-        <SunIcon size={15} />
+        <Sun size={15} strokeWidth={1.8} />
       </span>
     </Button>
   );

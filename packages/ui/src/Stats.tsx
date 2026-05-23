@@ -1,4 +1,6 @@
-import { pad2 } from "../utils/format";
+function pad2(value: number) {
+  return String(value).padStart(2, "0");
+}
 
 export function StatCard({
   index,

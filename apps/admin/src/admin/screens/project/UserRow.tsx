@@ -1,8 +1,8 @@
-import { MailIcon } from "@nezdemkovski/auth-client-shared/icons";
+import { Mail } from "lucide-react";
 import type { ProjectUser } from "../../types";
 import { formatDate } from "../../utils/format";
-import { Avatar, Pill, StatusBadge } from "../../components/primitives";
-import { Td } from "../../components/Table";
+import { Avatar, Pill, StatusBadge } from "@nezdemkovski/auth-ui";
+import { Td } from "@nezdemkovski/auth-ui";
 
 export function UserRow({
   user,
@@ -77,7 +77,7 @@ export function UserRow({
                   : "Resend verification email"
               }
             >
-              <MailIcon size={12} />
+              <Mail size={12} strokeWidth={1.8} />
               {resendPending ? "Sending…" : "Resend"}
             </button>
           ) : null}

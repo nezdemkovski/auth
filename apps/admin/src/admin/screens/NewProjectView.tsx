@@ -8,7 +8,7 @@ import {
   PrimaryButton,
   SettingsInput,
   SettingsTextarea
-} from "../components/primitives";
+} from "@nezdemkovski/auth-ui";
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
 

@@ -1,3 +1,4 @@
+import { Check, X } from "lucide-react";
 import {
   Button as AriaButton,
   Text,
@@ -6,8 +7,6 @@ import {
   UNSTABLE_ToastQueue as ToastQueue,
   UNSTABLE_ToastRegion as ToastRegion
 } from "react-aria-components";
-
-import { CheckIcon } from "@nezdemkovski/auth-client-shared/icons";
 
 export type ToastTone = "success" | "info" | "danger";
 
@@ -53,7 +52,7 @@ export function Toaster() {
               className={`mt-[3px] grid h-5 w-5 shrink-0 place-items-center rounded-full ${palette.iconBg}`}
             >
               {tone === "success" ? (
-                <CheckIcon size={12} className={palette.iconColor} />
+                <Check size={12} strokeWidth={2} className={palette.iconColor} />
               ) : (
                 <span className={`h-1.5 w-1.5 rounded-full ${palette.dot}`} />
               )}
@@ -79,19 +78,7 @@ export function Toaster() {
               aria-label="Dismiss"
               className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-muted-soft outline-none transition-colors hover:bg-surface-hover hover:text-ink data-[focused]:bg-surface-hover data-[focused]:text-ink"
             >
-              <svg
-                viewBox="0 0 24 24"
-                width="12"
-                height="12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M6 6l12 12M18 6L6 18" />
-              </svg>
+              <X size={12} strokeWidth={2} />
             </AriaButton>
           </Toast>
         );

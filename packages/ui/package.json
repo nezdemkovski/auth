@@ -1,0 +1,21 @@
+{
+  "name": "@nezdemkovski/auth-ui",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./skeletons": "./src/Skeletons.tsx",
+    "./stats": "./src/Stats.tsx",
+    "./table": "./src/Table.tsx"
+  },
+  "scripts": {
+    "build": "bun run typecheck && mkdir -p dist && touch dist/.build",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@nezdemkovski/auth-client-shared": "workspace:*",
+    "lucide-react": "1.16.0",
+    "react": "19.2.1",
+    "react-aria-components": "1.17.0"
+  }
+}

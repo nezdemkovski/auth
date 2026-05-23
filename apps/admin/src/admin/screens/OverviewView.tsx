@@ -1,8 +1,8 @@
-import { ChevronRightIcon } from "@nezdemkovski/auth-client-shared/icons";
+import { ChevronRight } from "lucide-react";
 import type { ProjectSummary } from "../types";
 import { pad2 } from "../utils/format";
-import { Card, EmptyState, SysTag } from "../components/primitives";
-import { StatCard } from "../components/Stats";
+import { Card, EmptyState, SysTag } from "@nezdemkovski/auth-ui";
+import { StatCard } from "@nezdemkovski/auth-ui";
 
 export function OverviewView({
   loading,
@@ -157,8 +157,9 @@ function ProjectCard({
           </span>
         </div>
       </div>
-      <ChevronRightIcon
+      <ChevronRight
         size={14}
+        strokeWidth={1.8}
         className="mt-1 shrink-0 text-muted-soft transition-transform group-hover:translate-x-0.5 group-hover:text-ink"
       />
     </button>

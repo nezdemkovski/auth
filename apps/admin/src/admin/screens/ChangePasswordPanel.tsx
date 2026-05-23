@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { changeAdminPassword } from "../api";
-import { FormField, PrimaryButton } from "../components/primitives";
+import { FormField, PrimaryButton } from "@nezdemkovski/auth-ui";
 import { notifyError, notifySuccess } from "../toast";
 import type { MeResponse } from "../types";
 

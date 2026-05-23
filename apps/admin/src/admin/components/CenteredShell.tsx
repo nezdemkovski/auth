@@ -1,8 +1,8 @@
 import type React from "react";
+import { KeyRound } from "lucide-react";
 
-import { BrandMark } from "@nezdemkovski/auth-client-shared/icons";
 import type { Theme } from "@nezdemkovski/auth-client-shared/theme";
-import { ThemeToggle } from "./primitives";
+import { ThemeToggle } from "@nezdemkovski/auth-ui";
 
 export function CenteredShell({
   children,
@@ -22,7 +22,7 @@ export function CenteredShell({
       />
       <header className="relative z-10 flex h-14 items-center justify-between px-6 lg:px-10">
         <div className="flex items-center gap-2 text-ink">
-          <BrandMark size={20} />
+          <KeyRound size={20} strokeWidth={1.8} />
           <span className="text-[13.5px] font-medium tracking-[-0.005em]">
             Auth Admin
           </span>

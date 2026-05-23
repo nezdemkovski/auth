@@ -1,6 +1,6 @@
 import type React from "react";
+import { KeyRound } from "lucide-react";
 
-import { BrandMark } from "@nezdemkovski/auth-client-shared/icons";
 import type { ProjectSummary } from "../types";
 import { pad2 } from "../utils/format";
 
@@ -21,7 +21,7 @@ export function Sidebar({
       style={{ backdropFilter: "saturate(180%)" }}
     >
       <div className="flex h-14 items-center gap-2.5 px-5 text-ink">
-        <BrandMark size={20} />
+        <KeyRound size={20} strokeWidth={1.8} />
         <div className="leading-tight">
           <div className="text-[13.5px] font-semibold tracking-[-0.01em]">
             Auth

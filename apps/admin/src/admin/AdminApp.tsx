@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { applyTheme, resolveTheme, setTheme, watchSystemTheme, type Theme } from "@nezdemkovski/auth-client-shared/theme";
 import { UnauthorizedError, fetchMe, signOut } from "./api";
 import { CenteredShell } from "./components/CenteredShell";
-import { LoadingPanel } from "./components/primitives";
+import { LoadingPanel } from "@nezdemkovski/auth-ui";
 import { ChangePasswordPanel } from "./screens/ChangePasswordPanel";
 import { SignInPanel } from "./screens/SignInPanel";
 import { DashboardShell } from "./routes/router";

@@ -8,7 +8,7 @@ import {
   updateDeliverySettings,
   verifyDeliverySettings
 } from "../api";
-import { PrimaryButton, SettingsInput } from "../components/primitives";
+import { PrimaryButton, SettingsInput } from "@nezdemkovski/auth-ui";
 import { notifyError, notifySuccess } from "../toast";
 import type {
   DeliveryProvider,

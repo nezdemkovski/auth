@@ -3,7 +3,6 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./icons": "./src/icons.tsx",
     "./style.css": "./src/style.css",
     "./theme": "./src/theme.ts"
   },

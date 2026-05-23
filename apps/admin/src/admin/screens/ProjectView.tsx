@@ -15,9 +15,9 @@ import type {
   PolarProductsResponse
 } from "../types";
 import { pad2 } from "../utils/format";
-import { Card, EmptyState, FormAlert, SysTag } from "../components/primitives";
-import { StatCard } from "../components/Stats";
-import { UsersSkeleton } from "../components/Skeletons";
+import { Card, EmptyState, FormAlert, SysTag } from "@nezdemkovski/auth-ui";
+import { StatCard } from "@nezdemkovski/auth-ui";
+import { UsersSkeleton } from "@nezdemkovski/auth-ui";
 import { ProjectSettingsForm } from "./project/ProjectSettingsForm";
 import { BillingSettings as BillingSettingsForm } from "./project/BillingSettings";
 import { SocialProviderSettings } from "./project/SocialProviderSettings";

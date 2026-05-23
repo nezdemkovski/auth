@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 import { signInAdmin } from "../api";
-import { FormField, PrimaryButton } from "../components/primitives";
+import { FormField, PrimaryButton } from "@nezdemkovski/auth-ui";
 import { notifyError } from "../toast";
 
 export function SignInPanel({ error }: { error?: string }) {

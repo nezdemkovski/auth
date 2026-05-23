@@ -1,11 +1,8 @@
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import {
-  SiFacebook,
-  SiGithub,
-  SiGoogle,
-  SiX
-} from "@icons-pack/react-simple-icons";
+import { SiFacebook, SiX } from "@icons-pack/react-simple-icons";
+import Github from "@lobehub/icons/es/Github";
+import Google from "@lobehub/icons/es/Google";
 
 import type {
   PublicSocialProviderSettings,
@@ -13,11 +10,11 @@ import type {
   SocialProviderId,
   SocialProviderPatch
 } from "../../types";
-import { FormAlert, SettingsInput } from "../../components/primitives";
+import { FormAlert, SettingsInput } from "@nezdemkovski/auth-ui";
 
 const providerIcons: Record<SocialProviderId, React.ComponentType<{ size?: number }>> = {
-  github: SiGithub,
-  google: SiGoogle,
+  github: Github,
+  google: Google,
   twitter: SiX,
   facebook: SiFacebook
 };

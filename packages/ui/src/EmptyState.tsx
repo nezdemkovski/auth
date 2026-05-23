@@ -1,6 +1,5 @@
 import type React from "react";
-
-import { ShieldIcon } from "@nezdemkovski/auth-client-shared/icons";
+import { Shield } from "lucide-react";
 
 export function EmptyState({
   title,
@@ -15,7 +14,7 @@ export function EmptyState({
         aria-hidden="true"
         className="mb-3 grid h-10 w-10 place-items-center rounded-full border border-dashed border-border-strong text-muted-soft"
       >
-        <ShieldIcon size={16} />
+        <Shield size={16} strokeWidth={1.8} />
       </span>
       <p className="text-[14px] font-medium text-ink">{title}</p>
       <p className="mt-1 max-w-[28rem] text-[13px] leading-[1.55] text-muted">

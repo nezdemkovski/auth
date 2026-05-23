@@ -1,6 +1,9 @@
-import type { ProjectSummary } from "../../types";
+type ProjectGlyphSource = {
+  iconUrl?: string;
+  name: string;
+};
 
-export function ProjectGlyph({ project }: { project: ProjectSummary }) {
+export function ProjectGlyph({ project }: { project: ProjectGlyphSource }) {
   if (project.iconUrl) {
     return (
       <img

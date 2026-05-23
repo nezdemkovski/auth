@@ -19,8 +19,8 @@ import {
   verifySocialProvider
 } from "../api";
 import { Topbar } from "../components/Topbar";
-import { Card, EmptyState, FormAlert } from "../components/primitives";
-import { UsersSkeleton } from "../components/Skeletons";
+import { Card, EmptyState, FormAlert } from "@nezdemkovski/auth-ui";
+import { UsersSkeleton } from "@nezdemkovski/auth-ui";
 import { OverviewView } from "../screens/OverviewView";
 import { NewProjectView } from "../screens/NewProjectView";
 import { ProjectView } from "../screens/ProjectView";

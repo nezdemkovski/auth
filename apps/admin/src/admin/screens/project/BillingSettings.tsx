@@ -9,7 +9,7 @@ import type {
   CreatePolarProductInput,
   PolarProductSummary
 } from "../../types";
-import { FormAlert, SettingsInput, SettingsTextarea } from "../../components/primitives";
+import { FormAlert, SettingsInput, SettingsTextarea } from "@nezdemkovski/auth-ui";
 
 const productTypes = [
   "subscription",

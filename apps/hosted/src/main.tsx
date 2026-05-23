@@ -19,11 +19,11 @@ import {
 } from "./auth-client";
 import {
   SiFacebook,
-  SiGithub,
-  SiGoogle,
   SiX
 } from "@icons-pack/react-simple-icons";
-import { MoonIcon, SunIcon } from "@nezdemkovski/auth-client-shared/icons";
+import Github from "@lobehub/icons/es/Github";
+import Google from "@lobehub/icons/es/Google";
+import { Moon, Sun } from "lucide-react";
 import "@nezdemkovski/auth-client-shared/style.css";
 import {
   applyTheme,
@@ -1085,11 +1085,11 @@ const socialProviderMeta: Record<
 > = {
   github: {
     label: "GitHub",
-    icon: SiGithub
+    icon: Github
   },
   google: {
     label: "Google",
-    icon: SiGoogle
+    icon: Google
   },
   twitter: {
     label: "X",
@@ -1510,7 +1510,7 @@ function ThemeToggle({
           transform: theme === "dark" ? "scale(1)" : "scale(0.6)"
         }}
       >
-        <MoonIcon size={15} />
+        <Moon size={15} strokeWidth={1.8} />
       </span>
       <span
         className="absolute inset-0 grid place-items-center transition-[opacity,transform] duration-200"
@@ -1519,7 +1519,7 @@ function ThemeToggle({
           transform: theme === "light" ? "scale(1)" : "scale(0.6)"
         }}
       >
-        <SunIcon size={15} />
+        <Sun size={15} strokeWidth={1.8} />
       </span>
     </button>
   );

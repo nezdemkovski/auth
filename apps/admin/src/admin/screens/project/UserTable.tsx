@@ -1,5 +1,5 @@
 import type { ProjectUser } from "../../types";
-import { Th } from "../../components/Table";
+import { Th } from "@nezdemkovski/auth-ui";
 import { UserRow } from "./UserRow";
 
 export function UserTable({

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 import type { ProjectSettingsPatch, ProjectSummary } from "../../types";
 import { projectToSettingsForm } from "../../utils/format";
-import { FormAlert, SettingsInput, SettingsTextarea } from "../../components/primitives";
+import { FormAlert, SettingsInput, SettingsTextarea } from "@nezdemkovski/auth-ui";
 
 export function ProjectSettingsForm({
   project,

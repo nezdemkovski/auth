@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { ChevronDown, LogOut } from "lucide-react";
 import {
   Button as AriaButton,
   Header,
@@ -12,11 +13,10 @@ import {
   TooltipTrigger
 } from "react-aria-components";
 
-import { ChevronDownIcon, SignOutIcon } from "@nezdemkovski/auth-client-shared/icons";
 import type { Theme } from "@nezdemkovski/auth-client-shared/theme";
 import type { MeResponse, ProjectSummary } from "../types";
 import { pad2 } from "../utils/format";
-import { ThemeToggle } from "./primitives";
+import { ThemeToggle } from "@nezdemkovski/auth-ui";
 
 function getWorkspaceName(): string {
   if (typeof window === "undefined") return "workspace";
@@ -78,7 +78,7 @@ export function Topbar({
             aria-label={`Sign out ${me.user.email}`}
             className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface text-ink-soft outline-none transition-colors hover:bg-surface-hover hover:text-ink data-[focus-visible]:ring-2 data-[focus-visible]:ring-[var(--focus-ring)] data-[pressed]:scale-[0.97]"
           >
-            <SignOutIcon size={14} />
+            <LogOut size={14} strokeWidth={1.8} />
           </AriaButton>
           <Tooltip
             placement="bottom"
@@ -142,8 +142,9 @@ function BreadcrumbSwitcher({
           style={{ boxShadow: "var(--shadow-card)" }}
         >
           <span className="truncate">{label}</span>
-          <ChevronDownIcon
+          <ChevronDown
             size={13}
+            strokeWidth={1.8}
             className="shrink-0 text-muted-soft transition-transform duration-150 group-data-[pressed]:text-ink"
           />
         </AriaButton>
