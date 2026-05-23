@@ -322,7 +322,12 @@ export function BillingSettings({
           <button
             type="button"
             data-press
-            disabled={disabled || polarProductsLoading || !settings.accessTokenConfigured}
+            disabled={
+              disabled ||
+              polarProductsLoading ||
+              !settings.enabled ||
+              !settings.accessTokenConfigured
+            }
             onClick={onRefreshPolarProducts}
             className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
           >
@@ -472,7 +477,10 @@ export function BillingSettings({
               type="button"
               data-press
               disabled={
-                disabled || polarProductCreatePending || !settings.accessTokenConfigured
+                disabled ||
+                polarProductCreatePending ||
+                !settings.enabled ||
+                !settings.accessTokenConfigured
               }
               onClick={() => void createInPolar()}
               className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"

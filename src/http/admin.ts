@@ -756,7 +756,13 @@ export function createAdminApi(options: AdminApiOptions): Hono {
 
     const client = createPolarClient(registered.project);
     if (!client) {
-      return c.json({ error: "billing_not_configured" }, 409);
+      return c.json(
+        {
+          error: "billing_not_configured",
+          message: "Enable Polar billing and save an access token before loading products"
+        },
+        409
+      );
     }
 
     try {
@@ -803,7 +809,13 @@ export function createAdminApi(options: AdminApiOptions): Hono {
 
     const client = createPolarClient(registered.project);
     if (!client) {
-      return c.json({ error: "billing_not_configured" }, 409);
+      return c.json(
+        {
+          error: "billing_not_configured",
+          message: "Enable Polar billing and save an access token before creating products"
+        },
+        409
+      );
     }
 
     const body = (await c.req.json().catch(() => ({}))) as CreatePolarProductBody;

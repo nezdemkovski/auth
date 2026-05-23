@@ -133,7 +133,12 @@ export async function fetchPolarProducts(project: string): Promise<PolarProducts
   const response = await fetch(`/admin/api/projects/${project}/billing/polar-products`, {
     credentials: "include"
   });
-  if (!response.ok) throw new Error("Could not load Polar products");
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      message?: string;
+    } | null;
+    throw new Error(body?.message ?? "Could not load Polar products");
+  }
   return (await response.json()) as PolarProductsResponse;
 }
 
