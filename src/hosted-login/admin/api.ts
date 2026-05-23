@@ -126,7 +126,12 @@ export async function verifyBillingSettings(project: string): Promise<void> {
     method: "POST",
     credentials: "include"
   });
-  if (!response.ok) throw new Error("Could not verify Polar settings");
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      message?: string;
+    } | null;
+    throw new Error(body?.message ?? "Could not verify Polar settings");
+  }
 }
 
 export async function fetchPolarProducts(project: string): Promise<PolarProductsResponse> {

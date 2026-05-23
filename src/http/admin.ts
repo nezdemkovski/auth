@@ -734,7 +734,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       return c.json(
         {
           error: "polar_check_failed",
-          message: error instanceof Error ? error.message : "Polar check failed"
+          message: polarErrorMessage(error, "Polar check failed")
         },
         400
       );
@@ -786,7 +786,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       return c.json(
         {
           error: "polar_products_failed",
-          message: error instanceof Error ? error.message : "Could not load Polar products"
+          message: polarErrorMessage(error, "Could not load Polar products")
         },
         400
       );
@@ -866,7 +866,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       return c.json(
         {
           error: "polar_product_create_failed",
-          message: error instanceof Error ? error.message : "Could not create Polar product"
+          message: polarErrorMessage(error, "Could not create Polar product")
         },
         400
       );
@@ -1269,6 +1269,57 @@ function defaultEntitlementsForBillingProduct(
       priority: 100
     }
   ];
+}
+
+function polarErrorMessage(error: unknown, fallback: string): string {
+  if (isRecord(error)) {
+    const body = typeof error.body === "string" ? error.body : "";
+    const statusCode = typeof error.statusCode === "number" ? error.statusCode : null;
+    const parsed = parsePolarErrorBody(body);
+    if (parsed) {
+      return statusCode ? `Polar ${statusCode}: ${parsed}` : parsed;
+    }
+    if (error.message && typeof error.message === "string") {
+      return statusCode ? `Polar ${statusCode}: ${error.message}` : error.message;
+    }
+  }
+
+  return error instanceof Error ? error.message : fallback;
+}
+
+function parsePolarErrorBody(body: string): string | null {
+  if (!body) {
+    return null;
+  }
+
+  try {
+    const data = JSON.parse(body) as unknown;
+    if (!isRecord(data)) {
+      return body.slice(0, 300);
+    }
+    if (typeof data.detail === "string") {
+      return data.detail;
+    }
+    if (Array.isArray(data.detail)) {
+      return data.detail
+        .map((item) => {
+          if (!isRecord(item)) {
+            return null;
+          }
+          const location = Array.isArray(item.loc) ? item.loc.join(".") : "";
+          const message = typeof item.msg === "string" ? item.msg : null;
+          return message ? [location, message].filter(Boolean).join(": ") : null;
+        })
+        .filter((item): item is string => Boolean(item))
+        .join("; ");
+    }
+    if (typeof data.message === "string") {
+      return data.message;
+    }
+    return JSON.stringify(data).slice(0, 300);
+  } catch {
+    return body.slice(0, 300);
+  }
 }
 
 function isStateChangingMethod(method: string): boolean {
