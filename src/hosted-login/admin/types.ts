@@ -153,6 +153,29 @@ export type BillingSettingsPatch = {
   products: BillingProductMapping[];
 };
 
+export type PolarProductSummary = {
+  id: string;
+  name: string;
+  description: string;
+  isRecurring: boolean;
+  isArchived: boolean;
+  organizationId: string;
+};
+
+export type PolarProductsResponse = {
+  products: PolarProductSummary[];
+};
+
+export type CreatePolarProductInput = {
+  slug: string;
+  name: string;
+  description: string;
+  type: Exclude<BillingProductType, "metered">;
+  priceAmount: number;
+  priceCurrency: string;
+  recurringInterval: "month" | "year";
+};
+
 export type ProjectSettingsPatch = {
   name: string;
   description: string;

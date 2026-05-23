@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Hono } from "hono";
 import { Polar } from "@polar-sh/sdk";
+import type { PresentmentCurrency } from "@polar-sh/sdk/models/components/presentmentcurrency";
 import type { Pool } from "pg";
 
 import type { AuthRegistry } from "../auth/registry";
@@ -85,6 +86,15 @@ type SocialProviderBody = {
 
 type DeliverySettingsBody = Partial<Record<keyof DeliverySettingsPatch, unknown>>;
 type BillingSettingsBody = Partial<Record<keyof BillingSettingsPatch, unknown>>;
+type CreatePolarProductBody = {
+  slug?: unknown;
+  name?: unknown;
+  description?: unknown;
+  type?: unknown;
+  priceAmount?: unknown;
+  priceCurrency?: unknown;
+  recurringInterval?: unknown;
+};
 
 type RegisteredProject = NonNullable<ReturnType<AuthRegistry["get"]>>;
 
@@ -733,6 +743,124 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     return c.json({ ok: true });
   });
 
+  app.get("/projects/:project/billing/polar-products", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const registered = options.registry.get(c.req.param("project"));
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+
+    const client = createPolarClient(registered.project);
+    if (!client) {
+      return c.json({ error: "billing_not_configured" }, 409);
+    }
+
+    try {
+      const page = await client.products.list({
+        organizationId: registered.project.billing.organizationId || undefined,
+        isArchived: false,
+        limit: 50
+      });
+
+      return c.json({
+        products: page.result.items.map((product) => ({
+          id: product.id,
+          name: product.name,
+          description: product.description ?? "",
+          isRecurring: product.isRecurring,
+          isArchived: product.isArchived,
+          organizationId: product.organizationId
+        }))
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error: "polar_products_failed",
+          message: error instanceof Error ? error.message : "Could not load Polar products"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/projects/:project/billing/polar-products", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const registered = options.registry.get(c.req.param("project"));
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+    if (registered.project.slug === options.adminProject.slug) {
+      return c.json({ error: "system_project_locked" }, 409);
+    }
+
+    const client = createPolarClient(registered.project);
+    if (!client) {
+      return c.json({ error: "billing_not_configured" }, 409);
+    }
+
+    const body = (await c.req.json().catch(() => ({}))) as CreatePolarProductBody;
+    const input = parseCreatePolarProduct(body);
+    if (!input) {
+      return c.json({ error: "invalid_body" }, 400);
+    }
+
+    try {
+      const product = await client.products.create({
+        name: input.name,
+        description: input.description || null,
+        organizationId: registered.project.billing.organizationId || undefined,
+        visibility: "private",
+        prices: [
+          {
+            amountType: "fixed",
+            priceAmount: input.priceAmount,
+            priceCurrency: input.priceCurrency as PresentmentCurrency
+          }
+        ],
+        ...(input.type === "subscription"
+          ? {
+              recurringInterval: input.recurringInterval,
+              recurringIntervalCount: 1
+            }
+          : {
+              recurringInterval: null,
+              recurringIntervalCount: null
+            })
+      });
+
+      return c.json(
+        {
+          product: {
+            slug: input.slug,
+            name: product.name,
+            description: product.description ?? "",
+            productId: product.id,
+            type: input.type,
+            active: true,
+            entitlements: defaultEntitlementsForBillingProduct(input.type)
+          }
+        },
+        201
+      );
+    } catch (error) {
+      return c.json(
+        {
+          error: "polar_product_create_failed",
+          message: error instanceof Error ? error.message : "Could not create Polar product"
+        },
+        400
+      );
+    }
+  });
+
   app.get("/projects/:project/users", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
@@ -1021,6 +1149,114 @@ function parseBillingSettingsPatch(body: BillingSettingsBody): BillingSettingsPa
   }
 
   return patch;
+}
+
+function parseCreatePolarProduct(body: CreatePolarProductBody): {
+  slug: string;
+  name: string;
+  description: string;
+  type: "subscription" | "one_time" | "credit_pack" | "lifetime";
+  priceAmount: number;
+  priceCurrency: string;
+  recurringInterval: "month" | "year";
+} | null {
+  if (
+    typeof body.slug !== "string" ||
+    typeof body.name !== "string" ||
+    typeof body.description !== "string" ||
+    typeof body.type !== "string" ||
+    typeof body.priceAmount !== "number" ||
+    typeof body.priceCurrency !== "string" ||
+    typeof body.recurringInterval !== "string"
+  ) {
+    return null;
+  }
+
+  const slug = body.slug.trim();
+  const name = body.name.trim();
+  const priceCurrency = body.priceCurrency.trim().toLowerCase();
+  const type =
+    body.type === "subscription" ||
+    body.type === "one_time" ||
+    body.type === "credit_pack" ||
+    body.type === "lifetime"
+      ? body.type
+      : null;
+  const recurringInterval =
+    body.recurringInterval === "year" || body.recurringInterval === "month"
+      ? body.recurringInterval
+      : null;
+
+  if (
+    !type ||
+    !recurringInterval ||
+    !/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) ||
+    name.length === 0 ||
+    priceCurrency.length !== 3 ||
+    !Number.isFinite(body.priceAmount) ||
+    body.priceAmount < 50
+  ) {
+    return null;
+  }
+
+  return {
+    slug,
+    name,
+    description: body.description.trim(),
+    type,
+    priceAmount: Math.round(body.priceAmount),
+    priceCurrency,
+    recurringInterval
+  };
+}
+
+function createPolarClient(project: AuthProject): Polar | null {
+  const billing = project.billing;
+  if (billing.provider !== "polar" || !billing.enabled || !billing.accessToken) {
+    return null;
+  }
+
+  return new Polar({
+    accessToken: billing.accessToken,
+    server: billing.environment
+  });
+}
+
+function defaultEntitlementsForBillingProduct(
+  type: "subscription" | "one_time" | "credit_pack" | "lifetime"
+): BillingSettingsPatch["products"][number]["entitlements"] {
+  if (type === "subscription") {
+    return [
+      {
+        key: "ai_requests",
+        grantType: "recurring_quota",
+        amount: 100,
+        resetPeriod: "monthly",
+        priority: 100
+      }
+    ];
+  }
+  if (type === "credit_pack") {
+    return [
+      {
+        key: "ai_request_credits",
+        grantType: "one_time_credits",
+        amount: 100,
+        resetPeriod: "never",
+        priority: 100
+      }
+    ];
+  }
+
+  return [
+    {
+      key: "access",
+      grantType: type === "lifetime" ? "lifetime" : "boolean",
+      amount: null,
+      resetPeriod: "never",
+      priority: 100
+    }
+  ];
 }
 
 function isStateChangingMethod(method: string): boolean {

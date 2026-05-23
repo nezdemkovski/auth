@@ -5,7 +5,9 @@ import type {
   BillingEntitlement,
   BillingProductMapping,
   BillingSettings,
-  BillingSettingsPatch
+  BillingSettingsPatch,
+  CreatePolarProductInput,
+  PolarProductSummary
 } from "../../types";
 import { FormAlert, SettingsInput, SettingsTextarea } from "../../components/primitives";
 
@@ -31,18 +33,35 @@ export function BillingSettings({
   pending,
   verifyPending,
   error,
+  polarProducts,
+  polarProductsLoading,
+  polarProductsError,
+  polarProductCreatePending,
+  polarProductCreateError,
   onSave,
-  onVerify
+  onVerify,
+  onRefreshPolarProducts,
+  onCreatePolarProduct
 }: {
   settings: BillingSettings;
   disabled: boolean;
   pending: boolean;
   verifyPending: boolean;
   error: string | null;
+  polarProducts: PolarProductSummary[];
+  polarProductsLoading: boolean;
+  polarProductsError: string | null;
+  polarProductCreatePending: boolean;
+  polarProductCreateError: string | null;
   onSave: (patch: BillingSettingsPatch) => void;
   onVerify: () => void;
+  onRefreshPolarProducts: () => void;
+  onCreatePolarProduct: (
+    input: CreatePolarProductInput
+  ) => Promise<BillingProductMapping>;
 }) {
   const [form, setForm] = useState(() => settingsToForm(settings));
+  const [createForm, setCreateForm] = useState(() => defaultCreateForm());
   const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -96,6 +115,68 @@ export function BillingSettings({
         ]
       }
     ]);
+  }
+
+  function addImportedProduct(product: PolarProductSummary) {
+    if (form.products.some((mapping) => mapping.productId === product.id)) {
+      setLocalError("This Polar product is already mapped.");
+      return;
+    }
+
+    setLocalError(null);
+    update("products", [
+      ...form.products,
+      {
+        slug: slugFromName(product.name),
+        name: product.name,
+        description: product.description,
+        productId: product.id,
+        type: product.isRecurring ? "subscription" : "one_time",
+        active: true,
+        entitlements: product.isRecurring
+          ? [
+              {
+                key: "ai_requests",
+                grantType: "recurring_quota",
+                amount: 100,
+                resetPeriod: "monthly",
+                priority: 100
+              }
+            ]
+          : [
+              {
+                key: "access",
+                grantType: "boolean",
+                amount: null,
+                resetPeriod: "never",
+                priority: 100
+              }
+            ]
+      }
+    ]);
+  }
+
+  async function createInPolar() {
+    if (!createForm.name.trim()) {
+      setLocalError("Product name is required.");
+      return;
+    }
+    if (createForm.priceAmount < 50) {
+      setLocalError("Price amount must be at least 50 cents.");
+      return;
+    }
+
+    setLocalError(null);
+    const product = await onCreatePolarProduct({
+      ...createForm,
+      slug: createForm.slug.trim() || slugFromName(createForm.name),
+      name: createForm.name.trim(),
+      description: createForm.description.trim(),
+      priceCurrency: createForm.priceCurrency.trim().toLowerCase(),
+      priceAmount: Math.round(createForm.priceAmount)
+    });
+    update("products", [...form.products, product]);
+    setCreateForm(defaultCreateForm());
   }
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -152,6 +233,9 @@ export function BillingSettings({
       </div>
 
       {localError || error ? <FormAlert>{localError ?? error}</FormAlert> : null}
+      {polarProductsError || polarProductCreateError ? (
+        <FormAlert>{polarProductsError ?? polarProductCreateError}</FormAlert>
+      ) : null}
 
       <label className="flex items-start gap-3 rounded-lg border border-border bg-surface-muted px-3 py-3">
         <input
@@ -223,6 +307,181 @@ export function BillingSettings({
         rows={2}
         onChange={() => {}}
       />
+
+      <section className="space-y-3 rounded-lg border border-border bg-surface-muted p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-[13px] font-semibold tracking-[-0.005em] text-ink">
+              Polar catalog
+            </h3>
+            <p className="mt-1 max-w-[38rem] text-[12px] leading-5 text-muted">
+              Import existing Polar products or create a private product in Polar
+              and map it to this realm.
+            </p>
+          </div>
+          <button
+            type="button"
+            data-press
+            disabled={disabled || polarProductsLoading || !settings.accessTokenConfigured}
+            onClick={onRefreshPolarProducts}
+            className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+          >
+            {polarProductsLoading ? "Loading…" : "Load from Polar"}
+          </button>
+        </div>
+
+        {polarProducts.length > 0 ? (
+          <div className="grid gap-2">
+            {polarProducts.map((product) => {
+              const mapped = form.products.some(
+                (mapping) => mapping.productId === product.id
+              );
+              return (
+                <div
+                  key={product.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-3"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[13px] font-semibold text-ink">
+                        {product.name}
+                      </span>
+                      <span className="rounded-full border border-border bg-surface-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted">
+                        {product.isRecurring ? "subscription" : "one-time"}
+                      </span>
+                    </div>
+                    <div className="mt-1 break-all font-mono text-[11.5px] text-muted">
+                      {product.id}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    data-press
+                    disabled={disabled || pending || mapped}
+                    onClick={() => addImportedProduct(product)}
+                    className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+                  >
+                    {mapped ? "Mapped" : "Import"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+
+        <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
+          <div className="grid gap-3 md:grid-cols-2">
+            <SettingsInput
+              id="polar-create-name"
+              label="Name"
+              value={createForm.name}
+              disabled={disabled || polarProductCreatePending}
+              onChange={(value) =>
+                setCreateForm((current) => ({
+                  ...current,
+                  name: value,
+                  slug: current.slug || slugFromName(value)
+                }))
+              }
+            />
+            <SettingsInput
+              id="polar-create-slug"
+              label="Slug"
+              value={createForm.slug}
+              disabled={disabled || polarProductCreatePending}
+              onChange={(value) =>
+                setCreateForm((current) => ({ ...current, slug: value }))
+              }
+            />
+            <label className="grid gap-1.5">
+              <span className="text-[12.5px] font-medium text-ink-soft">Type</span>
+              <select
+                value={createForm.type}
+                disabled={disabled || polarProductCreatePending}
+                onChange={(event) =>
+                  setCreateForm((current) => ({
+                    ...current,
+                    type: event.currentTarget.value as CreatePolarProductInput["type"]
+                  }))
+                }
+                className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="subscription">Subscription</option>
+                <option value="one_time">One-time</option>
+                <option value="credit_pack">Credit pack</option>
+                <option value="lifetime">Lifetime</option>
+              </select>
+            </label>
+            <label className="grid gap-1.5">
+              <span className="text-[12.5px] font-medium text-ink-soft">
+                Billing interval
+              </span>
+              <select
+                value={createForm.recurringInterval}
+                disabled={
+                  disabled ||
+                  polarProductCreatePending ||
+                  createForm.type !== "subscription"
+                }
+                onChange={(event) =>
+                  setCreateForm((current) => ({
+                    ...current,
+                    recurringInterval: event.currentTarget.value as CreatePolarProductInput["recurringInterval"]
+                  }))
+                }
+                className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="month">Monthly</option>
+                <option value="year">Yearly</option>
+              </select>
+            </label>
+            <SettingsInput
+              id="polar-create-price"
+              label="Price amount, cents"
+              value={String(createForm.priceAmount)}
+              disabled={disabled || polarProductCreatePending}
+              onChange={(value) =>
+                setCreateForm((current) => ({
+                  ...current,
+                  priceAmount: Number(value)
+                }))
+              }
+            />
+            <SettingsInput
+              id="polar-create-currency"
+              label="Currency"
+              value={createForm.priceCurrency}
+              disabled={disabled || polarProductCreatePending}
+              onChange={(value) =>
+                setCreateForm((current) => ({ ...current, priceCurrency: value }))
+              }
+            />
+          </div>
+          <SettingsTextarea
+            id="polar-create-description"
+            label="Description"
+            value={createForm.description}
+            disabled={disabled || polarProductCreatePending}
+            rows={2}
+            onChange={(value) =>
+              setCreateForm((current) => ({ ...current, description: value }))
+            }
+          />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              data-press
+              disabled={
+                disabled || polarProductCreatePending || !settings.accessTokenConfigured
+              }
+              onClick={() => void createInPolar()}
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              {polarProductCreatePending ? "Creating…" : "Create in Polar"}
+            </button>
+          </div>
+        </div>
+      </section>
 
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3">
@@ -473,4 +732,27 @@ function settingsToForm(settings: BillingSettings) {
       entitlements: product.entitlements.map((entitlement) => ({ ...entitlement }))
     }))
   };
+}
+
+function defaultCreateForm(): CreatePolarProductInput {
+  return {
+    slug: "",
+    name: "",
+    description: "",
+    type: "subscription",
+    priceAmount: 500,
+    priceCurrency: "usd",
+    recurringInterval: "month"
+  };
+}
+
+function slugFromName(value: string): string {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-");
+
+  return slug || "product";
 }

@@ -3,13 +3,16 @@ import type { useQuery } from "@tanstack/react-query";
 import type {
   BillingSettings,
   BillingSettingsPatch,
+  BillingProductMapping,
+  CreatePolarProductInput,
   ProjectSettingsPatch,
   ProjectSummary,
   ProjectUsersResponse,
   SocialProviderCatalogItem,
   SocialProviderId,
   SocialProviderPatch,
-  SocialProvidersResponse
+  SocialProvidersResponse,
+  PolarProductsResponse
 } from "../types";
 import { pad2 } from "../utils/format";
 import { Card, EmptyState, FormAlert, SysTag } from "../components/primitives";
@@ -25,6 +28,7 @@ export function ProjectView({
   usersQuery,
   socialProvidersQuery,
   billingQuery,
+  polarProductsQuery,
   emailServiceEnabled,
   resendPendingEmail,
   resendErrorEmail,
@@ -40,18 +44,23 @@ export function ProjectView({
   billingPending,
   billingVerifyPending,
   billingError,
+  polarProductCreatePending,
+  polarProductCreateError,
   onResendVerification,
   onTerminateSessions,
   onUpdateProject,
   onUpdateSocialProvider,
   onVerifySocialProvider,
   onUpdateBilling,
-  onVerifyBilling
+  onVerifyBilling,
+  onRefreshPolarProducts,
+  onCreatePolarProduct
 }: {
   project: ProjectSummary;
   usersQuery: ReturnType<typeof useQuery<ProjectUsersResponse>>;
   socialProvidersQuery: ReturnType<typeof useQuery<SocialProvidersResponse>>;
   billingQuery: ReturnType<typeof useQuery<BillingSettings>>;
+  polarProductsQuery: ReturnType<typeof useQuery<PolarProductsResponse>>;
   emailServiceEnabled: boolean;
   resendPendingEmail: string | null;
   resendErrorEmail: string | null;
@@ -67,6 +76,8 @@ export function ProjectView({
   billingPending: boolean;
   billingVerifyPending: boolean;
   billingError: string | null;
+  polarProductCreatePending: boolean;
+  polarProductCreateError: string | null;
   onResendVerification: (email: string) => void;
   onTerminateSessions: (userId: string) => void;
   onUpdateProject: (patch: ProjectSettingsPatch) => void;
@@ -77,6 +88,10 @@ export function ProjectView({
   onVerifySocialProvider: (provider: SocialProviderId) => void;
   onUpdateBilling: (patch: BillingSettingsPatch) => void;
   onVerifyBilling: () => void;
+  onRefreshPolarProducts: () => void;
+  onCreatePolarProduct: (
+    input: CreatePolarProductInput
+  ) => Promise<BillingProductMapping>;
 }) {
   const users = usersQuery.data?.users ?? [];
   const socialProviders = socialProvidersQuery.data?.providers ?? project.socialProviders;
@@ -192,8 +207,17 @@ export function ProjectView({
               pending={billingPending}
               verifyPending={billingVerifyPending}
               error={billingError}
+              polarProducts={polarProductsQuery.data?.products ?? []}
+              polarProductsLoading={polarProductsQuery.isFetching}
+              polarProductsError={
+                polarProductsQuery.isError ? "Could not load Polar products." : null
+              }
+              polarProductCreatePending={polarProductCreatePending}
+              polarProductCreateError={polarProductCreateError}
               onSave={onUpdateBilling}
               onVerify={onVerifyBilling}
+              onRefreshPolarProducts={onRefreshPolarProducts}
+              onCreatePolarProduct={onCreatePolarProduct}
             />
           )}
         </Card>

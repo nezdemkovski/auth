@@ -1,7 +1,9 @@
 import type {
   CreateProjectInput,
   BillingSettings,
+  BillingProductMapping,
   BillingSettingsPatch,
+  CreatePolarProductInput,
   DeliverySettings,
   DeliverySettingsPatch,
   MeResponse,
@@ -9,6 +11,7 @@ import type {
   SocialProviderId,
   SocialProviderPatch,
   SocialProvidersResponse,
+  PolarProductsResponse,
   ProjectSummary,
   ProjectUsersResponse,
   ProjectsResponse
@@ -124,6 +127,38 @@ export async function verifyBillingSettings(project: string): Promise<void> {
     credentials: "include"
   });
   if (!response.ok) throw new Error("Could not verify Polar settings");
+}
+
+export async function fetchPolarProducts(project: string): Promise<PolarProductsResponse> {
+  const response = await fetch(`/admin/api/projects/${project}/billing/polar-products`, {
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error("Could not load Polar products");
+  return (await response.json()) as PolarProductsResponse;
+}
+
+export async function createPolarProduct(input: {
+  project: string;
+  product: CreatePolarProductInput;
+}): Promise<BillingProductMapping> {
+  const response = await fetch(
+    `/admin/api/projects/${input.project}/billing/polar-products`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: jsonHeaders,
+      body: JSON.stringify(input.product)
+    }
+  );
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      message?: string;
+    } | null;
+    throw new Error(body?.message ?? "Could not create Polar product");
+  }
+
+  return ((await response.json()) as { product: BillingProductMapping }).product;
 }
 
 export async function createProject(input: CreateProjectInput): Promise<ProjectSummary> {

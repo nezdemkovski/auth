@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 
 import {
   createProject,
+  createPolarProduct,
   fetchBillingSettings,
+  fetchPolarProducts,
   fetchProjectUsers,
   fetchProjects,
   fetchSocialProviders,
@@ -27,6 +29,7 @@ import { notifyError, notifySuccess } from "../toast";
 import type {
   CreateProjectInput,
   BillingSettingsPatch,
+  CreatePolarProductInput,
   DashboardRouterContext,
   MeResponse,
   ProjectSettingsPatch,
@@ -311,6 +314,11 @@ function ProjectRoute() {
     queryFn: () => fetchBillingSettings(selected!.slug),
     enabled: Boolean(selected?.slug)
   });
+  const polarProductsQuery = useQuery({
+    queryKey: ["admin", "polar-products", selected?.slug],
+    queryFn: () => fetchPolarProducts(selected!.slug),
+    enabled: false
+  });
   const resendVerification = useMutation({
     mutationFn: (input: { project: string; email: string }) =>
       resendVerificationEmail(input.project, input.email),
@@ -439,6 +447,22 @@ function ProjectRoute() {
       );
     }
   });
+  const polarProductCreate = useMutation({
+    mutationFn: (input: { project: string; product: CreatePolarProductInput }) =>
+      createPolarProduct(input),
+    onSuccess: async (_data, variables) => {
+      notifySuccess("Polar product created");
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "polar-products", variables.project]
+      });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Could not create Polar product",
+        caught instanceof Error ? caught.message : undefined
+      );
+    }
+  });
 
   if (projectsQuery.isLoading) {
     return <UsersSkeleton />;
@@ -465,6 +489,7 @@ function ProjectRoute() {
       usersQuery={usersQuery}
       socialProvidersQuery={socialProvidersQuery}
       billingQuery={billingQuery}
+      polarProductsQuery={polarProductsQuery}
       emailServiceEnabled={me.emailServiceEnabled}
       resendPendingEmail={
         resendVerification.isPending
@@ -524,6 +549,14 @@ function ProjectRoute() {
             : "Polar check failed"
           : null
       }
+      polarProductCreatePending={polarProductCreate.isPending}
+      polarProductCreateError={
+        polarProductCreate.isError
+          ? polarProductCreate.error instanceof Error
+            ? polarProductCreate.error.message
+            : "Could not create Polar product"
+          : null
+      }
       onResendVerification={(email) =>
         resendVerification.mutate({
           project: selected.slug,
@@ -562,6 +595,13 @@ function ProjectRoute() {
         })
       }
       onVerifyBilling={() => billingVerify.mutate(selected.slug)}
+      onRefreshPolarProducts={() => void polarProductsQuery.refetch()}
+      onCreatePolarProduct={(product) =>
+        polarProductCreate.mutateAsync({
+          project: selected.slug,
+          product
+        })
+      }
     />
   );
 }
