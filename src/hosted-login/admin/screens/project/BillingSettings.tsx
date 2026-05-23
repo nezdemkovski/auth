@@ -6,8 +6,7 @@ import type {
   BillingProductMapping,
   BillingSettings,
   BillingSettingsPatch,
-  CreatePolarProductInput,
-  PolarProductSummary
+  CreatePolarProductInput
 } from "../../types";
 import { FormAlert, SettingsInput, SettingsTextarea } from "../../components/primitives";
 
@@ -60,14 +59,10 @@ export function BillingSettings({
   pending,
   verifyPending,
   error,
-  polarProducts,
-  polarProductsLoading,
-  polarProductsError,
   polarProductCreatePending,
   polarProductCreateError,
   onSave,
   onVerify,
-  onRefreshPolarProducts,
   onCreatePolarProduct
 }: {
   settings: BillingSettings;
@@ -75,9 +70,6 @@ export function BillingSettings({
   pending: boolean;
   verifyPending: boolean;
   error: string | null;
-  polarProducts: PolarProductSummary[];
-  polarProductsLoading: boolean;
-  polarProductsError: string | null;
   polarProductCreatePending: boolean;
   polarProductCreateError: string | null;
   onSave: (patch: BillingSettingsPatch) => void;
@@ -85,7 +77,6 @@ export function BillingSettings({
     accessToken?: string;
     environment?: BillingSettings["environment"];
   }) => void;
-  onRefreshPolarProducts: () => void;
   onCreatePolarProduct: (
     input: CreatePolarProductInput
   ) => Promise<BillingProductMapping>;
@@ -157,16 +148,6 @@ export function BillingSettings({
       return;
     }
     setWorkspace({ mode: "product", index: Math.min(index, products.length - 1) });
-  }
-
-  function importPolarProduct(product: PolarProductSummary) {
-    if (form.products.some((mapping) => mapping.productId === product.id)) {
-      setLocalError("This Polar product is already mapped.");
-      return;
-    }
-
-    setLocalError(null);
-    addProduct(productFromPolar(product));
   }
 
   async function createInPolar() {
@@ -253,9 +234,9 @@ export function BillingSettings({
           <FormAlert>{localError ?? error}</FormAlert>
         </div>
       ) : null}
-      {polarProductsError || polarProductCreateError ? (
+      {polarProductCreateError ? (
         <div className="mt-4">
-          <FormAlert>{polarProductsError ?? polarProductCreateError}</FormAlert>
+          <FormAlert>{polarProductCreateError}</FormAlert>
         </div>
       ) : null}
 
@@ -302,17 +283,11 @@ export function BillingSettings({
           selectedProduct={selectedProduct}
           workspace={workspace}
           createForm={createForm}
-          polarProducts={polarProducts}
-          mappedProductIds={new Set(form.products.map((product) => product.productId))}
-          polarProductsLoading={polarProductsLoading}
           polarProductCreatePending={polarProductCreatePending}
           disabled={disabled || pending}
-          canLoadPolar={settings.enabled && settings.accessTokenConfigured}
           onWorkspaceChange={setWorkspace}
           onCreateFormChange={setCreateForm}
-          onLoadPolar={onRefreshPolarProducts}
           onCreateInPolar={createInPolar}
-          onImportPolarProduct={importPolarProduct}
           onAddManual={() => addProduct()}
           onUpdateProduct={updateProduct}
           onUpdateEntitlement={updateEntitlement}
@@ -438,17 +413,11 @@ function ProductsView({
   selectedProduct,
   workspace,
   createForm,
-  polarProducts,
-  mappedProductIds,
-  polarProductsLoading,
   polarProductCreatePending,
   disabled,
-  canLoadPolar,
   onWorkspaceChange,
   onCreateFormChange,
-  onLoadPolar,
   onCreateInPolar,
-  onImportPolarProduct,
   onAddManual,
   onUpdateProduct,
   onUpdateEntitlement,
@@ -458,17 +427,11 @@ function ProductsView({
   selectedProduct: BillingProductMapping | null;
   workspace: ProductWorkspace;
   createForm: CreatePolarProductInput;
-  polarProducts: PolarProductSummary[];
-  mappedProductIds: Set<string>;
-  polarProductsLoading: boolean;
   polarProductCreatePending: boolean;
   disabled: boolean;
-  canLoadPolar: boolean;
   onWorkspaceChange: (workspace: ProductWorkspace) => void;
   onCreateFormChange: React.Dispatch<React.SetStateAction<CreatePolarProductInput>>;
-  onLoadPolar: () => void;
   onCreateInPolar: () => void;
-  onImportPolarProduct: (product: PolarProductSummary) => void;
   onAddManual: () => void;
   onUpdateProduct: (index: number, patch: Partial<BillingProductMapping>) => void;
   onUpdateEntitlement: (
@@ -534,63 +497,12 @@ function ProductsView({
         </div>
 
         <div className="rounded-xl border border-border bg-surface p-3">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <span className="text-[13px] font-semibold text-ink">Polar catalog</span>
-            <button
-              type="button"
-              data-press
-              disabled={disabled || polarProductsLoading || !canLoadPolar}
-              onClick={onLoadPolar}
-              className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-surface-muted px-2.5 text-[12px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
-            >
-              {polarProductsLoading ? "Loading…" : "Load"}
-            </button>
-          </div>
-          <div className="space-y-2">
-            {polarProducts.length === 0 ? (
-              <p className="rounded-lg border border-border bg-surface-muted px-3 py-3 text-[12px] leading-5 text-muted">
-                Load products to import existing Polar catalog items.
-              </p>
-            ) : (
-              polarProducts.map((product) => {
-                const mapped = mappedProductIds.has(product.id);
-                return (
-                  <div
-                    key={product.id}
-                    className="rounded-lg border border-border bg-surface-muted px-3 py-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="truncate text-[12.5px] font-semibold text-ink">
-                          {product.name}
-                        </div>
-                        <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-muted">
-                          <span>{product.isRecurring ? "Subscription" : "One-time"}</span>
-                          <span>·</span>
-                          <code className="truncate font-mono">{product.id}</code>
-                        </div>
-                      </div>
-                      {mapped ? (
-                        <span className="rounded-full border border-success-border bg-success-bg px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-success">
-                          Mapped
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          data-press
-                          disabled={disabled}
-                          onClick={() => onImportPolarProduct(product)}
-                          className="inline-flex h-7 items-center justify-center rounded-md border border-border bg-surface px-2 text-[11.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
-                        >
-                          Import
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+          <div className="text-[13px] font-semibold text-ink">Workflow</div>
+          <p className="mt-2 text-[12px] leading-5 text-muted">
+            Create products from here, then keep the app contract stable through
+            the local slug and benefits. Existing products can still be mapped
+            manually when needed.
+          </p>
         </div>
       </aside>
 
@@ -1194,36 +1106,6 @@ function defaultProduct(): BillingProductMapping {
         priority: 100
       }
     ]
-  };
-}
-
-function productFromPolar(product: PolarProductSummary): BillingProductMapping {
-  return {
-    slug: slugFromName(product.name),
-    name: product.name,
-    description: product.description,
-    productId: product.id,
-    type: product.isRecurring ? "subscription" : "one_time",
-    active: true,
-    entitlements: product.isRecurring
-      ? [
-          {
-            key: "ai_requests",
-            grantType: "recurring_quota",
-            amount: 100,
-            resetPeriod: "monthly",
-            priority: 100
-          }
-        ]
-      : [
-          {
-            key: "access",
-            grantType: "boolean",
-            amount: null,
-            resetPeriod: "never",
-            priority: 100
-          }
-        ]
   };
 }
 

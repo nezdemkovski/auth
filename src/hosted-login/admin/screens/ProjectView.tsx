@@ -11,8 +11,7 @@ import type {
   SocialProviderCatalogItem,
   SocialProviderId,
   SocialProviderPatch,
-  SocialProvidersResponse,
-  PolarProductsResponse
+  SocialProvidersResponse
 } from "../types";
 import { pad2 } from "../utils/format";
 import { Card, EmptyState, FormAlert, SysTag } from "../components/primitives";
@@ -28,7 +27,6 @@ export function ProjectView({
   usersQuery,
   socialProvidersQuery,
   billingQuery,
-  polarProductsQuery,
   emailServiceEnabled,
   resendPendingEmail,
   resendErrorEmail,
@@ -53,14 +51,12 @@ export function ProjectView({
   onVerifySocialProvider,
   onUpdateBilling,
   onVerifyBilling,
-  onRefreshPolarProducts,
   onCreatePolarProduct
 }: {
   project: ProjectSummary;
   usersQuery: ReturnType<typeof useQuery<ProjectUsersResponse>>;
   socialProvidersQuery: ReturnType<typeof useQuery<SocialProvidersResponse>>;
   billingQuery: ReturnType<typeof useQuery<BillingSettings>>;
-  polarProductsQuery: ReturnType<typeof useQuery<PolarProductsResponse>>;
   emailServiceEnabled: boolean;
   resendPendingEmail: string | null;
   resendErrorEmail: string | null;
@@ -91,7 +87,6 @@ export function ProjectView({
     accessToken?: string;
     environment?: BillingSettings["environment"];
   }) => void;
-  onRefreshPolarProducts: () => void;
   onCreatePolarProduct: (
     input: CreatePolarProductInput
   ) => Promise<BillingProductMapping>;
@@ -210,16 +205,10 @@ export function ProjectView({
               pending={billingPending}
               verifyPending={billingVerifyPending}
               error={billingError}
-              polarProducts={polarProductsQuery.data?.products ?? []}
-              polarProductsLoading={polarProductsQuery.isFetching}
-              polarProductsError={
-                polarProductsQuery.isError ? "Could not load Polar products." : null
-              }
               polarProductCreatePending={polarProductCreatePending}
               polarProductCreateError={polarProductCreateError}
               onSave={onUpdateBilling}
               onVerify={onVerifyBilling}
-              onRefreshPolarProducts={onRefreshPolarProducts}
               onCreatePolarProduct={onCreatePolarProduct}
             />
           )}
