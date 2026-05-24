@@ -3,8 +3,6 @@ import type { Product } from "@polar-sh/sdk/models/components/product";
 import type { BillingEntitlement, BillingProductMapping } from "../../config/projects";
 import type { CreatePolarProductInput } from "./validator";
 
-type BillingProductType = CreatePolarProductInput["type"];
-
 export function polarProductResponse(product: Product) {
   return {
     id: product.id,
@@ -18,7 +16,8 @@ export function polarProductResponse(product: Product) {
 
 export function createdBillingProductResponse(
   product: Product,
-  input: CreatePolarProductInput
+  input: CreatePolarProductInput,
+  entitlements: BillingProductMapping["entitlements"]
 ): BillingProductMapping {
   return {
     slug: input.slug,
@@ -27,45 +26,8 @@ export function createdBillingProductResponse(
     productId: product.id,
     type: input.type,
     active: true,
-    entitlements: defaultEntitlementsForBillingProduct(input.type)
+    entitlements
   };
-}
-
-function defaultEntitlementsForBillingProduct(
-  type: BillingProductType
-): BillingProductMapping["entitlements"] {
-  if (type === "subscription") {
-    return [
-      {
-        key: "ai_requests",
-        grantType: "recurring_quota",
-        amount: 100,
-        resetPeriod: "monthly",
-        priority: 100
-      }
-    ];
-  }
-  if (type === "credit_pack") {
-    return [
-      {
-        key: "ai_request_credits",
-        grantType: "one_time_credits",
-        amount: 100,
-        resetPeriod: "never",
-        priority: 100
-      }
-    ];
-  }
-
-  return [
-    {
-      key: "access",
-      grantType: type === "lifetime" ? "lifetime" : "boolean",
-      amount: null,
-      resetPeriod: "never",
-      priority: 100
-    }
-  ];
 }
 
 export function normalizeBillingProducts(value: unknown): BillingProductMapping[] {

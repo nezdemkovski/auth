@@ -1,8 +1,13 @@
-import { Polar } from "@polar-sh/sdk";
-import type { PresentmentCurrency } from "@polar-sh/sdk/models/components/presentmentcurrency";
-
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
+import { defaultEntitlementsForBillingProduct } from "./entitlements";
+import {
+  createPolarClientFromProject,
+  createPolarProduct,
+  listPolarProducts,
+  polarErrorMessage,
+  verifyPolarAccess
+} from "./polar-client";
 import {
   readPublicBillingSettings,
   updateBillingSettings
@@ -92,12 +97,8 @@ export class BillingService {
       );
     }
 
-    const client = new Polar({
-      accessToken,
-      server: environment
-    });
     try {
-      await client.products.list({ limit: 1 });
+      await verifyPolarAccess({ accessToken, environment });
     } catch (error) {
       throw new BillingServiceError(
         "polar_check_failed",
@@ -107,7 +108,7 @@ export class BillingService {
   }
 
   async listPolarProducts(project: AuthProject) {
-    const client = createPolarClient(project);
+    const client = createPolarClientFromProject(project);
     if (!client) {
       throw new BillingServiceError(
         "billing_not_configured",
@@ -117,12 +118,8 @@ export class BillingService {
     }
 
     try {
-      const page = await client.products.list({
-        isArchived: false,
-        limit: 50
-      });
-
-      return page.result.items.map(polarProductResponse);
+      const products = await listPolarProducts(client);
+      return products.map(polarProductResponse);
     } catch (error) {
       throw new BillingServiceError(
         "polar_products_failed",
@@ -132,7 +129,7 @@ export class BillingService {
   }
 
   async createPolarProduct(project: AuthProject, input: CreatePolarProductInput) {
-    const client = createPolarClient(project);
+    const client = createPolarClientFromProject(project);
     if (!client) {
       throw new BillingServiceError(
         "billing_not_configured",
@@ -142,29 +139,12 @@ export class BillingService {
     }
 
     try {
-      const product = await client.products.create({
-        name: input.name,
-        description: input.description || null,
-        visibility: "private",
-        prices: [
-          {
-            amountType: "fixed",
-            priceAmount: input.priceAmount,
-            priceCurrency: input.priceCurrency as PresentmentCurrency
-          }
-        ],
-        ...(input.type === "subscription"
-          ? {
-              recurringInterval: input.recurringInterval,
-              recurringIntervalCount: 1
-            }
-          : {
-              recurringInterval: null,
-              recurringIntervalCount: null
-            })
-      });
-
-      return createdBillingProductResponse(product, input);
+      const product = await createPolarProduct(client, input);
+      return createdBillingProductResponse(
+        product,
+        input,
+        defaultEntitlementsForBillingProduct(input.type)
+      );
     } catch (error) {
       throw new BillingServiceError(
         "polar_product_create_failed",
@@ -172,71 +152,4 @@ export class BillingService {
       );
     }
   }
-}
-
-function createPolarClient(project: AuthProject): Polar | null {
-  const billing = project.billing;
-  if (billing.provider !== "polar" || !billing.enabled || !billing.accessToken) {
-    return null;
-  }
-
-  return new Polar({
-    accessToken: billing.accessToken,
-    server: billing.environment
-  });
-}
-
-function polarErrorMessage(error: unknown, fallback: string): string {
-  if (isRecord(error)) {
-    const body = typeof error.body === "string" ? error.body : "";
-    const statusCode = typeof error.statusCode === "number" ? error.statusCode : null;
-    const parsed = parsePolarErrorBody(body);
-    if (parsed) {
-      return statusCode ? `Polar ${statusCode}: ${parsed}` : parsed;
-    }
-    if (error.message && typeof error.message === "string") {
-      return statusCode ? `Polar ${statusCode}: ${error.message}` : error.message;
-    }
-  }
-
-  return error instanceof Error ? error.message : fallback;
-}
-
-function parsePolarErrorBody(body: string): string | null {
-  if (!body) {
-    return null;
-  }
-
-  try {
-    const data = JSON.parse(body) as unknown;
-    if (!isRecord(data)) {
-      return body.slice(0, 300);
-    }
-    if (typeof data.detail === "string") {
-      return data.detail;
-    }
-    if (Array.isArray(data.detail)) {
-      return data.detail
-        .map((item) => {
-          if (!isRecord(item)) {
-            return null;
-          }
-          const location = Array.isArray(item.loc) ? item.loc.join(".") : "";
-          const message = typeof item.msg === "string" ? item.msg : null;
-          return message ? [location, message].filter(Boolean).join(": ") : null;
-        })
-        .filter((item): item is string => Boolean(item))
-        .join("; ");
-    }
-    if (typeof data.message === "string") {
-      return data.message;
-    }
-    return JSON.stringify(data).slice(0, 300);
-  } catch {
-    return body.slice(0, 300);
-  }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
