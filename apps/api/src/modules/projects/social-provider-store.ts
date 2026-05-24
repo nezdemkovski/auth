@@ -1,6 +1,5 @@
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
 
 import {
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
@@ -12,6 +11,7 @@ import {
   SOCIAL_PROVIDER_IDS,
   type SocialProviderId
 } from "../../config/social-providers";
+import { createAdminPool } from "../../db/admin-pool";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 
 export type PublicSocialProviderSettings = {
@@ -325,11 +325,4 @@ function normalizeDate(value: Date | string | null | undefined): string | null {
   }
 
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
-}
-
-function createAdminPool(databaseUrl: string, adminProject: AuthProject): Pool {
-  return new Pool({
-    connectionString: databaseUrl,
-    options: `-c search_path=${adminProject.schema},public`
-  });
 }

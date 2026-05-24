@@ -1,8 +1,8 @@
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
 
 import type { AuthProject } from "../../config/projects";
+import { createAdminPool } from "../../db/admin-pool";
 import { EmailProvider, type EmailConfig } from "../../email/sender";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 import {
@@ -246,11 +246,4 @@ function decryptSecret(value: string, secret: string, key: string): string {
 
 function encryptionContext(key: string): string {
   return `delivery:${key}`;
-}
-
-function createAdminPool(databaseUrl: string, adminProject: AuthProject): Pool {
-  return new Pool({
-    connectionString: databaseUrl,
-    options: `-c search_path=${adminProject.schema},public`
-  });
 }

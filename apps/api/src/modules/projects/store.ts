@@ -1,6 +1,5 @@
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
 
 import {
   DEFAULT_PROJECT_FEATURES,
@@ -11,6 +10,7 @@ import {
   type AuthProject,
   type ProjectFeatures
 } from "../../config/projects";
+import { createAdminPool } from "../../db/admin-pool";
 import { cloneDefaultBilling, loadBillingSettings } from "../billing/store";
 import {
   cloneDefaultStorage,
@@ -497,11 +497,4 @@ function normalizeTrustedOrigins(value: unknown): string[] {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function createAdminPool(databaseUrl: string, adminProject: AuthProject): Pool {
-  return new Pool({
-    connectionString: databaseUrl,
-    options: `-c search_path=${adminProject.schema},public`
-  });
 }

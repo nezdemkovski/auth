@@ -1,12 +1,12 @@
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
 
 import {
   DEFAULT_PROJECT_BILLING,
   type AuthProject,
   type ProjectBillingSettings
 } from "../../config/projects";
+import { createAdminPool } from "../../db/admin-pool";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 import { normalizeBillingProducts } from "./translator";
 import type { BillingSettingsPatch } from "./validator";
@@ -314,11 +314,4 @@ function decryptSecret(value: string, secret: string, projectSlug: string, key: 
 
 function encryptionContext(projectSlug: string, key: string): string {
   return `billing:${projectSlug}:${key}`;
-}
-
-function createAdminPool(databaseUrl: string, adminProject: AuthProject): Pool {
-  return new Pool({
-    connectionString: databaseUrl,
-    options: `-c search_path=${adminProject.schema},public`
-  });
 }

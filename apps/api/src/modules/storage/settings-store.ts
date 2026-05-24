@@ -1,12 +1,12 @@
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
 
 import {
   DEFAULT_PROJECT_STORAGE,
   type AuthProject,
   type ProjectStorageSettings
 } from "../../config/projects";
+import { createAdminPool } from "../../db/admin-pool";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 
 export type PublicStorageSettings = Omit<
@@ -416,11 +416,4 @@ function decryptSecret(value: string, secret: string, projectSlug: string, key: 
 
 function encryptionContext(projectSlug: string, key: string): string {
   return `storage:${projectSlug}:${key}`;
-}
-
-function createAdminPool(databaseUrl: string, adminProject: AuthProject): Pool {
-  return new Pool({
-    connectionString: databaseUrl,
-    options: `-c search_path=${adminProject.schema},public`
-  });
 }
