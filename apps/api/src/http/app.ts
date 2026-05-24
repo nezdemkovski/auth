@@ -1,12 +1,8 @@
 import { Hono } from "hono";
 
 import {
-  createLoginSessionCode,
   createLoginCodeStore,
-  exchangeLoginCode,
-  getLoginConfig,
-  getOAuthConsentConfig,
-  getPasswordResetConfig
+  registerLoginRoutes
 } from "../modules/login/http";
 import { registerAuthProxyRoutes } from "../modules/auth-proxy/http";
 import { StorageService } from "../modules/storage/core";
@@ -129,33 +125,12 @@ export async function createApp(env: Env) {
     })
   );
 
-  app.get("/api/:project/login/config/login", (c) =>
-    getLoginConfig(c.req.raw, c.req.param("project"), { registry })
-  );
-  app.get("/api/:project/login/config/reset-password", (c) =>
-    getPasswordResetConfig(c.req.raw, c.req.param("project"), { registry })
-  );
-  app.get("/api/:project/login/config/oauth-consent", (c) =>
-    getOAuthConsentConfig(c.req.raw, c.req.param("project"), { registry })
-  );
-
-  app.post("/api/:project/login/token", (c) => {
-    return exchangeLoginCode(c.req.raw, c.req.param("project"), {
-      registry,
-      secret: env.betterAuthSecret,
-      codeStore: loginCodeStore
-    });
+  registerLoginRoutes(app, {
+    registry,
+    secret: env.betterAuthSecret,
+    trustProxyHeaders: env.trustProxyHeaders,
+    codeStore: loginCodeStore
   });
-
-  app.post("/api/:project/login/session-code", (c) => {
-    return createLoginSessionCode(c.req.raw, c.req.param("project"), {
-      registry,
-      secret: env.betterAuthSecret,
-      trustProxyHeaders: env.trustProxyHeaders,
-      codeStore: loginCodeStore
-    });
-  });
-
   registerPublicStorageRoutes(app, { registry, storageService });
   registerAuthProxyRoutes(app, { registry });
 

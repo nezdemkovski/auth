@@ -1,4 +1,5 @@
 import type { AuthRegistry } from "../../auth/registry";
+import type { Hono } from "hono";
 import {
   LoginFlowError,
   LoginFlowService,
@@ -16,6 +17,10 @@ import {
 
 export { createLoginCodeStore };
 
+type LoginVariables = {
+  registry: AuthRegistry;
+};
+
 type LoginOptions = {
   registry: AuthRegistry;
   secret: string;
@@ -26,6 +31,29 @@ type LoginOptions = {
 type LoginConfigOptions = {
   registry: AuthRegistry;
 };
+
+export function registerLoginRoutes(
+  app: Hono<{ Variables: LoginVariables }>,
+  options: LoginOptions
+): void {
+  app.get("/api/:project/login/config/login", (c) =>
+    getLoginConfig(c.req.raw, c.req.param("project"), options)
+  );
+  app.get("/api/:project/login/config/reset-password", (c) =>
+    getPasswordResetConfig(c.req.raw, c.req.param("project"), options)
+  );
+  app.get("/api/:project/login/config/oauth-consent", (c) =>
+    getOAuthConsentConfig(c.req.raw, c.req.param("project"), options)
+  );
+
+  app.post("/api/:project/login/token", (c) => {
+    return exchangeLoginCode(c.req.raw, c.req.param("project"), options);
+  });
+
+  app.post("/api/:project/login/session-code", (c) => {
+    return createLoginSessionCode(c.req.raw, c.req.param("project"), options);
+  });
+}
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
