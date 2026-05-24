@@ -1,18 +1,17 @@
-import { createHash } from "node:crypto";
-
 import type { AuthRegistry } from "../auth/registry";
-import { ReconnectingRedisClient, type RedisBackedStore } from "./security";
+import {
+  createLoginCodeStore,
+  internalAuthHeaders,
+  LoginFlowError,
+  LoginFlowService,
+  pkceChallenge,
+  redirectUriAllowed,
+  validPkceChallenge,
+  verifyPkce,
+  type LoginCodeStore
+} from "../services/core/login";
 
-const CODE_TTL_SECONDS = 60;
-
-type PendingLoginCode = {
-  project: string;
-  sessionCookie: string;
-  email: string;
-  redirectUri: string;
-  codeChallenge: string;
-  expiresAt: number;
-};
+export { createLoginCodeStore };
 
 type LoginOptions = {
   registry: AuthRegistry;
@@ -33,132 +32,6 @@ function json(data: unknown, status = 200): Response {
       "X-Content-Type-Options": "nosniff"
     }
   });
-}
-
-type LoginCodeStore = RedisBackedStore & {
-  set(code: string, payload: PendingLoginCode): Promise<void>;
-  get(code: string): Promise<PendingLoginCode | null>;
-  delete(code: string): Promise<void>;
-};
-
-const pendingLoginCodes = new Map<string, PendingLoginCode>();
-
-export function createLoginCodeStore(redisUrl: string | null): LoginCodeStore {
-  if (redisUrl) {
-    return new RedisLoginCodeStore(redisUrl);
-  }
-
-  return new MemoryLoginCodeStore();
-}
-
-class MemoryLoginCodeStore implements LoginCodeStore {
-  async connect(): Promise<void> {}
-
-  async set(code: string, payload: PendingLoginCode): Promise<void> {
-    pruneExpiredCodes();
-    pendingLoginCodes.set(code, payload);
-  }
-
-  async get(code: string): Promise<PendingLoginCode | null> {
-    pruneExpiredCodes();
-    const pending = pendingLoginCodes.get(code);
-    if (!pending || pending.expiresAt < Date.now()) {
-      pendingLoginCodes.delete(code);
-      return null;
-    }
-
-    return pending;
-  }
-
-  async delete(code: string): Promise<void> {
-    pendingLoginCodes.delete(code);
-  }
-
-  async close(): Promise<void> {}
-}
-
-class RedisLoginCodeStore implements LoginCodeStore {
-  private readonly client: ReconnectingRedisClient;
-
-  constructor(redisUrl: string) {
-    this.client = new ReconnectingRedisClient(redisUrl);
-  }
-
-  connect(): Promise<void> {
-    return this.client.connect();
-  }
-
-  async set(code: string, payload: PendingLoginCode): Promise<void> {
-    await this.client.withClient((redis) =>
-      redis.set(loginCodeKey(code), JSON.stringify(payload), "EX", CODE_TTL_SECONDS)
-    );
-  }
-
-  async get(code: string): Promise<PendingLoginCode | null> {
-    const value = await this.client.withClient((redis) => redis.get(loginCodeKey(code)));
-    if (!value) {
-      return null;
-    }
-
-    const parsed = JSON.parse(value) as PendingLoginCode;
-    if (parsed.expiresAt < Date.now()) {
-      await this.delete(code);
-      return null;
-    }
-
-    return parsed;
-  }
-
-  async delete(code: string): Promise<void> {
-    await this.client.withClient((redis) => redis.del(loginCodeKey(code)));
-  }
-
-  close(): void {
-    this.client.close();
-  }
-}
-
-function loginCodeKey(code: string): string {
-  return `auth:login-code:${code}`;
-}
-
-function pruneExpiredCodes(now = Date.now()): void {
-  for (const [code, payload] of pendingLoginCodes) {
-    if (payload.expiresAt < now) {
-      pendingLoginCodes.delete(code);
-    }
-  }
-}
-
-function createCode(): string {
-  return Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString(
-    "base64url"
-  );
-}
-
-function pkceChallenge(verifier: string): string {
-  return createHash("sha256").update(verifier).digest("base64url");
-}
-
-function validPkceChallenge(value: string): boolean {
-  return /^[A-Za-z0-9_-]{43,128}$/.test(value);
-}
-
-function verifyPkce(codeChallenge: string, codeVerifier: string): boolean {
-  return validPkceChallenge(codeVerifier) && pkceChallenge(codeVerifier) === codeChallenge;
-}
-
-function redirectUriAllowed(
-  registry: AuthRegistry,
-  project: string,
-  redirectUri: string
-): boolean {
-  try {
-    const url = new URL(redirectUri);
-    return registry.isTrustedOrigin(project, url.origin);
-  } catch {
-    return false;
-  }
 }
 
 function runtimeConfig(data: unknown, status = 200): Response {
@@ -260,6 +133,55 @@ export function getOAuthConsentConfig(
   });
 }
 
+export async function createLoginSessionCode(
+  req: Request,
+  project: string,
+  options: LoginOptions
+): Promise<Response> {
+  const body = await req.json().catch(() => null);
+  const service = new LoginFlowService(options);
+
+  try {
+    return json(
+      await service.createSessionCode({
+        project,
+        redirectUri:
+          typeof body?.redirect_uri === "string" ? body.redirect_uri : "",
+        state: typeof body?.state === "string" ? body.state : "",
+        codeChallenge:
+          typeof body?.code_challenge === "string" ? body.code_challenge : "",
+        headers: req.headers
+      })
+    );
+  } catch (error) {
+    return loginFlowError(error);
+  }
+}
+
+export async function exchangeLoginCode(
+  req: Request,
+  project: string,
+  options: LoginOptions
+): Promise<Response> {
+  const body = await req.json().catch(() => null);
+  const service = new LoginFlowService(options);
+
+  try {
+    return json(
+      await service.exchangeCode({
+        project,
+        code: typeof body?.code === "string" ? body.code : "",
+        redirectUri:
+          typeof body?.redirect_uri === "string" ? body.redirect_uri : "",
+        codeVerifier:
+          typeof body?.code_verifier === "string" ? body.code_verifier : ""
+      })
+    );
+  } catch (error) {
+    return loginFlowError(error);
+  }
+}
+
 function enabledSocialProviders(
   registered: NonNullable<ReturnType<AuthRegistry["get"]>>
 ): string[] {
@@ -268,82 +190,12 @@ function enabledSocialProviders(
     .map(([provider]) => provider);
 }
 
-async function issueLoginCodeFromSession(options: {
-  registered: NonNullable<ReturnType<AuthRegistry["get"]>>;
-  redirectUri: string;
-  state: string;
-  codeChallenge: string;
-  headers: Headers;
-  trustProxyHeaders: boolean;
-  codeStore: LoginCodeStore;
-}): Promise<{ redirectTo: string; email: string } | null> {
-  const authPath = `/api/${options.registered.project.slug}/auth`;
-  const sessionRes = await options.registered.auth.handler(
-    new Request(`http://auth.local${authPath}/get-session`, {
-      headers: internalAuthHeaders(options.headers, {
-        Cookie: options.headers.get("cookie") ?? ""
-      }, options)
-    })
-  );
-
-  if (!sessionRes.ok) {
-    return null;
+function loginFlowError(error: unknown): Response {
+  if (error instanceof LoginFlowError) {
+    return json({ error: error.code }, error.status);
   }
 
-  const session = await sessionRes.json().catch(() => null);
-  const email = typeof session?.user?.email === "string" ? session.user.email : "";
-
-  if (!email) {
-    return null;
-  }
-
-  const code = createCode();
-  await options.codeStore.set(code, {
-    project: options.registered.project.slug,
-    sessionCookie: options.headers.get("cookie") ?? "",
-    email,
-    redirectUri: options.redirectUri,
-    codeChallenge: options.codeChallenge,
-    expiresAt: Date.now() + CODE_TTL_SECONDS * 1000
-  });
-
-  const callback = new URL(options.redirectUri);
-  callback.searchParams.set("code", code);
-  if (options.state) {
-    callback.searchParams.set("state", options.state);
-  }
-
-  return {
-    redirectTo: callback.toString(),
-    email
-  };
-}
-
-function internalAuthHeaders(
-  source: Headers,
-  headers: HeadersInit,
-  options: { trustProxyHeaders: boolean }
-): Headers {
-  const result = new Headers(headers);
-
-  const headerNames = options.trustProxyHeaders
-    ? [
-        "cf-connecting-ip",
-        "x-forwarded-for",
-        "x-real-ip",
-        "x-client-ip",
-        "user-agent"
-      ]
-    : ["user-agent"];
-
-  for (const name of headerNames) {
-    const value = source.get(name);
-    if (value) {
-      result.set(name, value);
-    }
-  }
-
-  return result;
+  throw error;
 }
 
 export const __loginTestUtils = {
@@ -354,84 +206,3 @@ export const __loginTestUtils = {
   validPkceChallenge,
   verifyPkce
 };
-
-export async function createLoginSessionCode(
-  req: Request,
-  project: string,
-  options: LoginOptions
-): Promise<Response> {
-  const registered = options.registry.get(project);
-  if (!registered) {
-    return json({ error: "unknown_project" }, 404);
-  }
-
-  const body = await req.json().catch(() => null);
-  const redirectUri =
-    typeof body?.redirect_uri === "string" ? body.redirect_uri : "";
-  const state = typeof body?.state === "string" ? body.state : "";
-  const codeChallenge =
-    typeof body?.code_challenge === "string" ? body.code_challenge : "";
-
-  if (!redirectUriAllowed(options.registry, project, redirectUri)) {
-    return json({ error: "invalid_redirect_uri" }, 400);
-  }
-
-  if (!validPkceChallenge(codeChallenge)) {
-    return json({ error: "invalid_pkce_challenge" }, 400);
-  }
-
-  const issued = await issueLoginCodeFromSession({
-    registered,
-    redirectUri,
-    state,
-    codeChallenge,
-    headers: req.headers,
-    trustProxyHeaders: options.trustProxyHeaders === true,
-    codeStore: options.codeStore
-  });
-
-  if (!issued) {
-    return json({ error: "unauthorized" }, 401);
-  }
-
-  return json(issued);
-}
-
-export async function exchangeLoginCode(
-  req: Request,
-  project: string,
-  options: LoginOptions
-): Promise<Response> {
-  const registered = options.registry.get(project);
-  if (!registered) {
-    return json({ error: "unknown_project" }, 404);
-  }
-
-  const body = await req.json().catch(() => null);
-  const code = typeof body?.code === "string" ? body.code : "";
-  const redirectUri =
-    typeof body?.redirect_uri === "string" ? body.redirect_uri : "";
-  const codeVerifier =
-    typeof body?.code_verifier === "string" ? body.code_verifier : "";
-
-  if (!redirectUriAllowed(options.registry, project, redirectUri)) {
-    return json({ error: "invalid_redirect_uri" }, 400);
-  }
-
-  const payload = await options.codeStore.get(code);
-  if (
-    !payload ||
-    payload.project !== project ||
-    payload.redirectUri !== redirectUri ||
-    !verifyPkce(payload.codeChallenge, codeVerifier)
-  ) {
-    return json({ error: "invalid_code" }, 400);
-  }
-
-  await options.codeStore.delete(code);
-
-  return json({
-    sessionCookie: payload.sessionCookie,
-    email: payload.email
-  });
-}

@@ -1,0 +1,306 @@
+import { createHash } from "node:crypto";
+
+import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
+import { ReconnectingRedisClient, type RedisBackedStore } from "../../http/security";
+
+const CODE_TTL_SECONDS = 60;
+
+export type PendingLoginCode = {
+  project: string;
+  sessionCookie: string;
+  email: string;
+  redirectUri: string;
+  codeChallenge: string;
+  expiresAt: number;
+};
+
+export type LoginCodeStore = RedisBackedStore & {
+  set(code: string, payload: PendingLoginCode): Promise<void>;
+  get(code: string): Promise<PendingLoginCode | null>;
+  delete(code: string): Promise<void>;
+};
+
+export type LoginFlowOptions = {
+  registry: AuthRegistry;
+  codeStore: LoginCodeStore;
+  trustProxyHeaders?: boolean;
+};
+
+export class LoginFlowError extends Error {
+  constructor(
+    readonly code: string,
+    readonly status = 400
+  ) {
+    super(code);
+    this.name = "LoginFlowError";
+  }
+}
+
+const pendingLoginCodes = new Map<string, PendingLoginCode>();
+
+export function createLoginCodeStore(redisUrl: string | null): LoginCodeStore {
+  if (redisUrl) {
+    return new RedisLoginCodeStore(redisUrl);
+  }
+
+  return new MemoryLoginCodeStore();
+}
+
+class MemoryLoginCodeStore implements LoginCodeStore {
+  async connect(): Promise<void> {}
+
+  async set(code: string, payload: PendingLoginCode): Promise<void> {
+    pruneExpiredCodes();
+    pendingLoginCodes.set(code, payload);
+  }
+
+  async get(code: string): Promise<PendingLoginCode | null> {
+    pruneExpiredCodes();
+    const pending = pendingLoginCodes.get(code);
+    if (!pending || pending.expiresAt < Date.now()) {
+      pendingLoginCodes.delete(code);
+      return null;
+    }
+
+    return pending;
+  }
+
+  async delete(code: string): Promise<void> {
+    pendingLoginCodes.delete(code);
+  }
+
+  async close(): Promise<void> {}
+}
+
+class RedisLoginCodeStore implements LoginCodeStore {
+  private readonly client: ReconnectingRedisClient;
+
+  constructor(redisUrl: string) {
+    this.client = new ReconnectingRedisClient(redisUrl);
+  }
+
+  connect(): Promise<void> {
+    return this.client.connect();
+  }
+
+  async set(code: string, payload: PendingLoginCode): Promise<void> {
+    await this.client.withClient((redis) =>
+      redis.set(loginCodeKey(code), JSON.stringify(payload), "EX", CODE_TTL_SECONDS)
+    );
+  }
+
+  async get(code: string): Promise<PendingLoginCode | null> {
+    const value = await this.client.withClient((redis) => redis.get(loginCodeKey(code)));
+    if (!value) {
+      return null;
+    }
+
+    const parsed = JSON.parse(value) as PendingLoginCode;
+    if (parsed.expiresAt < Date.now()) {
+      await this.delete(code);
+      return null;
+    }
+
+    return parsed;
+  }
+
+  async delete(code: string): Promise<void> {
+    await this.client.withClient((redis) => redis.del(loginCodeKey(code)));
+  }
+
+  close(): void {
+    this.client.close();
+  }
+}
+
+export class LoginFlowService {
+  constructor(private readonly options: LoginFlowOptions) {}
+
+  async createSessionCode(input: {
+    project: string;
+    redirectUri: string;
+    state: string;
+    codeChallenge: string;
+    headers: Headers;
+  }): Promise<{ redirectTo: string; email: string }> {
+    const registered = this.options.registry.get(input.project);
+    if (!registered) {
+      throw new LoginFlowError("unknown_project", 404);
+    }
+    if (!redirectUriAllowed(this.options.registry, input.project, input.redirectUri)) {
+      throw new LoginFlowError("invalid_redirect_uri");
+    }
+    if (!validPkceChallenge(input.codeChallenge)) {
+      throw new LoginFlowError("invalid_pkce_challenge");
+    }
+
+    const issued = await issueLoginCodeFromSession({
+      registered,
+      redirectUri: input.redirectUri,
+      state: input.state,
+      codeChallenge: input.codeChallenge,
+      headers: input.headers,
+      trustProxyHeaders: this.options.trustProxyHeaders === true,
+      codeStore: this.options.codeStore
+    });
+
+    if (!issued) {
+      throw new LoginFlowError("unauthorized", 401);
+    }
+
+    return issued;
+  }
+
+  async exchangeCode(input: {
+    project: string;
+    code: string;
+    redirectUri: string;
+    codeVerifier: string;
+  }): Promise<{ sessionCookie: string; email: string }> {
+    const registered = this.options.registry.get(input.project);
+    if (!registered) {
+      throw new LoginFlowError("unknown_project", 404);
+    }
+    if (!redirectUriAllowed(this.options.registry, input.project, input.redirectUri)) {
+      throw new LoginFlowError("invalid_redirect_uri");
+    }
+
+    const payload = await this.options.codeStore.get(input.code);
+    if (
+      !payload ||
+      payload.project !== input.project ||
+      payload.redirectUri !== input.redirectUri ||
+      !verifyPkce(payload.codeChallenge, input.codeVerifier)
+    ) {
+      throw new LoginFlowError("invalid_code");
+    }
+
+    await this.options.codeStore.delete(input.code);
+
+    return {
+      sessionCookie: payload.sessionCookie,
+      email: payload.email
+    };
+  }
+}
+
+function loginCodeKey(code: string): string {
+  return `auth:login-code:${code}`;
+}
+
+function pruneExpiredCodes(now = Date.now()): void {
+  for (const [code, payload] of pendingLoginCodes) {
+    if (payload.expiresAt < now) {
+      pendingLoginCodes.delete(code);
+    }
+  }
+}
+
+function createCode(): string {
+  return Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString(
+    "base64url"
+  );
+}
+
+export function pkceChallenge(verifier: string): string {
+  return createHash("sha256").update(verifier).digest("base64url");
+}
+
+export function validPkceChallenge(value: string): boolean {
+  return /^[A-Za-z0-9_-]{43,128}$/.test(value);
+}
+
+export function verifyPkce(codeChallenge: string, codeVerifier: string): boolean {
+  return validPkceChallenge(codeVerifier) && pkceChallenge(codeVerifier) === codeChallenge;
+}
+
+export function redirectUriAllowed(
+  registry: AuthRegistry,
+  project: string,
+  redirectUri: string
+): boolean {
+  try {
+    const url = new URL(redirectUri);
+    return registry.isTrustedOrigin(project, url.origin);
+  } catch {
+    return false;
+  }
+}
+
+export function internalAuthHeaders(
+  source: Headers,
+  headers: HeadersInit,
+  options: { trustProxyHeaders: boolean }
+): Headers {
+  const result = new Headers(headers);
+
+  const headerNames = options.trustProxyHeaders
+    ? [
+        "cf-connecting-ip",
+        "x-forwarded-for",
+        "x-real-ip",
+        "x-client-ip",
+        "user-agent"
+      ]
+    : ["user-agent"];
+
+  for (const name of headerNames) {
+    const value = source.get(name);
+    if (value) {
+      result.set(name, value);
+    }
+  }
+
+  return result;
+}
+
+async function issueLoginCodeFromSession(options: {
+  registered: RegisteredProject;
+  redirectUri: string;
+  state: string;
+  codeChallenge: string;
+  headers: Headers;
+  trustProxyHeaders: boolean;
+  codeStore: LoginCodeStore;
+}): Promise<{ redirectTo: string; email: string } | null> {
+  const authPath = `/api/${options.registered.project.slug}/auth`;
+  const sessionRes = await options.registered.auth.handler(
+    new Request(`http://auth.local${authPath}/get-session`, {
+      headers: internalAuthHeaders(options.headers, {
+        Cookie: options.headers.get("cookie") ?? ""
+      }, options)
+    })
+  );
+
+  if (!sessionRes.ok) {
+    return null;
+  }
+
+  const session = await sessionRes.json().catch(() => null);
+  const email = typeof session?.user?.email === "string" ? session.user.email : "";
+
+  if (!email) {
+    return null;
+  }
+
+  const code = createCode();
+  await options.codeStore.set(code, {
+    project: options.registered.project.slug,
+    sessionCookie: options.headers.get("cookie") ?? "",
+    email,
+    redirectUri: options.redirectUri,
+    codeChallenge: options.codeChallenge,
+    expiresAt: Date.now() + CODE_TTL_SECONDS * 1000
+  });
+
+  const callback = new URL(options.redirectUri);
+  callback.searchParams.set("code", code);
+  if (options.state) {
+    callback.searchParams.set("state", options.state);
+  }
+
+  return {
+    redirectTo: callback.toString(),
+    email
+  };
+}
