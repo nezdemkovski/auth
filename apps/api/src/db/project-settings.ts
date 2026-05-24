@@ -11,7 +11,7 @@ import {
   type AuthProject,
   type ProjectFeatures
 } from "../config/projects";
-import { cloneDefaultBilling, loadBillingSettings } from "./billing-settings";
+import { cloneDefaultBilling, loadBillingSettings } from "../modules/billing/store";
 import { cloneDefaultStorage, loadStorageSettings } from "../modules/storage/store";
 import {
   ensureSocialProviderSettingsTable,

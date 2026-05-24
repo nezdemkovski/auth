@@ -1,7 +1,7 @@
 import type { AuthProject } from "../../../config/projects";
 import { SOCIAL_PROVIDER_CATALOG, isSocialProviderId } from "../../../config/social-providers";
 import { prepareProjectSchema } from "../../../db/bootstrap";
-import { loadProjectBillingSettings } from "../../../db/billing-settings";
+import { loadProjectBillingSettings } from "../../../modules/billing/store";
 import {
   createProjectFromInput,
   createProjectSettings,

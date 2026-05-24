@@ -7,7 +7,7 @@ import {
   readPublicBillingSettings,
   updateBillingSettings,
   type BillingSettingsPatch
-} from "../../db/billing-settings";
+} from "./store";
 import {
   createdBillingProductResponse,
   polarProductResponse

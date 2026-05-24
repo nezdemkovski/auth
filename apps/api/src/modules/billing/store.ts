@@ -8,8 +8,8 @@ import {
   type BillingEntitlement,
   type BillingProductMapping,
   type ProjectBillingSettings
-} from "../config/projects";
-import { decryptSecretValue, encryptSecretValue } from "./secret-crypto";
+} from "../../config/projects";
+import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 
 export type PublicBillingSettings = Omit<
   ProjectBillingSettings,

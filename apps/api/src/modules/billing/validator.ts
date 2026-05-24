@@ -1,4 +1,4 @@
-import type { BillingSettingsPatch } from "../../db/billing-settings";
+import type { BillingSettingsPatch } from "./store";
 
 type BillingSettingsBody = Partial<Record<keyof BillingSettingsPatch, unknown>>;
 type CreatePolarProductBody = {

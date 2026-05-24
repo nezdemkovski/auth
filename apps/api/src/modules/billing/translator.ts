@@ -1,6 +1,6 @@
 import type { Product } from "@polar-sh/sdk/models/components/product";
 
-import type { BillingSettingsPatch } from "../../db/billing-settings";
+import type { BillingSettingsPatch } from "./store";
 import type { CreatePolarProductInput } from "./validator";
 
 type BillingProductType = CreatePolarProductInput["type"];
