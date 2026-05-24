@@ -1,13 +1,16 @@
 import type { AuthRegistry } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
-import { createEmailSender, type EmailConfig } from "../../email/sender";
+import { createEmailSender, EmailProvider, type EmailConfig } from "../../email/sender";
 import type { AdminSession } from "../../http/admin/shared";
-import type { PublicDeliverySettings } from "./translator";
 import {
-  loadDeliverySettings,
-  readPublicDeliverySettings,
+  deliverySettingsResponse,
+  type PublicDeliverySettings
+} from "./translator";
+import {
+  readDeliverySettings,
   updateDeliverySettings
 } from "./store";
+import type { DeliverySettings } from "./store";
 import {
   validateDeliverySettingsPatch,
   type DeliverySettingsPatch
@@ -35,10 +38,13 @@ export class DeliveryService {
   ) {}
 
   async readSettings(): Promise<PublicDeliverySettings> {
-    return readPublicDeliverySettings({
+    const settings = await readDeliverySettings({
       databaseUrl: this.options.databaseUrl,
-      adminProject: this.options.adminProject
+      adminProject: this.options.adminProject,
+      encryptionSecret: this.options.encryptionSecret
     });
+
+    return deliverySettingsResponse(settings);
   }
 
   async updateSettings(patch: DeliverySettingsPatch): Promise<PublicDeliverySettings> {
@@ -49,12 +55,12 @@ export class DeliveryService {
       encryptionSecret: this.options.encryptionSecret,
       patch
     });
-    const deliverySettings = await this.loadRuntimeSettings();
+    const deliverySettings = toRuntimeEmailConfig(settings);
 
     this.options.setDeliverySettings(deliverySettings);
     await this.options.registry.updateEmailSender(createEmailSender(deliverySettings));
 
-    return settings;
+    return deliverySettingsResponse(settings);
   }
 
   async verify(admin: AdminSession): Promise<void> {
@@ -77,10 +83,44 @@ export class DeliveryService {
   }
 
   private async loadRuntimeSettings(): Promise<EmailConfig> {
-    return loadDeliverySettings({
+    const settings = await readDeliverySettings({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
       encryptionSecret: this.options.encryptionSecret
     });
+
+    return toRuntimeEmailConfig(settings);
   }
+}
+
+export function toRuntimeEmailConfig(settings: DeliverySettings): EmailConfig {
+  if (
+    settings.provider === EmailProvider.Resend &&
+    settings.from &&
+    settings.resendApiKey
+  ) {
+    return {
+      provider: EmailProvider.Resend,
+      from: settings.from,
+      apiKey: settings.resendApiKey
+    };
+  }
+
+  if (
+    settings.provider === EmailProvider.Cloudflare &&
+    settings.from &&
+    settings.cloudflareAccountId &&
+    settings.cloudflareApiToken
+  ) {
+    return {
+      provider: EmailProvider.Cloudflare,
+      from: settings.from,
+      accountId: settings.cloudflareAccountId,
+      apiToken: settings.cloudflareApiToken
+    };
+  }
+
+  return {
+    provider: EmailProvider.None
+  };
 }

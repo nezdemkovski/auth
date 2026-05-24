@@ -11,7 +11,8 @@ import type { Env } from "../config/env";
 import type { AuthProject } from "../config/projects";
 import { AuthRegistry } from "../auth/registry";
 import { bootstrapProjects, prepareProjectSchema } from "../db/bootstrap";
-import { loadDeliverySettings } from "../modules/delivery/store";
+import { toRuntimeEmailConfig } from "../modules/delivery/core";
+import { readDeliverySettings } from "../modules/delivery/store";
 import { loadEffectiveProjects } from "../modules/projects/store";
 import { registerPublicProjectRoutes } from "../modules/projects/public-http";
 import { createEmailSender } from "../email/sender";
@@ -41,12 +42,13 @@ export async function createApp(env: Env) {
     });
   }
 
-  const deliverySettings = await loadDeliverySettings({
+  const deliverySettings = await readDeliverySettings({
     databaseUrl: env.databaseUrl,
     adminProject,
     encryptionSecret: env.betterAuthSecret
   });
-  const emailSender = createEmailSender(deliverySettings);
+  const runtimeDeliverySettings = toRuntimeEmailConfig(deliverySettings);
+  const emailSender = createEmailSender(runtimeDeliverySettings);
 
   ({ adminProject, projects } = await loadEffectiveProjects({
     databaseUrl: env.databaseUrl,
@@ -108,7 +110,7 @@ export async function createApp(env: Env) {
     "/admin/api",
     createAdminApi({
       registry,
-      deliverySettings,
+      deliverySettings: runtimeDeliverySettings,
       databaseUrl: env.databaseUrl,
       adminProject,
       publicBaseUrl: env.publicBaseUrl,

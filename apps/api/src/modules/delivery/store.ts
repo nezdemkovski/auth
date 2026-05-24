@@ -5,11 +5,18 @@ import type { AuthProject } from "../../config/projects";
 import { createAdminPool } from "../../db/admin-pool";
 import { EmailProvider, type EmailConfig } from "../../email/sender";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
-import {
-  deliverySettingsResponse,
-  type PublicDeliverySettings
-} from "./translator";
 import type { DeliverySettingsPatch } from "./validator";
+
+export type DeliverySettings = {
+  provider: EmailConfig["provider"];
+  from: string;
+  cloudflareAccountId: string;
+  cloudflareApiToken: string;
+  resendApiKey: string;
+  cloudflareApiTokenConfigured: boolean;
+  resendApiKeyConfigured: boolean;
+  updatedAt: string | null;
+};
 
 type DeliverySettingsRow = {
   provider: string;
@@ -84,66 +91,14 @@ export async function seedDeliverySettingsFromEnv(options: {
   });
 }
 
-export async function loadDeliverySettings(options: {
+export async function readDeliverySettings(options: {
   databaseUrl: string;
   adminProject: AuthProject;
   encryptionSecret: string;
-}): Promise<EmailConfig> {
+}): Promise<DeliverySettings> {
   await ensureDeliverySettingsTable(options);
   const row = await readDeliverySettingsRow(options);
-  if (!row) {
-    return {
-      provider: EmailProvider.None
-    };
-  }
-
-  if (row.provider === EmailProvider.Resend) {
-    const apiKey = decryptSecret(row.resendApiKeyCipher, options.encryptionSecret, "resend");
-    if (!row.fromAddress || !apiKey) {
-      return {
-        provider: EmailProvider.None
-      };
-    }
-
-    return {
-      provider: EmailProvider.Resend,
-      from: row.fromAddress,
-      apiKey
-    };
-  }
-
-  if (row.provider === EmailProvider.Cloudflare) {
-    const apiToken = decryptSecret(
-      row.cloudflareApiTokenCipher,
-      options.encryptionSecret,
-      "cloudflare"
-    );
-    if (!row.fromAddress || !row.cloudflareAccountId || !apiToken) {
-      return {
-        provider: EmailProvider.None
-      };
-    }
-
-    return {
-      provider: EmailProvider.Cloudflare,
-      from: row.fromAddress,
-      accountId: row.cloudflareAccountId,
-      apiToken
-    };
-  }
-
-  return {
-    provider: EmailProvider.None
-  };
-}
-
-export async function readPublicDeliverySettings(options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
-}): Promise<PublicDeliverySettings> {
-  await ensureDeliverySettingsTable(options);
-  const row = await readDeliverySettingsRow(options);
-  return deliverySettingsResponse(row);
+  return rowToDeliverySettings(row, options.encryptionSecret);
 }
 
 export async function updateDeliverySettings(options: {
@@ -151,7 +106,7 @@ export async function updateDeliverySettings(options: {
   adminProject: AuthProject;
   encryptionSecret: string;
   patch: DeliverySettingsPatch;
-}): Promise<PublicDeliverySettings> {
+}): Promise<DeliverySettings> {
   await ensureDeliverySettingsTable(options);
 
   const current = await readDeliverySettingsRow(options);
@@ -204,7 +159,7 @@ export async function updateDeliverySettings(options: {
                 updated_at AS "updatedAt"
     `);
 
-    return deliverySettingsResponse(result.rows[0]);
+    return rowToDeliverySettings(result.rows[0], options.encryptionSecret);
   } finally {
     await pool.end();
   }
@@ -241,9 +196,70 @@ function encryptSecret(value: string, secret: string, key: string): string {
 }
 
 function decryptSecret(value: string, secret: string, key: string): string {
+  if (!value) {
+    return "";
+  }
+
   return decryptSecretValue(value, secret, encryptionContext(key));
 }
 
 function encryptionContext(key: string): string {
   return `delivery:${key}`;
+}
+
+function rowToDeliverySettings(
+  row: DeliverySettingsRow | null | undefined,
+  encryptionSecret: string
+): DeliverySettings {
+  if (!row) {
+    return {
+      provider: EmailProvider.None,
+      from: "",
+      cloudflareAccountId: "",
+      cloudflareApiToken: "",
+      resendApiKey: "",
+      cloudflareApiTokenConfigured: false,
+      resendApiKeyConfigured: false,
+      updatedAt: null
+    };
+  }
+
+  const provider = isDeliveryProvider(row.provider) ? row.provider : EmailProvider.None;
+  const cloudflareApiToken = decryptSecret(
+    row.cloudflareApiTokenCipher,
+    encryptionSecret,
+    "cloudflare"
+  );
+  const resendApiKey = decryptSecret(
+    row.resendApiKeyCipher,
+    encryptionSecret,
+    "resend"
+  );
+
+  return {
+    provider,
+    from: row.fromAddress,
+    cloudflareAccountId: row.cloudflareAccountId,
+    cloudflareApiToken,
+    resendApiKey,
+    cloudflareApiTokenConfigured: Boolean(row.cloudflareApiTokenCipher),
+    resendApiKeyConfigured: Boolean(row.resendApiKeyCipher),
+    updatedAt: normalizeDate(row.updatedAt)
+  };
+}
+
+function isDeliveryProvider(value: string): value is EmailConfig["provider"] {
+  return (
+    value === EmailProvider.None ||
+    value === EmailProvider.Resend ||
+    value === EmailProvider.Cloudflare
+  );
+}
+
+function normalizeDate(value: Date | string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
