@@ -3,7 +3,12 @@ import {
   parseBillingSettingsPatch,
   parseCreatePolarProduct
 } from "./validator";
-import { requireAdmin, type AdminRouteRegistration } from "../../http/admin/shared";
+import {
+  requireAdmin,
+  requireMutableProject,
+  requireRegisteredProject,
+  type AdminRouteRegistration
+} from "../../http/admin/shared";
 
 export const registerBillingRoutes: AdminRouteRegistration = ({
   app,
@@ -16,13 +21,13 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const registered = options.registry.get(c.req.param("project"));
-    if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
+    const project = requireRegisteredProject(options, c.req.param("project"));
+    if (project.error) {
+      return c.json({ error: project.error }, project.status);
     }
 
     return c.json({
-      settings: await billingService.readSettings(registered.project)
+      settings: await billingService.readSettings(project.registered.project)
     });
   });
 
@@ -32,12 +37,9 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const registered = options.registry.get(c.req.param("project"));
-    if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
-    }
-    if (registered.project.slug === options.adminProject.slug) {
-      return c.json({ error: "system_project_locked" }, 409);
+    const project = requireMutableProject(options, c.req.param("project"));
+    if (project.error) {
+      return c.json({ error: project.error }, project.status);
     }
 
     const patch = parseBillingSettingsPatch(await c.req.json().catch(() => ({})));
@@ -47,7 +49,7 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
 
     try {
       return c.json({
-        settings: await billingService.updateSettings(registered, patch)
+        settings: await billingService.updateSettings(project.registered, patch)
       });
     } catch (error) {
       return c.json(
@@ -66,14 +68,14 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const registered = options.registry.get(c.req.param("project"));
-    if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
+    const project = requireRegisteredProject(options, c.req.param("project"));
+    if (project.error) {
+      return c.json({ error: project.error }, project.status);
     }
 
     try {
       await billingService.verifyPolar(
-        registered.project,
+        project.registered.project,
         await c.req.json().catch(() => ({}))
       );
       return c.json({ ok: true });
@@ -88,14 +90,14 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const registered = options.registry.get(c.req.param("project"));
-    if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
+    const project = requireRegisteredProject(options, c.req.param("project"));
+    if (project.error) {
+      return c.json({ error: project.error }, project.status);
     }
 
     try {
       return c.json({
-        products: await billingService.listPolarProducts(registered.project)
+        products: await billingService.listPolarProducts(project.registered.project)
       });
     } catch (error) {
       return billingServiceError(error);
@@ -108,12 +110,9 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const registered = options.registry.get(c.req.param("project"));
-    if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
-    }
-    if (registered.project.slug === options.adminProject.slug) {
-      return c.json({ error: "system_project_locked" }, 409);
+    const project = requireMutableProject(options, c.req.param("project"));
+    if (project.error) {
+      return c.json({ error: project.error }, project.status);
     }
 
     const input = parseCreatePolarProduct(await c.req.json().catch(() => ({})));
@@ -124,7 +123,7 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
     try {
       return c.json(
         {
-          product: await billingService.createPolarProduct(registered.project, input)
+          product: await billingService.createPolarProduct(project.registered.project, input)
         },
         201
       );

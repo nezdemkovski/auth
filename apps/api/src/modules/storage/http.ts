@@ -6,6 +6,8 @@ import {
 import {
   mediaUploadError,
   requireAdmin,
+  requireMutableProject,
+  requireRegisteredProject,
   type AdminRouteRegistration
 } from "../../http/admin/shared";
 
@@ -20,13 +22,13 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const registered = options.registry.get(c.req.param("project"));
-    if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
+    const project = requireRegisteredProject(options, c.req.param("project"));
+    if (project.error) {
+      return c.json({ error: project.error }, project.status);
     }
 
     return c.json({
-      settings: await storageService.readSettings(registered.project)
+      settings: await storageService.readSettings(project.registered.project)
     });
   });
 
@@ -36,13 +38,13 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const registered = options.registry.get(c.req.param("project"));
-    if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
+    const project = requireRegisteredProject(options, c.req.param("project"));
+    if (project.error) {
+      return c.json({ error: project.error }, project.status);
     }
 
     return c.json({
-      objects: await storageService.listObjects(registered)
+      objects: await storageService.listObjects(project.registered)
     });
   });
 
@@ -52,12 +54,9 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const registered = options.registry.get(c.req.param("project"));
-    if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
-    }
-    if (registered.project.slug === options.adminProject.slug) {
-      return c.json({ error: "system_project_locked" }, 409);
+    const project = requireMutableProject(options, c.req.param("project"));
+    if (project.error) {
+      return c.json({ error: project.error }, project.status);
     }
 
     const body = await c.req.json().catch(() => ({}));
@@ -68,7 +67,7 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
 
     try {
       return c.json({
-        settings: await storageService.updateSettings(registered, patch)
+        settings: await storageService.updateSettings(project.registered, patch)
       });
     } catch (error) {
       return c.json(
@@ -87,12 +86,9 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const registered = options.registry.get(c.req.param("project"));
-    if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
-    }
-    if (registered.project.slug === options.adminProject.slug) {
-      return c.json({ error: "system_project_locked" }, 409);
+    const project = requireMutableProject(options, c.req.param("project"));
+    if (project.error) {
+      return c.json({ error: project.error }, project.status);
     }
 
     const uploadRequest = await parseMediaUploadRequest(
@@ -105,7 +101,7 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
 
     try {
       const result = await storageService.uploadProjectIcon({
-        registered,
+        registered: project.registered,
         purpose: uploadRequest.purpose,
         file: uploadRequest.file,
         ownerUserId: admin.session.user.id

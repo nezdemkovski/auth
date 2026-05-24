@@ -23,6 +23,8 @@ import {
 import { projectResponse } from "./translator";
 import {
   requireAdmin,
+  requireMutableProject,
+  requireRegisteredProject,
   type AdminRouteRegistration
 } from "../../http/admin/shared";
 
@@ -131,13 +133,9 @@ export const registerProjectRoutes: AdminRouteRegistration = ({ app, options }) 
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const registered = options.registry.get(c.req.param("project"));
-    if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
-    }
-
-    if (registered.project.slug === options.adminProject.slug) {
-      return c.json({ error: "system_project_locked" }, 409);
+    const project = requireMutableProject(options, c.req.param("project"));
+    if (project.error) {
+      return c.json({ error: project.error }, project.status);
     }
 
     const body = await c.req.json().catch(() => ({}));
@@ -150,7 +148,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({ app, options }) 
       const updated = await updateProjectSettings({
         databaseUrl: options.databaseUrl,
         adminProject: options.adminProject,
-        slug: registered.project.slug,
+        slug: project.registered.project.slug,
         patch
       });
 
@@ -199,16 +197,16 @@ export const registerProjectRoutes: AdminRouteRegistration = ({ app, options }) 
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const registered = options.registry.get(c.req.param("project"));
-    if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
+    const project = requireRegisteredProject(options, c.req.param("project"));
+    if (project.error) {
+      return c.json({ error: project.error }, project.status);
     }
 
     return c.json({
       providers: await readProjectSocialProviders({
         databaseUrl: options.databaseUrl,
         adminProject: options.adminProject,
-        project: registered.project,
+        project: project.registered.project,
         publicBaseUrl: options.publicBaseUrl
       }),
       catalog: Object.values(SOCIAL_PROVIDER_CATALOG)
@@ -221,10 +219,10 @@ export const registerProjectRoutes: AdminRouteRegistration = ({ app, options }) 
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const registered = options.registry.get(c.req.param("project"));
+    const project = requireRegisteredProject(options, c.req.param("project"));
     const provider = c.req.param("provider");
-    if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
+    if (project.error) {
+      return c.json({ error: project.error }, project.status);
     }
     if (!isSocialProviderId(provider)) {
       return c.json({ error: "unknown_provider" }, 404);
@@ -239,13 +237,13 @@ export const registerProjectRoutes: AdminRouteRegistration = ({ app, options }) 
     const socialProviders = await updateProjectSocialProvider({
       databaseUrl: options.databaseUrl,
       adminProject: options.adminProject,
-      project: registered.project,
+      project: project.registered.project,
       provider,
       patch,
       encryptionSecret: options.secret
     });
     await options.registry.updateProject({
-      ...registered.project,
+      ...project.registered.project,
       socialProviders
     });
 
@@ -253,7 +251,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({ app, options }) 
       providers: await readProjectSocialProviders({
         databaseUrl: options.databaseUrl,
         adminProject: options.adminProject,
-        project: registered.project,
+        project: project.registered.project,
         publicBaseUrl: options.publicBaseUrl
       }),
       catalog: Object.values(SOCIAL_PROVIDER_CATALOG)
@@ -266,21 +264,21 @@ export const registerProjectRoutes: AdminRouteRegistration = ({ app, options }) 
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const registered = options.registry.get(c.req.param("project"));
+    const project = requireRegisteredProject(options, c.req.param("project"));
     const provider = c.req.param("provider");
-    if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
+    if (project.error) {
+      return c.json({ error: project.error }, project.status);
     }
     if (!isSocialProviderId(provider)) {
       return c.json({ error: "unknown_provider" }, 404);
     }
 
-    const settings = registered.project.socialProviders[provider];
+    const settings = project.registered.project.socialProviders[provider];
     if (!settings.enabled || !settings.clientId || !settings.clientSecret) {
       return c.json({ error: "provider_not_configured" }, 409);
     }
 
-    const api = registered.auth.api as unknown as {
+    const api = project.registered.auth.api as unknown as {
       signInSocial(input: {
         body: {
           provider: string;
@@ -291,7 +289,8 @@ export const registerProjectRoutes: AdminRouteRegistration = ({ app, options }) 
         headers: Headers;
       }): Promise<{ url?: string; redirect: boolean }>;
     };
-    const callbackURL = registered.project.trustedOrigins[0] ?? options.publicBaseUrl;
+    const callbackURL =
+      project.registered.project.trustedOrigins[0] ?? options.publicBaseUrl;
     const result = await api.signInSocial({
       body: {
         provider,
@@ -309,17 +308,17 @@ export const registerProjectRoutes: AdminRouteRegistration = ({ app, options }) 
     await markSocialProviderVerified({
       databaseUrl: options.databaseUrl,
       adminProject: options.adminProject,
-      project: registered.project,
+      project: project.registered.project,
       provider
     });
     const socialProviders = await loadProjectSocialProviders({
       databaseUrl: options.databaseUrl,
       adminProject: options.adminProject,
-      project: registered.project,
+      project: project.registered.project,
       encryptionSecret: options.secret
     });
     await options.registry.updateProject({
-      ...registered.project,
+      ...project.registered.project,
       socialProviders
     });
 
@@ -328,7 +327,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({ app, options }) 
       providers: await readProjectSocialProviders({
         databaseUrl: options.databaseUrl,
         adminProject: options.adminProject,
-        project: registered.project,
+        project: project.registered.project,
         publicBaseUrl: options.publicBaseUrl
       }),
       catalog: Object.values(SOCIAL_PROVIDER_CATALOG)

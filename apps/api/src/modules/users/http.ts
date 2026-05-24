@@ -5,6 +5,7 @@ import {
 } from "./store";
 import {
   requireAdmin,
+  requireRegisteredProject,
   sendVerificationEmail,
   toIsoString,
   type AdminRouteRegistration
@@ -22,23 +23,23 @@ export const registerUserRoutes: AdminRouteRegistration = ({
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const registered = options.registry.get(c.req.param("project"));
-    if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
+    const project = requireRegisteredProject(options, c.req.param("project"));
+    if (project.error) {
+      return c.json({ error: project.error }, project.status);
     }
 
-    const users = await readProjectUsers(registered.projectDb.pool);
+    const users = await readProjectUsers(project.registered.projectDb.pool);
 
     return c.json({
       project: {
-        slug: registered.project.slug,
-        name: registered.project.name,
-        schema: registered.project.schema,
-        description: registered.project.description,
-        iconUrl: registered.project.iconUrl,
-        appUrl: registered.project.appUrl,
-        trustedOrigins: registered.project.trustedOrigins,
-        system: registered.project.slug === options.adminProject.slug
+        slug: project.registered.project.slug,
+        name: project.registered.project.name,
+        schema: project.registered.project.schema,
+        description: project.registered.project.description,
+        iconUrl: project.registered.project.iconUrl,
+        appUrl: project.registered.project.appUrl,
+        trustedOrigins: project.registered.project.trustedOrigins,
+        system: project.registered.project.slug === options.adminProject.slug
       },
       users: users.map((user) => ({
         id: user.id,
@@ -60,13 +61,13 @@ export const registerUserRoutes: AdminRouteRegistration = ({
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const registered = options.registry.get(c.req.param("project"));
-    if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
+    const project = requireRegisteredProject(options, c.req.param("project"));
+    if (project.error) {
+      return c.json({ error: project.error }, project.status);
     }
 
     const userId = c.req.param("userId");
-    const terminated = await terminateUserSessions(registered.projectDb.pool, userId);
+    const terminated = await terminateUserSessions(project.registered.projectDb.pool, userId);
 
     return c.json({
       terminated
@@ -83,9 +84,9 @@ export const registerUserRoutes: AdminRouteRegistration = ({
       return c.json({ error: "email_service_disabled" }, 409);
     }
 
-    const registered = options.registry.get(c.req.param("project"));
-    if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
+    const project = requireRegisteredProject(options, c.req.param("project"));
+    if (project.error) {
+      return c.json({ error: project.error }, project.status);
     }
 
     const email = parseResendVerificationEmail(await c.req.json().catch(() => ({})));
@@ -93,9 +94,9 @@ export const registerUserRoutes: AdminRouteRegistration = ({
       return c.json({ error: "invalid_body" }, 400);
     }
 
-    await sendVerificationEmail(registered.auth, {
+    await sendVerificationEmail(project.registered.auth, {
       email,
-      callbackURL: registered.project.trustedOrigins[0]
+      callbackURL: project.registered.project.trustedOrigins[0]
     });
 
     return c.json({ ok: true });
