@@ -4,6 +4,7 @@ import {
   parseCreatePolarProduct
 } from "./validator";
 import {
+  parseJson,
   requireAdmin,
   requireMutableProject,
   requireRegisteredProject,
@@ -42,7 +43,7 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
       return c.json({ error: project.error }, project.status);
     }
 
-    const patch = parseBillingSettingsPatch(await c.req.json().catch(() => ({})));
+    const patch = parseBillingSettingsPatch(await parseJson(c.req));
     if (!patch) {
       return c.json({ error: "invalid_body" }, 400);
     }
@@ -76,7 +77,7 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
     try {
       await billingService.verifyPolar(
         project.registered.project,
-        await c.req.json().catch(() => ({}))
+        await parseJson(c.req)
       );
       return c.json({ ok: true });
     } catch (error) {
@@ -115,7 +116,7 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
       return c.json({ error: project.error }, project.status);
     }
 
-    const input = parseCreatePolarProduct(await c.req.json().catch(() => ({})));
+    const input = parseCreatePolarProduct(await parseJson(c.req));
     if (!input) {
       return c.json({ error: "invalid_body" }, 400);
     }

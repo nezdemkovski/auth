@@ -12,4 +12,4 @@ export {
   type AdminRouteError
 } from "./projects";
 export { getSession, requireAdmin, type AdminSession } from "./session";
-export { isRecord } from "./utils";
+export { isRecord, parseJson } from "./utils";

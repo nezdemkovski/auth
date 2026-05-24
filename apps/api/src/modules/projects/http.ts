@@ -6,6 +6,7 @@ import {
   parseSocialProviderPatch
 } from "./validator";
 import {
+  parseJson,
   requireAdmin,
   requireMutableProject,
   requireRegisteredProject,
@@ -34,7 +35,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const body = await c.req.json().catch(() => ({}));
+    const body = await parseJson(c.req);
     const input = parseProjectCreate(body);
     if (!input) {
       return c.json({ error: "invalid_body" }, 400);
@@ -63,7 +64,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
       return c.json({ error: project.error }, project.status);
     }
 
-    const body = await c.req.json().catch(() => ({}));
+    const body = await parseJson(c.req);
     const patch = parseProjectSettingsPatch(body);
     if (!patch) {
       return c.json({ error: "invalid_body" }, 400);
@@ -109,7 +110,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
       return c.json({ error: "unknown_provider" }, 404);
     }
 
-    const body = await c.req.json().catch(() => ({}));
+    const body = await parseJson(c.req);
     const patch = parseSocialProviderPatch(body);
     if (!patch) {
       return c.json({ error: "invalid_body" }, 400);

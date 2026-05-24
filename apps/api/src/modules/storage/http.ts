@@ -5,6 +5,7 @@ import {
 } from "./validator";
 import {
   mediaUploadError,
+  parseJson,
   requireAdmin,
   requireMutableProject,
   requireRegisteredProject,
@@ -59,7 +60,7 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
       return c.json({ error: project.error }, project.status);
     }
 
-    const body = await c.req.json().catch(() => ({}));
+    const body = await parseJson(c.req);
     const patch = parseStorageSettingsPatch(body);
     if (!patch) {
       return c.json({ error: "invalid_body" }, 400);

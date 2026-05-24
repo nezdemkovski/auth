@@ -1,4 +1,5 @@
 import {
+  parseJson,
   requireAdmin,
   requireRegisteredProject,
   type AdminRouteRegistration
@@ -55,7 +56,7 @@ export const registerUserRoutes: AdminRouteRegistration = ({
       return c.json({ error: project.error }, project.status);
     }
 
-    const email = parseResendVerificationEmail(await c.req.json().catch(() => ({})));
+    const email = parseResendVerificationEmail(await parseJson(c.req));
     if (!email) {
       return c.json({ error: "invalid_body" }, 400);
     }

@@ -1,4 +1,5 @@
 import {
+  parseJson,
   requireAdmin,
   type AdminRouteRegistration
 } from "../../http/admin/shared";
@@ -27,7 +28,7 @@ export const registerDeliveryRoutes: AdminRouteRegistration = ({
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const body = await c.req.json().catch(() => ({}));
+    const body = await parseJson(c.req);
     const patch = parseDeliverySettingsPatch(body);
     if (!patch) {
       return c.json({ error: "invalid_body" }, 400);

@@ -1,6 +1,7 @@
 import type { RegisteredProject } from "../../auth/registry";
 import {
   getSession,
+  parseJson,
   type AdminRouteRegistration,
   type AdminSession
 } from "../../http/admin/shared";
@@ -36,7 +37,7 @@ export const registerAdminAccountRoutes: AdminRouteRegistration = ({
       return c.json({ error: admin.error }, admin.status);
     }
 
-    const body = await c.req.json().catch(() => ({}));
+    const body = await parseJson(c.req);
     const patch = parseAdminProfilePatch(body);
     if (!patch) {
       return c.json({ error: "invalid_body" }, 400);
@@ -64,7 +65,7 @@ export const registerAdminAccountRoutes: AdminRouteRegistration = ({
       return c.json({ error: admin.error }, admin.status);
     }
 
-    const input = parseChangePasswordInput(await c.req.json().catch(() => ({})));
+    const input = parseChangePasswordInput(await parseJson(c.req));
     if (!input) {
       return c.json({ error: "invalid_body" }, 400);
     }
