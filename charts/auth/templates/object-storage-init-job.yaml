@@ -13,6 +13,7 @@ metadata:
     {{- include "auth.componentLabels" (dict "root" . "component" "object-storage-init") | nindent 4 }}
 spec:
   backoffLimit: 6
+  ttlSecondsAfterFinished: 300
   template:
     metadata:
       labels:
