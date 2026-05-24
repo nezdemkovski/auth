@@ -59,7 +59,8 @@ Progress:
 - `/me`, `/profile`, and `/change-password` live in `admin-account`.
 - `http/admin/shared.ts` is split into focused helper files and re-exported
   for compatibility.
-- Remaining work: shared `parseJson` and common domain-error response helpers.
+- `parseJson` is shared across admin route modules.
+- Remaining work: common domain-error response helpers.
 
 ## Priority 2: Projects Module
 
@@ -221,8 +222,10 @@ Progress:
 - Storage settings and object metadata are split into `settings-store.ts` and
   `objects-store.ts`.
 - User avatar image updates now go through `users/store.ts`.
-- Remaining work: add storage translators and define cleanup behavior for
-  upload workflows when later DB updates fail.
+- Storage settings and object explorer response shaping now live in
+  `translator.ts`.
+- Remaining work: define cleanup behavior for upload workflows when later DB
+  updates fail.
 
 ## Priority 5: Login Module
 
@@ -347,8 +350,10 @@ Progress:
 
 - `UsersService` owns list, terminate sessions, and resend verification.
 - `users/translator.ts` owns project/user DTO shaping.
-- Remaining work: add focused tests for DTO date serialization and resend
-  verification failure modes.
+- DTO date serialization and disabled-delivery resend failure paths have
+  focused tests.
+- Remaining work: add tests for terminate session count and successful resend
+  request shaping.
 
 ## Priority 8: Admin Account Module
 
@@ -460,13 +465,14 @@ Progress:
 
 ## Suggested Execution Order
 
-1. Shared admin route helpers. Mostly done; remaining work is response/parsing
-   helpers.
+1. Shared admin route helpers. Parse helper is done; remaining work is common
+   response/error helpers.
 2. Admin account module HTTP/core extraction. Done.
 3. Projects core extraction. Done for the main service flow. Store cleanup and
    social provider sub-domain cleanup remain.
-4. Users core/translator extraction. Done.
-5. Storage store split is done; upload workflow cleanup remains.
+4. Users core/translator extraction and core translator tests are done.
+5. Storage store split and response translators are done; upload workflow
+   cleanup remains.
 6. Billing validation/translation cleanup, Polar client split, entitlement split,
    and store DTO cleanup are done. Secret-preservation tests remain.
 7. Delivery translator/validation cleanup and runtime config cleanup are done.
