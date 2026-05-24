@@ -1,0 +1,32 @@
+:3000 {
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+
+	handle /admin/api/* {
+		reverse_proxy api:3000
+	}
+
+	handle /healthz {
+		reverse_proxy api:3000
+	}
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	handle /admin* {
+		reverse_proxy admin:5173
+	}
+
+	handle /login* {
+		reverse_proxy login:5174
+	}
+
+	handle {
+		redir /admin/ 302
+	}
+}

@@ -10,6 +10,8 @@
   ],
   "scripts": {
     "dev": "turbo run dev --filter=@nezdemkovski/auth-api",
+    "dev:compose:up": "docker compose -f dev/docker-compose.yml up",
+    "dev:compose:down": "docker compose -f dev/docker-compose.yml down",
     "dev:admin": "turbo run dev --filter=@nezdemkovski/auth-admin",
     "dev:login": "turbo run dev --filter=@nezdemkovski/auth-login",
     "email:dev": "turbo run email:dev --filter=@nezdemkovski/auth-api",
