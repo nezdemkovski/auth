@@ -8,8 +8,10 @@ import {
 } from "../../config/projects";
 import { createAdminPool } from "../../db/admin-pool";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
+import { storageSettingsResponse } from "./translator";
+import type { PublicStorageSettings } from "./translator";
 
-export type PublicStorageSettings = Omit<
+export type StorageSettingsState = Omit<
   ProjectStorageSettings,
   "accessKeyId" | "secretAccessKey"
 > & {
@@ -127,7 +129,7 @@ export async function readPublicStorageSettings(options: {
   await ensureStorageSettingsTable(options);
 
   const row = await readStorageSettingsRow(options);
-  return rowToPublic(row, options.managedStorage);
+  return storageSettingsResponse(rowToState(row, options.managedStorage));
 }
 
 export async function updateStorageSettings(options: {
@@ -267,10 +269,10 @@ function rowToStorage(
   };
 }
 
-function rowToPublic(
+function rowToState(
   row: StorageSettingsRow | null,
   managedStorage: ProjectStorageSettings
-): PublicStorageSettings {
+): StorageSettingsState {
   if (managedStorage.managed) {
     const enabled = row?.enabled ?? false;
     return {

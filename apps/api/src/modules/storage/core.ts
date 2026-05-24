@@ -9,9 +9,12 @@ import {
 import {
   readPublicStorageSettings,
   updateStorageSettings,
-  type PublicStorageSettings,
   type StorageSettingsPatch
 } from "./settings-store";
+import {
+  storageObjectResponse,
+  type PublicStorageSettings
+} from "./translator";
 import {
   uploadMedia,
   type MediaUploadPurpose,
@@ -46,7 +49,9 @@ export class StorageService {
   }
 
   listObjects(registered: RegisteredProject) {
-    return listStorageObjects(registered.projectDb.pool);
+    return listStorageObjects(registered.projectDb.pool).then((objects) =>
+      objects.map(storageObjectResponse)
+    );
   }
 
   async updateSettings(
