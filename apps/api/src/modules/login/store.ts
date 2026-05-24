@@ -1,4 +1,4 @@
-import { ReconnectingRedisClient, type RedisBackedStore } from "../../http/security";
+import { ReconnectingRedisClient, type RedisBackedStore } from "../../db/redis";
 
 export const LOGIN_CODE_TTL_SECONDS = 60;
 
