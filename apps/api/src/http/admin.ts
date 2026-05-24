@@ -5,7 +5,7 @@ import {
   markPasswordChanged,
   mustChangePassword,
   updateAdminProfile
-} from "../services/core/admin-account";
+} from "../modules/admin-account/store";
 import { BillingService } from "../modules/billing/core";
 import { DeliveryService } from "../modules/delivery/core";
 import { StorageService } from "../modules/storage/core";
@@ -27,7 +27,7 @@ import {
   getProfileCurrentPassword,
   parseAdminProfilePatch,
   parseChangePasswordInput
-} from "./validator/admin-account";
+} from "../modules/admin-account/validator";
 
 export function createAdminApi(options: AdminApiOptions): Hono {
   const app = new Hono();
