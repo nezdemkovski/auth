@@ -3,9 +3,9 @@ import type { Hono } from "hono";
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import type { EmailConfig } from "../../email/sender";
-import { MediaUploadError } from "../../storage/media";
+import { MediaUploadError } from "../../modules/storage/media";
 import type { BillingService } from "../../modules/billing/core";
-import type { StorageService } from "../../services/core/storage";
+import type { StorageService } from "../../modules/storage/core";
 
 export type AdminApiOptions = {
   registry: AuthRegistry;

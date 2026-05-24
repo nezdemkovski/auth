@@ -12,7 +12,7 @@ import {
   type ProjectFeatures
 } from "../config/projects";
 import { cloneDefaultBilling, loadBillingSettings } from "./billing-settings";
-import { cloneDefaultStorage, loadStorageSettings } from "./storage-settings";
+import { cloneDefaultStorage, loadStorageSettings } from "../modules/storage/store";
 import {
   ensureSocialProviderSettingsTable,
   cloneDefaultSocialProviders,

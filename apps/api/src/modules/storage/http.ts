@@ -1,13 +1,13 @@
-import { projectResponse } from "../../translate/project";
+import { projectResponse } from "../../http/translate/project";
 import {
   parseMediaUploadRequest,
   parseStorageSettingsPatch
-} from "../../validator/storage";
+} from "./validator";
 import {
   mediaUploadError,
   requireAdmin,
   type AdminRouteRegistration
-} from "../shared";
+} from "../../http/admin/shared";
 
 export const registerStorageRoutes: AdminRouteRegistration = ({
   app,

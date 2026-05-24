@@ -22,9 +22,9 @@ import {
   getPasswordResetConfig
 } from "./login";
 import { createRateLimiter, rateLimit, securityHeaders } from "./security";
-import { StorageService } from "../services/core/storage";
-import { MediaUploadError } from "../storage/media";
-import { parseMediaUploadRequest } from "./validator/storage";
+import { StorageService } from "../modules/storage/core";
+import { MediaUploadError } from "../modules/storage/media";
+import { parseMediaUploadRequest } from "../modules/storage/validator";
 
 type AppVariables = {
   registry: AuthRegistry;

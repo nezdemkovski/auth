@@ -1,5 +1,5 @@
-import type { MediaUploadPurpose } from "../../storage/media";
-import type { StorageSettingsPatch } from "../../db/storage-settings";
+import type { MediaUploadPurpose } from "./media";
+import type { StorageSettingsPatch } from "./store";
 
 export type MediaUploadRequest = {
   purpose: MediaUploadPurpose;

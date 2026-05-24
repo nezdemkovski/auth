@@ -7,11 +7,11 @@ import {
   updateAdminProfile
 } from "../services/core/admin-account";
 import { BillingService } from "../modules/billing/core";
-import { StorageService } from "../services/core/storage";
+import { StorageService } from "../modules/storage/core";
 import { registerBillingRoutes } from "../modules/billing/http";
 import { registerDeliveryRoutes } from "./admin/routes/delivery";
 import { registerProjectRoutes } from "./admin/routes/projects";
-import { registerStorageRoutes } from "./admin/routes/storage";
+import { registerStorageRoutes } from "../modules/storage/http";
 import { registerUserRoutes } from "./admin/routes/users";
 import {
   changeEmail,

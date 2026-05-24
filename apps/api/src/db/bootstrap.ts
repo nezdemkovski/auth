@@ -17,8 +17,10 @@ import {
 } from "./delivery-settings";
 import { ensureProjectSettingsTable, seedAdminProjectSettings } from "./project-settings";
 import { ensureSocialProviderSettingsTable } from "./social-provider-settings";
-import { ensureStorageSettingsTable } from "./storage-settings";
-import { ensureStorageObjectsTable } from "./storage-objects";
+import {
+  ensureStorageObjectsTable,
+  ensureStorageSettingsTable
+} from "../modules/storage/store";
 
 type BootstrapOptions = {
   databaseUrl: string;

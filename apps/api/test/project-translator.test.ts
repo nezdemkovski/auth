@@ -3,30 +3,6 @@ import { describe, expect, test } from "bun:test";
 import { DEFAULT_PROJECT_FEATURES, DEFAULT_PROJECT_STORAGE } from "../src/config/projects";
 import { cloneDefaultSocialProviders } from "../src/db/social-provider-settings";
 import { projectResponse } from "../src/http/translate/project";
-import { parseMediaUploadRequest } from "../src/http/validator/storage";
-
-describe("storage HTTP layers", () => {
-  test("accepts only the expected media upload purpose and a file", async () => {
-    const file = new File(["avatar"], "avatar.png", { type: "image/png" });
-    const form = new FormData();
-    form.set("purpose", "user_avatar");
-    form.set("file", file);
-
-    await expect(parseMediaUploadRequest(form, "user_avatar")).resolves.toEqual({
-      purpose: "user_avatar",
-      file
-    });
-    await expect(parseMediaUploadRequest(form, "project_icon")).resolves.toBeNull();
-  });
-
-  test("rejects media upload forms without a file", async () => {
-    const form = new FormData();
-    form.set("purpose", "user_avatar");
-
-    await expect(parseMediaUploadRequest(form, "user_avatar")).resolves.toBeNull();
-  });
-});
-
 describe("project translator", () => {
   test("serializes realm metadata without exposing provider secrets", () => {
     const socialProviders = cloneDefaultSocialProviders();

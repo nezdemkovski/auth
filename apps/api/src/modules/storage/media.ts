@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 
-import type { ProjectStorageSettings } from "../config/projects";
+import type { ProjectStorageSettings } from "../../config/projects";
 
 export type MediaUploadPurpose = "project_icon" | "user_avatar";
 
