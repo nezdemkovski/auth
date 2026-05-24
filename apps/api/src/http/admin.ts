@@ -13,7 +13,7 @@ import { registerBillingRoutes } from "../modules/billing/http";
 import { registerDeliveryRoutes } from "../modules/delivery/http";
 import { registerProjectRoutes } from "../modules/projects/http";
 import { registerStorageRoutes } from "../modules/storage/http";
-import { registerUserRoutes } from "./admin/routes/users";
+import { registerUserRoutes } from "../modules/users/http";
 import {
   changeEmail,
   changePassword,

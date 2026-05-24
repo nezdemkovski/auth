@@ -14,7 +14,7 @@ import {
   readProjectSocialProviders,
   updateProjectSocialProvider
 } from "./social-provider-store";
-import { readProjectCounts } from "../../services/core/admin-projects";
+import { readProjectCounts } from "../users/store";
 import {
   parseProjectCreate,
   parseProjectSettingsPatch,

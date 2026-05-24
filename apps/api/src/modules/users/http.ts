@@ -1,18 +1,15 @@
-import { EmailProvider } from "../../../email/sender";
+import { EmailProvider } from "../../email/sender";
 import {
   readProjectUsers,
   terminateUserSessions
-} from "../../../services/core/admin-projects";
+} from "./store";
 import {
   requireAdmin,
   sendVerificationEmail,
   toIsoString,
   type AdminRouteRegistration
-} from "../shared";
-
-type ResendVerificationBody = {
-  email?: unknown;
-};
+} from "../../http/admin/shared";
+import { parseResendVerificationEmail } from "./validator";
 
 export const registerUserRoutes: AdminRouteRegistration = ({
   app,
@@ -91,13 +88,13 @@ export const registerUserRoutes: AdminRouteRegistration = ({
       return c.json({ error: "unknown_project" }, 404);
     }
 
-    const body = (await c.req.json().catch(() => ({}))) as ResendVerificationBody;
-    if (typeof body.email !== "string") {
+    const email = parseResendVerificationEmail(await c.req.json().catch(() => ({})));
+    if (!email) {
       return c.json({ error: "invalid_body" }, 400);
     }
 
     await sendVerificationEmail(registered.auth, {
-      email: body.email,
+      email,
       callbackURL: registered.project.trustedOrigins[0]
     });
 
