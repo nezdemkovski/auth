@@ -1,4 +1,12 @@
-import type { DeliverySettingsPatch } from "./store";
+import { EmailProvider, type EmailConfig } from "../../email/sender";
+
+export type DeliverySettingsPatch = {
+  provider: EmailConfig["provider"];
+  from: string;
+  cloudflareAccountId: string;
+  cloudflareApiToken?: string;
+  resendApiKey?: string;
+};
 
 type DeliverySettingsBody = Partial<Record<keyof DeliverySettingsPatch, unknown>>;
 
@@ -27,4 +35,29 @@ export function parseDeliverySettingsPatch(
   }
 
   return patch;
+}
+
+export function validateDeliverySettingsPatch(patch: DeliverySettingsPatch): void {
+  if (
+    patch.provider !== EmailProvider.None &&
+    patch.provider !== EmailProvider.Resend &&
+    patch.provider !== EmailProvider.Cloudflare
+  ) {
+    throw new Error("Invalid delivery provider");
+  }
+
+  if (patch.from.trim().length > 200) {
+    throw new Error("From address is too long");
+  }
+
+  if (patch.provider !== EmailProvider.None && !patch.from.trim()) {
+    throw new Error("From address is required");
+  }
+
+  if (
+    patch.provider === EmailProvider.Cloudflare &&
+    !patch.cloudflareAccountId.trim()
+  ) {
+    throw new Error("Cloudflare account ID is required");
+  }
 }

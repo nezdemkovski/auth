@@ -2,13 +2,16 @@ import type { AuthRegistry } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import { createEmailSender, type EmailConfig } from "../../email/sender";
 import type { AdminSession } from "../../http/admin/shared";
+import type { PublicDeliverySettings } from "./translator";
 import {
   loadDeliverySettings,
   readPublicDeliverySettings,
-  updateDeliverySettings,
-  type DeliverySettingsPatch,
-  type PublicDeliverySettings
+  updateDeliverySettings
 } from "./store";
+import {
+  validateDeliverySettingsPatch,
+  type DeliverySettingsPatch
+} from "./validator";
 
 export class DeliveryServiceError extends Error {
   constructor(
@@ -39,6 +42,7 @@ export class DeliveryService {
   }
 
   async updateSettings(patch: DeliverySettingsPatch): Promise<PublicDeliverySettings> {
+    validateDeliverySettingsPatch(patch);
     const settings = await updateDeliverySettings({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,

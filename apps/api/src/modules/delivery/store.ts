@@ -5,24 +5,11 @@ import { Pool } from "pg";
 import type { AuthProject } from "../../config/projects";
 import { EmailProvider, type EmailConfig } from "../../email/sender";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
-
-export type PublicDeliverySettings = {
-  provider: EmailConfig["provider"];
-  from: string;
-  cloudflareAccountId: string;
-  cloudflareApiTokenConfigured: boolean;
-  resendApiKeyConfigured: boolean;
-  configured: boolean;
-  updatedAt: string | null;
-};
-
-export type DeliverySettingsPatch = {
-  provider: EmailConfig["provider"];
-  from: string;
-  cloudflareAccountId: string;
-  cloudflareApiToken?: string;
-  resendApiKey?: string;
-};
+import {
+  deliverySettingsResponse,
+  type PublicDeliverySettings
+} from "./translator";
+import type { DeliverySettingsPatch } from "./validator";
 
 type DeliverySettingsRow = {
   provider: string;
@@ -156,7 +143,7 @@ export async function readPublicDeliverySettings(options: {
 }): Promise<PublicDeliverySettings> {
   await ensureDeliverySettingsTable(options);
   const row = await readDeliverySettingsRow(options);
-  return rowToPublic(row);
+  return deliverySettingsResponse(row);
 }
 
 export async function updateDeliverySettings(options: {
@@ -165,7 +152,6 @@ export async function updateDeliverySettings(options: {
   encryptionSecret: string;
   patch: DeliverySettingsPatch;
 }): Promise<PublicDeliverySettings> {
-  validateDeliveryPatch(options.patch);
   await ensureDeliverySettingsTable(options);
 
   const current = await readDeliverySettingsRow(options);
@@ -218,34 +204,9 @@ export async function updateDeliverySettings(options: {
                 updated_at AS "updatedAt"
     `);
 
-    return rowToPublic(result.rows[0]);
+    return deliverySettingsResponse(result.rows[0]);
   } finally {
     await pool.end();
-  }
-}
-
-function validateDeliveryPatch(patch: DeliverySettingsPatch): void {
-  if (
-    patch.provider !== EmailProvider.None &&
-    patch.provider !== EmailProvider.Resend &&
-    patch.provider !== EmailProvider.Cloudflare
-  ) {
-    throw new Error("Invalid delivery provider");
-  }
-
-  if (patch.from.trim().length > 200) {
-    throw new Error("From address is too long");
-  }
-
-  if (patch.provider !== EmailProvider.None && !patch.from.trim()) {
-    throw new Error("From address is required");
-  }
-
-  if (
-    patch.provider === EmailProvider.Cloudflare &&
-    !patch.cloudflareAccountId.trim()
-  ) {
-    throw new Error("Cloudflare account ID is required");
   }
 }
 
@@ -275,46 +236,6 @@ async function readDeliverySettingsRow(options: {
   }
 }
 
-function rowToPublic(row: DeliverySettingsRow | null): PublicDeliverySettings {
-  if (!row) {
-    return {
-      provider: EmailProvider.None,
-      from: "",
-      cloudflareAccountId: "",
-      cloudflareApiTokenConfigured: false,
-      resendApiKeyConfigured: false,
-      configured: false,
-      updatedAt: null
-    };
-  }
-
-  const provider = isDeliveryProvider(row.provider) ? row.provider : EmailProvider.None;
-  const resendApiKeyConfigured = Boolean(row.resendApiKeyCipher);
-  const cloudflareApiTokenConfigured = Boolean(row.cloudflareApiTokenCipher);
-  return {
-    provider,
-    from: row.fromAddress,
-    cloudflareAccountId: row.cloudflareAccountId,
-    resendApiKeyConfigured,
-    cloudflareApiTokenConfigured,
-    configured:
-      provider === EmailProvider.Resend
-        ? Boolean(row.fromAddress && resendApiKeyConfigured)
-        : provider === EmailProvider.Cloudflare
-        ? Boolean(row.fromAddress && row.cloudflareAccountId && cloudflareApiTokenConfigured)
-        : false,
-    updatedAt: normalizeDate(row.updatedAt)
-  };
-}
-
-function isDeliveryProvider(value: string): value is EmailConfig["provider"] {
-  return (
-    value === EmailProvider.None ||
-    value === EmailProvider.Resend ||
-    value === EmailProvider.Cloudflare
-  );
-}
-
 function encryptSecret(value: string, secret: string, key: string): string {
   return encryptSecretValue(value, secret, encryptionContext(key));
 }
@@ -325,14 +246,6 @@ function decryptSecret(value: string, secret: string, key: string): string {
 
 function encryptionContext(key: string): string {
   return `delivery:${key}`;
-}
-
-function normalizeDate(value: Date | string | null | undefined): string | null {
-  if (!value) {
-    return null;
-  }
-
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
 function createAdminPool(databaseUrl: string, adminProject: AuthProject): Pool {
