@@ -4,6 +4,10 @@ kind: Job
 metadata:
   name: {{ .Values.objectStorage.fullname }}-init
   namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+    argocd.argoproj.io/sync-wave: "10"
   labels:
     {{- include "auth.componentLabels" (dict "root" . "component" "object-storage-init") | nindent 4 }}
 spec:
