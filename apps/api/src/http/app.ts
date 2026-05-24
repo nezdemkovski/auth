@@ -61,7 +61,8 @@ export async function createApp(env: Env) {
   ({ adminProject, projects } = await loadEffectiveProjects({
     databaseUrl: env.databaseUrl,
     adminProject,
-    encryptionSecret: env.betterAuthSecret
+    encryptionSecret: env.betterAuthSecret,
+    managedStorage: env.storage
   }));
 
   if (env.autoMigrate) {
@@ -123,7 +124,8 @@ export async function createApp(env: Env) {
       databaseUrl: env.databaseUrl,
       adminProject,
       publicBaseUrl: env.publicBaseUrl,
-      secret: env.betterAuthSecret
+      secret: env.betterAuthSecret,
+      managedStorage: env.storage
     })
   );
 

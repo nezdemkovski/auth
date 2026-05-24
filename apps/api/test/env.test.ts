@@ -80,4 +80,38 @@ describe("loadEnv email config", () => {
       })
     ).toThrow("TRUST_PROXY_HEADERS must be a boolean");
   });
+
+  test("parses deployment-managed S3 storage", () => {
+    const env = loadEnv({
+      ...baseEnv,
+      AUTH_STORAGE_PROVIDER: "s3",
+      AUTH_STORAGE_ENDPOINT: "http://rustfs:9000",
+      AUTH_STORAGE_REGION: "us-east-1",
+      AUTH_STORAGE_BUCKET: "auth-public",
+      AUTH_STORAGE_PUBLIC_BASE_URL: "http://localhost:9000/auth-public/",
+      AUTH_STORAGE_ACCESS_KEY_ID: "access",
+      AUTH_STORAGE_SECRET_ACCESS_KEY: "secret"
+    });
+
+    expect(env.storage).toEqual({
+      provider: "s3",
+      enabled: false,
+      managed: true,
+      endpoint: "http://rustfs:9000",
+      region: "us-east-1",
+      bucket: "auth-public",
+      publicBaseUrl: "http://localhost:9000/auth-public",
+      accessKeyId: "access",
+      secretAccessKey: "secret"
+    });
+  });
+
+  test("rejects incomplete deployment-managed S3 storage", () => {
+    expect(() =>
+      loadEnv({
+        ...baseEnv,
+        AUTH_STORAGE_PROVIDER: "s3"
+      })
+    ).toThrow("AUTH_STORAGE_ENDPOINT is required");
+  });
 });

@@ -139,6 +139,7 @@ export async function loadEffectiveProjects(options: {
   databaseUrl: string;
   adminProject: AuthProject;
   encryptionSecret: string;
+  managedStorage: AuthProject["storage"];
 }): Promise<{ adminProject: AuthProject; projects: AuthProject[] }> {
   await ensureProjectSettingsTable(options.databaseUrl, options.adminProject);
   await seedAdminProjectSettings(options);
@@ -153,7 +154,7 @@ export async function loadEffectiveProjects(options: {
     socialProviders:
       socialProviders.get(project.slug) ?? cloneDefaultSocialProviders(),
     billing: billingSettings.get(project.slug) ?? cloneDefaultBilling(),
-    storage: storageSettings.get(project.slug) ?? cloneDefaultStorage()
+    storage: storageSettings.get(project.slug) ?? cloneDefaultStorage(options.managedStorage)
   }));
   const bySlug = new Map(allWithSettings.map((project) => [project.slug, project]));
   const adminProject = bySlug.get(options.adminProject.slug) ?? options.adminProject;

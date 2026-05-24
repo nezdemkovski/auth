@@ -21,10 +21,10 @@ export type PublicStorageSettings = Omit<
 export type StorageSettingsPatch = {
   provider: ProjectStorageSettings["provider"];
   enabled: boolean;
-  endpoint: string;
-  region: string;
-  bucket: string;
-  publicBaseUrl: string;
+  endpoint?: string;
+  region?: string;
+  bucket?: string;
+  publicBaseUrl?: string;
   accessKeyId?: string;
   secretAccessKey?: string;
 };
@@ -73,6 +73,7 @@ export async function loadStorageSettings(options: {
   databaseUrl: string;
   adminProject: AuthProject;
   encryptionSecret: string;
+  managedStorage: ProjectStorageSettings;
 }): Promise<Map<string, ProjectStorageSettings>> {
   await ensureStorageSettingsTable(options);
 
@@ -95,7 +96,10 @@ export async function loadStorageSettings(options: {
 
     const byProject = new Map<string, ProjectStorageSettings>();
     for (const row of result.rows) {
-      byProject.set(row.projectSlug, rowToStorage(row, options.encryptionSecret));
+      byProject.set(
+        row.projectSlug,
+        rowToStorage(row, options.encryptionSecret, options.managedStorage)
+      );
     }
     return byProject;
   } finally {
@@ -108,20 +112,22 @@ export async function loadProjectStorageSettings(options: {
   adminProject: AuthProject;
   project: AuthProject;
   encryptionSecret: string;
+  managedStorage: ProjectStorageSettings;
 }): Promise<ProjectStorageSettings> {
   const all = await loadStorageSettings(options);
-  return all.get(options.project.slug) ?? cloneDefaultStorage();
+  return all.get(options.project.slug) ?? cloneDefaultStorage(options.managedStorage);
 }
 
 export async function readPublicStorageSettings(options: {
   databaseUrl: string;
   adminProject: AuthProject;
   project: AuthProject;
+  managedStorage: ProjectStorageSettings;
 }): Promise<PublicStorageSettings> {
   await ensureStorageSettingsTable(options);
 
   const row = await readStorageSettingsRow(options);
-  return rowToPublic(row);
+  return rowToPublic(row, options.managedStorage);
 }
 
 export async function updateStorageSettings(options: {
@@ -129,25 +135,27 @@ export async function updateStorageSettings(options: {
   adminProject: AuthProject;
   project: AuthProject;
   encryptionSecret: string;
+  managedStorage: ProjectStorageSettings;
   patch: StorageSettingsPatch;
 }): Promise<ProjectStorageSettings> {
-  validateStoragePatch(options.patch);
+  const patch = storagePatchWithManagedDefaults(options.patch, options.managedStorage);
+  validateStoragePatch(patch);
   await ensureStorageSettingsTable(options);
 
   const current = await readStorageSettingsRow(options);
   const accessKeyIdCipher =
-    options.patch.accessKeyId && options.patch.accessKeyId.trim()
+    patch.accessKeyId && patch.accessKeyId.trim()
       ? encryptSecret(
-          options.patch.accessKeyId.trim(),
+          patch.accessKeyId.trim(),
           options.encryptionSecret,
           options.project.slug,
           "access-key-id"
         )
       : current?.accessKeyIdCipher ?? "";
   const secretAccessKeyCipher =
-    options.patch.secretAccessKey && options.patch.secretAccessKey.trim()
+    patch.secretAccessKey && patch.secretAccessKey.trim()
       ? encryptSecret(
-          options.patch.secretAccessKey.trim(),
+          patch.secretAccessKey.trim(),
           options.encryptionSecret,
           options.project.slug,
           "secret-access-key"
@@ -172,12 +180,12 @@ export async function updateStorageSettings(options: {
       )
       VALUES (
         ${options.project.slug},
-        ${options.patch.provider},
-        ${options.patch.enabled},
-        ${options.patch.endpoint.trim()},
-        ${options.patch.region.trim() || "auto"},
-        ${options.patch.bucket.trim()},
-        ${trimTrailingSlash(options.patch.publicBaseUrl)},
+        ${patch.provider},
+        ${patch.enabled},
+        ${(patch.endpoint ?? "").trim()},
+        ${(patch.region ?? "").trim() || "auto"},
+        ${(patch.bucket ?? "").trim()},
+        ${trimTrailingSlash(patch.publicBaseUrl ?? "")},
         ${accessKeyIdCipher},
         ${secretAccessKeyCipher}
       )
@@ -202,13 +210,22 @@ export async function updateStorageSettings(options: {
                 secret_access_key_cipher AS "secretAccessKeyCipher"
     `);
 
-    return rowToStorage(result.rows[0], options.encryptionSecret);
+    return rowToStorage(result.rows[0], options.encryptionSecret, options.managedStorage);
   } finally {
     await pool.end();
   }
 }
 
-export function cloneDefaultStorage(): ProjectStorageSettings {
+export function cloneDefaultStorage(
+  managedStorage: ProjectStorageSettings = DEFAULT_PROJECT_STORAGE
+): ProjectStorageSettings {
+  if (managedStorage.managed) {
+    return {
+      ...managedStorage,
+      enabled: false
+    };
+  }
+
   return {
     ...DEFAULT_PROJECT_STORAGE
   };
@@ -216,12 +233,21 @@ export function cloneDefaultStorage(): ProjectStorageSettings {
 
 function rowToStorage(
   row: StorageSettingsRow,
-  encryptionSecret: string
+  encryptionSecret: string,
+  managedStorage: ProjectStorageSettings
 ): ProjectStorageSettings {
+  if (managedStorage.managed) {
+    return {
+      ...managedStorage,
+      enabled: row.enabled
+    };
+  }
+
   const provider = row.provider === "s3" ? "s3" : "none";
   return {
     provider,
     enabled: row.enabled,
+    managed: false,
     endpoint: row.endpoint ?? "",
     region: row.region || "auto",
     bucket: row.bucket ?? "",
@@ -241,7 +267,26 @@ function rowToStorage(
   };
 }
 
-function rowToPublic(row: StorageSettingsRow | null): PublicStorageSettings {
+function rowToPublic(
+  row: StorageSettingsRow | null,
+  managedStorage: ProjectStorageSettings
+): PublicStorageSettings {
+  if (managedStorage.managed) {
+    const enabled = row?.enabled ?? false;
+    return {
+      provider: managedStorage.provider,
+      enabled,
+      managed: true,
+      endpoint: managedStorage.endpoint,
+      region: managedStorage.region,
+      bucket: managedStorage.bucket,
+      publicBaseUrl: managedStorage.publicBaseUrl,
+      accessKeyIdConfigured: true,
+      secretAccessKeyConfigured: true,
+      configured: managedStorage.provider === "s3" && enabled
+    };
+  }
+
   const provider = row?.provider === "s3" ? "s3" : "none";
   const enabled = row?.enabled ?? false;
   const accessKeyIdConfigured = Boolean(row?.accessKeyIdCipher);
@@ -249,6 +294,7 @@ function rowToPublic(row: StorageSettingsRow | null): PublicStorageSettings {
   return {
     provider,
     enabled,
+    managed: false,
     endpoint: row?.endpoint ?? "",
     region: row?.region || "auto",
     bucket: row?.bucket ?? "",
@@ -304,14 +350,34 @@ function validateStoragePatch(patch: StorageSettingsPatch): void {
     return;
   }
 
-  if (!patch.bucket.trim()) {
+  if (!(patch.bucket ?? "").trim()) {
     throw new Error("Storage bucket is required");
   }
-  if (!patch.publicBaseUrl.trim()) {
+  if (!(patch.publicBaseUrl ?? "").trim()) {
     throw new Error("Public base URL is required");
   }
-  validateOptionalUrl(patch.endpoint, "endpoint");
-  validateUrl(patch.publicBaseUrl, "publicBaseUrl");
+  validateOptionalUrl(patch.endpoint ?? "", "endpoint");
+  validateUrl(patch.publicBaseUrl ?? "", "publicBaseUrl");
+}
+
+function storagePatchWithManagedDefaults(
+  patch: StorageSettingsPatch,
+  managedStorage: ProjectStorageSettings
+): StorageSettingsPatch {
+  if (!managedStorage.managed) {
+    return patch;
+  }
+
+  return {
+    provider: managedStorage.provider,
+    enabled: patch.enabled,
+    endpoint: managedStorage.endpoint,
+    region: managedStorage.region,
+    bucket: managedStorage.bucket,
+    publicBaseUrl: managedStorage.publicBaseUrl,
+    accessKeyId: managedStorage.accessKeyId,
+    secretAccessKey: managedStorage.secretAccessKey
+  };
 }
 
 function validateOptionalUrl(value: string, field: string): void {

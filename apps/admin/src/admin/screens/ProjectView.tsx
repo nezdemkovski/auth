@@ -1,4 +1,5 @@
 import type { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 
 import type {
   BillingSettings,
@@ -12,10 +13,10 @@ import type {
   SocialProviderId,
   SocialProviderPatch,
   SocialProvidersResponse,
-  PolarProductsResponse,
   StorageSettings,
-  StorageObjectsResponse,
-  StorageSettingsPatch
+  PolarProductsResponse,
+  StorageSettingsPatch,
+  StorageObject
 } from "../types";
 import { pad2 } from "../utils/format";
 import { Card, EmptyState, FormAlert, SysTag } from "@nezdemkovski/auth-ui";
@@ -33,7 +34,6 @@ export function ProjectView({
   socialProvidersQuery,
   billingQuery,
   storageQuery,
-  storageObjectsQuery,
   polarProductsQuery,
   emailServiceEnabled,
   resendPendingEmail,
@@ -53,6 +53,8 @@ export function ProjectView({
   storagePending,
   storageUploadPending,
   storageError,
+  storageUploadError,
+  uploadedIcon,
   polarProductCreatePending,
   polarProductCreateError,
   onResendVerification,
@@ -71,7 +73,6 @@ export function ProjectView({
   socialProvidersQuery: ReturnType<typeof useQuery<SocialProvidersResponse>>;
   billingQuery: ReturnType<typeof useQuery<BillingSettings>>;
   storageQuery: ReturnType<typeof useQuery<StorageSettings>>;
-  storageObjectsQuery: ReturnType<typeof useQuery<StorageObjectsResponse>>;
   polarProductsQuery: ReturnType<typeof useQuery<PolarProductsResponse>>;
   emailServiceEnabled: boolean;
   resendPendingEmail: string | null;
@@ -91,6 +92,8 @@ export function ProjectView({
   storagePending: boolean;
   storageUploadPending: boolean;
   storageError: string | null;
+  storageUploadError: string | null;
+  uploadedIcon: StorageObject | null;
   polarProductCreatePending: boolean;
   polarProductCreateError: string | null;
   onResendVerification: (email: string) => void;
@@ -171,8 +174,13 @@ export function ProjectView({
         <Card>
           <ProjectSettingsForm
             project={project}
+            storageSettings={storageQuery.data ?? null}
             pending={updatePending}
+            uploadPending={storageUploadPending}
             error={updateError}
+            uploadError={storageUploadError}
+            uploadedIcon={uploadedIcon}
+            onUploadIcon={onUploadProjectIcon}
             onSubmit={onUpdateProject}
           />
         </Card>
@@ -245,6 +253,13 @@ export function ProjectView({
         <div className="mb-4 flex items-baseline gap-3">
           <span className="eyebrow">04 — Storage</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
+          <Link
+            to="/projects/$projectSlug/files"
+            params={{ projectSlug: project.slug }}
+            className="rounded-md border border-border bg-surface px-2.5 py-1 text-[12px] font-semibold text-ink-soft hover:bg-surface-hover"
+          >
+            Browse files
+          </Link>
         </div>
 
         <Card>
@@ -257,17 +272,10 @@ export function ProjectView({
           ) : (
             <StorageSettingsForm
               settings={storageQuery.data}
-              objects={storageObjectsQuery.data?.objects ?? []}
-              objectsLoading={storageObjectsQuery.isLoading}
-              objectsError={
-                storageObjectsQuery.isError ? "Could not load storage objects." : null
-              }
               disabled={project.system}
               pending={storagePending}
-              uploadPending={storageUploadPending}
               error={storageError}
               onSave={onUpdateStorage}
-              onUploadIcon={onUploadProjectIcon}
             />
           )}
         </Card>

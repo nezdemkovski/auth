@@ -2,5 +2,5 @@ apiVersion: v2
 name: auth
 description: Project-scoped Better Auth service
 type: application
-version: 0.2.8
-appVersion: "v0.1.64"
+version: 0.2.9
+appVersion: "v0.1.65"

@@ -76,6 +76,12 @@ env:
   trustProxyHeaders: "true"
   publicBaseUrl: https://auth.nezdemkovski.cloud
   adminEmail: yuri@nezdemkovski.com
+  storage:
+    provider: none
+    endpoint: ""
+    region: auto
+    bucket: ""
+    publicBaseUrl: ""
   redisUrlSecret:
     name: auth-redis
     key: REDIS_URL
@@ -109,6 +115,40 @@ redis:
       memory: 64Mi
     limits:
       memory: 128Mi
+
+objectStorage:
+  enabled: false
+  fullname: auth-rustfs
+  bucket: auth-public
+  region: us-east-1
+  publicBaseUrl: ""
+  image:
+    repository: rustfs/rustfs
+    digest: sha256:f7cb98ef492fa3c3ed0dbd65df3ce2dd205c666e24e7d7234d9402c9ed1001f9
+    pullPolicy: IfNotPresent
+  initImage:
+    repository: amazon/aws-cli
+    tag: "2.34.53"
+    digest: sha256:cf53765c0de54ad3a8ea21818f1c4c845a8cf7ca87831c078a00fef244031493
+    pullPolicy: IfNotPresent
+  service:
+    port: 9000
+    consolePort: 9001
+  storage:
+    storageClass: local-path
+    size: 5Gi
+  resources:
+    requests:
+      cpu: 25m
+      memory: 128Mi
+    limits:
+      memory: 512Mi
+  initResources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
 
 onepassword:
   appItem: auth

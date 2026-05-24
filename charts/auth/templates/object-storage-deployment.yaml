@@ -1,0 +1,71 @@
+{{- if .Values.objectStorage.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.objectStorage.fullname }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "auth.componentLabels" (dict "root" . "component" "object-storage") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "auth.componentSelectorLabels" (dict "root" . "component" "object-storage") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "auth.componentLabels" (dict "root" . "component" "object-storage") | nindent 8 }}
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: rustfs
+          image: "{{ .Values.objectStorage.image.repository }}@{{ .Values.objectStorage.image.digest }}"
+          imagePullPolicy: {{ .Values.objectStorage.image.pullPolicy }}
+          args:
+            - --address
+            - ":{{ .Values.objectStorage.service.port }}"
+            - --console-enable
+            - /data
+          env:
+            - name: RUSTFS_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: auth-env
+                  key: AUTH_STORAGE_ACCESS_KEY_ID
+            - name: RUSTFS_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: auth-env
+                  key: AUTH_STORAGE_SECRET_ACCESS_KEY
+          ports:
+            - name: s3
+              containerPort: {{ .Values.objectStorage.service.port }}
+            - name: console
+              containerPort: {{ .Values.objectStorage.service.consolePort }}
+          readinessProbe:
+            tcpSocket:
+              port: s3
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: s3
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            {{- toYaml .Values.objectStorage.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ .Values.objectStorage.fullname }}
+{{- end }}

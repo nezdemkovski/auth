@@ -155,6 +155,22 @@ Set `TRUST_PROXY_HEADERS=true` only when the service is reachable exclusively
 through a trusted reverse proxy, such as Cloudflare Tunnel or nginx, that strips
 incoming forwarding headers from clients before adding its own.
 
+## Media Storage
+
+Realm images and user images can use any S3-compatible backend through Bun's
+S3 API. If `AUTH_STORAGE_PROVIDER=s3` is configured in the deployment, storage
+is treated as deployment-managed: the admin UI only lets each realm enable or
+disable uploads, while endpoint, bucket, public URL, and credentials come from
+environment variables.
+
+Without deployment-managed storage, each realm can still configure its own S3
+settings from the admin UI. Uploaded object metadata is stored in the realm
+database schema; blobs stay in object storage.
+
+The local compose stack includes RustFS for development. It creates an
+`auth-public` bucket and exposes public objects under
+`http://127.0.0.1:9000/auth-public/...`.
+
 ## Login Auth Handoff
 
 The login flow uses a short-lived authorization code plus PKCE S256. The

@@ -1,4 +1,9 @@
-import { ADMIN_PROJECT, type AuthProject } from "./projects";
+import {
+  ADMIN_PROJECT,
+  DEFAULT_PROJECT_STORAGE,
+  type AuthProject,
+  type ProjectStorageSettings
+} from "./projects";
 import { EmailProvider, type EmailConfig } from "../email/sender";
 
 export type Env = {
@@ -10,6 +15,7 @@ export type Env = {
   adminProject: AuthProject;
   adminEmail: string;
   email: EmailConfig;
+  storage: ProjectStorageSettings;
   redisUrl: string | null;
   trustProxyHeaders: boolean;
 };
@@ -32,6 +38,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     throw new Error(`BETTER_AUTH_SECRET must be at least ${MIN_SECRET_LENGTH} characters`);
   }
   const email = parseEmailConfig(source);
+  const storage = parseStorageConfig(source);
 
   return {
     port,
@@ -42,6 +49,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     adminProject: ADMIN_PROJECT,
     adminEmail: source.AUTH_ADMIN_EMAIL ?? "admin@localhost",
     email,
+    storage,
     redisUrl: source.REDIS_URL?.trim() || null,
     trustProxyHeaders: parseBoolean(source.TRUST_PROXY_HEADERS, false, "TRUST_PROXY_HEADERS")
   };
@@ -120,4 +128,35 @@ function parseEmailConfig(source: NodeJS.ProcessEnv): EmailConfig {
   }
 
   throw new Error("EMAIL_PROVIDER must be one of: none, cloudflare, resend");
+}
+
+function parseStorageConfig(source: NodeJS.ProcessEnv): ProjectStorageSettings {
+  const provider = source.AUTH_STORAGE_PROVIDER ?? DEFAULT_PROJECT_STORAGE.provider;
+
+  if (provider === "none") {
+    return {
+      ...DEFAULT_PROJECT_STORAGE
+    };
+  }
+
+  if (provider !== "s3") {
+    throw new Error("AUTH_STORAGE_PROVIDER must be one of: none, s3");
+  }
+
+  return {
+    provider,
+    enabled: false,
+    managed: true,
+    endpoint: required(source.AUTH_STORAGE_ENDPOINT, "AUTH_STORAGE_ENDPOINT"),
+    region: source.AUTH_STORAGE_REGION?.trim() || "auto",
+    bucket: required(source.AUTH_STORAGE_BUCKET, "AUTH_STORAGE_BUCKET"),
+    publicBaseUrl: trimTrailingSlash(
+      required(source.AUTH_STORAGE_PUBLIC_BASE_URL, "AUTH_STORAGE_PUBLIC_BASE_URL")
+    ),
+    accessKeyId: required(source.AUTH_STORAGE_ACCESS_KEY_ID, "AUTH_STORAGE_ACCESS_KEY_ID"),
+    secretAccessKey: required(
+      source.AUTH_STORAGE_SECRET_ACCESS_KEY,
+      "AUTH_STORAGE_SECRET_ACCESS_KEY"
+    )
+  };
 }

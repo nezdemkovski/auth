@@ -1,0 +1,19 @@
+{{- if .Values.objectStorage.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.objectStorage.fullname }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "auth.componentLabels" (dict "root" . "component" "object-storage") | nindent 4 }}
+spec:
+  selector:
+    {{- include "auth.componentSelectorLabels" (dict "root" . "component" "object-storage") | nindent 4 }}
+  ports:
+    - name: s3
+      port: {{ .Values.objectStorage.service.port }}
+      targetPort: s3
+    - name: console
+      port: {{ .Values.objectStorage.service.consolePort }}
+      targetPort: console
+{{- end }}

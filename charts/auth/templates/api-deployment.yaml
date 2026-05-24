@@ -34,6 +34,41 @@ spec:
               value: {{ .Values.env.autoMigrate | quote }}
             - name: TRUST_PROXY_HEADERS
               value: {{ .Values.env.trustProxyHeaders | quote }}
+            {{- if .Values.objectStorage.enabled }}
+            - name: AUTH_STORAGE_PROVIDER
+              value: "s3"
+            - name: AUTH_STORAGE_ENDPOINT
+              value: "http://{{ .Values.objectStorage.fullname }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.objectStorage.service.port }}"
+            - name: AUTH_STORAGE_REGION
+              value: {{ .Values.objectStorage.region | quote }}
+            - name: AUTH_STORAGE_BUCKET
+              value: {{ .Values.objectStorage.bucket | quote }}
+            - name: AUTH_STORAGE_PUBLIC_BASE_URL
+              value: {{ required "objectStorage.publicBaseUrl is required when objectStorage.enabled=true" .Values.objectStorage.publicBaseUrl | quote }}
+            - name: AUTH_STORAGE_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: auth-env
+                  key: AUTH_STORAGE_ACCESS_KEY_ID
+            - name: AUTH_STORAGE_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: auth-env
+                  key: AUTH_STORAGE_SECRET_ACCESS_KEY
+            {{- else }}
+            - name: AUTH_STORAGE_PROVIDER
+              value: {{ .Values.env.storage.provider | quote }}
+            {{- if eq .Values.env.storage.provider "s3" }}
+            - name: AUTH_STORAGE_ENDPOINT
+              value: {{ .Values.env.storage.endpoint | quote }}
+            - name: AUTH_STORAGE_REGION
+              value: {{ .Values.env.storage.region | quote }}
+            - name: AUTH_STORAGE_BUCKET
+              value: {{ .Values.env.storage.bucket | quote }}
+            - name: AUTH_STORAGE_PUBLIC_BASE_URL
+              value: {{ .Values.env.storage.publicBaseUrl | quote }}
+            {{- end }}
+            {{- end }}
             - name: AUTH_ADMIN_EMAIL
               value: {{ .Values.env.adminEmail | quote }}
             - name: POSTGRES_HOST

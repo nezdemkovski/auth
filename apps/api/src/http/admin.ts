@@ -55,6 +55,7 @@ type AdminApiOptions = {
   adminProject: AuthProject;
   publicBaseUrl: string;
   secret: string;
+  managedStorage: AuthProject["storage"];
 };
 
 type AdminSession = {
@@ -779,7 +780,8 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       settings: await readPublicStorageSettings({
         databaseUrl: options.databaseUrl,
         adminProject: options.adminProject,
-        project: registered.project
+        project: registered.project,
+        managedStorage: options.managedStorage
       })
     });
   });
@@ -826,6 +828,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
         adminProject: options.adminProject,
         project: registered.project,
         encryptionSecret: options.secret,
+        managedStorage: options.managedStorage,
         patch
       });
       await options.registry.updateProject({
@@ -837,7 +840,8 @@ export function createAdminApi(options: AdminApiOptions): Hono {
         settings: await readPublicStorageSettings({
           databaseUrl: options.databaseUrl,
           adminProject: options.adminProject,
-          project: registered.project
+          project: registered.project,
+          managedStorage: options.managedStorage
         })
       });
     } catch (error) {
@@ -1330,11 +1334,7 @@ function parseBillingSettingsPatch(body: BillingSettingsBody): BillingSettingsPa
 function parseStorageSettingsPatch(body: StorageSettingsBody): StorageSettingsPatch | null {
   if (
     typeof body.provider !== "string" ||
-    typeof body.enabled !== "boolean" ||
-    typeof body.endpoint !== "string" ||
-    typeof body.region !== "string" ||
-    typeof body.bucket !== "string" ||
-    typeof body.publicBaseUrl !== "string"
+    typeof body.enabled !== "boolean"
   ) {
     return null;
   }
@@ -1342,10 +1342,11 @@ function parseStorageSettingsPatch(body: StorageSettingsBody): StorageSettingsPa
   const patch: StorageSettingsPatch = {
     provider: body.provider as StorageSettingsPatch["provider"],
     enabled: body.enabled,
-    endpoint: body.endpoint.trim(),
-    region: body.region.trim() || "auto",
-    bucket: body.bucket.trim(),
-    publicBaseUrl: body.publicBaseUrl.trim()
+    endpoint: typeof body.endpoint === "string" ? body.endpoint.trim() : "",
+    region: typeof body.region === "string" ? body.region.trim() || "auto" : "auto",
+    bucket: typeof body.bucket === "string" ? body.bucket.trim() : "",
+    publicBaseUrl:
+      typeof body.publicBaseUrl === "string" ? body.publicBaseUrl.trim() : ""
   };
 
   if (typeof body.accessKeyId === "string" && body.accessKeyId.trim()) {

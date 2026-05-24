@@ -26,6 +26,7 @@ import { Topbar } from "../components/Topbar";
 import { Card, EmptyState, FormAlert } from "@nezdemkovski/auth-ui";
 import { UsersSkeleton } from "@nezdemkovski/auth-ui";
 import { OverviewView } from "../screens/OverviewView";
+import { FilesView } from "../screens/FilesView";
 import { NewProjectView } from "../screens/NewProjectView";
 import { ProjectView } from "../screens/ProjectView";
 import { SettingsView } from "../screens/SettingsView";
@@ -39,7 +40,8 @@ import type {
   ProjectSettingsPatch,
   SocialProviderId,
   SocialProviderPatch,
-  StorageSettingsPatch
+  StorageSettingsPatch,
+  StorageObject
 } from "../types";
 import type { Theme } from "@nezdemkovski/auth-client-shared/theme";
 
@@ -69,6 +71,12 @@ const projectRoute = createRoute({
   component: ProjectRoute
 });
 
+const projectFilesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/projects/$projectSlug/files",
+  component: ProjectFilesRoute
+});
+
 const newProjectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/projects/new",
@@ -84,6 +92,7 @@ const settingsRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   overviewRoute,
   newProjectRoute,
+  projectFilesRoute,
   projectRoute,
   settingsRoute
 ]);
@@ -327,7 +336,7 @@ function ProjectRoute() {
   const storageObjectsQuery = useQuery({
     queryKey: ["admin", "storage-objects", selected?.slug],
     queryFn: () => fetchStorageObjects(selected!.slug),
-    enabled: Boolean(selected?.slug)
+    enabled: Boolean(selected?.slug && selected.iconUrl)
   });
   const polarProductsQuery = useQuery({
     queryKey: ["admin", "polar-products", selected?.slug],
@@ -502,6 +511,9 @@ function ProjectRoute() {
       await queryClient.invalidateQueries({
         queryKey: ["admin", "project-users", variables.project]
       });
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "storage-objects", variables.project]
+      });
     },
     onError: (caught) => {
       notifyError(
@@ -554,7 +566,6 @@ function ProjectRoute() {
       socialProvidersQuery={socialProvidersQuery}
       billingQuery={billingQuery}
       storageQuery={storageQuery}
-      storageObjectsQuery={storageObjectsQuery}
       polarProductsQuery={polarProductsQuery}
       emailServiceEnabled={me.emailServiceEnabled}
       resendPendingEmail={
@@ -622,12 +633,16 @@ function ProjectRoute() {
           ? storageUpdate.error instanceof Error
             ? storageUpdate.error.message
             : "Could not save storage settings"
-          : projectIconUpload.isError
+          : null
+      }
+      storageUploadError={
+        projectIconUpload.isError
           ? projectIconUpload.error instanceof Error
             ? projectIconUpload.error.message
             : "Could not upload app icon"
           : null
       }
+      uploadedIcon={currentProjectIcon(storageObjectsQuery.data?.objects ?? [], selected.iconUrl)}
       polarProductCreatePending={polarProductCreate.isPending}
       polarProductCreateError={
         polarProductCreate.isError
@@ -698,5 +713,64 @@ function ProjectRoute() {
         })
       }
     />
+  );
+}
+
+function ProjectFilesRoute() {
+  const params = useParams({ from: projectFilesRoute.id });
+  const projectsQuery = useQuery({
+    queryKey: ["admin", "projects"],
+    queryFn: fetchProjects
+  });
+  const selected = projectsQuery.data?.projects.find(
+    (project) => project.slug === params.projectSlug
+  );
+  const storageObjectsQuery = useQuery({
+    queryKey: ["admin", "storage-objects", selected?.slug],
+    queryFn: () => fetchStorageObjects(selected!.slug),
+    enabled: Boolean(selected?.slug)
+  });
+
+  if (projectsQuery.isLoading) {
+    return <UsersSkeleton />;
+  }
+
+  if (selected?.system) {
+    return <Navigate to="/settings" />;
+  }
+
+  if (!selected) {
+    return (
+      <Card>
+        <EmptyState
+          title="Project not found"
+          description="The selected project no longer exists."
+        />
+      </Card>
+    );
+  }
+
+  return (
+    <FilesView
+      project={selected}
+      objects={storageObjectsQuery.data?.objects ?? []}
+      loading={storageObjectsQuery.isLoading}
+      error={storageObjectsQuery.isError ? "Could not load files." : null}
+    />
+  );
+}
+
+function currentProjectIcon(
+  objects: StorageObject[],
+  iconUrl: string
+): StorageObject | null {
+  if (!iconUrl) {
+    return null;
+  }
+
+  return (
+    objects.find(
+      (object) => object.purpose === "project_icon" && object.publicUrl === iconUrl
+    ) ?? null
   );
 }

@@ -1,0 +1,16 @@
+{{- if .Values.objectStorage.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.objectStorage.fullname }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "auth.componentLabels" (dict "root" . "component" "object-storage") | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ .Values.objectStorage.storage.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.objectStorage.storage.size | quote }}
+{{- end }}

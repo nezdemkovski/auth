@@ -90,6 +90,7 @@ export type StorageProvider = "none" | "s3";
 export type ProjectStorageSettings = {
   provider: StorageProvider;
   enabled: boolean;
+  managed: boolean;
   endpoint: string;
   region: string;
   bucket: string;
@@ -111,6 +112,7 @@ export const DEFAULT_PROJECT_BILLING: ProjectBillingSettings = {
 export const DEFAULT_PROJECT_STORAGE: ProjectStorageSettings = {
   provider: "none",
   enabled: false,
+  managed: false,
   endpoint: "",
   region: "auto",
   bucket: "",

@@ -16,6 +16,7 @@ export type MediaUploadResult = {
   bucket: string;
   objectKey: string;
   publicUrl: string;
+  originalFileName: string;
   mimeType: string;
   sizeBytes: number;
   checksumSha256: string;
@@ -71,10 +72,15 @@ export async function uploadMedia(input: MediaUploadInput): Promise<MediaUploadR
     bucket: input.storage.bucket,
     objectKey,
     publicUrl: `${input.storage.publicBaseUrl.replace(/\/+$/, "")}/${objectKey}`,
+    originalFileName: sanitizeFileName(input.file.name),
     mimeType,
     sizeBytes: input.file.size,
     checksumSha256
   };
+}
+
+function sanitizeFileName(value: string): string {
+  return value.trim().replace(/[\\/]+/g, "-").slice(0, 255);
 }
 
 export class MediaUploadError extends Error {

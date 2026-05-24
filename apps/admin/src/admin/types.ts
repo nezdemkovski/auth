@@ -158,6 +158,7 @@ export type StorageProvider = "none" | "s3";
 export type StorageSettings = {
   provider: StorageProvider;
   enabled: boolean;
+  managed: boolean;
   endpoint: string;
   region: string;
   bucket: string;
@@ -170,10 +171,10 @@ export type StorageSettings = {
 export type StorageSettingsPatch = {
   provider: StorageProvider;
   enabled: boolean;
-  endpoint: string;
-  region: string;
-  bucket: string;
-  publicBaseUrl: string;
+  endpoint?: string;
+  region?: string;
+  bucket?: string;
+  publicBaseUrl?: string;
   accessKeyId?: string;
   secretAccessKey?: string;
 };
@@ -185,6 +186,7 @@ export type StorageObject = {
   bucket: string;
   objectKey: string;
   publicUrl: string;
+  originalFileName: string;
   mimeType: string;
   sizeBytes: number;
   checksumSha256: string;
@@ -201,6 +203,7 @@ export type UploadResponse = {
     bucket: string;
     objectKey: string;
     publicUrl: string;
+    originalFileName: string;
     mimeType: string;
     sizeBytes: number;
     checksumSha256: string;
