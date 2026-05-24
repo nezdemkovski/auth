@@ -62,6 +62,11 @@ export function parseBillingSettingsPatch(
         return null;
       }
 
+      const productType = parseBillingProductType(product.type);
+      if (!productType) {
+        return null;
+      }
+
       const entitlements = product.entitlements
         .filter(isRecord)
         .map((entitlement) => {
@@ -74,39 +79,61 @@ export function parseBillingSettingsPatch(
             return null;
           }
 
+          const grantType = parseBillingGrantType(entitlement.grantType);
+          const resetPeriod = parseBillingResetPeriod(entitlement.resetPeriod);
+          if (!grantType || !resetPeriod) {
+            return null;
+          }
+
           return {
             key: entitlement.key.trim(),
-            grantType:
-              entitlement.grantType as BillingSettingsPatch["products"][number]["entitlements"][number]["grantType"],
+            grantType,
             amount:
               typeof entitlement.amount === "number" && Number.isFinite(entitlement.amount)
                 ? entitlement.amount
                 : null,
-            resetPeriod:
-              entitlement.resetPeriod as BillingSettingsPatch["products"][number]["entitlements"][number]["resetPeriod"],
+            resetPeriod,
             priority: entitlement.priority
           };
-        })
-        .filter((entitlement) => entitlement !== null);
+        });
+
+      if (entitlements.some((entitlement) => entitlement === null)) {
+        return null;
+      }
+      const validEntitlements = entitlements.filter(
+        (entitlement): entitlement is BillingEntitlement => entitlement !== null
+      );
 
       return {
         slug: product.slug.trim(),
         name: product.name.trim(),
         description: product.description.trim(),
         productId: product.productId.trim(),
-        type: product.type as BillingSettingsPatch["products"][number]["type"],
+        type: productType,
         active: product.active,
-        entitlements
+        entitlements: validEntitlements
       };
-    })
-    .filter((product) => product !== null);
+    });
+
+  if (products.some((product) => product === null)) {
+    return null;
+  }
+  const validProducts = products.filter(
+    (product): product is BillingProductMapping => product !== null
+  );
+
+  const provider = parseBillingProvider(body.provider);
+  const environment = parseBillingEnvironment(body.environment);
+  if (!provider || !environment) {
+    return null;
+  }
 
   const patch: BillingSettingsPatch = {
-    provider: body.provider as BillingSettingsPatch["provider"],
+    provider,
     enabled: body.enabled,
-    environment: body.environment as BillingSettingsPatch["environment"],
+    environment,
     organizationId: typeof body.organizationId === "string" ? body.organizationId.trim() : "",
-    products
+    products: validProducts
   };
 
   if (typeof body.accessToken === "string" && body.accessToken.trim()) {
@@ -227,6 +254,50 @@ function validateEntitlement(entitlement: BillingEntitlement): void {
   ) {
     throw new Error(`Invalid entitlement amount: ${entitlement.key}`);
   }
+}
+
+function parseBillingProvider(
+  value: string
+): BillingSettingsPatch["provider"] | null {
+  return value === "none" || value === "polar" ? value : null;
+}
+
+function parseBillingEnvironment(
+  value: string
+): BillingSettingsPatch["environment"] | null {
+  return value === "sandbox" || value === "production" ? value : null;
+}
+
+function parseBillingProductType(
+  value: string
+): BillingProductMapping["type"] | null {
+  return value === "subscription" ||
+    value === "one_time" ||
+    value === "credit_pack" ||
+    value === "lifetime" ||
+    value === "metered"
+    ? value
+    : null;
+}
+
+function parseBillingGrantType(
+  value: string
+): BillingEntitlement["grantType"] | null {
+  return value === "boolean" ||
+    value === "recurring_quota" ||
+    value === "one_time_credits" ||
+    value === "lifetime" ||
+    value === "metered"
+    ? value
+    : null;
+}
+
+function parseBillingResetPeriod(
+  value: string
+): BillingEntitlement["resetPeriod"] | null {
+  return value === "monthly" || value === "yearly" || value === "never"
+    ? value
+    : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

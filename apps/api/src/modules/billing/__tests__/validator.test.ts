@@ -72,4 +72,72 @@ describe("billing validators", () => {
       recurringInterval: "month"
     });
   });
+
+  test("rejects invalid billing setting enum values", () => {
+    const base = {
+      provider: "polar",
+      enabled: true,
+      environment: "sandbox",
+      products: [
+        {
+          slug: "ai-pack",
+          name: "AI Pack",
+          description: "50 requests",
+          productId: "prod_123",
+          type: "credit_pack",
+          active: true,
+          entitlements: [
+            {
+              key: "ai_request_credits",
+              grantType: "one_time_credits",
+              amount: 50,
+              resetPeriod: "never",
+              priority: 100
+            }
+          ]
+        }
+      ]
+    };
+
+    expect(parseBillingSettingsPatch({ ...base, provider: "stripe" })).toBeNull();
+    expect(parseBillingSettingsPatch({ ...base, environment: "live" })).toBeNull();
+    expect(
+      parseBillingSettingsPatch({
+        ...base,
+        products: [{ ...base.products[0], type: "unknown" }]
+      })
+    ).toBeNull();
+    expect(
+      parseBillingSettingsPatch({
+        ...base,
+        products: [
+          {
+            ...base.products[0],
+            entitlements: [
+              {
+                ...base.products[0].entitlements[0],
+                grantType: "bad"
+              }
+            ]
+          }
+        ]
+      })
+    ).toBeNull();
+    expect(
+      parseBillingSettingsPatch({
+        ...base,
+        products: [
+          {
+            ...base.products[0],
+            entitlements: [
+              {
+                ...base.products[0].entitlements[0],
+                resetPeriod: "weekly"
+              }
+            ]
+          }
+        ]
+      })
+    ).toBeNull();
+  });
 });
