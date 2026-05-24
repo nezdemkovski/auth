@@ -4,7 +4,7 @@ import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import type { EmailConfig } from "../../email/sender";
 import { MediaUploadError } from "../../storage/media";
-import type { BillingService } from "../../services/core/billing";
+import type { BillingService } from "../../modules/billing/core";
 import type { StorageService } from "../../services/core/storage";
 
 export type AdminApiOptions = {

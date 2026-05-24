@@ -1,9 +1,9 @@
-import { BillingServiceError } from "../../../services/core/billing";
+import { BillingServiceError } from "./core";
 import {
   parseBillingSettingsPatch,
   parseCreatePolarProduct
-} from "../../validator/billing";
-import { requireAdmin, type AdminRouteRegistration } from "../shared";
+} from "./validator";
+import { requireAdmin, type AdminRouteRegistration } from "../../http/admin/shared";
 
 export const registerBillingRoutes: AdminRouteRegistration = ({
   app,

@@ -6,9 +6,9 @@ import {
   mustChangePassword,
   updateAdminProfile
 } from "../services/core/admin-account";
-import { BillingService } from "../services/core/billing";
+import { BillingService } from "../modules/billing/core";
 import { StorageService } from "../services/core/storage";
-import { registerBillingRoutes } from "./admin/routes/billing";
+import { registerBillingRoutes } from "../modules/billing/http";
 import { registerDeliveryRoutes } from "./admin/routes/delivery";
 import { registerProjectRoutes } from "./admin/routes/projects";
 import { registerStorageRoutes } from "./admin/routes/storage";

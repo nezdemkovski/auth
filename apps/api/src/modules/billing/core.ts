@@ -8,7 +8,11 @@ import {
   updateBillingSettings,
   type BillingSettingsPatch
 } from "../../db/billing-settings";
-import type { CreatePolarProductInput } from "../../http/validator/billing";
+import {
+  createdBillingProductResponse,
+  polarProductResponse
+} from "./translator";
+import type { CreatePolarProductInput } from "./validator";
 
 export type BillingServiceOptions = {
   registry: AuthRegistry;
@@ -114,14 +118,7 @@ export class BillingService {
         limit: 50
       });
 
-      return page.result.items.map((product) => ({
-        id: product.id,
-        name: product.name,
-        description: product.description ?? "",
-        isRecurring: product.isRecurring,
-        isArchived: product.isArchived,
-        organizationId: product.organizationId
-      }));
+      return page.result.items.map(polarProductResponse);
     } catch (error) {
       throw new BillingServiceError(
         "polar_products_failed",
@@ -163,15 +160,7 @@ export class BillingService {
             })
       });
 
-      return {
-        slug: input.slug,
-        name: product.name,
-        description: product.description ?? "",
-        productId: product.id,
-        type: input.type,
-        active: true,
-        entitlements: defaultEntitlementsForBillingProduct(input.type)
-      };
+      return createdBillingProductResponse(product, input);
     } catch (error) {
       throw new BillingServiceError(
         "polar_product_create_failed",
@@ -191,43 +180,6 @@ function createPolarClient(project: AuthProject): Polar | null {
     accessToken: billing.accessToken,
     server: billing.environment
   });
-}
-
-function defaultEntitlementsForBillingProduct(
-  type: "subscription" | "one_time" | "credit_pack" | "lifetime"
-): BillingSettingsPatch["products"][number]["entitlements"] {
-  if (type === "subscription") {
-    return [
-      {
-        key: "ai_requests",
-        grantType: "recurring_quota",
-        amount: 100,
-        resetPeriod: "monthly",
-        priority: 100
-      }
-    ];
-  }
-  if (type === "credit_pack") {
-    return [
-      {
-        key: "ai_request_credits",
-        grantType: "one_time_credits",
-        amount: 100,
-        resetPeriod: "never",
-        priority: 100
-      }
-    ];
-  }
-
-  return [
-    {
-      key: "access",
-      grantType: type === "lifetime" ? "lifetime" : "boolean",
-      amount: null,
-      resetPeriod: "never",
-      priority: 100
-    }
-  ];
 }
 
 function polarErrorMessage(error: unknown, fallback: string): string {
