@@ -44,7 +44,7 @@ spec:
             - name: AUTH_STORAGE_BUCKET
               value: {{ .Values.objectStorage.bucket | quote }}
             - name: AUTH_STORAGE_PUBLIC_BASE_URL
-              value: {{ required "objectStorage.publicBaseUrl is required when objectStorage.enabled=true" .Values.objectStorage.publicBaseUrl | quote }}
+              value: {{ .Values.objectStorage.publicBaseUrl | default (printf "%s/storage" (.Values.env.publicBaseUrl | trimSuffix "/")) | quote }}
             - name: AUTH_STORAGE_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
