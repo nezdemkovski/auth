@@ -1,6 +1,11 @@
 import { Hono } from "hono";
 
 import { EmailProvider, type EmailConfig } from "../email/sender";
+import {
+  markPasswordChanged,
+  mustChangePassword,
+  updateAdminProfile
+} from "../services/core/admin-account";
 import { StorageService } from "../services/core/storage";
 import { registerBillingRoutes } from "./admin/routes/billing";
 import { registerDeliveryRoutes } from "./admin/routes/delivery";
@@ -13,9 +18,6 @@ import {
   getSession,
   isStateChangingMethod,
   isTrustedAdminRequest,
-  markPasswordChanged,
-  mustChangePassword,
-  updateAdminProfile,
   verifyPassword,
   type AdminApiOptions
 } from "./admin/shared";

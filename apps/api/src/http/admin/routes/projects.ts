@@ -14,6 +14,7 @@ import {
   readProjectSocialProviders,
   updateProjectSocialProvider
 } from "../../../db/social-provider-settings";
+import { readProjectCounts } from "../../../services/core/admin-projects";
 import {
   parseProjectCreate,
   parseProjectSettingsPatch,
@@ -21,7 +22,6 @@ import {
 } from "../../validator/project";
 import { projectResponse } from "../../translate/project";
 import {
-  readProjectCounts,
   requireAdmin,
   type AdminRouteRegistration
 } from "../shared";

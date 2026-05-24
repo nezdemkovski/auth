@@ -1,9 +1,11 @@
 import { EmailProvider } from "../../../email/sender";
 import {
   readProjectUsers,
+  terminateUserSessions
+} from "../../../services/core/admin-projects";
+import {
   requireAdmin,
   sendVerificationEmail,
-  terminateUserSessions,
   toIsoString,
   type AdminRouteRegistration
 } from "../shared";
