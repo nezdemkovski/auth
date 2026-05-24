@@ -6,6 +6,7 @@ import {
   mustChangePassword,
   updateAdminProfile
 } from "../services/core/admin-account";
+import { BillingService } from "../services/core/billing";
 import { StorageService } from "../services/core/storage";
 import { registerBillingRoutes } from "./admin/routes/billing";
 import { registerDeliveryRoutes } from "./admin/routes/delivery";
@@ -31,6 +32,13 @@ export function createAdminApi(options: AdminApiOptions): Hono {
   const app = new Hono();
   const adminOrigin = new URL(options.publicBaseUrl).origin;
   let currentDeliverySettings = options.deliverySettings;
+  const billingService = new BillingService({
+    registry: options.registry,
+    databaseUrl: options.databaseUrl,
+    adminProject: options.adminProject,
+    publicBaseUrl: options.publicBaseUrl,
+    encryptionSecret: options.secret
+  });
   const storageService = new StorageService({
     registry: options.registry,
     databaseUrl: options.databaseUrl,
@@ -41,6 +49,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
   const routeContext = {
     app,
     options,
+    billingService,
     storageService,
     getDeliverySettings: () => currentDeliverySettings,
     setDeliverySettings: (settings: EmailConfig) => {
