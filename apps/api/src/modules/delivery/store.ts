@@ -5,6 +5,7 @@ import type { AuthProject } from "../../config/projects";
 import { createAdminPool } from "../../db/admin-pool";
 import { EmailProvider, type EmailConfig } from "../../email/sender";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
+import { isEnumValue } from "../../runtime/enums";
 import type { DeliverySettingsPatch } from "./validator";
 
 export type DeliverySettings = {
@@ -29,10 +30,10 @@ type DeliverySettingsRow = {
 
 const SETTINGS_KEY = "default";
 
-export async function ensureDeliverySettingsTable(options: {
+export const ensureDeliverySettingsTable = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
-}): Promise<void> {
+}) => {
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
   const db = drizzle({ client: pool });
 
@@ -52,14 +53,14 @@ export async function ensureDeliverySettingsTable(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-export async function seedDeliverySettingsFromEnv(options: {
+export const seedDeliverySettingsFromEnv = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   encryptionSecret: string;
   email: EmailConfig;
-}): Promise<void> {
+}) => {
   await ensureDeliverySettingsTable(options);
   if (options.email.provider === EmailProvider.None) {
     return;
@@ -89,37 +90,41 @@ export async function seedDeliverySettingsFromEnv(options: {
     ...options,
     patch
   });
-}
+};
 
-export async function readDeliverySettings(options: {
+export const readDeliverySettings = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   encryptionSecret: string;
-}): Promise<DeliverySettings> {
+}) => {
   await ensureDeliverySettingsTable(options);
   const row = await readDeliverySettingsRow(options);
   return rowToDeliverySettings(row, options.encryptionSecret);
-}
+};
 
-export async function updateDeliverySettings(options: {
+export const updateDeliverySettings = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   encryptionSecret: string;
   patch: DeliverySettingsPatch;
-}): Promise<DeliverySettings> {
+}) => {
   await ensureDeliverySettingsTable(options);
 
   const current = await readDeliverySettingsRow(options);
   const resendApiKeyCipher =
     options.patch.resendApiKey && options.patch.resendApiKey.trim()
-      ? encryptSecret(options.patch.resendApiKey.trim(), options.encryptionSecret, "resend")
+      ? encryptSecret(
+          options.patch.resendApiKey.trim(),
+          options.encryptionSecret,
+          EmailProvider.Resend
+        )
       : current?.resendApiKeyCipher ?? "";
   const cloudflareApiTokenCipher =
     options.patch.cloudflareApiToken && options.patch.cloudflareApiToken.trim()
       ? encryptSecret(
           options.patch.cloudflareApiToken.trim(),
           options.encryptionSecret,
-          "cloudflare"
+          EmailProvider.Cloudflare
         )
       : current?.cloudflareApiTokenCipher ?? "";
 
@@ -163,12 +168,12 @@ export async function updateDeliverySettings(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-async function readDeliverySettingsRow(options: {
+const readDeliverySettingsRow = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
-}): Promise<DeliverySettingsRow | null> {
+}) => {
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
   const db = drizzle({ client: pool });
 
@@ -189,28 +194,25 @@ async function readDeliverySettingsRow(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-function encryptSecret(value: string, secret: string, key: string): string {
+const encryptSecret = (value: string, secret: string, key: string) => {
   return encryptSecretValue(value, secret, encryptionContext(key));
-}
+};
 
-function decryptSecret(value: string, secret: string, key: string): string {
+const decryptSecret = (value: string, secret: string, key: string) => {
   if (!value) {
     return "";
   }
 
   return decryptSecretValue(value, secret, encryptionContext(key));
-}
+};
 
-function encryptionContext(key: string): string {
+const encryptionContext = (key: string) => {
   return `delivery:${key}`;
-}
+};
 
-function rowToDeliverySettings(
-  row: DeliverySettingsRow | null | undefined,
-  encryptionSecret: string
-): DeliverySettings {
+const rowToDeliverySettings = (row: DeliverySettingsRow | null | undefined, encryptionSecret: string) => {
   if (!row) {
     return {
       provider: EmailProvider.None,
@@ -228,12 +230,12 @@ function rowToDeliverySettings(
   const cloudflareApiToken = decryptSecret(
     row.cloudflareApiTokenCipher,
     encryptionSecret,
-    "cloudflare"
+    EmailProvider.Cloudflare
   );
   const resendApiKey = decryptSecret(
     row.resendApiKeyCipher,
     encryptionSecret,
-    "resend"
+    EmailProvider.Resend
   );
 
   return {
@@ -246,20 +248,16 @@ function rowToDeliverySettings(
     resendApiKeyConfigured: Boolean(row.resendApiKeyCipher),
     updatedAt: normalizeDate(row.updatedAt)
   };
-}
+};
 
 function isDeliveryProvider(value: string): value is EmailConfig["provider"] {
-  return (
-    value === EmailProvider.None ||
-    value === EmailProvider.Resend ||
-    value === EmailProvider.Cloudflare
-  );
+  return isEnumValue(EmailProvider, value);
 }
 
-function normalizeDate(value: Date | string | null | undefined): string | null {
+const normalizeDate = (value: Date | string | null | undefined) => {
   if (!value) {
     return null;
   }
 
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
-}
+};

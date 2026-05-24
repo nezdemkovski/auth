@@ -10,6 +10,7 @@ import {
   Text
 } from "@react-email/components";
 import { render } from "@react-email/render";
+import type { CSSProperties } from "react";
 
 import type { AuthProject } from "../config/projects";
 import type { EmailSender } from "./sender";
@@ -35,10 +36,10 @@ type ActionEmailProps = {
   expiryHours: number;
 };
 
-export function createProjectEmailHandlers(options: {
+export const createProjectEmailHandlers = (options: {
   sender: EmailSender | null;
   project: AuthProject;
-}) {
+}) => {
   const { sender, project } = options;
 
   if (!sender) {
@@ -105,12 +106,9 @@ export function createProjectEmailHandlers(options: {
       }
     }
   };
-}
+};
 
-async function renderActionEmail(input: ActionEmailProps): Promise<{
-  html: string;
-  text: string;
-}> {
+const renderActionEmail = async (input: ActionEmailProps) => {
   const node = <ActionEmail {...input} />;
 
   const [html, text] = await Promise.all([
@@ -124,9 +122,9 @@ async function renderActionEmail(input: ActionEmailProps): Promise<{
     html,
     text
   };
-}
+};
 
-export function ActionEmail({
+export const ActionEmail = ({
   projectName,
   eyebrow,
   headlineLead,
@@ -136,7 +134,7 @@ export function ActionEmail({
   actionLabel,
   actionUrl,
   expiryHours
-}: ActionEmailProps) {
+}: ActionEmailProps) => {
   const initial = projectName.trim().charAt(0).toUpperCase() || "·";
   return (
     <Html>
@@ -225,7 +223,7 @@ export function ActionEmail({
       </Body>
     </Html>
   );
-}
+};
 
 const colors = {
   background: "#fafaf9",
@@ -248,7 +246,7 @@ const fontStacks = {
   mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
 };
 
-const styles = {
+const styles: Record<string, CSSProperties> = {
   body: {
     margin: 0,
     backgroundColor: colors.background,
@@ -277,7 +275,7 @@ const styles = {
     fontSize: "13px",
     fontWeight: 600,
     lineHeight: "28px",
-    textAlign: "center" as const,
+    textAlign: "center",
     letterSpacing: "-0.02em"
   },
   brandText: {
@@ -299,13 +297,13 @@ const styles = {
     fontWeight: 400,
     letterSpacing: "0.08em",
     color: colors.muted,
-    whiteSpace: "nowrap" as const,
+    whiteSpace: "nowrap",
     paddingRight: "12px",
-    verticalAlign: "middle" as const
+    verticalAlign: "middle"
   },
   eyebrowRule: {
     width: "100%",
-    verticalAlign: "middle" as const
+    verticalAlign: "middle"
   },
   eyebrowRuleLine: {
     height: "1px",
@@ -322,7 +320,7 @@ const styles = {
     letterSpacing: "-0.02em"
   },
   headlineEm: {
-    fontStyle: "italic" as const,
+    fontStyle: "italic",
     fontWeight: 400
   },
   intro: {
@@ -359,7 +357,7 @@ const styles = {
     color: colors.inkSoft,
     fontSize: "12.5px",
     lineHeight: "1.5",
-    wordBreak: "break-all" as const,
+    wordBreak: "break-all",
     textDecoration: "underline",
     textUnderlineOffset: "2px"
   },
@@ -368,15 +366,15 @@ const styles = {
     fontSize: "10.5px",
     letterSpacing: "0.08em",
     color: colors.mutedSoft,
-    textAlign: "left" as const
+    textAlign: "left"
   },
   footerRight: {
     fontFamily: fontStacks.mono,
     fontSize: "10.5px",
     letterSpacing: "0.08em",
     color: colors.mutedSoft,
-    textAlign: "right" as const,
-    whiteSpace: "nowrap" as const,
+    textAlign: "right",
+    whiteSpace: "nowrap",
     paddingLeft: "12px"
   },
   footerLink: {

@@ -1,5 +1,6 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
+import { BillingEnvironment } from "../../config/projects";
 import { defaultEntitlementsForBillingProduct } from "./entitlements";
 import {
   createPolarClientFromProject,
@@ -85,14 +86,15 @@ export class BillingService {
       accessToken?: unknown;
       environment?: unknown;
     }
-  ): Promise<void> {
+  ) {
     const billing = project.billing;
     const accessToken =
       typeof input.accessToken === "string" && input.accessToken.trim()
         ? input.accessToken.trim()
         : billing.accessToken;
     const environment =
-      input.environment === "production" || input.environment === "sandbox"
+      input.environment === BillingEnvironment.Production ||
+      input.environment === BillingEnvironment.Sandbox
         ? input.environment
         : billing.environment;
     if (!accessToken) {

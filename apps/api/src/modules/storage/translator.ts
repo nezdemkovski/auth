@@ -5,14 +5,10 @@ export type PublicStorageSettings = StorageSettingsState;
 
 export type StorageObjectResponse = StorageObjectSummary;
 
-export function storageSettingsResponse(
-  settings: StorageSettingsState
-): PublicStorageSettings {
+export const storageSettingsResponse = (settings: StorageSettingsState) => {
   return settings;
-}
+};
 
-export function storageObjectResponse(
-  object: StorageObjectSummary
-): StorageObjectResponse {
+export const storageObjectResponse = (object: StorageObjectSummary) => {
   return object;
-}
+};

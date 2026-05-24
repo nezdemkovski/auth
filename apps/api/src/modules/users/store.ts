@@ -14,10 +14,7 @@ export type ProjectUserRow = {
   sessionCount: number;
 };
 
-export async function readProjectCounts(pool: Pool): Promise<{
-  userCount: number;
-  activeSessionCount: number;
-}> {
+export const readProjectCounts = async (pool: Pool) => {
   const db = drizzle({ client: pool });
   const result = await db.execute<{
     userCount: string;
@@ -31,9 +28,9 @@ export async function readProjectCounts(pool: Pool): Promise<{
     userCount: Number(result.rows[0]?.userCount ?? 0),
     activeSessionCount: Number(result.rows[0]?.activeSessionCount ?? 0)
   };
-}
+};
 
-export async function readProjectUsers(pool: Pool): Promise<ProjectUserRow[]> {
+export const readProjectUsers = async (pool: Pool) => {
   const db = drizzle({ client: pool });
   const result = await db.execute<ProjectUserRow>(sql`
     SELECT u.id,
@@ -53,12 +50,9 @@ export async function readProjectUsers(pool: Pool): Promise<ProjectUserRow[]> {
   `);
 
   return result.rows;
-}
+};
 
-export async function terminateUserSessions(
-  pool: Pool,
-  userId: string
-): Promise<number> {
+export const terminateUserSessions = async (pool: Pool, userId: string) => {
   const db = drizzle({ client: pool });
   const result = await db.execute<{ id: string }>(sql`
     DELETE FROM "session"
@@ -68,13 +62,9 @@ export async function terminateUserSessions(
   `);
 
   return result.rows.length;
-}
+};
 
-export async function updateUserImage(
-  pool: Pool,
-  userId: string,
-  image: string
-): Promise<void> {
+export const updateUserImage = async (pool: Pool, userId: string, image: string) => {
   const db = drizzle({ client: pool });
   await db.execute(sql`
     UPDATE "user"
@@ -82,4 +72,4 @@ export async function updateUserImage(
         "updatedAt" = now()
     WHERE id = ${userId}
   `);
-}
+};

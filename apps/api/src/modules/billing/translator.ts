@@ -6,6 +6,12 @@ import type {
   BillingProductMapping,
   ProjectBillingSettings
 } from "../../config/projects";
+import {
+  BillingProductType,
+  EntitlementGrantType,
+  EntitlementResetPeriod
+} from "../../config/projects";
+import { isEnumValue } from "../../runtime/enums";
 import type { BillingSettingsState } from "./store";
 import type { CreatePolarProductInput } from "./validator";
 
@@ -18,22 +24,22 @@ export type PublicBillingSettings = Omit<
   webhookUrl: string;
 };
 
-export function billingSettingsResponse(options: {
+export const billingSettingsResponse = (options: {
   settings: BillingSettingsState;
   project: AuthProject;
   publicBaseUrl: string;
-}): PublicBillingSettings {
+}) => {
   return {
     ...options.settings,
     webhookUrl: billingWebhookUrl(options.publicBaseUrl, options.project)
   };
-}
+};
 
-export function billingWebhookUrl(publicBaseUrl: string, project: AuthProject): string {
+export const billingWebhookUrl = (publicBaseUrl: string, project: AuthProject) => {
   return `${publicBaseUrl}/api/${project.slug}/auth/polar/webhooks`;
-}
+};
 
-export function polarProductResponse(product: Product) {
+export const polarProductResponse = (product: Product) => {
   return {
     id: product.id,
     name: product.name,
@@ -42,13 +48,9 @@ export function polarProductResponse(product: Product) {
     isArchived: product.isArchived,
     organizationId: product.organizationId
   };
-}
+};
 
-export function createdBillingProductResponse(
-  product: Product,
-  input: CreatePolarProductInput,
-  entitlements: BillingProductMapping["entitlements"]
-): BillingProductMapping {
+export const createdBillingProductResponse = (product: Product, input: CreatePolarProductInput, entitlements: BillingProductMapping["entitlements"]) => {
   return {
     slug: input.slug,
     name: product.name,
@@ -58,9 +60,9 @@ export function createdBillingProductResponse(
     active: true,
     entitlements
   };
-}
+};
 
-export function normalizeBillingProducts(value: unknown): BillingProductMapping[] {
+export const normalizeBillingProducts = (value: unknown) => {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -77,9 +79,9 @@ export function normalizeBillingProducts(value: unknown): BillingProductMapping[
       entitlements: normalizeEntitlements(product.entitlements)
     }))
     .filter((product) => product.slug);
-}
+};
 
-function normalizeEntitlements(value: unknown): BillingEntitlement[] {
+const normalizeEntitlements = (value: unknown) => {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -97,33 +99,25 @@ function normalizeEntitlements(value: unknown): BillingEntitlement[] {
         ? entitlement.priority
         : 100
   }));
-}
+};
 
-function normalizeProductType(value: unknown): BillingProductMapping["type"] {
-  return value === "subscription" ||
-    value === "one_time" ||
-    value === "credit_pack" ||
-    value === "lifetime" ||
-    value === "metered"
+const normalizeProductType = (value: unknown) => {
+  return isEnumValue(BillingProductType, value)
     ? value
-    : "one_time";
-}
+    : BillingProductType.OneTime;
+};
 
-function normalizeGrantType(value: unknown): BillingEntitlement["grantType"] {
-  return value === "boolean" ||
-    value === "recurring_quota" ||
-    value === "one_time_credits" ||
-    value === "lifetime" ||
-    value === "metered"
+const normalizeGrantType = (value: unknown) => {
+  return isEnumValue(EntitlementGrantType, value)
     ? value
-    : "boolean";
-}
+    : EntitlementGrantType.Boolean;
+};
 
-function normalizeResetPeriod(value: unknown): BillingEntitlement["resetPeriod"] {
-  return value === "monthly" || value === "yearly" || value === "never"
+const normalizeResetPeriod = (value: unknown) => {
+  return isEnumValue(EntitlementResetPeriod, value)
     ? value
-    : "never";
-}
+    : EntitlementResetPeriod.Never;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

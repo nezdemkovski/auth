@@ -19,7 +19,7 @@ import {
   type AdminApiOptions
 } from "./admin/shared";
 
-export function createAdminApi(options: AdminApiOptions): Hono {
+export const createAdminApi = (options: AdminApiOptions) => {
   const app = new Hono();
   const adminOrigin = new URL(options.publicBaseUrl).origin;
   let currentDeliverySettings = options.deliverySettings;
@@ -99,7 +99,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
   registerUserRoutes(routeContext);
 
   return app;
-}
+};
 
 export const __adminTestUtils = {
   isTrustedAdminRequest

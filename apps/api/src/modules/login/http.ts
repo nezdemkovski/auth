@@ -3,6 +3,7 @@ import type { Hono } from "hono";
 import {
   LoginFlowError,
   LoginFlowService,
+  type LoginProjectRegistry,
   redirectUriAllowed,
   validPkceChallenge
 } from "./core";
@@ -15,6 +16,7 @@ import {
   parseLoginSessionCodeInput
 } from "./validator";
 import {
+  LoginMode,
   loginConfigResponse,
   oauthConsentConfigResponse,
   resetPasswordConfigResponse
@@ -26,21 +28,18 @@ type LoginVariables = {
   registry: AuthRegistry;
 };
 
-type LoginOptions = {
-  registry: AuthRegistry;
+export type LoginOptions = {
+  registry: LoginProjectRegistry;
   secret: string;
   codeStore: LoginCodeStore;
   trustProxyHeaders?: boolean;
 };
 
 type LoginConfigOptions = {
-  registry: AuthRegistry;
+  registry: LoginProjectRegistry;
 };
 
-export function registerLoginRoutes(
-  app: Hono<{ Variables: LoginVariables }>,
-  options: LoginOptions
-): void {
+export const registerLoginRoutes = (app: Hono<{ Variables: LoginVariables }>, options: LoginOptions) => {
   app.get("/api/:project/login/config/login", (c) =>
     getLoginConfig(c.req.raw, c.req.param("project"), options)
   );
@@ -58,9 +57,9 @@ export function registerLoginRoutes(
   app.post("/api/:project/login/session-code", (c) => {
     return createLoginSessionCode(c.req.raw, c.req.param("project"), options);
   });
-}
+};
 
-function json(data: unknown, status = 200): Response {
+const json = (data: unknown, status = 200) => {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
@@ -68,17 +67,13 @@ function json(data: unknown, status = 200): Response {
       "X-Content-Type-Options": "nosniff"
     }
   });
-}
+};
 
-function runtimeConfig(data: unknown, status = 200): Response {
+const runtimeConfig = (data: unknown, status = 200) => {
   return json(data, status);
-}
+};
 
-export function getLoginConfig(
-  req: Request,
-  project: string,
-  options: LoginConfigOptions
-): Response {
+export const getLoginConfig = (req: Request, project: string, options: LoginConfigOptions) => {
   const registered = options.registry.get(project);
   if (!registered) {
     return json({ error: "unknown_project" }, 404);
@@ -87,7 +82,10 @@ export function getLoginConfig(
   const url = new URL(req.url);
   const redirectUri = url.searchParams.get("redirect_uri") ?? "";
   const state = url.searchParams.get("state") ?? "";
-  const mode = url.searchParams.get("mode") === "signup" ? "signup" : "login";
+  const mode =
+    url.searchParams.get("mode") === LoginMode.Signup
+      ? LoginMode.Signup
+      : LoginMode.Login;
   const codeChallenge = url.searchParams.get("code_challenge") ?? "";
   const codeChallengeMethod = url.searchParams.get("code_challenge_method") ?? "";
 
@@ -109,13 +107,9 @@ export function getLoginConfig(
       codeChallenge
     })
   );
-}
+};
 
-export function getPasswordResetConfig(
-  req: Request,
-  project: string,
-  options: LoginConfigOptions
-): Response {
+export const getPasswordResetConfig = (req: Request, project: string, options: LoginConfigOptions) => {
   const registered = options.registry.get(project);
   if (!registered) {
     return json({ error: "unknown_project" }, 404);
@@ -131,13 +125,9 @@ export function getPasswordResetConfig(
       error: url.searchParams.get("error") ?? ""
     })
   );
-}
+};
 
-export function getOAuthConsentConfig(
-  req: Request,
-  project: string,
-  options: LoginConfigOptions
-): Response {
+export const getOAuthConsentConfig = (req: Request, project: string, options: LoginConfigOptions) => {
   const registered = options.registry.get(project);
   if (!registered) {
     return json({ error: "unknown_project" }, 404);
@@ -167,13 +157,9 @@ export function getOAuthConsentConfig(
       oauthQuery: url.searchParams.toString()
     })
   );
-}
+};
 
-export async function createLoginSessionCode(
-  req: Request,
-  project: string,
-  options: LoginOptions
-): Promise<Response> {
+export const createLoginSessionCode = async (req: Request, project: string, options: LoginOptions) => {
   const input = parseLoginSessionCodeInput(await req.json().catch(() => null));
   if (!input) {
     return json({ error: "invalid_body" }, 400);
@@ -194,13 +180,9 @@ export async function createLoginSessionCode(
   } catch (error) {
     return loginFlowError(error);
   }
-}
+};
 
-export async function exchangeLoginCode(
-  req: Request,
-  project: string,
-  options: LoginOptions
-): Promise<Response> {
+export const exchangeLoginCode = async (req: Request, project: string, options: LoginOptions) => {
   const input = parseLoginCodeExchangeInput(await req.json().catch(() => null));
   if (!input) {
     return json({ error: "invalid_body" }, 400);
@@ -220,12 +202,12 @@ export async function exchangeLoginCode(
   } catch (error) {
     return loginFlowError(error);
   }
-}
+};
 
-function loginFlowError(error: unknown): Response {
+const loginFlowError = (error: unknown) => {
   if (error instanceof LoginFlowError) {
     return json({ error: error.code }, error.status);
   }
 
   throw error;
-}
+};

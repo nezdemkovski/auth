@@ -37,7 +37,7 @@ export class DeliveryService {
     }
   ) {}
 
-  async readSettings(): Promise<PublicDeliverySettings> {
+  async readSettings() {
     const settings = await readDeliverySettings({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
@@ -47,7 +47,7 @@ export class DeliveryService {
     return deliverySettingsResponse(settings);
   }
 
-  async updateSettings(patch: DeliverySettingsPatch): Promise<PublicDeliverySettings> {
+  async updateSettings(patch: DeliverySettingsPatch) {
     validateDeliverySettingsPatch(patch);
     const settings = await updateDeliverySettings({
       databaseUrl: this.options.databaseUrl,
@@ -63,7 +63,7 @@ export class DeliveryService {
     return deliverySettingsResponse(settings);
   }
 
-  async verify(admin: AdminSession): Promise<void> {
+  async verify(admin: AdminSession) {
     const settings = await this.loadRuntimeSettings();
     const sender = createEmailSender(settings);
     if (!sender) {
@@ -82,7 +82,7 @@ export class DeliveryService {
     });
   }
 
-  private async loadRuntimeSettings(): Promise<EmailConfig> {
+  private async loadRuntimeSettings() {
     const settings = await readDeliverySettings({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
@@ -93,17 +93,19 @@ export class DeliveryService {
   }
 }
 
-export function toRuntimeEmailConfig(settings: DeliverySettings): EmailConfig {
+export const toRuntimeEmailConfig = (settings: DeliverySettings) => {
   if (
     settings.provider === EmailProvider.Resend &&
     settings.from &&
     settings.resendApiKey
   ) {
-    return {
+    const config: EmailConfig = {
       provider: EmailProvider.Resend,
       from: settings.from,
       apiKey: settings.resendApiKey
     };
+
+    return config;
   }
 
   if (
@@ -112,15 +114,19 @@ export function toRuntimeEmailConfig(settings: DeliverySettings): EmailConfig {
     settings.cloudflareAccountId &&
     settings.cloudflareApiToken
   ) {
-    return {
+    const config: EmailConfig = {
       provider: EmailProvider.Cloudflare,
       from: settings.from,
       accountId: settings.cloudflareAccountId,
       apiToken: settings.cloudflareApiToken
     };
+
+    return config;
   }
 
-  return {
+  const config: EmailConfig = {
     provider: EmailProvider.None
   };
-}
+
+  return config;
+};

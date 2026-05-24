@@ -1,30 +1,30 @@
-export function randomBase64Url(byteLength: number): string {
+export const randomBase64Url = (byteLength: number) => {
   return base64Url(randomBytes(byteLength));
-}
+};
 
-export function randomHex(byteLength: number): string {
+export const randomHex = (byteLength: number) => {
   return toHex(randomBytes(byteLength));
-}
+};
 
-export function sha256Base64Url(value: string): string {
+export const sha256Base64Url = (value: string) => {
   return new Bun.CryptoHasher("sha256").update(value).digest("base64url");
-}
+};
 
-export function sha256Hex(value: string | Uint8Array): string {
+export const sha256Hex = (value: string | Uint8Array) => {
   return new Bun.CryptoHasher("sha256").update(value).digest("hex");
-}
+};
 
-function randomBytes(byteLength: number): Uint8Array {
+const randomBytes = (byteLength: number) => {
   return crypto.getRandomValues(new Uint8Array(byteLength));
-}
+};
 
-function base64Url(bytes: Uint8Array): string {
+const base64Url = (bytes: Uint8Array) => {
   return btoa(String.fromCharCode(...bytes))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
     .replace(/=+$/g, "");
-}
+};
 
-function toHex(bytes: Uint8Array): string {
+const toHex = (bytes: Uint8Array) => {
   return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-}
+};

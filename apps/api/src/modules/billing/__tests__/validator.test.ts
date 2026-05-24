@@ -1,6 +1,14 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  BillingEnvironment,
+  BillingProductType,
+  BillingProvider,
+  BillingRecurringInterval,
+  EntitlementGrantType,
+  EntitlementResetPeriod
+} from "../../../config/projects";
+import {
   parseBillingSettingsPatch,
   parseCreatePolarProduct
 } from "../validator";
@@ -9,9 +17,9 @@ describe("billing validators", () => {
   test("parses a Polar billing settings patch", () => {
     expect(
       parseBillingSettingsPatch({
-        provider: "polar",
+        provider: BillingProvider.Polar,
         enabled: true,
-        environment: "sandbox",
+        environment: BillingEnvironment.Sandbox,
         organizationId: " org_123 ",
         products: [
           {
@@ -19,14 +27,14 @@ describe("billing validators", () => {
             name: "AI Pack",
             description: "50 requests",
             productId: "prod_123",
-            type: "credit_pack",
+            type: BillingProductType.CreditPack,
             active: true,
             entitlements: [
               {
                 key: "ai_request_credits",
-                grantType: "one_time_credits",
+                grantType: EntitlementGrantType.OneTimeCredits,
                 amount: 50,
-                resetPeriod: "never",
+                resetPeriod: EntitlementResetPeriod.Never,
                 priority: 100
               }
             ]
@@ -34,7 +42,7 @@ describe("billing validators", () => {
         ]
       })
     ).toMatchObject({
-      provider: "polar",
+      provider: BillingProvider.Polar,
       enabled: true,
       organizationId: "org_123",
       products: [
@@ -57,41 +65,41 @@ describe("billing validators", () => {
         slug: "ai-pack",
         name: "AI Pack",
         description: "50 requests",
-        type: "credit_pack",
+        type: BillingProductType.CreditPack,
         priceAmount: 1000,
         priceCurrency: "EUR",
-        recurringInterval: "month"
+        recurringInterval: BillingRecurringInterval.Month
       })
     ).toEqual({
       slug: "ai-pack",
       name: "AI Pack",
       description: "50 requests",
-      type: "credit_pack",
+      type: BillingProductType.CreditPack,
       priceAmount: 1000,
       priceCurrency: "eur",
-      recurringInterval: "month"
+      recurringInterval: BillingRecurringInterval.Month
     });
   });
 
   test("rejects invalid billing setting enum values", () => {
     const base = {
-      provider: "polar",
+      provider: BillingProvider.Polar,
       enabled: true,
-      environment: "sandbox",
+      environment: BillingEnvironment.Sandbox,
       products: [
         {
           slug: "ai-pack",
           name: "AI Pack",
           description: "50 requests",
           productId: "prod_123",
-          type: "credit_pack",
+          type: BillingProductType.CreditPack,
           active: true,
           entitlements: [
             {
               key: "ai_request_credits",
-              grantType: "one_time_credits",
+              grantType: EntitlementGrantType.OneTimeCredits,
               amount: 50,
-              resetPeriod: "never",
+              resetPeriod: EntitlementResetPeriod.Never,
               priority: 100
             }
           ]

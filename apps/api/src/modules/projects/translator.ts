@@ -12,11 +12,7 @@ const EMPTY_PROJECT_COUNTS: ProjectCounts = {
   activeSessionCount: 0
 };
 
-export function projectResponse(
-  project: AuthProject,
-  counts: ProjectCounts = EMPTY_PROJECT_COUNTS,
-  publicBaseUrl = ""
-) {
+export const projectResponse = (project: AuthProject, counts: ProjectCounts = EMPTY_PROJECT_COUNTS, publicBaseUrl = "") => {
   return {
     slug: project.slug,
     name: project.name,
@@ -40,4 +36,4 @@ export function projectResponse(
     system: project.slug === "admin",
     ...counts
   };
-}
+};

@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
+import { StorageProvider } from "../../../config/projects";
+import { MediaUploadPurpose } from "../media";
+import { StorageObjectFolder } from "../objects-store";
 import {
   storageObjectResponse,
   storageSettingsResponse
@@ -9,7 +12,7 @@ describe("storage translator", () => {
   test("keeps public settings secret-free", () => {
     expect(
       storageSettingsResponse({
-        provider: "s3",
+        provider: StorageProvider.S3,
         enabled: true,
         managed: false,
         endpoint: "http://127.0.0.1:9000",
@@ -21,7 +24,7 @@ describe("storage translator", () => {
         configured: true
       })
     ).toEqual({
-      provider: "s3",
+      provider: StorageProvider.S3,
       enabled: true,
       managed: false,
       endpoint: "http://127.0.0.1:9000",
@@ -38,8 +41,8 @@ describe("storage translator", () => {
     expect(
       storageObjectResponse({
         id: "object-id",
-        purpose: "project_icon",
-        folder: "images",
+        purpose: MediaUploadPurpose.ProjectIcon,
+        folder: StorageObjectFolder.Images,
         bucket: "auth-public",
         objectKey: "realms/testing/images/avatar.jpg",
         publicUrl: "https://cdn.example/realms/testing/images/avatar.jpg",
@@ -51,7 +54,7 @@ describe("storage translator", () => {
         createdAt: "2026-05-25T10:00:00.000Z"
       })
     ).toMatchObject({
-      folder: "images",
+      folder: StorageObjectFolder.Images,
       originalFileName: "avatar.jpg",
       mimeType: "image/jpeg",
       sizeBytes: 1024

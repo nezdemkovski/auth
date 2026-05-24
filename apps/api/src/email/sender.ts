@@ -1,10 +1,8 @@
-export const EmailProvider = {
-  None: "none",
-  Cloudflare: "cloudflare",
-  Resend: "resend"
-} as const;
-
-export type EmailProvider = (typeof EmailProvider)[keyof typeof EmailProvider];
+export enum EmailProvider {
+  None = "none",
+  Cloudflare = "cloudflare",
+  Resend = "resend"
+}
 
 export type EmailConfig =
   | {
@@ -31,7 +29,7 @@ export type EmailSender = {
   }): Promise<void>;
 };
 
-export function createEmailSender(config: EmailConfig): EmailSender | null {
+export const createEmailSender = (config: EmailConfig) => {
   if (config.provider === EmailProvider.None) {
     return null;
   }
@@ -41,17 +39,19 @@ export function createEmailSender(config: EmailConfig): EmailSender | null {
   }
 
   return new ResendEmailSender(config);
-}
+};
 
 class CloudflareEmailSender implements EmailSender {
-  constructor(private readonly config: Extract<EmailConfig, { provider: "cloudflare" }>) {}
+  constructor(
+    private readonly config: Extract<EmailConfig, { provider: EmailProvider.Cloudflare }>
+  ) {}
 
   async send(input: {
     to: string;
     subject: string;
     html: string;
     text: string;
-  }): Promise<void> {
+  }) {
     const response = await fetch(
       `https://api.cloudflare.com/client/v4/accounts/${this.config.accountId}/email/sending/send`,
       {
@@ -78,14 +78,16 @@ class CloudflareEmailSender implements EmailSender {
 }
 
 class ResendEmailSender implements EmailSender {
-  constructor(private readonly config: Extract<EmailConfig, { provider: "resend" }>) {}
+  constructor(
+    private readonly config: Extract<EmailConfig, { provider: EmailProvider.Resend }>
+  ) {}
 
   async send(input: {
     to: string;
     subject: string;
     html: string;
     text: string;
-  }): Promise<void> {
+  }) {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {

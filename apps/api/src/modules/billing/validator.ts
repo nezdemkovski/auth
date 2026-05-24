@@ -1,8 +1,19 @@
+import { PresentmentCurrency } from "@polar-sh/sdk/models/components/presentmentcurrency";
+
 import type {
   BillingEntitlement,
   BillingProductMapping,
   ProjectBillingSettings
 } from "../../config/projects";
+import {
+  BillingEnvironment,
+  BillingProductType,
+  BillingProvider,
+  BillingRecurringInterval,
+  EntitlementGrantType,
+  EntitlementResetPeriod
+} from "../../config/projects";
+import { isEnumValue } from "../../runtime/enums";
 
 export type BillingSettingsPatch = {
   provider: ProjectBillingSettings["provider"];
@@ -29,15 +40,13 @@ export type CreatePolarProductInput = {
   slug: string;
   name: string;
   description: string;
-  type: "subscription" | "one_time" | "credit_pack" | "lifetime";
+  type: Exclude<BillingProductType, BillingProductType.Metered>;
   priceAmount: number;
-  priceCurrency: string;
-  recurringInterval: "month" | "year";
+  priceCurrency: PresentmentCurrency;
+  recurringInterval: BillingRecurringInterval;
 };
 
-export function parseBillingSettingsPatch(
-  body: BillingSettingsBody
-): BillingSettingsPatch | null {
+export const parseBillingSettingsPatch = (body: BillingSettingsBody) => {
   if (
     typeof body.provider !== "string" ||
     typeof body.enabled !== "boolean" ||
@@ -144,11 +153,9 @@ export function parseBillingSettingsPatch(
   }
 
   return patch;
-}
+};
 
-export function parseCreatePolarProduct(
-  body: CreatePolarProductBody
-): CreatePolarProductInput | null {
+export const parseCreatePolarProduct = (body: CreatePolarProductBody) => {
   if (
     typeof body.slug !== "string" ||
     typeof body.name !== "string" ||
@@ -164,31 +171,22 @@ export function parseCreatePolarProduct(
   const slug = body.slug.trim();
   const name = body.name.trim();
   const priceCurrency = body.priceCurrency.trim().toLowerCase();
-  const type =
-    body.type === "subscription" ||
-    body.type === "one_time" ||
-    body.type === "credit_pack" ||
-    body.type === "lifetime"
-      ? body.type
-      : null;
-  const recurringInterval =
-    body.recurringInterval === "year" || body.recurringInterval === "month"
-      ? body.recurringInterval
-      : null;
+  const type = parseCreatePolarProductType(body.type);
+  const recurringInterval = parseBillingRecurringInterval(body.recurringInterval);
 
   if (
     !type ||
     !recurringInterval ||
     !/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(slug) ||
     name.length === 0 ||
-    priceCurrency.length !== 3 ||
+    !isEnumValue(PresentmentCurrency, priceCurrency) ||
     !Number.isFinite(body.priceAmount) ||
     body.priceAmount < 50
   ) {
     return null;
   }
 
-  return {
+  const input: CreatePolarProductInput = {
     slug,
     name,
     description: body.description.trim(),
@@ -197,13 +195,15 @@ export function parseCreatePolarProduct(
     priceCurrency,
     recurringInterval
   };
-}
 
-export function validateBillingSettingsPatch(patch: BillingSettingsPatch): void {
-  if (patch.provider !== "none" && patch.provider !== "polar") {
+  return input;
+};
+
+export const validateBillingSettingsPatch = (patch: BillingSettingsPatch) => {
+  if (!isEnumValue(BillingProvider, patch.provider)) {
     throw new Error("Invalid billing provider");
   }
-  if (patch.environment !== "sandbox" && patch.environment !== "production") {
+  if (!isEnumValue(BillingEnvironment, patch.environment)) {
     throw new Error("Invalid billing environment");
   }
   if (!Array.isArray(patch.products)) {
@@ -232,20 +232,18 @@ export function validateBillingSettingsPatch(patch: BillingSettingsPatch): void 
       validateEntitlement(entitlement);
     }
   }
-}
+};
 
-function validateEntitlement(entitlement: BillingEntitlement): void {
+const validateEntitlement = (entitlement: BillingEntitlement) => {
   if (!/^[a-z][a-z0-9_]*$/.test(entitlement.key)) {
     throw new Error(`Invalid entitlement key: ${entitlement.key}`);
   }
   if (
-    !["boolean", "recurring_quota", "one_time_credits", "lifetime", "metered"].includes(
-      entitlement.grantType
-    )
+    !isEnumValue(EntitlementGrantType, entitlement.grantType)
   ) {
     throw new Error(`Invalid entitlement grant type: ${entitlement.key}`);
   }
-  if (!["never", "monthly", "yearly"].includes(entitlement.resetPeriod)) {
+  if (!isEnumValue(EntitlementResetPeriod, entitlement.resetPeriod)) {
     throw new Error(`Invalid entitlement reset period: ${entitlement.key}`);
   }
   if (
@@ -254,51 +252,36 @@ function validateEntitlement(entitlement: BillingEntitlement): void {
   ) {
     throw new Error(`Invalid entitlement amount: ${entitlement.key}`);
   }
-}
+};
 
-function parseBillingProvider(
-  value: string
-): BillingSettingsPatch["provider"] | null {
-  return value === "none" || value === "polar" ? value : null;
-}
+const parseBillingProvider = (value: string) => {
+  return isEnumValue(BillingProvider, value) ? value : null;
+};
 
-function parseBillingEnvironment(
-  value: string
-): BillingSettingsPatch["environment"] | null {
-  return value === "sandbox" || value === "production" ? value : null;
-}
+const parseBillingEnvironment = (value: string) => {
+  return isEnumValue(BillingEnvironment, value) ? value : null;
+};
 
-function parseBillingProductType(
-  value: string
-): BillingProductMapping["type"] | null {
-  return value === "subscription" ||
-    value === "one_time" ||
-    value === "credit_pack" ||
-    value === "lifetime" ||
-    value === "metered"
-    ? value
-    : null;
-}
+const parseBillingProductType = (value: string) => {
+  return isEnumValue(BillingProductType, value) ? value : null;
+};
 
-function parseBillingGrantType(
-  value: string
-): BillingEntitlement["grantType"] | null {
-  return value === "boolean" ||
-    value === "recurring_quota" ||
-    value === "one_time_credits" ||
-    value === "lifetime" ||
-    value === "metered"
-    ? value
-    : null;
-}
+const parseBillingGrantType = (value: string) => {
+  return isEnumValue(EntitlementGrantType, value) ? value : null;
+};
 
-function parseBillingResetPeriod(
-  value: string
-): BillingEntitlement["resetPeriod"] | null {
-  return value === "monthly" || value === "yearly" || value === "never"
-    ? value
-    : null;
-}
+const parseBillingResetPeriod = (value: string) => {
+  return isEnumValue(EntitlementResetPeriod, value) ? value : null;
+};
+
+const parseCreatePolarProductType = (value: string) => {
+  const type = parseBillingProductType(value);
+  return type && type !== BillingProductType.Metered ? type : null;
+};
+
+const parseBillingRecurringInterval = (value: string) => {
+  return isEnumValue(BillingRecurringInterval, value) ? value : null;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

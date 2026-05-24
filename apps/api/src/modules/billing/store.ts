@@ -2,6 +2,8 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 
 import {
+  BillingEnvironment,
+  BillingProvider,
   DEFAULT_PROJECT_BILLING,
   type AuthProject,
   type ProjectBillingSettings
@@ -30,10 +32,10 @@ type BillingSettingsRow = {
   products: unknown;
 };
 
-export async function ensureBillingSettingsTable(options: {
+export const ensureBillingSettingsTable = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
-}): Promise<void> {
+}) => {
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
   const db = drizzle({ client: pool });
 
@@ -59,13 +61,13 @@ export async function ensureBillingSettingsTable(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-export async function loadBillingSettings(options: {
+export const loadBillingSettings = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   encryptionSecret: string;
-}): Promise<Map<string, ProjectBillingSettings>> {
+}) => {
   await ensureBillingSettingsTable(options);
 
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
@@ -92,23 +94,23 @@ export async function loadBillingSettings(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-export async function loadProjectBillingSettings(options: {
+export const loadProjectBillingSettings = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   project: AuthProject;
   encryptionSecret: string;
-}): Promise<ProjectBillingSettings> {
+}) => {
   const all = await loadBillingSettings(options);
   return all.get(options.project.slug) ?? cloneDefaultBilling();
-}
+};
 
-export async function readBillingSettingsState(options: {
+export const readBillingSettingsState = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   project: AuthProject;
-}): Promise<BillingSettingsState> {
+}) => {
   await ensureBillingSettingsTable(options);
 
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
@@ -133,15 +135,15 @@ export async function readBillingSettingsState(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-export async function updateBillingSettings(options: {
+export const updateBillingSettings = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   project: AuthProject;
   encryptionSecret: string;
   patch: BillingSettingsPatch;
-}): Promise<ProjectBillingSettings> {
+}) => {
   await ensureBillingSettingsTable(options);
 
   const current = await readBillingSettingsRow(options);
@@ -212,18 +214,22 @@ export async function updateBillingSettings(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-export function cloneDefaultBilling(): ProjectBillingSettings {
+export const cloneDefaultBilling = () => {
   return {
     ...DEFAULT_PROJECT_BILLING,
     products: []
   };
-}
+};
 
-function rowToBilling(row: BillingSettingsRow, encryptionSecret: string): ProjectBillingSettings {
-  const provider = row.provider === "polar" ? "polar" : "none";
-  const environment = row.environment === "production" ? "production" : "sandbox";
+const rowToBilling = (row: BillingSettingsRow, encryptionSecret: string) => {
+  const provider =
+    row.provider === BillingProvider.Polar ? BillingProvider.Polar : BillingProvider.None;
+  const environment =
+    row.environment === BillingEnvironment.Production
+      ? BillingEnvironment.Production
+      : BillingEnvironment.Sandbox;
   return {
     provider,
     enabled: row.enabled,
@@ -243,12 +249,16 @@ function rowToBilling(row: BillingSettingsRow, encryptionSecret: string): Projec
     ),
     products: normalizeBillingProducts(row.products)
   };
-}
+};
 
-function rowToState(row: BillingSettingsRow | undefined): BillingSettingsState {
+const rowToState = (row: BillingSettingsRow | undefined) => {
   const products = normalizeBillingProducts(row?.products ?? []);
-  const provider = row?.provider === "polar" ? "polar" : "none";
-  const environment = row?.environment === "production" ? "production" : "sandbox";
+  const provider =
+    row?.provider === BillingProvider.Polar ? BillingProvider.Polar : BillingProvider.None;
+  const environment =
+    row?.environment === BillingEnvironment.Production
+      ? BillingEnvironment.Production
+      : BillingEnvironment.Sandbox;
   return {
     provider,
     enabled: row?.enabled ?? false,
@@ -258,13 +268,13 @@ function rowToState(row: BillingSettingsRow | undefined): BillingSettingsState {
     webhookSecretConfigured: Boolean(row?.webhookSecretCipher),
     products
   };
-}
+};
 
-async function readBillingSettingsRow(options: {
+const readBillingSettingsRow = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   project: AuthProject;
-}): Promise<BillingSettingsRow | null> {
+}) => {
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
   const db = drizzle({ client: pool });
 
@@ -287,20 +297,20 @@ async function readBillingSettingsRow(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-function encryptSecret(value: string, secret: string, projectSlug: string, key: string): string {
+const encryptSecret = (value: string, secret: string, projectSlug: string, key: string) => {
   return encryptSecretValue(value, secret, encryptionContext(projectSlug, key));
-}
+};
 
-function decryptSecret(value: string, secret: string, projectSlug: string, key: string): string {
+const decryptSecret = (value: string, secret: string, projectSlug: string, key: string) => {
   if (!value) {
     return "";
   }
 
   return decryptSecretValue(value, secret, encryptionContext(projectSlug, key));
-}
+};
 
-function encryptionContext(projectSlug: string, key: string): string {
+const encryptionContext = (projectSlug: string, key: string) => {
   return `billing:${projectSlug}:${key}`;
-}
+};

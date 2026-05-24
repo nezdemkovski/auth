@@ -12,20 +12,20 @@ export class ReconnectingRedisClient implements RedisBackedStore {
     this.redis = this.createClient(redisUrl);
   }
 
-  private createClient(redisUrl: string): RedisClient {
+  private createClient(redisUrl: string) {
     return new RedisClient(redisUrl, {
       enableOfflineQueue: false,
       maxRetries: 1
     });
   }
 
-  async connect(): Promise<void> {
+  async connect() {
     if (!this.redis.connected) {
       await this.redis.connect();
     }
   }
 
-  async withClient<T>(operation: (redis: RedisClient) => Promise<T>): Promise<T> {
+  async withClient<T>(operation: (redis: RedisClient) => Promise<T>) {
     try {
       await this.connect();
       return await operation(this.redis);
@@ -41,15 +41,14 @@ export class ReconnectingRedisClient implements RedisBackedStore {
     }
   }
 
-  close(): void {
+  close() {
     this.redis.close();
   }
 }
 
-function isClosedRedisConnection(error: unknown): boolean {
+const isClosedRedisConnection = (error: unknown) => {
   return (
     error instanceof Error &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "ERR_REDIS_CONNECTION_CLOSED"
+    Reflect.get(error, "code") === "ERR_REDIS_CONNECTION_CLOSED"
   );
-}
+};

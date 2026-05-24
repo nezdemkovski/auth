@@ -134,7 +134,7 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
   });
 };
 
-function billingServiceError(error: unknown): Response {
+const billingServiceError = (error: unknown) => {
   if (error instanceof BillingServiceError) {
     return Response.json(
       {
@@ -146,4 +146,4 @@ function billingServiceError(error: unknown): Response {
   }
 
   throw error;
-}
+};

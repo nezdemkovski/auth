@@ -8,7 +8,7 @@ export type ProjectDatabase = {
   pool: Pool;
 };
 
-export function createProjectDatabase(databaseUrl: string, project: AuthProject): ProjectDatabase {
+export const createProjectDatabase = (databaseUrl: string, project: AuthProject) => {
   const pool = new Pool({
     connectionString: databaseUrl,
     options: `-c search_path=${project.schema},public`
@@ -20,4 +20,4 @@ export function createProjectDatabase(databaseUrl: string, project: AuthProject)
     }),
     pool
   };
-}
+};

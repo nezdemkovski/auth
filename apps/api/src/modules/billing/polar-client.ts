@@ -1,16 +1,24 @@
 import { Polar } from "@polar-sh/sdk";
 import type { Product } from "@polar-sh/sdk/models/components/product";
-import type { PresentmentCurrency } from "@polar-sh/sdk/models/components/presentmentcurrency";
 
-import type { AuthProject, ProjectBillingSettings } from "../../config/projects";
+import {
+  BillingProductType,
+  BillingProvider,
+  type AuthProject,
+  type ProjectBillingSettings
+} from "../../config/projects";
 import type { CreatePolarProductInput } from "./validator";
 
-export function createPolarClientFromProject(project: AuthProject): Polar | null {
+export const createPolarClientFromProject = (project: AuthProject) => {
   return createPolarClient(project.billing);
-}
+};
 
-export function createPolarClient(billing: ProjectBillingSettings): Polar | null {
-  if (billing.provider !== "polar" || !billing.enabled || !billing.accessToken) {
+export const createPolarClient = (billing: ProjectBillingSettings) => {
+  if (
+    billing.provider !== BillingProvider.Polar ||
+    !billing.enabled ||
+    !billing.accessToken
+  ) {
     return null;
   }
 
@@ -18,33 +26,30 @@ export function createPolarClient(billing: ProjectBillingSettings): Polar | null
     accessToken: billing.accessToken,
     server: billing.environment
   });
-}
+};
 
-export async function verifyPolarAccess(input: {
+export const verifyPolarAccess = async (input: {
   accessToken: string;
   environment: ProjectBillingSettings["environment"];
-}): Promise<void> {
+}) => {
   const client = new Polar({
     accessToken: input.accessToken,
     server: input.environment
   });
 
   await client.products.list({ limit: 1 });
-}
+};
 
-export async function listPolarProducts(client: Polar): Promise<Product[]> {
+export const listPolarProducts = async (client: Polar) => {
   const page = await client.products.list({
     isArchived: false,
     limit: 50
   });
 
   return page.result.items;
-}
+};
 
-export async function createPolarProduct(
-  client: Polar,
-  input: CreatePolarProductInput
-): Promise<Product> {
+export const createPolarProduct = async (client: Polar, input: CreatePolarProductInput) => {
   return client.products.create({
     name: input.name,
     description: input.description || null,
@@ -53,10 +58,10 @@ export async function createPolarProduct(
       {
         amountType: "fixed",
         priceAmount: input.priceAmount,
-        priceCurrency: input.priceCurrency as PresentmentCurrency
+        priceCurrency: input.priceCurrency
       }
     ],
-    ...(input.type === "subscription"
+    ...(input.type === BillingProductType.Subscription
       ? {
           recurringInterval: input.recurringInterval,
           recurringIntervalCount: 1
@@ -66,9 +71,9 @@ export async function createPolarProduct(
           recurringIntervalCount: null
         })
   });
-}
+};
 
-export function polarErrorMessage(error: unknown, fallback: string): string {
+export const polarErrorMessage = (error: unknown, fallback: string) => {
   if (isRecord(error)) {
     const body = typeof error.body === "string" ? error.body : "";
     const statusCode = typeof error.statusCode === "number" ? error.statusCode : null;
@@ -82,15 +87,15 @@ export function polarErrorMessage(error: unknown, fallback: string): string {
   }
 
   return error instanceof Error ? error.message : fallback;
-}
+};
 
-function parsePolarErrorBody(body: string): string | null {
+const parsePolarErrorBody = (body: string) => {
   if (!body) {
     return null;
   }
 
   try {
-    const data = JSON.parse(body) as unknown;
+    const data: unknown = JSON.parse(body);
     if (!isRecord(data)) {
       return body.slice(0, 300);
     }
@@ -123,7 +128,7 @@ function parsePolarErrorBody(body: string): string | null {
   } catch {
     return body.slice(0, 300);
   }
-}
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

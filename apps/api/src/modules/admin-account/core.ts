@@ -1,4 +1,5 @@
 import { EmailProvider, type EmailConfig } from "../../email/sender";
+import type { RegisteredProject } from "../../auth/registry";
 import type { AdminSession } from "../../http/admin/shared";
 import {
   markPasswordChanged,
@@ -42,13 +43,13 @@ export class AdminAccountService {
   }
 
   async updateProfile(input: {
-    auth: unknown;
+    auth: RegisteredProject["auth"];
     headers: Headers;
     projectDb: { pool: Parameters<typeof updateAdminProfile>[0] };
     session: AdminSession;
     patch: AdminProfilePatch;
     currentPassword: string | null;
-  }): Promise<void> {
+  }) {
     const nextEmail = input.patch.email;
     const emailChanged =
       nextEmail !== undefined && nextEmail !== input.session.user.email.toLowerCase();
@@ -93,12 +94,12 @@ export class AdminAccountService {
   }
 
   async changePassword(input: {
-    auth: unknown;
+    auth: RegisteredProject["auth"];
     headers: Headers;
     projectDb: { pool: Parameters<typeof markPasswordChanged>[0] };
     session: AdminSession;
     password: ChangePasswordInput;
-  }): Promise<unknown> {
+  }) {
     if (input.password.newPassword.length < 12) {
       throw new AdminAccountServiceError("weak_password", 400, "Password is too weak");
     }
@@ -114,53 +115,21 @@ export class AdminAccountService {
   }
 }
 
-async function changePassword(
-  auth: unknown,
-  headers: Headers,
-  body: {
+const changePassword = async (auth: RegisteredProject["auth"], headers: Headers, body: {
     currentPassword: string;
     newPassword: string;
-  }
-): Promise<unknown> {
-  const api = (auth as {
-    api: {
-      changePassword(input: {
-        headers: Headers;
-        body: {
-          currentPassword: string;
-          newPassword: string;
-          revokeOtherSessions: boolean;
-        };
-      }): Promise<unknown>;
-    };
-  }).api;
-
-  return api.changePassword({
+  }) => {
+  return auth.api.changePassword({
     headers,
     body: {
       ...body,
       revokeOtherSessions: true
     }
   });
-}
+};
 
-async function verifyPassword(
-  auth: unknown,
-  headers: Headers,
-  password: string
-): Promise<boolean> {
-  const api = (auth as {
-    api: {
-      verifyPassword(input: {
-        headers: Headers;
-        body: {
-          password: string;
-        };
-      }): Promise<{ status: boolean }>;
-    };
-  }).api;
-
-  const result = await api
+const verifyPassword = async (auth: RegisteredProject["auth"], headers: Headers, password: string) => {
+  const result = await auth.api
     .verifyPassword({
       headers,
       body: {
@@ -170,30 +139,14 @@ async function verifyPassword(
     .catch(() => null);
 
   return result?.status === true;
-}
+};
 
-async function changeEmail(
-  auth: unknown,
-  headers: Headers,
-  body: {
+const changeEmail = async (auth: RegisteredProject["auth"], headers: Headers, body: {
     newEmail: string;
     callbackURL: string;
-  }
-): Promise<unknown> {
-  const api = (auth as {
-    api: {
-      changeEmail(input: {
-        headers: Headers;
-        body: {
-          newEmail: string;
-          callbackURL: string;
-        };
-      }): Promise<unknown>;
-    };
-  }).api;
-
-  return api.changeEmail({
+  }) => {
+  return auth.api.changeEmail({
     headers,
     body
   });
-}
+};

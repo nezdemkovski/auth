@@ -1,3 +1,5 @@
+import { StorageProvider } from "../../config/projects";
+import { isEnumValue } from "../../runtime/enums";
 import type { MediaUploadPurpose } from "./media";
 import type { StorageSettingsPatch } from "./settings-store";
 
@@ -6,10 +8,7 @@ export type MediaUploadRequest = {
   file: File;
 };
 
-export async function parseMediaUploadRequest(
-  form: FormData,
-  expectedPurpose: MediaUploadPurpose
-): Promise<MediaUploadRequest | null> {
+export const parseMediaUploadRequest = async (form: FormData, expectedPurpose: MediaUploadPurpose) => {
   const purpose = form.get("purpose");
   const file = form.get("file");
 
@@ -21,19 +20,21 @@ export async function parseMediaUploadRequest(
     purpose,
     file
   };
-}
+};
 
 type StorageSettingsBody = Partial<Record<keyof StorageSettingsPatch, unknown>>;
 
-export function parseStorageSettingsPatch(
-  body: StorageSettingsBody
-): StorageSettingsPatch | null {
-  if (typeof body.provider !== "string" || typeof body.enabled !== "boolean") {
+export const parseStorageSettingsPatch = (body: StorageSettingsBody) => {
+  if (
+    typeof body.provider !== "string" ||
+    !isEnumValue(StorageProvider, body.provider) ||
+    typeof body.enabled !== "boolean"
+  ) {
     return null;
   }
 
   const patch: StorageSettingsPatch = {
-    provider: body.provider as StorageSettingsPatch["provider"],
+    provider: body.provider,
     enabled: body.enabled,
     endpoint: typeof body.endpoint === "string" ? body.endpoint.trim() : "",
     region: typeof body.region === "string" ? body.region.trim() || "auto" : "auto",
@@ -50,4 +51,4 @@ export function parseStorageSettingsPatch(
   }
 
   return patch;
-}
+};

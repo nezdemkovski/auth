@@ -1,6 +1,6 @@
 import { ActionEmail, VERIFICATION_EXPIRY_HOURS } from "../templates";
 
-export default function VerificationEmailPreview() {
+export const VerificationEmailPreview = () => {
   return (
     <ActionEmail
       projectName="OpenMarkers"
@@ -14,4 +14,4 @@ export default function VerificationEmailPreview() {
       expiryHours={VERIFICATION_EXPIRY_HOURS}
     />
   );
-}
+};

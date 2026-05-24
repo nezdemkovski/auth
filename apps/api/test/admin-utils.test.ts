@@ -9,7 +9,7 @@ describe("admin HTTP utils", () => {
       body: JSON.stringify({ ok: true })
     });
 
-    expect(await parseJson<Record<string, unknown>>(req)).toEqual({ ok: true });
+    expect(await parseJson(req)).toEqual({ ok: true });
   });
 
   test("returns fallback when request body is malformed", async () => {
@@ -18,6 +18,6 @@ describe("admin HTTP utils", () => {
       body: "{"
     });
 
-    expect(await parseJson(req, { fallback: true })).toEqual({ fallback: true });
+    expect(await parseJson(req)).toEqual({});
   });
 });

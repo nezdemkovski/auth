@@ -1,22 +1,19 @@
 import type { Hono } from "hono";
 import { cors } from "hono/cors";
 
-import type { AuthRegistry } from "../../auth/registry";
+import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import { StorageService } from "./core";
-import { MediaUploadError } from "./media";
+import { MediaUploadError, MediaUploadPurpose } from "./media";
 import { parseMediaUploadRequest } from "./validator";
 
 type PublicStorageVariables = {
   registry: AuthRegistry;
 };
 
-export function registerPublicStorageRoutes(
-  app: Hono<{ Variables: PublicStorageVariables }>,
-  options: {
+export const registerPublicStorageRoutes = (app: Hono<{ Variables: PublicStorageVariables }>, options: {
     registry: AuthRegistry;
     storageService: StorageService;
-  }
-): void {
+  }) => {
   app.use(
     "/api/:project/upload",
     cors({
@@ -48,7 +45,7 @@ export function registerPublicStorageRoutes(
 
     const uploadRequest = await parseMediaUploadRequest(
       await c.req.formData(),
-      "user_avatar"
+      MediaUploadPurpose.UserAvatar
     );
     if (!uploadRequest) {
       return c.json({ error: "invalid_body" }, 400);
@@ -73,17 +70,8 @@ export function registerPublicStorageRoutes(
       throw error;
     }
   });
-}
+};
 
-async function getProjectSession(
-  auth: unknown,
-  headers: Headers
-): Promise<{ user: { id: string } } | null> {
-  const api = (auth as {
-    api: {
-      getSession(input: { headers: Headers }): Promise<{ user: { id: string } } | null>;
-    };
-  }).api;
-
-  return api.getSession({ headers });
-}
+const getProjectSession = async (auth: RegisteredProject["auth"], headers: Headers) => {
+  return auth.api.getSession({ headers });
+};

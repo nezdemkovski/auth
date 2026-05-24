@@ -100,35 +100,38 @@ type AdminAccountLookup =
       status: 500 | 401;
     };
 
-async function requireAdminAccount(
-  registered: RegisteredProject | null | undefined,
-  headers: Headers
-): Promise<AdminAccountLookup> {
+const requireAdminAccount = async (registered: RegisteredProject | null | undefined, headers: Headers) => {
   if (!registered) {
-    return {
+    const lookup: AdminAccountLookup = {
       error: "admin_not_configured",
       status: 500
     };
+
+    return lookup;
   }
 
   const session = await getSession(registered.auth, headers);
   if (!session) {
-    return {
+    const lookup: AdminAccountLookup = {
       error: "unauthorized",
       status: 401
     };
+
+    return lookup;
   }
 
-  return {
+  const lookup: AdminAccountLookup = {
     registered,
     session
   };
-}
 
-function adminAccountError(error: unknown): Response {
+  return lookup;
+};
+
+const adminAccountError = (error: unknown) => {
   if (error instanceof AdminAccountServiceError) {
     return Response.json({ error: error.code }, { status: error.status });
   }
 
   throw error;
-}
+};

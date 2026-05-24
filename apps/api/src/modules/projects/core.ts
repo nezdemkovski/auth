@@ -210,19 +210,8 @@ export class ProjectService {
       );
     }
 
-    const api = registered.auth.api as unknown as {
-      signInSocial(input: {
-        body: {
-          provider: string;
-          callbackURL: string;
-          errorCallbackURL: string;
-          disableRedirect: boolean;
-        };
-        headers: Headers;
-      }): Promise<{ url?: string; redirect: boolean }>;
-    };
     const callbackURL = registered.project.trustedOrigins[0] ?? this.options.publicBaseUrl;
-    const result = await api.signInSocial({
+    const result = await registered.auth.api.signInSocial({
       body: {
         provider,
         callbackURL,

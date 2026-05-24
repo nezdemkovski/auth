@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { StorageProvider } from "../src/config/projects";
+import { EmailProvider } from "../src/email/sender";
 import { loadEnv } from "../src/config/env";
 
 const baseEnv = {
@@ -42,7 +44,7 @@ describe("loadEnv email config", () => {
     });
 
     expect(env.email).toEqual({
-      provider: "resend",
+      provider: EmailProvider.Resend,
       from: "Auth <auth@example.com>",
       apiKey: "re_test"
     });
@@ -94,7 +96,7 @@ describe("loadEnv email config", () => {
     });
 
     expect(env.storage).toEqual({
-      provider: "s3",
+      provider: StorageProvider.S3,
       enabled: false,
       managed: true,
       endpoint: "http://rustfs:9000",

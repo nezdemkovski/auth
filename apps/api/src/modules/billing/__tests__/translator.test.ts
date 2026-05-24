@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  BillingEnvironment,
+  BillingProvider,
   DEFAULT_PROJECT_BILLING,
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
@@ -27,9 +29,9 @@ describe("billing translator", () => {
           storage: DEFAULT_PROJECT_STORAGE
         },
         settings: {
-          provider: "polar",
+          provider: BillingProvider.Polar,
           enabled: true,
-          environment: "sandbox",
+          environment: BillingEnvironment.Sandbox,
           organizationId: "",
           accessTokenConfigured: true,
           webhookSecretConfigured: false,
@@ -37,9 +39,9 @@ describe("billing translator", () => {
         }
       })
     ).toEqual({
-      provider: "polar",
+      provider: BillingProvider.Polar,
       enabled: true,
-      environment: "sandbox",
+      environment: BillingEnvironment.Sandbox,
       organizationId: "",
       accessTokenConfigured: true,
       webhookSecretConfigured: false,

@@ -3,11 +3,13 @@ import { drizzle } from "drizzle-orm/node-postgres";
 
 import {
   DEFAULT_PROJECT_STORAGE,
+  StorageProvider,
   type AuthProject,
   type ProjectStorageSettings
 } from "../../config/projects";
 import { createAdminPool } from "../../db/admin-pool";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
+import { isEnumValue } from "../../runtime/enums";
 import { storageSettingsResponse } from "./translator";
 import type { PublicStorageSettings } from "./translator";
 
@@ -43,10 +45,10 @@ type StorageSettingsRow = {
   secretAccessKeyCipher: string;
 };
 
-export async function ensureStorageSettingsTable(options: {
+export const ensureStorageSettingsTable = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
-}): Promise<void> {
+}) => {
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
   const db = drizzle({ client: pool });
 
@@ -69,14 +71,14 @@ export async function ensureStorageSettingsTable(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-export async function loadStorageSettings(options: {
+export const loadStorageSettings = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   encryptionSecret: string;
   managedStorage: ProjectStorageSettings;
-}): Promise<Map<string, ProjectStorageSettings>> {
+}) => {
   await ensureStorageSettingsTable(options);
 
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
@@ -107,39 +109,39 @@ export async function loadStorageSettings(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-export async function loadProjectStorageSettings(options: {
+export const loadProjectStorageSettings = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   project: AuthProject;
   encryptionSecret: string;
   managedStorage: ProjectStorageSettings;
-}): Promise<ProjectStorageSettings> {
+}) => {
   const all = await loadStorageSettings(options);
   return all.get(options.project.slug) ?? cloneDefaultStorage(options.managedStorage);
-}
+};
 
-export async function readPublicStorageSettings(options: {
+export const readPublicStorageSettings = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   project: AuthProject;
   managedStorage: ProjectStorageSettings;
-}): Promise<PublicStorageSettings> {
+}) => {
   await ensureStorageSettingsTable(options);
 
   const row = await readStorageSettingsRow(options);
   return storageSettingsResponse(rowToState(row, options.managedStorage));
-}
+};
 
-export async function updateStorageSettings(options: {
+export const updateStorageSettings = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   project: AuthProject;
   encryptionSecret: string;
   managedStorage: ProjectStorageSettings;
   patch: StorageSettingsPatch;
-}): Promise<ProjectStorageSettings> {
+}) => {
   const patch = storagePatchWithManagedDefaults(options.patch, options.managedStorage);
   validateStoragePatch(patch);
   await ensureStorageSettingsTable(options);
@@ -216,11 +218,9 @@ export async function updateStorageSettings(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-export function cloneDefaultStorage(
-  managedStorage: ProjectStorageSettings = DEFAULT_PROJECT_STORAGE
-): ProjectStorageSettings {
+export const cloneDefaultStorage = (managedStorage: ProjectStorageSettings = DEFAULT_PROJECT_STORAGE) => {
   if (managedStorage.managed) {
     return {
       ...managedStorage,
@@ -231,13 +231,9 @@ export function cloneDefaultStorage(
   return {
     ...DEFAULT_PROJECT_STORAGE
   };
-}
+};
 
-function rowToStorage(
-  row: StorageSettingsRow,
-  encryptionSecret: string,
-  managedStorage: ProjectStorageSettings
-): ProjectStorageSettings {
+const rowToStorage = (row: StorageSettingsRow, encryptionSecret: string, managedStorage: ProjectStorageSettings) => {
   if (managedStorage.managed) {
     return {
       ...managedStorage,
@@ -245,7 +241,8 @@ function rowToStorage(
     };
   }
 
-  const provider = row.provider === "s3" ? "s3" : "none";
+  const provider =
+    row.provider === StorageProvider.S3 ? StorageProvider.S3 : StorageProvider.None;
   return {
     provider,
     enabled: row.enabled,
@@ -267,12 +264,9 @@ function rowToStorage(
       "secret-access-key"
     )
   };
-}
+};
 
-function rowToState(
-  row: StorageSettingsRow | null,
-  managedStorage: ProjectStorageSettings
-): StorageSettingsState {
+const rowToState = (row: StorageSettingsRow | null, managedStorage: ProjectStorageSettings) => {
   if (managedStorage.managed) {
     const enabled = row?.enabled ?? false;
     return {
@@ -285,11 +279,12 @@ function rowToState(
       publicBaseUrl: managedStorage.publicBaseUrl,
       accessKeyIdConfigured: true,
       secretAccessKeyConfigured: true,
-      configured: managedStorage.provider === "s3" && enabled
+      configured: managedStorage.provider === StorageProvider.S3 && enabled
     };
   }
 
-  const provider = row?.provider === "s3" ? "s3" : "none";
+  const provider =
+    row?.provider === StorageProvider.S3 ? StorageProvider.S3 : StorageProvider.None;
   const enabled = row?.enabled ?? false;
   const accessKeyIdConfigured = Boolean(row?.accessKeyIdCipher);
   const secretAccessKeyConfigured = Boolean(row?.secretAccessKeyCipher);
@@ -304,20 +299,20 @@ function rowToState(
     accessKeyIdConfigured,
     secretAccessKeyConfigured,
     configured:
-      provider === "s3" &&
+      provider === StorageProvider.S3 &&
       enabled &&
       Boolean(row?.bucket) &&
       Boolean(row?.publicBaseUrl) &&
       accessKeyIdConfigured &&
       secretAccessKeyConfigured
   };
-}
+};
 
-async function readStorageSettingsRow(options: {
+const readStorageSettingsRow = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   project: AuthProject;
-}): Promise<StorageSettingsRow | null> {
+}) => {
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
   const db = drizzle({ client: pool });
 
@@ -341,14 +336,14 @@ async function readStorageSettingsRow(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-function validateStoragePatch(patch: StorageSettingsPatch): void {
-  if (patch.provider !== "none" && patch.provider !== "s3") {
+const validateStoragePatch = (patch: StorageSettingsPatch) => {
+  if (!isEnumValue(StorageProvider, patch.provider)) {
     throw new Error("Invalid storage provider");
   }
 
-  if (patch.provider === "none" || !patch.enabled) {
+  if (patch.provider === StorageProvider.None || !patch.enabled) {
     return;
   }
 
@@ -360,12 +355,9 @@ function validateStoragePatch(patch: StorageSettingsPatch): void {
   }
   validateOptionalUrl(patch.endpoint ?? "", "endpoint");
   validateUrl(patch.publicBaseUrl ?? "", "publicBaseUrl");
-}
+};
 
-function storagePatchWithManagedDefaults(
-  patch: StorageSettingsPatch,
-  managedStorage: ProjectStorageSettings
-): StorageSettingsPatch {
+const storagePatchWithManagedDefaults = (patch: StorageSettingsPatch, managedStorage: ProjectStorageSettings) => {
   if (!managedStorage.managed) {
     return patch;
   }
@@ -380,16 +372,16 @@ function storagePatchWithManagedDefaults(
     accessKeyId: managedStorage.accessKeyId,
     secretAccessKey: managedStorage.secretAccessKey
   };
-}
+};
 
-function validateOptionalUrl(value: string, field: string): void {
+const validateOptionalUrl = (value: string, field: string) => {
   if (!value.trim()) {
     return;
   }
   validateUrl(value, field);
-}
+};
 
-function validateUrl(value: string, field: string): void {
+const validateUrl = (value: string, field: string) => {
   try {
     const url = new URL(value);
     if (!["http:", "https:"].includes(url.protocol)) {
@@ -398,24 +390,24 @@ function validateUrl(value: string, field: string): void {
   } catch {
     throw new Error(`Invalid ${field}`);
   }
-}
+};
 
-function trimTrailingSlash(value: string): string {
+const trimTrailingSlash = (value: string) => {
   return value.trim().replace(/\/+$/, "");
-}
+};
 
-function encryptSecret(value: string, secret: string, projectSlug: string, key: string): string {
+const encryptSecret = (value: string, secret: string, projectSlug: string, key: string) => {
   return encryptSecretValue(value, secret, encryptionContext(projectSlug, key));
-}
+};
 
-function decryptSecret(value: string, secret: string, projectSlug: string, key: string): string {
+const decryptSecret = (value: string, secret: string, projectSlug: string, key: string) => {
   if (!value) {
     return "";
   }
 
   return decryptSecretValue(value, secret, encryptionContext(projectSlug, key));
-}
+};
 
-function encryptionContext(projectSlug: string, key: string): string {
+const encryptionContext = (projectSlug: string, key: string) => {
   return `storage:${projectSlug}:${key}`;
-}
+};

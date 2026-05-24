@@ -30,21 +30,21 @@ describe("login auth security helpers", () => {
 
     expect(
       redirectUriAllowed(
-        registry as never,
+        registry,
         "openmarkers",
         "https://openmarkers.app/auth/callback"
       )
     ).toBe(true);
     expect(
       redirectUriAllowed(
-        registry as never,
+        registry,
         "openmarkers",
         "https://evil.example/auth/callback"
       )
     ).toBe(false);
     expect(
       redirectUriAllowed(
-        registry as never,
+        registry,
         "openmarkers",
         "not a url"
       )

@@ -14,35 +14,35 @@ export type AdminProjectLookup =
     }
   | AdminRouteError;
 
-export function requireRegisteredProject(
-  options: AdminApiOptions,
-  slug: string
-): AdminProjectLookup {
+export const requireRegisteredProject = (options: AdminApiOptions, slug: string) => {
   const registered = options.registry.get(slug);
   if (!registered) {
-    return {
+    const result: AdminProjectLookup = {
       error: "unknown_project",
       status: 404
     };
+
+    return result;
   }
 
-  return { registered };
-}
+  const result: AdminProjectLookup = { registered };
 
-export function requireMutableProject(
-  options: AdminApiOptions,
-  slug: string
-): AdminProjectLookup {
+  return result;
+};
+
+export const requireMutableProject = (options: AdminApiOptions, slug: string) => {
   const result = requireRegisteredProject(options, slug);
   if (result.error) {
     return result;
   }
   if (result.registered.project.slug === options.adminProject.slug) {
-    return {
+    const locked: AdminProjectLookup = {
       error: "system_project_locked",
       status: 409
     };
+
+    return locked;
   }
 
   return result;
-}
+};

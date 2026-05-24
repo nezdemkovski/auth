@@ -13,9 +13,7 @@ type SocialProviderBody = {
   clientSecret?: unknown;
 };
 
-export function parseProjectCreate(
-  body: ProjectCreateBody
-): ProjectSettingsCreate | null {
+export const parseProjectCreate = (body: ProjectCreateBody) => {
   if (
     typeof body.slug !== "string" ||
     typeof body.name !== "string" ||
@@ -37,11 +35,9 @@ export function parseProjectCreate(
     trustedOrigins: body.trustedOrigins.map((origin) => origin.trim()).filter(Boolean),
     features: normalizeProjectFeatures(body.features)
   };
-}
+};
 
-export function parseProjectSettingsPatch(
-  body: ProjectSettingsBody
-): ProjectSettingsPatch | null {
+export const parseProjectSettingsPatch = (body: ProjectSettingsBody) => {
   if (
     typeof body.name !== "string" ||
     typeof body.description !== "string" ||
@@ -61,11 +57,9 @@ export function parseProjectSettingsPatch(
     trustedOrigins: body.trustedOrigins.map((origin) => origin.trim()).filter(Boolean),
     features: normalizeProjectFeatures(body.features)
   };
-}
+};
 
-export function parseSocialProviderPatch(
-  body: SocialProviderBody
-): SocialProviderPatch | null {
+export const parseSocialProviderPatch = (body: SocialProviderBody) => {
   if (typeof body.enabled !== "boolean" || typeof body.clientId !== "string") {
     return null;
   }
@@ -80,4 +74,4 @@ export function parseSocialProviderPatch(
   }
 
   return patch;
-}
+};

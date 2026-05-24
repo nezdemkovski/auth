@@ -42,7 +42,7 @@ export class UsersService {
     return terminateUserSessions(registered.projectDb.pool, userId);
   }
 
-  async resendVerification(registered: RegisteredProject, email: string): Promise<void> {
+  async resendVerification(registered: RegisteredProject, email: string) {
     if (this.options.getDeliverySettings().provider === EmailProvider.None) {
       throw new UsersServiceError(
         "email_service_disabled",
@@ -51,30 +51,11 @@ export class UsersService {
       );
     }
 
-    await sendVerificationEmail(registered.auth, {
-      email,
-      callbackURL: registered.project.trustedOrigins[0]
+    await registered.auth.api.sendVerificationEmail({
+      body: {
+        email,
+        callbackURL: registered.project.trustedOrigins[0]
+      }
     });
   }
-}
-
-async function sendVerificationEmail(
-  auth: unknown,
-  body: {
-    email: string;
-    callbackURL?: string;
-  }
-): Promise<unknown> {
-  const api = (auth as {
-    api: {
-      sendVerificationEmail(input: {
-        body: {
-          email: string;
-          callbackURL?: string;
-        };
-      }): Promise<unknown>;
-    };
-  }).api;
-
-  return api.sendVerificationEmail({ body });
 }

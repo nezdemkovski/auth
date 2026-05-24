@@ -9,10 +9,13 @@ import {
 } from "./store";
 
 export type LoginFlowOptions = {
-  registry: AuthRegistry;
+  registry: LoginProjectRegistry;
   codeStore: LoginCodeStore;
   trustProxyHeaders?: boolean;
 };
+
+export type LoginProjectRegistry = Pick<AuthRegistry, "get" | "isTrustedOrigin">;
+type TrustedOriginRegistry = Pick<LoginProjectRegistry, "isTrustedOrigin">;
 
 export class LoginFlowError extends Error {
   constructor(
@@ -33,7 +36,7 @@ export class LoginFlowService {
     state: string;
     codeChallenge: string;
     headers: Headers;
-  }): Promise<{ redirectTo: string; email: string }> {
+  }) {
     const registered = this.options.registry.get(input.project);
     if (!registered) {
       throw new LoginFlowError("unknown_project", 404);
@@ -67,7 +70,7 @@ export class LoginFlowService {
     code: string;
     redirectUri: string;
     codeVerifier: string;
-  }): Promise<{ sessionCookie: string; email: string }> {
+  }) {
     const registered = this.options.registry.get(input.project);
     if (!registered) {
       throw new LoginFlowError("unknown_project", 404);
@@ -95,40 +98,32 @@ export class LoginFlowService {
   }
 }
 
-function createCode(): string {
+const createCode = () => {
   return randomBase64Url(32);
-}
+};
 
-export function pkceChallenge(verifier: string): string {
+export const pkceChallenge = (verifier: string) => {
   return sha256Base64Url(verifier);
-}
+};
 
-export function validPkceChallenge(value: string): boolean {
+export const validPkceChallenge = (value: string) => {
   return /^[A-Za-z0-9_-]{43,128}$/.test(value);
-}
+};
 
-export function verifyPkce(codeChallenge: string, codeVerifier: string): boolean {
+export const verifyPkce = (codeChallenge: string, codeVerifier: string) => {
   return validPkceChallenge(codeVerifier) && pkceChallenge(codeVerifier) === codeChallenge;
-}
+};
 
-export function redirectUriAllowed(
-  registry: AuthRegistry,
-  project: string,
-  redirectUri: string
-): boolean {
+export const redirectUriAllowed = (registry: TrustedOriginRegistry, project: string, redirectUri: string) => {
   try {
     const url = new URL(redirectUri);
     return registry.isTrustedOrigin(project, url.origin);
   } catch {
     return false;
   }
-}
+};
 
-export function internalAuthHeaders(
-  source: Headers,
-  headers: HeadersInit,
-  options: { trustProxyHeaders: boolean }
-): Headers {
+export const internalAuthHeaders = (source: Headers, headers: HeadersInit, options: { trustProxyHeaders: boolean }) => {
   const result = new Headers(headers);
 
   const headerNames = options.trustProxyHeaders
@@ -149,9 +144,9 @@ export function internalAuthHeaders(
   }
 
   return result;
-}
+};
 
-async function issueLoginCodeFromSession(options: {
+const issueLoginCodeFromSession = async (options: {
   registered: RegisteredProject;
   redirectUri: string;
   state: string;
@@ -159,7 +154,7 @@ async function issueLoginCodeFromSession(options: {
   headers: Headers;
   trustProxyHeaders: boolean;
   codeStore: LoginCodeStore;
-}): Promise<{ redirectTo: string; email: string } | null> {
+}) => {
   const authPath = `/api/${options.registered.project.slug}/auth`;
   const sessionRes = await options.registered.auth.handler(
     new Request(`http://auth.local${authPath}/get-session`, {
@@ -200,4 +195,4 @@ async function issueLoginCodeFromSession(options: {
     redirectTo: callback.toString(),
     email
   };
-}
+};

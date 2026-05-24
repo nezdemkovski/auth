@@ -47,12 +47,12 @@ export class StorageCleanupError extends Error {
   }
 }
 
-export async function runUploadedMediaWorkflow<T>(options: {
+export const runUploadedMediaWorkflow = async <T>(options: {
   upload(): Promise<MediaUploadResult>;
   record(uploaded: MediaUploadResult): Promise<void>;
   persist(uploaded: MediaUploadResult): Promise<T>;
   cleanup(uploaded: MediaUploadResult, originalError: unknown): Promise<void>;
-}): Promise<T> {
+}) => {
   let uploaded: MediaUploadResult | null = null;
 
   try {
@@ -65,7 +65,7 @@ export async function runUploadedMediaWorkflow<T>(options: {
     }
     throw error;
   }
-}
+};
 
 export class StorageService {
   constructor(private readonly options: StorageServiceOptions) {}
@@ -88,7 +88,7 @@ export class StorageService {
   async updateSettings(
     registered: RegisteredProject,
     patch: StorageSettingsPatch
-  ): Promise<PublicStorageSettings> {
+  ) {
     const storage = await updateStorageSettings({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
@@ -106,10 +106,7 @@ export class StorageService {
     return this.readSettings(registered.project);
   }
 
-  async uploadProjectIcon(input: StorageUploadInput): Promise<{
-    upload: MediaUploadResult;
-    project: AuthProject | null;
-  }> {
+  async uploadProjectIcon(input: StorageUploadInput) {
     return this.withUploadedMedia(input, async (uploaded) => {
       const project = await updateProjectIconUrl({
         databaseUrl: this.options.databaseUrl,
@@ -137,10 +134,7 @@ export class StorageService {
     });
   }
 
-  async uploadUserAvatar(input: StorageUploadInput): Promise<{
-    upload: MediaUploadResult;
-    user: { id: string; image: string };
-  }> {
+  async uploadUserAvatar(input: StorageUploadInput) {
     if (!input.ownerUserId) {
       throw new Error("ownerUserId is required for user avatar uploads");
     }
@@ -166,7 +160,7 @@ export class StorageService {
   private async withUploadedMedia<T>(
     input: StorageUploadInput,
     persist: (uploaded: MediaUploadResult) => Promise<T>
-  ): Promise<T> {
+  ) {
     return runUploadedMediaWorkflow({
       upload: () =>
         uploadMedia({
@@ -189,11 +183,7 @@ export class StorageService {
   }
 }
 
-async function cleanupUploadedMedia(
-  storage: AuthProject["storage"],
-  uploaded: MediaUploadResult,
-  originalError: unknown
-): Promise<void> {
+const cleanupUploadedMedia = async (storage: AuthProject["storage"], uploaded: MediaUploadResult, originalError: unknown) => {
   try {
     await deleteUploadedMedia({
       storage,
@@ -208,4 +198,4 @@ async function cleanupUploadedMedia(
       }
     );
   }
-}
+};

@@ -1,10 +1,6 @@
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
 
-export function encryptSecretValue(
-  value: string,
-  secret: string,
-  context: string
-): string {
+export const encryptSecretValue = (value: string, secret: string, context: string) => {
   if (!value) {
     return "";
   }
@@ -16,13 +12,9 @@ export function encryptSecretValue(
   const tag = cipher.getAuthTag();
 
   return `v1:${iv.toString("base64url")}:${tag.toString("base64url")}:${encrypted.toString("base64url")}`;
-}
+};
 
-export function decryptSecretValue(
-  value: string,
-  secret: string,
-  context: string
-): string {
+export const decryptSecretValue = (value: string, secret: string, context: string) => {
   if (!value) {
     return "";
   }
@@ -44,9 +36,9 @@ export function decryptSecretValue(
     decipher.update(Buffer.from(encrypted, "base64url")),
     decipher.final()
   ]).toString("utf8");
-}
+};
 
-function encryptionKey(secret: string): Buffer {
+const encryptionKey = (secret: string) => {
   return Buffer.from(
     hkdfSync(
       "sha256",
@@ -56,4 +48,4 @@ function encryptionKey(secret: string): Buffer {
       32
     )
   );
-}
+};

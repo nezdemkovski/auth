@@ -31,15 +31,15 @@ export class AuthRegistry {
     }
   }
 
-  get(slug: string): RegisteredProject | null {
+  get(slug: string) {
     return this.projects.get(slug) ?? null;
   }
 
-  list(): AuthProject[] {
+  list() {
     return [...this.projects.values()].map(({ project }) => project);
   }
 
-  async updateProject(project: AuthProject): Promise<void> {
+  async updateProject(project: AuthProject) {
     const current = this.projects.get(project.slug);
     const next = this.createRegisteredProject(project);
 
@@ -47,7 +47,7 @@ export class AuthRegistry {
     await current?.projectDb.pool.end();
   }
 
-  async updateEmailSender(emailSender: EmailSender | null): Promise<void> {
+  async updateEmailSender(emailSender: EmailSender | null) {
     this.options = {
       ...this.options,
       emailSender
@@ -60,7 +60,7 @@ export class AuthRegistry {
     }
   }
 
-  isTrustedOrigin(slug: string, origin: string | undefined): boolean {
+  isTrustedOrigin(slug: string, origin: string | undefined) {
     if (!origin) {
       return false;
     }
@@ -74,13 +74,13 @@ export class AuthRegistry {
     return registered.project.trustedOrigins.includes(origin);
   }
 
-  async close(): Promise<void> {
+  async close() {
     await Promise.all(
       [...this.projects.values()].map(({ projectDb }) => projectDb.pool.end())
     );
   }
 
-  private createRegisteredProject(project: AuthProject): RegisteredProject {
+  private createRegisteredProject(project: AuthProject) {
     const projectDb = createProjectDatabase(this.options.databaseUrl, project);
     const auth = createProjectAuth({
       project,

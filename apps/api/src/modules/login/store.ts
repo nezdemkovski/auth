@@ -19,23 +19,23 @@ export type LoginCodeStore = RedisBackedStore & {
 
 const pendingLoginCodes = new Map<string, PendingLoginCode>();
 
-export function createLoginCodeStore(redisUrl: string | null): LoginCodeStore {
+export const createLoginCodeStore = (redisUrl: string | null) => {
   if (redisUrl) {
     return new RedisLoginCodeStore(redisUrl);
   }
 
   return new MemoryLoginCodeStore();
-}
+};
 
 class MemoryLoginCodeStore implements LoginCodeStore {
-  async connect(): Promise<void> {}
+  async connect() {}
 
-  async set(code: string, payload: PendingLoginCode): Promise<void> {
+  async set(code: string, payload: PendingLoginCode) {
     pruneExpiredCodes();
     pendingLoginCodes.set(code, payload);
   }
 
-  async get(code: string): Promise<PendingLoginCode | null> {
+  async get(code: string) {
     pruneExpiredCodes();
     const pending = pendingLoginCodes.get(code);
     if (!pending || pending.expiresAt < Date.now()) {
@@ -46,11 +46,11 @@ class MemoryLoginCodeStore implements LoginCodeStore {
     return pending;
   }
 
-  async delete(code: string): Promise<void> {
+  async delete(code: string) {
     pendingLoginCodes.delete(code);
   }
 
-  async close(): Promise<void> {}
+  async close() {}
 }
 
 class RedisLoginCodeStore implements LoginCodeStore {
@@ -60,23 +60,28 @@ class RedisLoginCodeStore implements LoginCodeStore {
     this.client = new ReconnectingRedisClient(redisUrl);
   }
 
-  connect(): Promise<void> {
+  connect() {
     return this.client.connect();
   }
 
-  async set(code: string, payload: PendingLoginCode): Promise<void> {
+  async set(code: string, payload: PendingLoginCode) {
     await this.client.withClient((redis) =>
       redis.set(loginCodeKey(code), JSON.stringify(payload), "EX", LOGIN_CODE_TTL_SECONDS)
     );
   }
 
-  async get(code: string): Promise<PendingLoginCode | null> {
+  async get(code: string) {
     const value = await this.client.withClient((redis) => redis.get(loginCodeKey(code)));
     if (!value) {
       return null;
     }
 
-    const parsed = JSON.parse(value) as PendingLoginCode;
+    const parsed = parsePendingLoginCode(value);
+    if (!parsed) {
+      await this.delete(code);
+      return null;
+    }
+
     if (parsed.expiresAt < Date.now()) {
       await this.delete(code);
       return null;
@@ -85,23 +90,48 @@ class RedisLoginCodeStore implements LoginCodeStore {
     return parsed;
   }
 
-  async delete(code: string): Promise<void> {
+  async delete(code: string) {
     await this.client.withClient((redis) => redis.del(loginCodeKey(code)));
   }
 
-  close(): void {
+  close() {
     this.client.close();
   }
 }
 
-function loginCodeKey(code: string): string {
+const loginCodeKey = (code: string) => {
   return `auth:login-code:${code}`;
-}
+};
 
-function pruneExpiredCodes(now = Date.now()): void {
+const pruneExpiredCodes = (now = Date.now()) => {
   for (const [code, payload] of pendingLoginCodes) {
     if (payload.expiresAt < now) {
       pendingLoginCodes.delete(code);
     }
   }
+};
+
+const parsePendingLoginCode = (value: string) => {
+  const parsed: unknown = JSON.parse(value);
+  if (!isPendingLoginCode(parsed)) {
+    return null;
+  }
+
+  return parsed;
+};
+
+function isPendingLoginCode(value: unknown): value is PendingLoginCode {
+  return (
+    isRecord(value) &&
+    typeof value.project === "string" &&
+    typeof value.sessionCookie === "string" &&
+    typeof value.email === "string" &&
+    typeof value.redirectUri === "string" &&
+    typeof value.codeChallenge === "string" &&
+    typeof value.expiresAt === "number"
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

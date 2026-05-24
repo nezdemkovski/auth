@@ -6,6 +6,8 @@ import {
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_STORAGE,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
+  ProjectAgentAuthMode,
+  ProjectTwoFactorRequirement,
   normalizeProjectSlug,
   projectSchemaFromSlug,
   validateProjectSlug
@@ -105,14 +107,14 @@ describe("projects", () => {
     expect(
       normalizeProjectFeatures({
         passkey: { enabled: true },
-        twoFactor: { enabled: true, required: "everyone" },
-        agentAuth: { enabled: true, mode: "scoped-write" },
+        twoFactor: { enabled: true, required: ProjectTwoFactorRequirement.Everyone },
+        agentAuth: { enabled: true, mode: ProjectAgentAuthMode.ScopedWrite },
         oauthProvider: { enabled: true, dynamicClientRegistration: true }
       })
     ).toEqual({
       passkey: { enabled: true },
-      twoFactor: { enabled: true, required: "everyone" },
-      agentAuth: { enabled: true, mode: "scoped-write" },
+      twoFactor: { enabled: true, required: ProjectTwoFactorRequirement.Everyone },
+      agentAuth: { enabled: true, mode: ProjectAgentAuthMode.ScopedWrite },
       oauthProvider: { enabled: true, dynamicClientRegistration: true }
     });
   });
@@ -127,8 +129,8 @@ describe("projects", () => {
       })
     ).toEqual({
       passkey: { enabled: false },
-      twoFactor: { enabled: true, required: "optional" },
-      agentAuth: { enabled: true, mode: "read-only" },
+      twoFactor: { enabled: true, required: ProjectTwoFactorRequirement.Optional },
+      agentAuth: { enabled: true, mode: ProjectAgentAuthMode.ReadOnly },
       oauthProvider: { enabled: false, dynamicClientRegistration: false }
     });
   });

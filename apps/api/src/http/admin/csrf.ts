@@ -1,8 +1,8 @@
-export function isStateChangingMethod(method: string): boolean {
+export const isStateChangingMethod = (method: string) => {
   return !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
-}
+};
 
-export function isTrustedAdminRequest(headers: Headers, adminOrigin: string): boolean {
+export const isTrustedAdminRequest = (headers: Headers, adminOrigin: string) => {
   const origin = headers.get("origin");
   if (origin) {
     return origin === adminOrigin;
@@ -14,4 +14,4 @@ export function isTrustedAdminRequest(headers: Headers, adminOrigin: string): bo
   }
 
   return false;
-}
+};

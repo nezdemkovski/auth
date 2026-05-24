@@ -3,6 +3,8 @@ import { drizzle } from "drizzle-orm/node-postgres";
 
 import {
   DEFAULT_PROJECT_FEATURES,
+  ProjectAgentAuthMode,
+  ProjectTwoFactorRequirement,
   normalizeProjectSlug,
   projectSchemaFromSlug,
   validateProjectSchema,
@@ -48,10 +50,7 @@ type ProjectSettingsRow = {
   system: boolean;
 };
 
-export async function ensureProjectSettingsTable(
-  databaseUrl: string,
-  adminProject: AuthProject
-): Promise<void> {
+export const ensureProjectSettingsTable = async (databaseUrl: string, adminProject: AuthProject) => {
   const pool = createAdminPool(databaseUrl, adminProject);
   const db = drizzle({ client: pool });
 
@@ -86,12 +85,12 @@ export async function ensureProjectSettingsTable(
   } finally {
     await pool.end();
   }
-}
+};
 
-export async function seedAdminProjectSettings(options: {
+export const seedAdminProjectSettings = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
-}): Promise<void> {
+}) => {
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
   const db = drizzle({ client: pool });
 
@@ -136,14 +135,14 @@ export async function seedAdminProjectSettings(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-export async function loadEffectiveProjects(options: {
+export const loadEffectiveProjects = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   encryptionSecret: string;
   managedStorage: AuthProject["storage"];
-}): Promise<{ adminProject: AuthProject; projects: AuthProject[] }> {
+}) => {
   await ensureProjectSettingsTable(options.databaseUrl, options.adminProject);
   await seedAdminProjectSettings(options);
   await ensureSocialProviderSettingsTable(options);
@@ -166,14 +165,14 @@ export async function loadEffectiveProjects(options: {
     adminProject,
     projects: allWithSettings.filter((project) => project.slug !== adminProject.slug)
   };
-}
+};
 
-export async function projectSettingsExists(options: {
+export const projectSettingsExists = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   slug: string;
   schema: string;
-}): Promise<boolean> {
+}) => {
   validateProjectSlug(options.slug);
   validateProjectSchema(options.schema);
 
@@ -193,13 +192,13 @@ export async function projectSettingsExists(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-export async function createProjectSettings(options: {
+export const createProjectSettings = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   input: ProjectSettingsCreate;
-}): Promise<AuthProject> {
+}) => {
   const project = createProjectFromInput(options.input);
   validateProjectSettingsPatch(project);
 
@@ -242,14 +241,14 @@ export async function createProjectSettings(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-export async function updateProjectSettings(options: {
+export const updateProjectSettings = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   slug: string;
   patch: ProjectSettingsPatch;
-}): Promise<AuthProject | null> {
+}) => {
   validateProjectSettingsPatch(options.patch);
 
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
@@ -290,14 +289,14 @@ export async function updateProjectSettings(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-export async function updateProjectIconUrl(options: {
+export const updateProjectIconUrl = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   slug: string;
   iconUrl: string;
-}): Promise<AuthProject | null> {
+}) => {
   validateOptionalUrl(options.iconUrl, "iconUrl");
 
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
@@ -319,12 +318,9 @@ export async function updateProjectIconUrl(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-async function readProjectSettings(
-  databaseUrl: string,
-  adminProject: AuthProject
-): Promise<AuthProject[]> {
+const readProjectSettings = async (databaseUrl: string, adminProject: AuthProject) => {
   const pool = createAdminPool(databaseUrl, adminProject);
   const db = drizzle({ client: pool });
 
@@ -343,9 +339,9 @@ async function readProjectSettings(
   } finally {
     await pool.end();
   }
-}
+};
 
-export function validateProjectSettingsPatch(patch: ProjectSettingsPatch): void {
+export const validateProjectSettingsPatch = (patch: ProjectSettingsPatch) => {
   if (patch.name.trim().length === 0) {
     throw new Error("Project name is required");
   }
@@ -361,9 +357,9 @@ export function validateProjectSettingsPatch(patch: ProjectSettingsPatch): void 
     }
     seen.add(origin);
   }
-}
+};
 
-export function createProjectFromInput(input: ProjectSettingsCreate): AuthProject {
+export const createProjectFromInput = (input: ProjectSettingsCreate) => {
   const slug = normalizeProjectSlug(input.slug);
   validateProjectSlug(slug);
 
@@ -383,9 +379,9 @@ export function createProjectFromInput(input: ProjectSettingsCreate): AuthProjec
 
   validateProjectSchema(project.schema);
   return project;
-}
+};
 
-function validateOptionalUrl(value: string, field: string): void {
+const validateOptionalUrl = (value: string, field: string) => {
   if (!value) {
     return;
   }
@@ -398,9 +394,9 @@ function validateOptionalUrl(value: string, field: string): void {
   } catch {
     throw new Error(`Invalid ${field}`);
   }
-}
+};
 
-function validateOrigin(value: string): void {
+const validateOrigin = (value: string) => {
   try {
     const url = new URL(value);
     if (!["http:", "https:"].includes(url.protocol) || url.origin !== value) {
@@ -409,9 +405,9 @@ function validateOrigin(value: string): void {
   } catch {
     throw new Error(`Invalid trusted origin: ${value}`);
   }
-}
+};
 
-function rowToProject(row: ProjectSettingsRow): AuthProject {
+const rowToProject = (row: ProjectSettingsRow) => {
   return {
     slug: row.slug,
     name: row.name,
@@ -425,9 +421,9 @@ function rowToProject(row: ProjectSettingsRow): AuthProject {
     billing: cloneDefaultBilling(),
     storage: cloneDefaultStorage()
   };
-}
+};
 
-export function normalizeProjectFeatures(value: unknown): ProjectFeatures {
+export const normalizeProjectFeatures = (value: unknown) => {
   if (!isRecord(value)) {
     return cloneDefaultFeatures();
   }
@@ -447,13 +443,19 @@ export function normalizeProjectFeatures(value: unknown): ProjectFeatures {
     twoFactor: {
       enabled: typeof twoFactor.enabled === "boolean" ? twoFactor.enabled : false,
       required:
-        required === "admins" || required === "everyone" || required === "optional"
+        required === ProjectTwoFactorRequirement.Admins ||
+        required === ProjectTwoFactorRequirement.Everyone ||
+        required === ProjectTwoFactorRequirement.Optional
           ? required
-          : "optional"
+          : ProjectTwoFactorRequirement.Optional
     },
     agentAuth: {
       enabled: typeof agentAuth.enabled === "boolean" ? agentAuth.enabled : false,
-      mode: mode === "scoped-write" || mode === "read-only" ? mode : "read-only"
+      mode:
+        mode === ProjectAgentAuthMode.ScopedWrite ||
+        mode === ProjectAgentAuthMode.ReadOnly
+          ? mode
+          : ProjectAgentAuthMode.ReadOnly
     },
     oauthProvider: {
       enabled:
@@ -464,9 +466,9 @@ export function normalizeProjectFeatures(value: unknown): ProjectFeatures {
           : false
     }
   };
-}
+};
 
-function cloneDefaultFeatures(): ProjectFeatures {
+const cloneDefaultFeatures = () => {
   return {
     passkey: {
       ...DEFAULT_PROJECT_FEATURES.passkey
@@ -481,19 +483,19 @@ function cloneDefaultFeatures(): ProjectFeatures {
       ...DEFAULT_PROJECT_FEATURES.oauthProvider
     }
   };
-}
+};
 
-function optionsDefaultSocialProviders(): AuthProject["socialProviders"] {
+const optionsDefaultSocialProviders = () => {
   return cloneDefaultSocialProviders();
-}
+};
 
-function normalizeTrustedOrigins(value: unknown): string[] {
+const normalizeTrustedOrigins = (value: unknown) => {
   if (!Array.isArray(value)) {
     return [];
   }
 
   return value.filter((item): item is string => typeof item === "string");
-}
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

@@ -2,7 +2,14 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import type { Pool } from "pg";
 
-export type StorageObjectPurpose = "project_icon" | "user_avatar";
+import { MediaUploadPurpose } from "./media";
+
+export type StorageObjectPurpose = MediaUploadPurpose;
+
+export enum StorageObjectFolder {
+  Images = "images",
+  Files = "files"
+}
 
 export type StorageObjectInput = {
   purpose: StorageObjectPurpose;
@@ -18,11 +25,11 @@ export type StorageObjectInput = {
 
 export type StorageObjectSummary = StorageObjectInput & {
   id: string;
-  folder: "images" | "files";
+  folder: StorageObjectFolder;
   createdAt: string;
 };
 
-export async function ensureStorageObjectsTable(pool: Pool): Promise<void> {
+export const ensureStorageObjectsTable = async (pool: Pool) => {
   const db = drizzle({ client: pool });
 
   await db.execute(sql`
@@ -50,11 +57,9 @@ export async function ensureStorageObjectsTable(pool: Pool): Promise<void> {
     ALTER TABLE auth_storage_objects
     ADD COLUMN IF NOT EXISTS original_file_name text NOT NULL DEFAULT ''
   `);
-}
+};
 
-export async function listStorageObjects(
-  pool: Pool
-): Promise<StorageObjectSummary[]> {
+export const listStorageObjects = async (pool: Pool) => {
   await ensureStorageObjectsTable(pool);
   const db = drizzle({ client: pool });
 
@@ -103,12 +108,9 @@ export async function listStorageObjects(
     createdAt:
       row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
   }));
-}
+};
 
-export async function insertStorageObject(
-  pool: Pool,
-  input: StorageObjectInput
-): Promise<void> {
+export const insertStorageObject = async (pool: Pool, input: StorageObjectInput) => {
   await ensureStorageObjectsTable(pool);
   const db = drizzle({ client: pool });
 
@@ -138,8 +140,10 @@ export async function insertStorageObject(
       ${input.ownerUserId}
     )
   `);
-}
+};
 
-function folderFromObjectKey(objectKey: string): "images" | "files" {
-  return objectKey.includes("/files/") ? "files" : "images";
-}
+const folderFromObjectKey = (objectKey: string) => {
+  return objectKey.includes("/files/")
+    ? StorageObjectFolder.Files
+    : StorageObjectFolder.Images;
+};

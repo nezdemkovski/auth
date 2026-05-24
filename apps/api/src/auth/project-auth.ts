@@ -6,9 +6,8 @@ import { oauthProvider } from "@better-auth/oauth-provider";
 import { passkey } from "@better-auth/passkey";
 import { checkout, polar, portal, usage, webhooks } from "@polar-sh/better-auth";
 import { Polar } from "@polar-sh/sdk";
-import type { Pool } from "pg";
 
-import type { AuthProject } from "../config/projects";
+import { BillingProvider, type AuthProject } from "../config/projects";
 import { SOCIAL_PROVIDER_IDS } from "../config/social-providers";
 import type { ProjectDatabase } from "../db/project-db";
 import type { EmailSender } from "../email/sender";
@@ -25,12 +24,12 @@ type ProjectAuthOptions = {
 
 type ProjectMigrationOptions = {
   project: AuthProject;
-  pool: Pool;
+  database: BetterAuthOptions["database"];
   publicBaseUrl: string;
   secret: string;
 };
 
-export function createProjectAuth(options: ProjectAuthOptions) {
+export const createProjectAuth = (options: ProjectAuthOptions) => {
   const { project, projectDb, publicBaseUrl, secret } = options;
 
   return betterAuth({
@@ -43,11 +42,9 @@ export function createProjectAuth(options: ProjectAuthOptions) {
     }),
     database: projectDb.pool
   });
-}
+};
 
-export function createProjectMigrationAuthOptions(
-  options: ProjectMigrationOptions
-): BetterAuthOptions {
+export const createProjectMigrationAuthOptions = (options: ProjectMigrationOptions) => {
   return {
     ...createBaseProjectAuthOptions({
       project: options.project,
@@ -56,17 +53,17 @@ export function createProjectMigrationAuthOptions(
       emailSender: null,
       trustProxyHeaders: false
     }),
-    database: options.pool
+    database: options.database
   };
-}
+};
 
-function createBaseProjectAuthOptions(options: {
+const createBaseProjectAuthOptions = (options: {
   project: AuthProject;
   publicBaseUrl: string;
   secret: string;
   emailSender: EmailSender | null;
   trustProxyHeaders: boolean;
-}) {
+}) => {
   const { project, publicBaseUrl, secret } = options;
   const publicOrigin = new URL(publicBaseUrl).origin;
   const publicHostname = new URL(publicBaseUrl).hostname;
@@ -199,9 +196,9 @@ function createBaseProjectAuthOptions(options: {
       enabled: false
     }
   };
-}
+};
 
-function buildPolarPlugins(project: AuthProject): Array<ReturnType<typeof polar>> {
+const buildPolarPlugins = (project: AuthProject) => {
   const settings = project.billing;
   const products = settings.products
     .filter((product) => product.active && product.productId.trim())
@@ -210,7 +207,11 @@ function buildPolarPlugins(project: AuthProject): Array<ReturnType<typeof polar>
       productId: product.productId
     }));
 
-  if (settings.provider !== "polar" || !settings.enabled || !settings.accessToken.trim()) {
+  if (
+    settings.provider !== BillingProvider.Polar ||
+    !settings.enabled ||
+    !settings.accessToken.trim()
+  ) {
     return [];
   }
 
@@ -219,7 +220,7 @@ function buildPolarPlugins(project: AuthProject): Array<ReturnType<typeof polar>
     server: settings.environment
   });
   const returnUrl = project.appUrl || project.trustedOrigins[0] || undefined;
-  const polarUse = [
+  const polarUse: NonNullable<Parameters<typeof polar>[0]["use"]> = [
     checkout({
       products,
       authenticatedUsersOnly: true,
@@ -251,30 +252,27 @@ function buildPolarPlugins(project: AuthProject): Array<ReturnType<typeof polar>
     polar({
       client,
       createCustomerOnSignUp: true,
-      use: polarUse as Parameters<typeof polar>[0]["use"]
+      use: polarUse
     })
   ];
-}
+};
 
-function buildSocialProviders(project: AuthProject): BetterAuthOptions["socialProviders"] {
-  return Object.fromEntries(
-    SOCIAL_PROVIDER_IDS.map((provider) => {
-      const settings = project.socialProviders[provider];
-      const enabled = settings.enabled && Boolean(settings.clientId && settings.clientSecret);
+const buildSocialProviders = (project: AuthProject) => {
+  const socialProviders: NonNullable<BetterAuthOptions["socialProviders"]> = {};
 
-      return [
-        provider,
-        {
-          enabled,
-          clientId: settings.clientId,
-          clientSecret: settings.clientSecret
-        }
-      ];
-    })
-  ) as BetterAuthOptions["socialProviders"];
-}
+  for (const provider of SOCIAL_PROVIDER_IDS) {
+    const settings = project.socialProviders[provider];
+    socialProviders[provider] = {
+      enabled: settings.enabled && Boolean(settings.clientId && settings.clientSecret),
+      clientId: settings.clientId,
+      clientSecret: settings.clientSecret
+    };
+  }
 
-function buildOAuthValidAudiences(project: AuthProject, publicBaseUrl: string): string[] {
+  return socialProviders;
+};
+
+const buildOAuthValidAudiences = (project: AuthProject, publicBaseUrl: string) => {
   const audiences = new Set([
     `${publicBaseUrl}/api/${project.slug}`,
     `${publicBaseUrl}/api/${project.slug}/auth`
@@ -291,15 +289,15 @@ function buildOAuthValidAudiences(project: AuthProject, publicBaseUrl: string): 
   }
 
   return Array.from(audiences);
-}
+};
 
-function normalizeOrigin(value: string): string | null {
+const normalizeOrigin = (value: string) => {
   try {
     return new URL(value).origin;
   } catch {
     return null;
   }
-}
+};
 
 export const __projectAuthTestUtils = {
   buildOAuthValidAudiences,

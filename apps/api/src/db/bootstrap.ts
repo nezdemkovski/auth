@@ -34,7 +34,7 @@ type BootstrapOptions = {
 
 const BOOTSTRAP_LOCK_KEY = "nezdemkovski-auth-bootstrap";
 
-export async function bootstrapProjects(options: BootstrapOptions): Promise<void> {
+export const bootstrapProjects = async (options: BootstrapOptions) => {
   const adminPool = new Pool({
     connectionString: options.databaseUrl
   });
@@ -82,9 +82,9 @@ export async function bootstrapProjects(options: BootstrapOptions): Promise<void
       .catch(() => {});
     await adminPool.end();
   }
-}
+};
 
-async function bootstrapInitialAdmin(options: BootstrapOptions): Promise<void> {
+const bootstrapInitialAdmin = async (options: BootstrapOptions) => {
   const project = options.adminProject;
   const projectDb = createProjectDatabase(options.databaseUrl, project);
   const db = drizzle({
@@ -137,16 +137,7 @@ async function bootstrapInitialAdmin(options: BootstrapOptions): Promise<void> {
     }
 
     const temporaryPassword = generateTemporaryPassword();
-    const created = await (auth.api as unknown as {
-      createUser(input: {
-        body: {
-          email: string;
-          name: string;
-          password: string;
-          role: string;
-        };
-      }): Promise<{ user: { id: string } }>;
-    }).createUser({
+    const created = await auth.api.createUser({
       body: {
         email: options.adminEmail,
         name: "Initial Admin",
@@ -171,15 +162,15 @@ async function bootstrapInitialAdmin(options: BootstrapOptions): Promise<void> {
   } finally {
     await projectDb.pool.end();
   }
-}
+};
 
-function generateTemporaryPassword(): string {
+const generateTemporaryPassword = () => {
   return randomBase64Url(24);
-}
+};
 
-export async function prepareProjectSchema(options: Omit<BootstrapOptions, "adminEmail" | "initialDeliveryConfig"> & {
+export const prepareProjectSchema = async (options: Omit<BootstrapOptions, "adminEmail" | "initialDeliveryConfig"> & {
   project: AuthProject;
-}): Promise<void> {
+}) => {
   const adminPool = new Pool({
     connectionString: options.databaseUrl
   });
@@ -200,7 +191,7 @@ export async function prepareProjectSchema(options: Omit<BootstrapOptions, "admi
     const migrations = await getMigrations(
       createProjectMigrationAuthOptions({
         project: options.project,
-        pool,
+        database: pool,
         publicBaseUrl: options.publicBaseUrl,
         secret: options.secret
       })
@@ -222,4 +213,4 @@ export async function prepareProjectSchema(options: Omit<BootstrapOptions, "admi
     await ensureStorageObjectsTable(pool).catch(() => {});
     await pool.end();
   }
-}
+};

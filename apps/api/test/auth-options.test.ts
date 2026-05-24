@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import type { Pool } from "pg";
 
 import {
   __projectAuthTestUtils,
   createProjectMigrationAuthOptions
 } from "../src/auth/project-auth";
 import {
+  BillingProvider,
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_BILLING,
   DEFAULT_PROJECT_STORAGE,
@@ -40,7 +40,7 @@ function createOptions(project: AuthProject, trustProxyHeaders = false) {
 function createMigrationOptions(project: AuthProject) {
   return createProjectMigrationAuthOptions({
     project,
-    pool: {} as Pool,
+    database: undefined,
     publicBaseUrl: "https://auth.example.com",
     secret: "x".repeat(32)
   });
@@ -82,7 +82,7 @@ describe("project auth options", () => {
         ...baseProject,
         billing: {
           ...DEFAULT_PROJECT_BILLING,
-          provider: "polar",
+          provider: BillingProvider.Polar,
           enabled: true,
           accessToken: "polar-token"
         }
@@ -144,12 +144,16 @@ describe("project auth options", () => {
       clientId: "github-client",
       clientSecret: "github-secret"
     });
-    const socialProviders = options.socialProviders as Record<
-      string,
-      { enabled?: boolean }
-    >;
-    expect(socialProviders.google?.enabled).toBe(false);
-    expect(socialProviders.twitter?.enabled).toBe(false);
-    expect(socialProviders.facebook?.enabled).toBe(false);
+    expect(providerEnabled(options.socialProviders?.google)).toBe(false);
+    expect(providerEnabled(options.socialProviders?.twitter)).toBe(false);
+    expect(providerEnabled(options.socialProviders?.facebook)).toBe(false);
   });
 });
+
+function providerEnabled(provider: unknown) {
+  if (typeof provider === "function" || !provider || typeof provider !== "object") {
+    return undefined;
+  }
+
+  return Reflect.get(provider, "enabled");
+}

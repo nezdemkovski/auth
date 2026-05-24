@@ -1,7 +1,7 @@
 import type { AuthProject } from "../../config/projects";
 import type { ProjectUserRow } from "./store";
 
-export function usersProjectResponse(project: AuthProject, adminProject: AuthProject) {
+export const usersProjectResponse = (project: AuthProject, adminProject: AuthProject) => {
   return {
     slug: project.slug,
     name: project.name,
@@ -12,9 +12,9 @@ export function usersProjectResponse(project: AuthProject, adminProject: AuthPro
     trustedOrigins: project.trustedOrigins,
     system: project.slug === adminProject.slug
   };
-}
+};
 
-export function projectUserResponse(user: ProjectUserRow) {
+export const projectUserResponse = (user: ProjectUserRow) => {
   return {
     id: user.id,
     email: user.email,
@@ -26,8 +26,8 @@ export function projectUserResponse(user: ProjectUserRow) {
     updatedAt: toIsoString(user.updatedAt),
     sessionCount: Number(user.sessionCount)
   };
-}
+};
 
-function toIsoString(value: Date | string): string {
+const toIsoString = (value: Date | string) => {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
-}
+};

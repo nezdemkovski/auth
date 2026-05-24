@@ -1,14 +1,20 @@
 import { describe, expect, test } from "bun:test";
 
-import { DEFAULT_PROJECT_FEATURES, DEFAULT_PROJECT_STORAGE } from "../../../config/projects";
+import {
+  BillingEnvironment,
+  BillingProvider,
+  DEFAULT_PROJECT_FEATURES,
+  DEFAULT_PROJECT_STORAGE
+} from "../../../config/projects";
+import { SocialProvider } from "../../../config/social-providers";
 import { cloneDefaultSocialProviders } from "../social-provider-store";
 import { projectResponse } from "../translator";
 
 describe("project translator", () => {
   test("serializes realm metadata without exposing provider secrets", () => {
     const socialProviders = cloneDefaultSocialProviders();
-    socialProviders.github = {
-      ...socialProviders.github,
+    socialProviders[SocialProvider.GitHub] = {
+      ...socialProviders[SocialProvider.GitHub],
       enabled: true,
       clientId: "github-client",
       clientSecret: "github-secret",
@@ -27,9 +33,9 @@ describe("project translator", () => {
         features: DEFAULT_PROJECT_FEATURES,
         socialProviders,
         billing: {
-          provider: "none",
+          provider: BillingProvider.None,
           enabled: false,
-          environment: "sandbox",
+          environment: BillingEnvironment.Sandbox,
           accessToken: "",
           organizationId: "",
           webhookSecret: "",
@@ -42,13 +48,13 @@ describe("project translator", () => {
     );
 
     const github = response.socialProviders.find(
-      (provider) => provider.provider === "github"
+      (provider) => provider.provider === SocialProvider.GitHub
     );
 
     expect(response.userCount).toBe(1);
     expect(response.activeSessionCount).toBe(2);
     expect(github).toEqual({
-      provider: "github",
+      provider: SocialProvider.GitHub,
       enabled: true,
       clientId: "github-client",
       configured: true,

@@ -1,11 +1,24 @@
 import { describe, expect, test } from "bun:test";
 
-import { createLoginSessionCode, exchangeLoginCode } from "../http";
+import { createLoginSessionCode, exchangeLoginCode, type LoginOptions } from "../http";
 
-const unusedOptions = {
-  registry: {} as never,
+const unusedOptions: LoginOptions = {
+  registry: {
+    get() {
+      return null;
+    },
+    isTrustedOrigin() {
+      return false;
+    }
+  },
   secret: "test-secret",
-  codeStore: {} as never
+  codeStore: {
+    connect: async () => {},
+    close: () => {},
+    set: async () => {},
+    get: async () => null,
+    delete: async () => {}
+  }
 };
 
 describe("login HTTP handlers", () => {

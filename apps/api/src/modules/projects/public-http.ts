@@ -6,13 +6,10 @@ type PublicProjectsVariables = {
   registry: AuthRegistry;
 };
 
-export function registerPublicProjectRoutes(
-  app: Hono<{ Variables: PublicProjectsVariables }>,
-  options: {
+export const registerPublicProjectRoutes = (app: Hono<{ Variables: PublicProjectsVariables }>, options: {
     registry: AuthRegistry;
     adminProjectSlug: string;
-  }
-): void {
+  }) => {
   app.get("/api/projects", (c) => {
     const publicProjects = options.registry
       .list()
@@ -25,4 +22,4 @@ export function registerPublicProjectRoutes(
       }))
     });
   });
-}
+};

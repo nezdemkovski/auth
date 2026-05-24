@@ -1,6 +1,6 @@
 import { ActionEmail, RESET_EXPIRY_HOURS } from "../templates";
 
-export default function PasswordResetEmailPreview() {
+export const PasswordResetEmailPreview = () => {
   return (
     <ActionEmail
       projectName="OpenMarkers"
@@ -14,4 +14,4 @@ export default function PasswordResetEmailPreview() {
       expiryHours={RESET_EXPIRY_HOURS}
     />
   );
-}
+};

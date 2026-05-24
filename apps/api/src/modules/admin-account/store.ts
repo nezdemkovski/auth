@@ -7,10 +7,7 @@ export type AdminProfilePatch = {
   email?: string;
 };
 
-export async function mustChangePassword(
-  pool: Pool,
-  userId: string
-): Promise<boolean> {
+export const mustChangePassword = async (pool: Pool, userId: string) => {
   const db = drizzle({ client: pool });
   const result = await db.execute<{ must_change_password: boolean }>(sql`
     SELECT must_change_password
@@ -21,13 +18,9 @@ export async function mustChangePassword(
   `);
 
   return result.rows[0]?.must_change_password ?? false;
-}
+};
 
-export async function updateAdminProfile(
-  pool: Pool,
-  userId: string,
-  patch: AdminProfilePatch
-): Promise<void> {
+export const updateAdminProfile = async (pool: Pool, userId: string, patch: AdminProfilePatch) => {
   const db = drizzle({ client: pool });
 
   if (patch.name !== undefined && patch.email !== undefined) {
@@ -57,9 +50,9 @@ export async function updateAdminProfile(
       WHERE id = ${userId}
     `);
   }
-}
+};
 
-export async function markPasswordChanged(pool: Pool, userId: string): Promise<void> {
+export const markPasswordChanged = async (pool: Pool, userId: string) => {
   const db = drizzle({ client: pool });
 
   await db.execute(sql`
@@ -69,4 +62,4 @@ export async function markPasswordChanged(pool: Pool, userId: string): Promise<v
     WHERE key = 'initial_admin'
       AND user_id = ${userId}
   `);
-}
+};

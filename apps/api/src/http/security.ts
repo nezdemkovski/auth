@@ -83,10 +83,10 @@ const RATE_LIMIT_RULES: RateLimitRule[] = [
   }
 ];
 
-export function securityHeaders(publicBaseUrl: string): MiddlewareHandler {
+export const securityHeaders = (publicBaseUrl: string) => {
   const isHttps = publicBaseUrl.startsWith("https://");
 
-  return async (c, next) => {
+  const middleware: MiddlewareHandler = async (c, next) => {
     await next();
 
     c.header("X-Content-Type-Options", "nosniff");
@@ -112,21 +112,20 @@ export function securityHeaders(publicBaseUrl: string): MiddlewareHandler {
       c.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     }
   };
-}
 
-export function createRateLimiter(redisUrl: string | null): RateLimiterStore {
+  return middleware;
+};
+
+export const createRateLimiter = (redisUrl: string | null) => {
   if (redisUrl) {
     return new RedisRateLimiterStore(redisUrl);
   }
 
   return new MemoryRateLimiterStore();
-}
+};
 
-export function rateLimit(
-  store: RateLimiterStore,
-  options: { trustProxyHeaders: boolean }
-): MiddlewareHandler {
-  return async (c, next) => {
+export const rateLimit = (store: RateLimiterStore, options: { trustProxyHeaders: boolean }) => {
+  const middleware: MiddlewareHandler = async (c, next) => {
     const method = c.req.method.toUpperCase();
     const path = c.req.path;
     const rule = RATE_LIMIT_RULES.find((candidate) =>
@@ -168,12 +167,14 @@ export function rateLimit(
 
     await next();
   };
-}
+
+  return middleware;
+};
 
 class MemoryRateLimiterStore implements RateLimiterStore {
-  async connect(): Promise<void> {}
+  async connect() {}
 
-  async hit(key: string, rule: RateLimitRule, now: number): Promise<RateLimitResult> {
+  async hit(key: string, rule: RateLimitRule, now: number) {
     const bucket = rateLimitBuckets.get(key);
 
     if (!bucket || bucket.resetAt <= now) {
@@ -182,25 +183,31 @@ class MemoryRateLimiterStore implements RateLimiterStore {
         resetAt: now + rule.windowMs
       });
 
-      return {
+      const result: RateLimitResult = {
         allowed: true
       };
+
+      return result;
     }
 
     if (bucket.count >= rule.max) {
-      return {
+      const result: RateLimitResult = {
         allowed: false,
         retryAfter: Math.ceil((bucket.resetAt - now) / 1000)
       };
+
+      return result;
     }
 
     bucket.count += 1;
-    return {
+    const result: RateLimitResult = {
       allowed: true
     };
+
+    return result;
   }
 
-  async close(): Promise<void> {}
+  async close() {}
 }
 
 class RedisRateLimiterStore implements RateLimiterStore {
@@ -210,15 +217,15 @@ class RedisRateLimiterStore implements RateLimiterStore {
     this.client = new ReconnectingRedisClient(redisUrl);
   }
 
-  async connect(): Promise<void> {
+  async connect() {
     await this.client.connect();
   }
 
-  async hit(key: string, rule: RateLimitRule): Promise<RateLimitResult> {
+  async hit(key: string, rule: RateLimitRule) {
     return this.client.withClient((redis) => this.hitRedis(redis, key, rule));
   }
 
-  async close(): Promise<void> {
+  async close() {
     this.client.close();
   }
 
@@ -226,7 +233,7 @@ class RedisRateLimiterStore implements RateLimiterStore {
     redis: RedisClient,
     key: string,
     rule: RateLimitRule
-  ): Promise<RateLimitResult> {
+  ) {
     const redisKey = `auth:rate-limit:${key}`;
     const count = await redis.incr(redisKey);
 
@@ -237,22 +244,23 @@ class RedisRateLimiterStore implements RateLimiterStore {
     if (count > rule.max) {
       const ttl = await redis.ttl(redisKey);
 
-      return {
+      const result: RateLimitResult = {
         allowed: false,
         retryAfter: Math.max(1, ttl)
       };
+
+      return result;
     }
 
-    return {
+    const result: RateLimitResult = {
       allowed: true
     };
+
+    return result;
   }
 }
 
-function clientKey(
-  headers: Headers,
-  options: { trustProxyHeaders: boolean }
-): string {
+const clientKey = (headers: Headers, options: { trustProxyHeaders: boolean }) => {
   if (!options.trustProxyHeaders) {
     return "direct";
   }
@@ -262,11 +270,11 @@ function clientKey(
     headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     "unknown"
   );
-}
+};
 
-function normalizePath(path: string): string {
+const normalizePath = (path: string) => {
   return path.replace(/^\/api\/[^/]+\/auth\//, "/api/:project/auth/");
-}
+};
 
 export const __securityTestUtils = {
   clientKey,

@@ -1,4 +1,5 @@
 import { projectResponse } from "../projects/translator";
+import { MediaUploadPurpose } from "./media";
 import {
   parseMediaUploadRequest,
   parseStorageSettingsPatch
@@ -94,7 +95,7 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
 
     const uploadRequest = await parseMediaUploadRequest(
       await c.req.formData(),
-      "project_icon"
+      MediaUploadPurpose.ProjectIcon
     );
     if (!uploadRequest) {
       return c.json({ error: "invalid_body" }, 400);

@@ -1,32 +1,43 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 
+export enum LoginPage {
+  Login = "login",
+  ResetPassword = "reset-password",
+  OAuthConsent = "oauth-consent"
+}
+
+export enum LoginMode {
+  Login = "login",
+  Signup = "signup"
+}
+
 type LoginConfigInput = {
-  registered: RegisteredProject;
+  registered: Pick<RegisteredProject, "project">;
   project: string;
   redirectUri: string;
   state: string;
-  mode: "login" | "signup";
+  mode: LoginMode;
   codeChallenge: string;
 };
 
 type ResetPasswordConfigInput = {
-  registered: RegisteredProject;
+  registered: Pick<RegisteredProject, "project">;
   project: string;
   token: string;
   error: string;
 };
 
 type OAuthConsentConfigInput = {
-  registered: RegisteredProject;
+  registered: Pick<RegisteredProject, "project">;
   project: string;
   clientId: string;
   scopes: string[];
   oauthQuery: string;
 };
 
-export function loginConfigResponse(input: LoginConfigInput) {
+export const loginConfigResponse = (input: LoginConfigInput) => {
   return {
-    page: "login",
+    page: LoginPage.Login,
     project: input.project,
     projectName: input.registered.project.name,
     redirectUri: input.redirectUri,
@@ -36,34 +47,32 @@ export function loginConfigResponse(input: LoginConfigInput) {
     features: input.registered.project.features,
     socialProviders: enabledSocialProviders(input.registered)
   };
-}
+};
 
-export function resetPasswordConfigResponse(input: ResetPasswordConfigInput) {
+export const resetPasswordConfigResponse = (input: ResetPasswordConfigInput) => {
   return {
-    page: "reset-password",
+    page: LoginPage.ResetPassword,
     project: input.project,
     projectName: input.registered.project.name,
     appUrl: input.registered.project.appUrl,
     token: input.token,
     error: input.error
   };
-}
+};
 
-export function oauthConsentConfigResponse(input: OAuthConsentConfigInput) {
+export const oauthConsentConfigResponse = (input: OAuthConsentConfigInput) => {
   return {
-    page: "oauth-consent",
+    page: LoginPage.OAuthConsent,
     project: input.project,
     projectName: input.registered.project.name,
     clientId: input.clientId,
     scopes: input.scopes,
     oauthQuery: input.oauthQuery
   };
-}
+};
 
-export function enabledSocialProviders(
-  registered: NonNullable<ReturnType<AuthRegistry["get"]>>
-): string[] {
+export const enabledSocialProviders = (registered: Pick<NonNullable<ReturnType<AuthRegistry["get"]>>, "project">) => {
   return Object.entries(registered.project.socialProviders)
     .filter(([, provider]) => provider.enabled && provider.clientId && provider.clientSecret)
     .map(([provider]) => provider);
-}
+};

@@ -7,15 +7,13 @@ import { cors } from "hono/cors";
 
 import type { AuthRegistry } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
+import { BillingProvider } from "../../config/projects";
 
 type AuthProxyVariables = {
   registry: AuthRegistry;
 };
 
-export function registerAuthProxyRoutes(
-  app: Hono<{ Variables: AuthProxyVariables }>,
-  options: { registry: AuthRegistry }
-): void {
+export const registerAuthProxyRoutes = (app: Hono<{ Variables: AuthProxyVariables }>, options: { registry: AuthRegistry }) => {
   app.get("/api/:project/.well-known/jwks.json", (c) => {
     const registered = options.registry.get(c.req.param("project"));
 
@@ -65,10 +63,9 @@ export function registerAuthProxyRoutes(
       return c.notFound();
     }
 
-    const api = registered.auth.api as unknown as {
-      getAgentConfiguration(input: { headers: Headers }): Promise<unknown>;
-    };
-    return c.json(await api.getAgentConfiguration({ headers: c.req.raw.headers }));
+    return c.json(
+      await registered.auth.api.getAgentConfiguration({ headers: c.req.raw.headers })
+    );
   });
 
   app.use(
@@ -107,9 +104,9 @@ export function registerAuthProxyRoutes(
 
     return registered.auth.handler(c.req.raw);
   });
-}
+};
 
-export function isEnabledAuthFeaturePath(project: AuthProject, path: string): boolean {
+export const isEnabledAuthFeaturePath = (project: AuthProject, path: string) => {
   const authPath = path.replace(new RegExp(`^/api/${project.slug}/auth`), "") || "/";
 
   if (project.slug === "admin" && authPath.startsWith("/sign-up/")) {
@@ -137,42 +134,42 @@ export function isEnabledAuthFeaturePath(project: AuthProject, path: string): bo
   }
 
   return true;
-}
+};
 
-function isAgentAuthPath(path: string): boolean {
+const isAgentAuthPath = (path: string) => {
   return (
     path === "/agent-configuration" ||
     path.startsWith("/agent/") ||
     path.startsWith("/capability/") ||
     path.startsWith("/host/")
   );
-}
+};
 
-function isOAuthProviderPath(path: string): boolean {
+const isOAuthProviderPath = (path: string) => {
   return (
     path === "/.well-known/oauth-authorization-server" ||
     path === "/.well-known/openid-configuration" ||
     path.startsWith("/oauth2/") ||
     path.startsWith("/admin/oauth2/")
   );
-}
+};
 
-function isPolarPath(path: string): boolean {
+const isPolarPath = (path: string) => {
   return (
     path === "/checkout" ||
     path.startsWith("/customer/") ||
     path.startsWith("/usage/") ||
     path === "/polar/webhooks"
   );
-}
+};
 
-function isPolarEnabled(project: AuthProject): boolean {
+const isPolarEnabled = (project: AuthProject) => {
   return (
-    project.billing.provider === "polar" &&
+    project.billing.provider === BillingProvider.Polar &&
     project.billing.enabled &&
     Boolean(project.billing.accessToken.trim())
   );
-}
+};
 
 export const __authProxyTestUtils = {
   isEnabledAuthFeaturePath

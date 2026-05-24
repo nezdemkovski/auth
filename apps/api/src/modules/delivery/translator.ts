@@ -11,9 +11,7 @@ export type PublicDeliverySettings = {
   updatedAt: string | null;
 };
 
-export function deliverySettingsResponse(
-  settings: DeliverySettings
-): PublicDeliverySettings {
+export const deliverySettingsResponse = (settings: DeliverySettings) => {
   return {
     provider: settings.provider,
     from: settings.from,
@@ -23,9 +21,9 @@ export function deliverySettingsResponse(
     configured: isDeliveryConfigured(settings),
     updatedAt: settings.updatedAt
   };
-}
+};
 
-export function isDeliveryConfigured(settings: DeliverySettings): boolean {
+export const isDeliveryConfigured = (settings: DeliverySettings) => {
   if (settings.provider === EmailProvider.Resend) {
     return Boolean(settings.from && settings.resendApiKey);
   }
@@ -37,4 +35,4 @@ export function isDeliveryConfigured(settings: DeliverySettings): boolean {
   }
 
   return false;
-}
+};

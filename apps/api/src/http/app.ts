@@ -23,7 +23,7 @@ type AppVariables = {
   registry: AuthRegistry;
 };
 
-export async function createApp(env: Env) {
+export const createApp = async (env: Env) => {
   const rateLimiter = createRateLimiter(env.redisUrl);
   const loginCodeStore = createLoginCodeStore(env.redisUrl);
   await rateLimiter.connect();
@@ -144,4 +144,4 @@ export async function createApp(env: Env) {
       await Promise.all([registry.close(), rateLimiter.close(), loginCodeStore.close()]);
     }
   };
-}
+};

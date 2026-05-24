@@ -1,4 +1,5 @@
 import { EmailProvider, type EmailConfig } from "../../email/sender";
+import { isEnumValue } from "../../runtime/enums";
 
 export type DeliverySettingsPatch = {
   provider: EmailConfig["provider"];
@@ -10,11 +11,10 @@ export type DeliverySettingsPatch = {
 
 type DeliverySettingsBody = Partial<Record<keyof DeliverySettingsPatch, unknown>>;
 
-export function parseDeliverySettingsPatch(
-  body: DeliverySettingsBody
-): DeliverySettingsPatch | null {
+export const parseDeliverySettingsPatch = (body: DeliverySettingsBody) => {
   if (
     typeof body.provider !== "string" ||
+    !isEnumValue(EmailProvider, body.provider) ||
     typeof body.from !== "string" ||
     typeof body.cloudflareAccountId !== "string"
   ) {
@@ -22,7 +22,7 @@ export function parseDeliverySettingsPatch(
   }
 
   const patch: DeliverySettingsPatch = {
-    provider: body.provider as DeliverySettingsPatch["provider"],
+    provider: body.provider,
     from: body.from.trim(),
     cloudflareAccountId: body.cloudflareAccountId.trim()
   };
@@ -35,13 +35,11 @@ export function parseDeliverySettingsPatch(
   }
 
   return patch;
-}
+};
 
-export function validateDeliverySettingsPatch(patch: DeliverySettingsPatch): void {
+export const validateDeliverySettingsPatch = (patch: DeliverySettingsPatch) => {
   if (
-    patch.provider !== EmailProvider.None &&
-    patch.provider !== EmailProvider.Resend &&
-    patch.provider !== EmailProvider.Cloudflare
+    !isEnumValue(EmailProvider, patch.provider)
   ) {
     throw new Error("Invalid delivery provider");
   }
@@ -60,4 +58,4 @@ export function validateDeliverySettingsPatch(patch: DeliverySettingsPatch): voi
   ) {
     throw new Error("Cloudflare account ID is required");
   }
-}
+};

@@ -2,6 +2,6 @@ type ResendVerificationBody = {
   email?: unknown;
 };
 
-export function parseResendVerificationEmail(body: ResendVerificationBody): string | null {
+export const parseResendVerificationEmail = (body: ResendVerificationBody) => {
   return typeof body.email === "string" ? body.email : null;
-}
+};

@@ -77,6 +77,34 @@ Use noun-based layer names:
 
 Avoid duplicated names inside a domain folder. Prefer `modules/billing/core.ts` over `modules/billing/billing.service.ts`.
 
+## Domain Enums
+
+Use exported TypeScript enums for closed domain values: providers, feature modes, product types, entitlement types, storage folders, upload purposes, page modes, and similar state.
+
+- Define shared domain enums in the closest stable owner, usually `apps/api/src/config/*` for cross-module settings or the owning module for local concepts.
+- Do not create new string-union types for closed values when an enum is practical.
+- Do not compare against raw string literals for domain state; compare against enum members.
+- Raw strings are fine for user content, URLs, HTTP paths, SQL literals, external protocol constants, and error codes unless that value is a closed domain set used in multiple places.
+
+## TypeScript Types
+
+Avoid type assertions and casts. If TypeScript cannot prove a value is safe, add a narrow typed boundary instead:
+
+- Prefer type guards, structural input types, typed constants, or small parser functions.
+- Do not use `as`, `as unknown as`, `as never`, angle-bracket assertions, or assertion-style workarounds in tests.
+- Avoid `satisfies` as a workaround for weak modeling; use it only when it materially checks a literal shape without changing the inferred value.
+- Do not add explicit return types to obvious local functions where TypeScript infers the type cleanly. Keep explicit return types for exported API contracts, async store/service boundaries, type guards, recursive functions, overload-sensitive code, and public DTO declarations.
+
+## Function Style
+
+Prefer arrow functions for standalone backend functions:
+
+- Use `const name = (...) => {}` for module-level helpers and exported standalone operations.
+- Use `export const name = (...) => {}` instead of `export function name(...)` for new standalone functions.
+- Keep class methods as methods.
+- Keep `function` declarations for type guards (`value is Type`) and other cases where TypeScript syntax or narrowing is clearer with `function`.
+- Do not rely on hoisting for new code. If order matters, move the helper above its first top-level use.
+
 ## Migration Rule
 
 When moving existing code into modules, migrate one domain at a time and keep each move behavior-preserving. Run `bun run typecheck` and `bun run test` after every meaningful slice.

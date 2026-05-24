@@ -1,11 +1,13 @@
-export const SocialProvider = {
-  GitHub: "github",
-  Google: "google",
-  Twitter: "twitter",
-  Facebook: "facebook"
-} as const;
+import { isEnumValue } from "../runtime/enums";
 
-export type SocialProviderId = (typeof SocialProvider)[keyof typeof SocialProvider];
+export enum SocialProvider {
+  GitHub = "github",
+  Google = "google",
+  Twitter = "twitter",
+  Facebook = "facebook"
+}
+
+export type SocialProviderId = SocialProvider;
 
 export type SocialProviderCatalogItem = {
   id: SocialProviderId;
@@ -21,8 +23,8 @@ export const SOCIAL_PROVIDER_CATALOG: Record<
   SocialProviderId,
   SocialProviderCatalogItem
 > = {
-  github: {
-    id: "github",
+  [SocialProvider.GitHub]: {
+    id: SocialProvider.GitHub,
     label: "GitHub",
     shortLabel: "GitHub",
     clientIdLabel: "Client ID",
@@ -30,8 +32,8 @@ export const SOCIAL_PROVIDER_CATALOG: Record<
     defaultScopes: ["read:user", "user:email"],
     docsUrl: "https://better-auth.com/docs/authentication/github"
   },
-  google: {
-    id: "google",
+  [SocialProvider.Google]: {
+    id: SocialProvider.Google,
     label: "Google",
     shortLabel: "Google",
     clientIdLabel: "Client ID",
@@ -39,8 +41,8 @@ export const SOCIAL_PROVIDER_CATALOG: Record<
     defaultScopes: ["openid", "profile", "email"],
     docsUrl: "https://better-auth.com/docs/authentication/google"
   },
-  twitter: {
-    id: "twitter",
+  [SocialProvider.Twitter]: {
+    id: SocialProvider.Twitter,
     label: "X / Twitter",
     shortLabel: "X",
     clientIdLabel: "Client ID",
@@ -48,8 +50,8 @@ export const SOCIAL_PROVIDER_CATALOG: Record<
     defaultScopes: ["users.read", "tweet.read", "offline.access", "users.email"],
     docsUrl: "https://better-auth.com/docs/authentication/twitter"
   },
-  facebook: {
-    id: "facebook",
+  [SocialProvider.Facebook]: {
+    id: SocialProvider.Facebook,
     label: "Facebook",
     shortLabel: "Facebook",
     clientIdLabel: "App ID",
@@ -62,5 +64,5 @@ export const SOCIAL_PROVIDER_CATALOG: Record<
 export const SOCIAL_PROVIDER_IDS = Object.values(SocialProvider);
 
 export function isSocialProviderId(value: string): value is SocialProviderId {
-  return SOCIAL_PROVIDER_IDS.includes(value as SocialProviderId);
+  return isEnumValue(SocialProvider, value);
 }

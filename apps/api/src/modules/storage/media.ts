@@ -1,10 +1,16 @@
-import type { ProjectStorageSettings } from "../../config/projects";
+import {
+  StorageProvider,
+  type ProjectStorageSettings
+} from "../../config/projects";
 import {
   randomHex,
   sha256Hex
 } from "../../runtime/crypto";
 
-export type MediaUploadPurpose = "project_icon" | "user_avatar";
+export enum MediaUploadPurpose {
+  ProjectIcon = "project_icon",
+  UserAvatar = "user_avatar"
+}
 
 export type MediaUploadInput = {
   storage: ProjectStorageSettings;
@@ -33,7 +39,7 @@ const ALLOWED_IMAGE_TYPES = new Map([
   ["image/svg+xml", "svg"]
 ]);
 
-export async function uploadMedia(input: MediaUploadInput): Promise<MediaUploadResult> {
+export const uploadMedia = async (input: MediaUploadInput) => {
   assertStorageConfigured(input.storage);
 
   if (input.file.size <= 0) {
@@ -73,21 +79,21 @@ export async function uploadMedia(input: MediaUploadInput): Promise<MediaUploadR
     sizeBytes: input.file.size,
     checksumSha256
   };
-}
+};
 
-export async function deleteUploadedMedia(input: {
+export const deleteUploadedMedia = async (input: {
   storage: ProjectStorageSettings;
   objectKey: string;
-}): Promise<void> {
+}) => {
   assertStorageConfigured(input.storage);
 
   const client = createS3Client(input.storage);
   await client.delete(input.objectKey);
-}
+};
 
-function sanitizeFileName(value: string): string {
+const sanitizeFileName = (value: string) => {
   return value.trim().replace(/[\\/]+/g, "-").slice(0, 255);
-}
+};
 
 export class MediaUploadError extends Error {
   constructor(readonly code: string) {
@@ -96,9 +102,9 @@ export class MediaUploadError extends Error {
   }
 }
 
-function assertStorageConfigured(storage: ProjectStorageSettings): void {
+const assertStorageConfigured = (storage: ProjectStorageSettings) => {
   if (
-    storage.provider !== "s3" ||
+    storage.provider !== StorageProvider.S3 ||
     !storage.enabled ||
     !storage.bucket ||
     !storage.publicBaseUrl ||
@@ -107,9 +113,9 @@ function assertStorageConfigured(storage: ProjectStorageSettings): void {
   ) {
     throw new MediaUploadError("storage_not_configured");
   }
-}
+};
 
-function createS3Client(storage: ProjectStorageSettings): Bun.S3Client {
+const createS3Client = (storage: ProjectStorageSettings) => {
   return new Bun.S3Client({
     bucket: storage.bucket,
     endpoint: storage.endpoint || undefined,
@@ -117,16 +123,16 @@ function createS3Client(storage: ProjectStorageSettings): Bun.S3Client {
     accessKeyId: storage.accessKeyId,
     secretAccessKey: storage.secretAccessKey
   });
-}
+};
 
-function buildObjectKey(options: {
+const buildObjectKey = (options: {
   realmSlug: string;
   purpose: MediaUploadPurpose;
   ownerUserId: string | null;
   extension: string;
-}): string {
+}) => {
   const token = randomHex(16);
-  if (options.purpose === "project_icon") {
+  if (options.purpose === MediaUploadPurpose.ProjectIcon) {
     return `realms/${options.realmSlug}/images/${token}.${options.extension}`;
   }
 
@@ -135,4 +141,4 @@ function buildObjectKey(options: {
   }
 
   return `realms/${options.realmSlug}/images/${options.ownerUserId}/${token}.${options.extension}`;
-}
+};

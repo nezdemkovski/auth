@@ -12,10 +12,7 @@ export type AdminSession = {
   };
 };
 
-export async function requireAdmin(
-  registry: AuthRegistry,
-  headers: Headers
-): Promise<{ registered: RegisteredProject; session: AdminSession } | null> {
+export const requireAdmin = async (registry: AuthRegistry, headers: Headers) => {
   const registered = registry.get("admin");
   if (!registered) {
     return null;
@@ -30,17 +27,10 @@ export async function requireAdmin(
     registered,
     session
   };
-}
+};
 
-export async function getSession(
-  auth: unknown,
-  headers: Headers
-): Promise<AdminSession | null> {
-  const api = (auth as {
-    api: {
-      getSession(input: { headers: Headers }): Promise<AdminSession | null>;
-    };
-  }).api;
+export const getSession = async (auth: RegisteredProject["auth"], headers: Headers) => {
+  const session: AdminSession | null = await auth.api.getSession({ headers });
 
-  return api.getSession({ headers });
-}
+  return session;
+};

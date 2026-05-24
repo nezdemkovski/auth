@@ -7,7 +7,8 @@ import {
 import {
   isSocialProviderId,
   SOCIAL_PROVIDER_CATALOG,
-  SOCIAL_PROVIDER_IDS
+  SOCIAL_PROVIDER_IDS,
+  SocialProvider
 } from "../../../config/social-providers";
 import {
   __socialProviderTestUtils,
@@ -26,7 +27,7 @@ describe("social provider settings", () => {
   });
 
   test("validates known provider identifiers", () => {
-    expect(isSocialProviderId("github")).toBe(true);
+    expect(isSocialProviderId(SocialProvider.GitHub)).toBe(true);
     expect(isSocialProviderId("linkedin")).toBe(false);
   });
 
@@ -34,9 +35,9 @@ describe("social provider settings", () => {
     const first = cloneDefaultSocialProviders();
     const second = cloneDefaultSocialProviders();
 
-    first.github.enabled = true;
+    first[SocialProvider.GitHub].enabled = true;
 
-    expect(second.github.enabled).toBe(false);
+    expect(second[SocialProvider.GitHub].enabled).toBe(false);
   });
 
   test("encrypts secrets with authenticated encryption and rejects tampering", () => {
@@ -45,33 +46,52 @@ describe("social provider settings", () => {
       "client-secret",
       secret,
       "openmarkers",
-      "github"
+      SocialProvider.GitHub
     );
 
     expect(cipher).toMatch(/^v1:/);
     expect(cipher).not.toContain("client-secret");
     expect(
-      __socialProviderTestUtils.decryptSecret(cipher, secret, "openmarkers", "github")
+      __socialProviderTestUtils.decryptSecret(
+        cipher,
+        secret,
+        "openmarkers",
+        SocialProvider.GitHub
+      )
     ).toBe("client-secret");
     expect(() =>
       __socialProviderTestUtils.decryptSecret(
         cipher,
         "y".repeat(32),
         "openmarkers",
-        "github"
+        SocialProvider.GitHub
       )
     ).toThrow();
     expect(() =>
-      __socialProviderTestUtils.decryptSecret(cipher, secret, "other", "github")
+      __socialProviderTestUtils.decryptSecret(
+        cipher,
+        secret,
+        "other",
+        SocialProvider.GitHub
+      )
     ).toThrow();
     expect(() =>
-      __socialProviderTestUtils.decryptSecret(cipher, secret, "openmarkers", "google")
+      __socialProviderTestUtils.decryptSecret(
+        cipher,
+        secret,
+        "openmarkers",
+        SocialProvider.Google
+      )
     ).toThrow();
   });
 
   test("builds provider callback URLs under the realm auth endpoint", () => {
     expect(
-      socialProviderCallbackUrl("https://auth.example.com", ADMIN_PROJECT, "github")
+      socialProviderCallbackUrl(
+        "https://auth.example.com",
+        ADMIN_PROJECT,
+        SocialProvider.GitHub
+      )
     ).toBe("https://auth.example.com/api/admin/auth/callback/github");
   });
 });

@@ -1,27 +1,30 @@
-import type { BillingProductMapping } from "../../config/projects";
+import {
+  BillingProductType,
+  EntitlementGrantType,
+  EntitlementResetPeriod,
+  type BillingProductMapping
+} from "../../config/projects";
 import type { CreatePolarProductInput } from "./validator";
 
-export function defaultEntitlementsForBillingProduct(
-  type: CreatePolarProductInput["type"]
-): BillingProductMapping["entitlements"] {
-  if (type === "subscription") {
+export const defaultEntitlementsForBillingProduct = (type: CreatePolarProductInput["type"]) => {
+  if (type === BillingProductType.Subscription) {
     return [
       {
         key: "ai_requests",
-        grantType: "recurring_quota",
+        grantType: EntitlementGrantType.RecurringQuota,
         amount: 100,
-        resetPeriod: "monthly",
+        resetPeriod: EntitlementResetPeriod.Monthly,
         priority: 100
       }
     ];
   }
-  if (type === "credit_pack") {
+  if (type === BillingProductType.CreditPack) {
     return [
       {
         key: "ai_request_credits",
-        grantType: "one_time_credits",
+        grantType: EntitlementGrantType.OneTimeCredits,
         amount: 100,
-        resetPeriod: "never",
+        resetPeriod: EntitlementResetPeriod.Never,
         priority: 100
       }
     ];
@@ -30,10 +33,13 @@ export function defaultEntitlementsForBillingProduct(
   return [
     {
       key: "access",
-      grantType: type === "lifetime" ? "lifetime" : "boolean",
+      grantType:
+        type === BillingProductType.Lifetime
+          ? EntitlementGrantType.Lifetime
+          : EntitlementGrantType.Boolean,
       amount: null,
-      resetPeriod: "never",
+      resetPeriod: EntitlementResetPeriod.Never,
       priority: 100
     }
   ];
-}
+};

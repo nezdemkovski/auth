@@ -19,9 +19,7 @@ type UpdateProfileBody = {
   currentPassword?: unknown;
 };
 
-export function parseChangePasswordInput(
-  body: ChangePasswordBody
-): ChangePasswordInput | null {
+export const parseChangePasswordInput = (body: ChangePasswordBody) => {
   if (typeof body.currentPassword !== "string" || typeof body.newPassword !== "string") {
     return null;
   }
@@ -30,9 +28,9 @@ export function parseChangePasswordInput(
     currentPassword: body.currentPassword,
     newPassword: body.newPassword
   };
-}
+};
 
-export function parseAdminProfilePatch(body: UpdateProfileBody): AdminProfilePatch | null {
+export const parseAdminProfilePatch = (body: UpdateProfileBody) => {
   const patch: AdminProfilePatch = {};
 
   if (typeof body.name === "string") {
@@ -55,10 +53,10 @@ export function parseAdminProfilePatch(body: UpdateProfileBody): AdminProfilePat
   }
 
   return patch.name === undefined && patch.email === undefined ? null : patch;
-}
+};
 
-export function getProfileCurrentPassword(body: UpdateProfileBody): string | null {
+export const getProfileCurrentPassword = (body: UpdateProfileBody) => {
   return typeof body.currentPassword === "string" && body.currentPassword.length > 0
     ? body.currentPassword
     : null;
-}
+};

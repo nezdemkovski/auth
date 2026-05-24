@@ -1,6 +1,7 @@
 import {
   ADMIN_PROJECT,
   DEFAULT_PROJECT_STORAGE,
+  StorageProvider,
   type AuthProject,
   type ProjectStorageSettings
 } from "./projects";
@@ -23,7 +24,7 @@ export type Env = {
 const DEFAULT_PORT = 3000;
 const MIN_SECRET_LENGTH = 32;
 
-export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
+export const loadEnv = (source: NodeJS.ProcessEnv = process.env) => {
   const port = Number(source.PORT ?? DEFAULT_PORT);
 
   if (!Number.isInteger(port) || port <= 0) {
@@ -40,7 +41,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const email = parseEmailConfig(source);
   const storage = parseStorageConfig(source);
 
-  return {
+  const env: Env = {
     port,
     publicBaseUrl: trimTrailingSlash(publicBaseUrl),
     databaseUrl,
@@ -53,21 +54,23 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     redisUrl: source.REDIS_URL?.trim() || null,
     trustProxyHeaders: parseBoolean(source.TRUST_PROXY_HEADERS, false, "TRUST_PROXY_HEADERS")
   };
-}
 
-function required(value: string | undefined, name: string): string {
+  return env;
+};
+
+const required = (value: string | undefined, name: string) => {
   if (!value) {
     throw new Error(`${name} is required`);
   }
 
   return value;
-}
+};
 
-function trimTrailingSlash(value: string): string {
+const trimTrailingSlash = (value: string) => {
   return value.replace(/\/+$/, "");
-}
+};
 
-function buildDatabaseUrl(source: NodeJS.ProcessEnv): string {
+const buildDatabaseUrl = (source: NodeJS.ProcessEnv) => {
   const host = required(source.POSTGRES_HOST, "POSTGRES_HOST");
   const port = source.POSTGRES_PORT ?? "5432";
   const database = required(source.POSTGRES_DB, "POSTGRES_DB");
@@ -79,13 +82,9 @@ function buildDatabaseUrl(source: NodeJS.ProcessEnv): string {
   url.password = password;
 
   return url.toString();
-}
+};
 
-function parseBoolean(
-  value: string | undefined,
-  defaultValue: boolean,
-  name = "AUTH_AUTO_MIGRATE"
-): boolean {
+const parseBoolean = (value: string | undefined, defaultValue: boolean, name = "AUTH_AUTO_MIGRATE") => {
   if (value === undefined) {
     return defaultValue;
   }
@@ -99,47 +98,53 @@ function parseBoolean(
   }
 
   throw new Error(`${name} must be a boolean`);
-}
+};
 
-function parseEmailConfig(source: NodeJS.ProcessEnv): EmailConfig {
+const parseEmailConfig = (source: NodeJS.ProcessEnv) => {
   const provider = source.EMAIL_PROVIDER ?? EmailProvider.None;
 
   if (provider === EmailProvider.None) {
-    return {
+    const config: EmailConfig = {
       provider: EmailProvider.None
     };
+
+    return config;
   }
 
   if (provider === EmailProvider.Cloudflare) {
-    return {
+    const config: EmailConfig = {
       provider: EmailProvider.Cloudflare,
       accountId: required(source.CLOUDFLARE_ACCOUNT_ID, "CLOUDFLARE_ACCOUNT_ID"),
       apiToken: required(source.CLOUDFLARE_EMAIL_API_TOKEN, "CLOUDFLARE_EMAIL_API_TOKEN"),
       from: required(source.EMAIL_FROM, "EMAIL_FROM")
     };
+
+    return config;
   }
 
   if (provider === EmailProvider.Resend) {
-    return {
+    const config: EmailConfig = {
       provider: EmailProvider.Resend,
       apiKey: required(source.RESEND_API_KEY, "RESEND_API_KEY"),
       from: required(source.EMAIL_FROM, "EMAIL_FROM")
     };
+
+    return config;
   }
 
   throw new Error("EMAIL_PROVIDER must be one of: none, cloudflare, resend");
-}
+};
 
-function parseStorageConfig(source: NodeJS.ProcessEnv): ProjectStorageSettings {
+const parseStorageConfig = (source: NodeJS.ProcessEnv) => {
   const provider = source.AUTH_STORAGE_PROVIDER ?? DEFAULT_PROJECT_STORAGE.provider;
 
-  if (provider === "none") {
+  if (provider === StorageProvider.None) {
     return {
       ...DEFAULT_PROJECT_STORAGE
     };
   }
 
-  if (provider !== "s3") {
+  if (provider !== StorageProvider.S3) {
     throw new Error("AUTH_STORAGE_PROVIDER must be one of: none, s3");
   }
 
@@ -159,4 +164,4 @@ function parseStorageConfig(source: NodeJS.ProcessEnv): ProjectStorageSettings {
       "AUTH_STORAGE_SECRET_ACCESS_KEY"
     )
   };
-}
+};

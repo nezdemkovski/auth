@@ -150,7 +150,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
   });
 };
 
-function projectServiceError(error: unknown): Response {
+const projectServiceError = (error: unknown) => {
   if (error instanceof ProjectServiceError) {
     return Response.json(
       {
@@ -162,4 +162,4 @@ function projectServiceError(error: unknown): Response {
   }
 
   throw error;
-}
+};

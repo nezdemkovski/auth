@@ -37,10 +37,10 @@ type SocialProviderRow = {
   verifiedAt: Date | string | null;
 };
 
-export async function ensureSocialProviderSettingsTable(options: {
+export const ensureSocialProviderSettingsTable = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
-}): Promise<void> {
+}) => {
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
   const db = drizzle({ client: pool });
 
@@ -61,13 +61,13 @@ export async function ensureSocialProviderSettingsTable(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-export async function loadSocialProviderSettings(options: {
+export const loadSocialProviderSettings = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   encryptionSecret: string;
-}): Promise<Map<string, ProjectSocialProviders>> {
+}) => {
   await ensureSocialProviderSettingsTable(options);
 
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
@@ -111,14 +111,14 @@ export async function loadSocialProviderSettings(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-export async function readProjectSocialProviders(options: {
+export const readProjectSocialProviders = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   project: AuthProject;
   publicBaseUrl: string;
-}): Promise<PublicSocialProviderSettings[]> {
+}) => {
   await ensureSocialProviderSettingsTable(options);
 
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
@@ -151,16 +151,16 @@ export async function readProjectSocialProviders(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-export async function updateProjectSocialProvider(options: {
+export const updateProjectSocialProvider = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   project: AuthProject;
   provider: SocialProviderId;
   patch: SocialProviderPatch;
   encryptionSecret: string;
-}): Promise<ProjectSocialProviders> {
+}) => {
   await ensureSocialProviderSettingsTable(options);
 
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
@@ -228,14 +228,14 @@ export async function updateProjectSocialProvider(options: {
     project: options.project,
     encryptionSecret: options.encryptionSecret
   });
-}
+};
 
-export async function markSocialProviderVerified(options: {
+export const markSocialProviderVerified = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   project: AuthProject;
   provider: SocialProviderId;
-}): Promise<void> {
+}) => {
   await ensureSocialProviderSettingsTable(options);
 
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
@@ -252,77 +252,56 @@ export async function markSocialProviderVerified(options: {
   } finally {
     await pool.end();
   }
-}
+};
 
-export async function loadProjectSocialProviders(options: {
+export const loadProjectSocialProviders = async (options: {
   databaseUrl: string;
   adminProject: AuthProject;
   project: AuthProject;
   encryptionSecret: string;
-}): Promise<ProjectSocialProviders> {
+}) => {
   const all = await loadSocialProviderSettings(options);
   return all.get(options.project.slug) ?? cloneDefaultSocialProviders();
-}
+};
 
-export function socialProviderCallbackUrl(
-  publicBaseUrl: string,
-  project: AuthProject,
-  provider: SocialProviderId
-): string {
+export const socialProviderCallbackUrl = (publicBaseUrl: string, project: AuthProject, provider: SocialProviderId) => {
   return `${publicBaseUrl}/api/${project.slug}/auth/callback/${provider}`;
-}
+};
 
-export function cloneDefaultSocialProviders(): ProjectSocialProviders {
-  return Object.fromEntries(
-    SOCIAL_PROVIDER_IDS.map((provider) => [
-      provider,
-      {
-        ...DEFAULT_PROJECT_SOCIAL_PROVIDERS[provider]
-      }
-    ])
-  ) as ProjectSocialProviders;
-}
+export const cloneDefaultSocialProviders = () => {
+  return structuredClone(DEFAULT_PROJECT_SOCIAL_PROVIDERS);
+};
 
-function encryptSecret(
-  value: string,
-  secret: string,
-  projectSlug: string,
-  provider: SocialProviderId
-): string {
+const encryptSecret = (value: string, secret: string, projectSlug: string, provider: SocialProviderId) => {
   if (!value) {
     return "";
   }
 
   return encryptSecretValue(value, secret, encryptionContext(projectSlug, provider));
-}
+};
 
-function decryptSecret(
-  value: string,
-  secret: string,
-  projectSlug: string,
-  provider: SocialProviderId
-): string {
+const decryptSecret = (value: string, secret: string, projectSlug: string, provider: SocialProviderId) => {
   if (!value) {
     return "";
   }
 
   return decryptSecretValue(value, secret, encryptionContext(projectSlug, provider));
-}
+};
+
+const encryptionContext = (projectSlug: string, provider: string) => {
+  return `social-provider:${projectSlug}:${provider}`;
+};
+
+const normalizeDate = (value: Date | string | null | undefined) => {
+  if (!value) {
+    return null;
+  }
+
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+};
 
 export const __socialProviderTestUtils = {
   encryptSecret,
   decryptSecret,
   normalizeDate
 };
-
-function encryptionContext(projectSlug: string, provider: string): string {
-  return `social-provider:${projectSlug}:${provider}`;
-}
-
-function normalizeDate(value: Date | string | null | undefined): string | null {
-  if (!value) {
-    return null;
-  }
-
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
-}

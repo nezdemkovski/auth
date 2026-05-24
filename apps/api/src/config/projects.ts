@@ -1,4 +1,8 @@
-import { SOCIAL_PROVIDER_IDS, type SocialProviderId } from "./social-providers";
+import {
+  SOCIAL_PROVIDER_IDS,
+  SocialProvider,
+  type SocialProviderId
+} from "./social-providers";
 
 export type AuthProject = {
   slug: string;
@@ -20,11 +24,11 @@ export type ProjectFeatures = {
   };
   twoFactor: {
     enabled: boolean;
-    required: "optional" | "admins" | "everyone";
+    required: ProjectTwoFactorRequirement;
   };
   agentAuth: {
     enabled: boolean;
-    mode: "read-only" | "scoped-write";
+    mode: ProjectAgentAuthMode;
   };
   oauthProvider: {
     enabled: boolean;
@@ -41,21 +45,53 @@ export type ProjectSocialProvider = {
 
 export type ProjectSocialProviders = Record<SocialProviderId, ProjectSocialProvider>;
 
-export type BillingProvider = "none" | "polar";
-export type BillingEnvironment = "sandbox" | "production";
-export type BillingProductType =
-  | "subscription"
-  | "one_time"
-  | "credit_pack"
-  | "lifetime"
-  | "metered";
-export type EntitlementGrantType =
-  | "boolean"
-  | "recurring_quota"
-  | "one_time_credits"
-  | "lifetime"
-  | "metered";
-export type EntitlementResetPeriod = "never" | "monthly" | "yearly";
+export enum ProjectTwoFactorRequirement {
+  Optional = "optional",
+  Admins = "admins",
+  Everyone = "everyone"
+}
+
+export enum ProjectAgentAuthMode {
+  ReadOnly = "read-only",
+  ScopedWrite = "scoped-write"
+}
+
+export enum BillingProvider {
+  None = "none",
+  Polar = "polar"
+}
+
+export enum BillingEnvironment {
+  Sandbox = "sandbox",
+  Production = "production"
+}
+
+export enum BillingProductType {
+  Subscription = "subscription",
+  OneTime = "one_time",
+  CreditPack = "credit_pack",
+  Lifetime = "lifetime",
+  Metered = "metered"
+}
+
+export enum BillingRecurringInterval {
+  Month = "month",
+  Year = "year"
+}
+
+export enum EntitlementGrantType {
+  Boolean = "boolean",
+  RecurringQuota = "recurring_quota",
+  OneTimeCredits = "one_time_credits",
+  Lifetime = "lifetime",
+  Metered = "metered"
+}
+
+export enum EntitlementResetPeriod {
+  Never = "never",
+  Monthly = "monthly",
+  Yearly = "yearly"
+}
 
 export type BillingEntitlement = {
   key: string;
@@ -85,7 +121,10 @@ export type ProjectBillingSettings = {
   products: BillingProductMapping[];
 };
 
-export type StorageProvider = "none" | "s3";
+export enum StorageProvider {
+  None = "none",
+  S3 = "s3"
+}
 
 export type ProjectStorageSettings = {
   provider: StorageProvider;
@@ -100,9 +139,9 @@ export type ProjectStorageSettings = {
 };
 
 export const DEFAULT_PROJECT_BILLING: ProjectBillingSettings = {
-  provider: "none",
+  provider: BillingProvider.None,
   enabled: false,
-  environment: "sandbox",
+  environment: BillingEnvironment.Sandbox,
   organizationId: "",
   accessToken: "",
   webhookSecret: "",
@@ -110,7 +149,7 @@ export const DEFAULT_PROJECT_BILLING: ProjectBillingSettings = {
 };
 
 export const DEFAULT_PROJECT_STORAGE: ProjectStorageSettings = {
-  provider: "none",
+  provider: StorageProvider.None,
   enabled: false,
   managed: false,
   endpoint: "",
@@ -127,11 +166,11 @@ export const DEFAULT_PROJECT_FEATURES: ProjectFeatures = {
   },
   twoFactor: {
     enabled: false,
-    required: "optional"
+    required: ProjectTwoFactorRequirement.Optional
   },
   agentAuth: {
     enabled: false,
-    mode: "read-only"
+    mode: ProjectAgentAuthMode.ReadOnly
   },
   oauthProvider: {
     enabled: false,
@@ -139,17 +178,21 @@ export const DEFAULT_PROJECT_FEATURES: ProjectFeatures = {
   }
 };
 
-export const DEFAULT_PROJECT_SOCIAL_PROVIDERS = Object.fromEntries(
-  SOCIAL_PROVIDER_IDS.map((provider) => [
-    provider,
-    {
-      enabled: false,
-      clientId: "",
-      clientSecret: "",
-      verifiedAt: null
-    }
-  ])
-) as ProjectSocialProviders;
+const defaultSocialProvider = () => {
+  return {
+    enabled: false,
+    clientId: "",
+    clientSecret: "",
+    verifiedAt: null
+  };
+};
+
+export const DEFAULT_PROJECT_SOCIAL_PROVIDERS: ProjectSocialProviders = {
+  [SocialProvider.GitHub]: defaultSocialProvider(),
+  [SocialProvider.Google]: defaultSocialProvider(),
+  [SocialProvider.Twitter]: defaultSocialProvider(),
+  [SocialProvider.Facebook]: defaultSocialProvider()
+};
 
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/;
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
@@ -168,31 +211,31 @@ export const ADMIN_PROJECT: AuthProject = {
   storage: DEFAULT_PROJECT_STORAGE
 };
 
-export function findProject(projects: AuthProject[], slug: string): AuthProject | null {
+export const findProject = (projects: AuthProject[], slug: string) => {
   return projects.find((project) => project.slug === slug) ?? null;
-}
+};
 
-export function normalizeProjectSlug(value: string): string {
+export const normalizeProjectSlug = (value: string) => {
   return value
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-");
-}
+};
 
-export function projectSchemaFromSlug(slug: string): string {
+export const projectSchemaFromSlug = (slug: string) => {
   return `${slug.replaceAll("-", "_")}_auth`;
-}
+};
 
-export function validateProjectSlug(slug: string): void {
+export const validateProjectSlug = (slug: string) => {
   if (!SLUG_PATTERN.test(slug)) {
     throw new Error(`Invalid project slug: ${slug}`);
   }
-}
+};
 
-export function validateProjectSchema(schema: string): void {
+export const validateProjectSchema = (schema: string) => {
   if (!IDENTIFIER_PATTERN.test(schema)) {
     throw new Error(`Invalid Postgres schema name: ${schema}`);
   }
-}
+};

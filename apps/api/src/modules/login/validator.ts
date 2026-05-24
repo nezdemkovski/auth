@@ -10,7 +10,7 @@ export type LoginCodeExchangeInput = {
   codeVerifier: string;
 };
 
-export function parseLoginSessionCodeInput(body: unknown): LoginSessionCodeInput | null {
+export const parseLoginSessionCodeInput = (body: unknown) => {
   const redirectUri = getStringField(body, "redirect_uri");
   const codeChallenge = getStringField(body, "code_challenge");
   if (!redirectUri || !codeChallenge) {
@@ -22,9 +22,9 @@ export function parseLoginSessionCodeInput(body: unknown): LoginSessionCodeInput
     state: getStringField(body, "state"),
     codeChallenge
   };
-}
+};
 
-export function parseLoginCodeExchangeInput(body: unknown): LoginCodeExchangeInput | null {
+export const parseLoginCodeExchangeInput = (body: unknown) => {
   const code = getStringField(body, "code");
   const redirectUri = getStringField(body, "redirect_uri");
   const codeVerifier = getStringField(body, "code_verifier");
@@ -37,16 +37,16 @@ export function parseLoginCodeExchangeInput(body: unknown): LoginCodeExchangeInp
     redirectUri,
     codeVerifier
   };
-}
+};
 
-function getStringField(body: unknown, field: string): string {
+const getStringField = (body: unknown, field: string) => {
   if (!isRecord(body)) {
     return "";
   }
 
   const value = body[field];
   return typeof value === "string" ? value : "";
-}
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
