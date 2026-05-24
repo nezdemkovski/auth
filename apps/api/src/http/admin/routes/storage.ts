@@ -1,13 +1,13 @@
-import type { StorageSettingsPatch } from "../../../db/storage-settings";
 import { projectResponse } from "../../translate/project";
-import { parseMediaUploadRequest } from "../../validator/storage";
+import {
+  parseMediaUploadRequest,
+  parseStorageSettingsPatch
+} from "../../validator/storage";
 import {
   mediaUploadError,
   requireAdmin,
   type AdminRouteRegistration
 } from "../shared";
-
-type StorageSettingsBody = Partial<Record<keyof StorageSettingsPatch, unknown>>;
 
 export const registerStorageRoutes: AdminRouteRegistration = ({
   app,
@@ -60,7 +60,7 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
       return c.json({ error: "system_project_locked" }, 409);
     }
 
-    const body = (await c.req.json().catch(() => ({}))) as StorageSettingsBody;
+    const body = await c.req.json().catch(() => ({}));
     const patch = parseStorageSettingsPatch(body);
     if (!patch) {
       return c.json({ error: "invalid_body" }, 400);
@@ -120,30 +120,3 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
     }
   });
 };
-
-export function parseStorageSettingsPatch(
-  body: StorageSettingsBody
-): StorageSettingsPatch | null {
-  if (typeof body.provider !== "string" || typeof body.enabled !== "boolean") {
-    return null;
-  }
-
-  const patch: StorageSettingsPatch = {
-    provider: body.provider as StorageSettingsPatch["provider"],
-    enabled: body.enabled,
-    endpoint: typeof body.endpoint === "string" ? body.endpoint.trim() : "",
-    region: typeof body.region === "string" ? body.region.trim() || "auto" : "auto",
-    bucket: typeof body.bucket === "string" ? body.bucket.trim() : "",
-    publicBaseUrl:
-      typeof body.publicBaseUrl === "string" ? body.publicBaseUrl.trim() : ""
-  };
-
-  if (typeof body.accessKeyId === "string" && body.accessKeyId.trim()) {
-    patch.accessKeyId = body.accessKeyId.trim();
-  }
-  if (typeof body.secretAccessKey === "string" && body.secretAccessKey.trim()) {
-    patch.secretAccessKey = body.secretAccessKey.trim();
-  }
-
-  return patch;
-}

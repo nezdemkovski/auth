@@ -5,33 +5,26 @@ import { loadProjectBillingSettings } from "../../../db/billing-settings";
 import {
   createProjectFromInput,
   createProjectSettings,
-  normalizeProjectFeatures,
   projectSettingsExists,
-  updateProjectSettings,
-  type ProjectSettingsCreate,
-  type ProjectSettingsPatch
+  updateProjectSettings
 } from "../../../db/project-settings";
 import {
   loadProjectSocialProviders,
   markSocialProviderVerified,
   readProjectSocialProviders,
-  updateProjectSocialProvider,
-  type SocialProviderPatch
+  updateProjectSocialProvider
 } from "../../../db/social-provider-settings";
+import {
+  parseProjectCreate,
+  parseProjectSettingsPatch,
+  parseSocialProviderPatch
+} from "../../validator/project";
 import { projectResponse } from "../../translate/project";
 import {
   readProjectCounts,
   requireAdmin,
   type AdminRouteRegistration
 } from "../shared";
-
-type UpdateProjectBody = Partial<Record<keyof ProjectSettingsPatch, unknown>>;
-type CreateProjectBody = Partial<Record<keyof ProjectSettingsCreate, unknown>>;
-type SocialProviderBody = {
-  enabled?: unknown;
-  clientId?: unknown;
-  clientSecret?: unknown;
-};
 
 export const registerProjectRoutes: AdminRouteRegistration = ({ app, options }) => {
   app.get("/projects", async (c) => {
@@ -63,7 +56,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({ app, options }) 
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const body = (await c.req.json().catch(() => ({}))) as CreateProjectBody;
+    const body = await c.req.json().catch(() => ({}));
     const input = parseProjectCreate(body);
     if (!input) {
       return c.json({ error: "invalid_body" }, 400);
@@ -147,7 +140,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({ app, options }) 
       return c.json({ error: "system_project_locked" }, 409);
     }
 
-    const body = (await c.req.json().catch(() => ({}))) as UpdateProjectBody;
+    const body = await c.req.json().catch(() => ({}));
     const patch = parseProjectSettingsPatch(body);
     if (!patch) {
       return c.json({ error: "invalid_body" }, 400);
@@ -237,7 +230,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({ app, options }) 
       return c.json({ error: "unknown_provider" }, 404);
     }
 
-    const body = (await c.req.json().catch(() => ({}))) as SocialProviderBody;
+    const body = await c.req.json().catch(() => ({}));
     const patch = parseSocialProviderPatch(body);
     if (!patch) {
       return c.json({ error: "invalid_body" }, 400);
@@ -342,70 +335,3 @@ export const registerProjectRoutes: AdminRouteRegistration = ({ app, options }) 
     });
   });
 };
-
-export function parseProjectCreate(body: CreateProjectBody): ProjectSettingsCreate | null {
-  if (
-    typeof body.slug !== "string" ||
-    typeof body.name !== "string" ||
-    typeof body.description !== "string" ||
-    typeof body.iconUrl !== "string" ||
-    typeof body.appUrl !== "string" ||
-    !Array.isArray(body.trustedOrigins) ||
-    !body.trustedOrigins.every((origin) => typeof origin === "string")
-  ) {
-    return null;
-  }
-
-  return {
-    slug: body.slug.trim(),
-    name: body.name.trim(),
-    description: body.description.trim(),
-    iconUrl: body.iconUrl.trim(),
-    appUrl: body.appUrl.trim(),
-    trustedOrigins: body.trustedOrigins.map((origin) => origin.trim()).filter(Boolean),
-    features: normalizeProjectFeatures(body.features)
-  };
-}
-
-export function parseProjectSettingsPatch(
-  body: UpdateProjectBody
-): ProjectSettingsPatch | null {
-  if (
-    typeof body.name !== "string" ||
-    typeof body.description !== "string" ||
-    typeof body.iconUrl !== "string" ||
-    typeof body.appUrl !== "string" ||
-    !Array.isArray(body.trustedOrigins) ||
-    !body.trustedOrigins.every((origin) => typeof origin === "string")
-  ) {
-    return null;
-  }
-
-  return {
-    name: body.name.trim(),
-    description: body.description.trim(),
-    iconUrl: body.iconUrl.trim(),
-    appUrl: body.appUrl.trim(),
-    trustedOrigins: body.trustedOrigins.map((origin) => origin.trim()).filter(Boolean),
-    features: normalizeProjectFeatures(body.features)
-  };
-}
-
-export function parseSocialProviderPatch(
-  body: SocialProviderBody
-): SocialProviderPatch | null {
-  if (typeof body.enabled !== "boolean" || typeof body.clientId !== "string") {
-    return null;
-  }
-
-  const patch: SocialProviderPatch = {
-    enabled: body.enabled,
-    clientId: body.clientId.trim()
-  };
-
-  if (typeof body.clientSecret === "string" && body.clientSecret.trim().length > 0) {
-    patch.clientSecret = body.clientSecret.trim();
-  }
-
-  return patch;
-}

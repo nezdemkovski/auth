@@ -19,17 +19,11 @@ import {
   verifyPassword,
   type AdminApiOptions
 } from "./admin/shared";
-
-type ChangePasswordBody = {
-  currentPassword?: unknown;
-  newPassword?: unknown;
-};
-
-type UpdateProfileBody = {
-  name?: unknown;
-  email?: unknown;
-  currentPassword?: unknown;
-};
+import {
+  getProfileCurrentPassword,
+  parseAdminProfilePatch,
+  parseChangePasswordInput
+} from "./validator/admin-account";
 
 export function createAdminApi(options: AdminApiOptions): Hono {
   const app = new Hono();
@@ -96,30 +90,10 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const body = (await c.req.json().catch(() => ({}))) as UpdateProfileBody;
-    const patch: { name?: string; email?: string } = {};
-
-    if (typeof body.name === "string") {
-      const trimmed = body.name.trim();
-      if (trimmed.length < 1 || trimmed.length > 80) {
-        return c.json({ error: "invalid_name" }, 400);
-      }
-      patch.name = trimmed;
-    }
-
-    if (typeof body.email === "string") {
-      const trimmed = body.email.trim().toLowerCase();
-      if (
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ||
-        trimmed.length > 200
-      ) {
-        return c.json({ error: "invalid_email" }, 400);
-      }
-      patch.email = trimmed;
-    }
-
-    if (patch.name === undefined && patch.email === undefined) {
-      return c.json({ error: "no_changes" }, 400);
+    const body = await c.req.json().catch(() => ({}));
+    const patch = parseAdminProfilePatch(body);
+    if (!patch) {
+      return c.json({ error: "invalid_body" }, 400);
     }
 
     try {
@@ -127,10 +101,11 @@ export function createAdminApi(options: AdminApiOptions): Hono {
         if (currentDeliverySettings.provider === EmailProvider.None) {
           return c.json({ error: "email_service_disabled" }, 409);
         }
-        if (typeof body.currentPassword !== "string" || body.currentPassword.length === 0) {
+        const currentPassword = getProfileCurrentPassword(body);
+        if (!currentPassword) {
           return c.json({ error: "current_password_required" }, 400);
         }
-        if (!(await verifyPassword(admin.auth, c.req.raw.headers, body.currentPassword))) {
+        if (!(await verifyPassword(admin.auth, c.req.raw.headers, currentPassword))) {
           return c.json({ error: "invalid_password" }, 401);
         }
       }
@@ -166,18 +141,18 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const body = (await c.req.json().catch(() => ({}))) as ChangePasswordBody;
-    if (typeof body.currentPassword !== "string" || typeof body.newPassword !== "string") {
+    const input = parseChangePasswordInput(await c.req.json().catch(() => ({})));
+    if (!input) {
       return c.json({ error: "invalid_body" }, 400);
     }
 
-    if (body.newPassword.length < 12) {
+    if (input.newPassword.length < 12) {
       return c.json({ error: "weak_password" }, 400);
     }
 
     const response = await changePassword(admin.auth, c.req.raw.headers, {
-      currentPassword: body.currentPassword,
-      newPassword: body.newPassword
+      currentPassword: input.currentPassword,
+      newPassword: input.newPassword
     });
 
     await markPasswordChanged(admin.projectDb.pool, session.user.id);

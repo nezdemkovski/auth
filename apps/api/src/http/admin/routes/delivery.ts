@@ -1,13 +1,11 @@
 import {
   loadDeliverySettings,
   readPublicDeliverySettings,
-  updateDeliverySettings,
-  type DeliverySettingsPatch
+  updateDeliverySettings
 } from "../../../db/delivery-settings";
 import { createEmailSender } from "../../../email/sender";
+import { parseDeliverySettingsPatch } from "../../validator/delivery";
 import { requireAdmin, type AdminRouteRegistration } from "../shared";
-
-type DeliverySettingsBody = Partial<Record<keyof DeliverySettingsPatch, unknown>>;
 
 export const registerDeliveryRoutes: AdminRouteRegistration = ({
   app,
@@ -34,7 +32,7 @@ export const registerDeliveryRoutes: AdminRouteRegistration = ({
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const body = (await c.req.json().catch(() => ({}))) as DeliverySettingsBody;
+    const body = await c.req.json().catch(() => ({}));
     const patch = parseDeliverySettingsPatch(body);
     if (!patch) {
       return c.json({ error: "invalid_body" }, 400);
@@ -93,30 +91,3 @@ export const registerDeliveryRoutes: AdminRouteRegistration = ({
     return c.json({ ok: true });
   });
 };
-
-export function parseDeliverySettingsPatch(
-  body: DeliverySettingsBody
-): DeliverySettingsPatch | null {
-  if (
-    typeof body.provider !== "string" ||
-    typeof body.from !== "string" ||
-    typeof body.cloudflareAccountId !== "string"
-  ) {
-    return null;
-  }
-
-  const patch: DeliverySettingsPatch = {
-    provider: body.provider as DeliverySettingsPatch["provider"],
-    from: body.from.trim(),
-    cloudflareAccountId: body.cloudflareAccountId.trim()
-  };
-
-  if (typeof body.cloudflareApiToken === "string" && body.cloudflareApiToken.trim()) {
-    patch.cloudflareApiToken = body.cloudflareApiToken.trim();
-  }
-  if (typeof body.resendApiKey === "string" && body.resendApiKey.trim()) {
-    patch.resendApiKey = body.resendApiKey.trim();
-  }
-
-  return patch;
-}
