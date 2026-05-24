@@ -8,7 +8,7 @@ import {
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   type AuthProject
 } from "../src/config/projects";
-import { __appTestUtils } from "../src/http/app";
+import { __authProxyTestUtils } from "../src/modules/auth-proxy/http";
 
 const project: AuthProject = {
   slug: "openmarkers",
@@ -27,7 +27,7 @@ const project: AuthProject = {
 describe("auth route feature gates", () => {
   test("blocks public sign-up in the built-in admin realm", () => {
     expect(
-      __appTestUtils.isEnabledAuthFeaturePath(
+      __authProxyTestUtils.isEnabledAuthFeaturePath(
         ADMIN_PROJECT,
         "/api/admin/auth/sign-up/email"
       )
@@ -36,7 +36,7 @@ describe("auth route feature gates", () => {
 
   test("keeps sign-up available for regular realms", () => {
     expect(
-      __appTestUtils.isEnabledAuthFeaturePath(
+      __authProxyTestUtils.isEnabledAuthFeaturePath(
         project,
         "/api/openmarkers/auth/sign-up/email"
       )
@@ -45,19 +45,19 @@ describe("auth route feature gates", () => {
 
   test("keeps disabled feature endpoints closed", () => {
     expect(
-      __appTestUtils.isEnabledAuthFeaturePath(
+      __authProxyTestUtils.isEnabledAuthFeaturePath(
         project,
         "/api/openmarkers/auth/passkey/verify-authentication"
       )
     ).toBe(false);
     expect(
-      __appTestUtils.isEnabledAuthFeaturePath(
+      __authProxyTestUtils.isEnabledAuthFeaturePath(
         project,
         "/api/openmarkers/auth/oauth2/authorize"
       )
     ).toBe(false);
     expect(
-      __appTestUtils.isEnabledAuthFeaturePath(
+      __authProxyTestUtils.isEnabledAuthFeaturePath(
         project,
         "/api/openmarkers/auth/checkout"
       )
