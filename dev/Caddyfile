@@ -18,11 +18,13 @@
 		reverse_proxy api:3000
 	}
 
-	handle /admin* {
+	@admin path /admin /admin/*
+	handle @admin {
 		reverse_proxy admin:5173
 	}
 
-	handle /login* {
+	@login path /login /login/*
+	handle @login {
 		reverse_proxy login:5174
 	}
 

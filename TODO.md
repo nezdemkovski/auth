@@ -1,71 +1,107 @@
 # TODO
 
-## Application Readiness
+## Now
 
+- Add integration tests for the important flows against real Postgres and Redis:
+  signup, signin, session lookup, project isolation, hosted login code exchange,
+  password reset, email verification, passkey enrollment, 2FA enrollment, and
+  Polar checkout entrypoints.
+- Add a small example client showing how a product app should integrate with:
+  project-scoped auth endpoints, hosted login, JWT/session validation, OAuth MCP
+  clients, and billing entitlement checks.
 - Add structured request logging without leaking credentials, tokens, cookies, or
   PII.
-- Add a minimal read-only diagnostics endpoint for configured projects and auth
-  health.
-- Add integration tests that exercise signup, signin, session lookup, and project
-  isolation against Postgres.
-- Add a small example client showing how a product app should integrate with the
-  project-scoped auth endpoint.
-- Enforce realm 2FA policies (`admins` / `everyone`) for users that have not
-  enrolled an authenticator yet.
+- Add audit events for sensitive auth actions:
+  signin failures, password changes, email changes, session termination, project
+  settings changes, social provider changes, delivery settings changes, and
+  billing settings changes.
+- Add a minimal read-only diagnostics endpoint for configured projects, Redis,
+  database connectivity, delivery provider status, and billing provider status.
 
 ## Billing and Entitlements
 
-- Add realm-level Stripe billing settings in the admin UI:
-  - enabled flag, test/live mode, secret key, webhook secret, readonly webhook
-    URL, and connection verification.
-- Add realm-level product and price mapping:
-  - products with name, description, active state, and optional Stripe product ID.
-  - prices with Stripe price ID, type (`subscription`, `one_time`,
-    `credit_pack`, `lifetime`, `metered`), billing interval, linked product, and
-    active state.
-- Add entitlement mapping for each price:
-  - keys such as `ai_requests`, `pro_access`, `export_pdf`, and `team_seats`.
-  - grant types for boolean access, recurring quota, one-time credits, lifetime
-    access, and metered usage.
-  - amount, reset period, expiry policy, and spend priority.
-- Use Better Auth Stripe plugin for subscriptions:
-  - customer creation on signup.
-  - subscription plans loaded from realm billing settings.
-  - billing portal and subscription lifecycle webhooks.
-- Add custom Stripe Checkout + webhook handling for non-subscription purchases:
-  - credit packs.
-  - lifetime purchases.
-  - other one-time products.
-- Expose an entitlement API for product apps:
-  - check current entitlements.
+- Finish the product-app entitlement API:
+  - read current entitlements for the signed-in user.
   - consume quota or credits atomically.
-  - avoid exposing Stripe price IDs to apps like OpenMarkers.
-- Keep app usage in each product app:
-  - OpenMarkers should track AI request usage/business events locally.
-  - auth should own identity, billing state, and generic entitlements.
+  - expose stable benefit keys to apps without leaking Polar internals.
+- Persist and process Polar webhook events:
+  - checkout completed.
+  - subscription active/canceled/past due.
+  - one-time purchase completed/refunded.
+  - credit grants and recurring resets.
+- Add entitlement ledger tables:
+  - grants from products/prices.
+  - balance changes.
+  - idempotency keys for webhook and checkout processing.
+  - expiry/reset metadata.
+- Add an OpenMarkers integration example for the current 50 AI requests product:
+  checkout button, checkout return handling, and request consumption.
+- Decide how apps report usage:
+  auth-owned generic quota/credit consumption versus app-owned detailed business
+  events.
 
-## Security
+## Security and Operations
 
+- Define backup and restore procedure before accepting real users.
 - Review secure cookie behavior behind Cloudflare Tunnel and Kubernetes service
-  proxies.
-- Add audit events for sensitive auth actions.
-- Define a backup and restore procedure before accepting real users.
-- Require password confirmation and email verification before changing the admin
-  account email.
+  proxies after the split frontend/API deployment settles.
+- Decide whether `/api/projects` should remain public or move behind admin-only
+  access.
+- Add production readiness docs:
+  required Redis behavior for multi-replica deployments, proxy header trust
+  assumptions, Cloudflare Tunnel assumptions, and secret rotation procedure.
+- Add key rotation support for encrypted settings if this becomes more than a
+  personal homelab service.
+
+## UX Polish
+
+- Keep improving admin billing UX after testing real Polar products:
+  fewer required fields, clearer product/benefit mapping, and better validation
+  messages.
+- Add empty/error/loading states for every admin settings panel.
+- Add a cleaner realm creation flow with inline validation and post-create
+  guidance for origins, social providers, billing, and login settings.
 
 ## Done
 
-- Project-scoped auth state: each project has its own schema, cookie prefix, and
+- Turborepo workspace split:
+  `apps/api`, `apps/admin`, `apps/login`, `packages/client-shared`, and
+  `packages/ui`.
+- Local compose dev stack with router, API, admin Vite, login Vite, Postgres,
+  and Redis.
+- Production chart split into API, admin frontend, login frontend, router,
+  Postgres, and Redis dependencies.
+- Router mount points for `/admin`, `/admin/*`, `/login`, `/login/*`, `/api/*`,
+  `/admin/api/*`, and `/healthz`.
+- Project-scoped auth state: each realm has its own schema, cookie prefix, and
   trusted origins.
-- Domain roles and product-specific profiles stay outside this service.
-- Auth-owned data only: users, sessions, providers, verification, reset, and
-  auth security events.
-- Email verification and password reset delivery through Cloudflare Email.
-- React Email templates and local preview server.
-- Basic security headers for all responses.
-- Rate limiting for signin, signup, login, login token exchange,
-  password reset, and verification flows.
-- Optional Bun-native Redis-backed rate limiter through `REDIS_URL`, with
-  in-memory fallback for local development.
 - Database-backed realm registry managed through the admin UI.
-- Redis-backed login auth code store for multi-replica deployments.
+- Admin UI for creating realms and editing realm metadata, origins, auth
+  features, social providers, delivery settings, and billing settings.
+- Auth-owned data boundary: users, sessions, providers, verification, reset, and
+  auth security state stay in auth; product profiles and business data stay in
+  product apps.
+- Email verification and password reset flows in the hosted login UI.
+- Delivery settings stored encrypted in the database and configurable through
+  the admin UI.
+- Resend and Cloudflare Email delivery providers.
+- React Email templates and preview script.
+- Passkey, 2FA, Agent Auth, OAuth provider, social login providers, and last
+  login method support behind realm-level settings.
+- Hosted OAuth consent page with approve/deny flow.
+- Password reset UI and backend.
+- Admin email change requires current password and Better Auth email-change
+  verification.
+- Basic security headers for all frontend and router responses.
+- CSRF origin checks for admin state-changing requests.
+- JWT payload includes project and `email_verified`.
+- Rate limiting for signin, signup, login, login token exchange, password reset,
+  and verification flows.
+- Redis-backed rate limiter through `REDIS_URL`, with in-memory fallback for
+  local development.
+- Redis-backed hosted login auth code store for multi-replica deployments.
+- Polar billing provider support:
+  encrypted provider settings, connection verification, product listing,
+  product creation, product/price/benefit mapping, and Better Auth Polar plugin
+  wiring.
+- Temporary mock `preview-server.ts` removed.

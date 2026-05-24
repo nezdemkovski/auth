@@ -13,13 +13,10 @@
 		file_server
 	}
 
-	handle /admin/* {
+	@admin_spa path /admin /admin/*
+	handle @admin_spa {
 		try_files {path} /admin/index.html
 		header Cache-Control "no-store"
 		file_server
-	}
-
-	handle /admin {
-		redir /admin/ 308
 	}
 }

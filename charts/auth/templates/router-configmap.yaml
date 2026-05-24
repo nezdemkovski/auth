@@ -22,11 +22,13 @@ data:
         reverse_proxy {{ .Values.api.service.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.api.service.port }}
       }
 
-      handle /admin* {
+      @admin path /admin /admin/*
+      handle @admin {
         reverse_proxy {{ .Values.admin.service.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.admin.service.port }}
       }
 
-      handle /login/* {
+      @login path /login /login/*
+      handle @login {
         reverse_proxy {{ .Values.login.service.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.login.service.port }}
       }
 
