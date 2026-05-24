@@ -1,11 +1,8 @@
 import { Hono } from "hono";
 
-import { EmailProvider, type EmailConfig } from "../email/sender";
-import {
-  markPasswordChanged,
-  mustChangePassword,
-  updateAdminProfile
-} from "../modules/admin-account/store";
+import type { EmailConfig } from "../email/sender";
+import { AdminAccountService } from "../modules/admin-account/core";
+import { registerAdminAccountRoutes } from "../modules/admin-account/http";
 import { BillingService } from "../modules/billing/core";
 import { DeliveryService } from "../modules/delivery/core";
 import { StorageService } from "../modules/storage/core";
@@ -15,19 +12,10 @@ import { registerProjectRoutes } from "../modules/projects/http";
 import { registerStorageRoutes } from "../modules/storage/http";
 import { registerUserRoutes } from "../modules/users/http";
 import {
-  changeEmail,
-  changePassword,
-  getSession,
   isStateChangingMethod,
   isTrustedAdminRequest,
-  verifyPassword,
   type AdminApiOptions
 } from "./admin/shared";
-import {
-  getProfileCurrentPassword,
-  parseAdminProfilePatch,
-  parseChangePasswordInput
-} from "../modules/admin-account/validator";
 
 export function createAdminApi(options: AdminApiOptions): Hono {
   const app = new Hono();
@@ -56,9 +44,14 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       currentDeliverySettings = settings;
     }
   });
+  const adminAccountService = new AdminAccountService({
+    publicBaseUrl: options.publicBaseUrl,
+    getDeliverySettings: () => currentDeliverySettings
+  });
   const routeContext = {
     app,
     options,
+    adminAccountService,
     billingService,
     deliveryService,
     storageService,
@@ -81,106 +74,8 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     await next();
   });
 
-  app.get("/me", async (c) => {
-    const admin = options.registry.get("admin");
-    if (!admin) {
-      return c.json({ error: "admin_not_configured" }, 500);
-    }
-
-    const session = await getSession(admin.auth, c.req.raw.headers);
-    if (!session) {
-      return c.json({ error: "unauthorized" }, 401);
-    }
-
-    return c.json({
-      user: session.user,
-      mustChangePassword: await mustChangePassword(admin.projectDb.pool, session.user.id),
-      emailServiceEnabled: currentDeliverySettings.provider !== EmailProvider.None
-    });
-  });
-
+  registerAdminAccountRoutes(routeContext);
   registerDeliveryRoutes(routeContext);
-
-  app.patch("/profile", async (c) => {
-    const admin = options.registry.get("admin");
-    if (!admin) {
-      return c.json({ error: "admin_not_configured" }, 500);
-    }
-
-    const session = await getSession(admin.auth, c.req.raw.headers);
-    if (!session) {
-      return c.json({ error: "unauthorized" }, 401);
-    }
-
-    const body = await c.req.json().catch(() => ({}));
-    const patch = parseAdminProfilePatch(body);
-    if (!patch) {
-      return c.json({ error: "invalid_body" }, 400);
-    }
-
-    try {
-      if (patch.email !== undefined && patch.email !== session.user.email.toLowerCase()) {
-        if (currentDeliverySettings.provider === EmailProvider.None) {
-          return c.json({ error: "email_service_disabled" }, 409);
-        }
-        const currentPassword = getProfileCurrentPassword(body);
-        if (!currentPassword) {
-          return c.json({ error: "current_password_required" }, 400);
-        }
-        if (!(await verifyPassword(admin.auth, c.req.raw.headers, currentPassword))) {
-          return c.json({ error: "invalid_password" }, 401);
-        }
-      }
-
-      await updateAdminProfile(admin.projectDb.pool, session.user.id, {
-        name: patch.name
-      });
-
-      if (patch.email !== undefined && patch.email !== session.user.email.toLowerCase()) {
-        await changeEmail(admin.auth, c.req.raw.headers, {
-          newEmail: patch.email,
-          callbackURL: `${options.publicBaseUrl}/admin/settings`
-        });
-      }
-    } catch (error: unknown) {
-      if (error instanceof Error && /unique|duplicate/i.test(error.message)) {
-        return c.json({ error: "email_in_use" }, 409);
-      }
-      throw error;
-    }
-
-    return c.json({ ok: true });
-  });
-
-  app.post("/change-password", async (c) => {
-    const admin = options.registry.get("admin");
-    if (!admin) {
-      return c.json({ error: "admin_not_configured" }, 500);
-    }
-
-    const session = await getSession(admin.auth, c.req.raw.headers);
-    if (!session) {
-      return c.json({ error: "unauthorized" }, 401);
-    }
-
-    const input = parseChangePasswordInput(await c.req.json().catch(() => ({})));
-    if (!input) {
-      return c.json({ error: "invalid_body" }, 400);
-    }
-
-    if (input.newPassword.length < 12) {
-      return c.json({ error: "weak_password" }, 400);
-    }
-
-    const response = await changePassword(admin.auth, c.req.raw.headers, {
-      currentPassword: input.currentPassword,
-      newPassword: input.newPassword
-    });
-
-    await markPasswordChanged(admin.projectDb.pool, session.user.id);
-
-    return c.json(response);
-  });
 
   registerProjectRoutes(routeContext);
   registerBillingRoutes(routeContext);

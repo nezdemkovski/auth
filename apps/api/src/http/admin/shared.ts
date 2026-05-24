@@ -4,6 +4,7 @@ import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import type { EmailConfig } from "../../email/sender";
 import { MediaUploadError } from "../../modules/storage/media";
+import type { AdminAccountService } from "../../modules/admin-account/core";
 import type { BillingService } from "../../modules/billing/core";
 import type { DeliveryService } from "../../modules/delivery/core";
 import type { StorageService } from "../../modules/storage/core";
@@ -33,6 +34,7 @@ export type AdminSession = {
 export type AdminRouteContext = {
   app: Hono;
   options: AdminApiOptions;
+  adminAccountService: AdminAccountService;
   billingService: BillingService;
   deliveryService: DeliveryService;
   storageService: StorageService;
@@ -73,90 +75,6 @@ export async function getSession(
   }).api;
 
   return api.getSession({ headers });
-}
-
-export async function changePassword(
-  auth: unknown,
-  headers: Headers,
-  body: {
-    currentPassword: string;
-    newPassword: string;
-  }
-): Promise<unknown> {
-  const api = (auth as {
-    api: {
-      changePassword(input: {
-        headers: Headers;
-        body: {
-          currentPassword: string;
-          newPassword: string;
-          revokeOtherSessions: boolean;
-        };
-      }): Promise<unknown>;
-    };
-  }).api;
-
-  return api.changePassword({
-    headers,
-    body: {
-      ...body,
-      revokeOtherSessions: true
-    }
-  });
-}
-
-export async function verifyPassword(
-  auth: unknown,
-  headers: Headers,
-  password: string
-): Promise<boolean> {
-  const api = (auth as {
-    api: {
-      verifyPassword(input: {
-        headers: Headers;
-        body: {
-          password: string;
-        };
-      }): Promise<{ status: boolean }>;
-    };
-  }).api;
-
-  const result = await api
-    .verifyPassword({
-      headers,
-      body: {
-        password
-      }
-    })
-    .catch(() => null);
-
-  return result?.status === true;
-}
-
-export async function changeEmail(
-  auth: unknown,
-  headers: Headers,
-  body: {
-    newEmail: string;
-    callbackURL: string;
-  }
-): Promise<unknown> {
-  const api = (auth as {
-    api: {
-      changeEmail(input: {
-        headers: Headers;
-        body: {
-          newEmail: string;
-          callbackURL: string;
-        };
-      }): Promise<unknown>;
-    };
-  }).api;
-
-  return api.changeEmail({
-    headers,
-    body
-  });
 }
 
 export async function sendVerificationEmail(
