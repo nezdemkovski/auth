@@ -178,6 +178,24 @@ export type StorageSettingsPatch = {
   secretAccessKey?: string;
 };
 
+export type StorageObject = {
+  id: string;
+  purpose: "project_icon" | "user_avatar";
+  folder: "images" | "files";
+  bucket: string;
+  objectKey: string;
+  publicUrl: string;
+  mimeType: string;
+  sizeBytes: number;
+  checksumSha256: string;
+  ownerUserId: string | null;
+  createdAt: string;
+};
+
+export type StorageObjectsResponse = {
+  objects: StorageObject[];
+};
+
 export type UploadResponse = {
   upload: {
     bucket: string;

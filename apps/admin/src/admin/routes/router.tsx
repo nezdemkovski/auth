@@ -10,6 +10,7 @@ import {
   fetchProjectUsers,
   fetchProjects,
   fetchSocialProviders,
+  fetchStorageObjects,
   fetchStorageSettings,
   resendVerificationEmail,
   terminateUserSessions,
@@ -323,6 +324,11 @@ function ProjectRoute() {
     queryFn: () => fetchStorageSettings(selected!.slug),
     enabled: Boolean(selected?.slug)
   });
+  const storageObjectsQuery = useQuery({
+    queryKey: ["admin", "storage-objects", selected?.slug],
+    queryFn: () => fetchStorageObjects(selected!.slug),
+    enabled: Boolean(selected?.slug)
+  });
   const polarProductsQuery = useQuery({
     queryKey: ["admin", "polar-products", selected?.slug],
     queryFn: () => fetchPolarProducts(selected!.slug),
@@ -340,6 +346,9 @@ function ProjectRoute() {
       notifySuccess("Verification email sent", variables.email);
       await queryClient.invalidateQueries({
         queryKey: ["admin", "project-users", variables.project]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "storage-objects", variables.project]
       });
     },
     onError: (caught, variables) => {
@@ -545,6 +554,7 @@ function ProjectRoute() {
       socialProvidersQuery={socialProvidersQuery}
       billingQuery={billingQuery}
       storageQuery={storageQuery}
+      storageObjectsQuery={storageObjectsQuery}
       polarProductsQuery={polarProductsQuery}
       emailServiceEnabled={me.emailServiceEnabled}
       resendPendingEmail={

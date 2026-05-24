@@ -17,6 +17,7 @@ import type {
   ProjectsResponse,
   StorageSettings,
   StorageSettingsPatch,
+  StorageObjectsResponse,
   UploadResponse
 } from "./types";
 
@@ -189,6 +190,16 @@ export async function fetchStorageSettings(project: string): Promise<StorageSett
   });
   if (!response.ok) throw new Error("Could not load storage settings");
   return ((await response.json()) as { settings: StorageSettings }).settings;
+}
+
+export async function fetchStorageObjects(
+  project: string
+): Promise<StorageObjectsResponse> {
+  const response = await fetch(`/admin/api/projects/${project}/storage/objects`, {
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error("Could not load storage objects");
+  return (await response.json()) as StorageObjectsResponse;
 }
 
 export async function updateStorageSettings(input: {

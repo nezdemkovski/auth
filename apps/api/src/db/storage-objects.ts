@@ -15,6 +15,12 @@ export type StorageObjectInput = {
   ownerUserId: string | null;
 };
 
+export type StorageObjectSummary = StorageObjectInput & {
+  id: string;
+  folder: "images" | "files";
+  createdAt: string;
+};
+
 export async function ensureStorageObjectsTable(pool: Pool): Promise<void> {
   const db = drizzle({ client: pool });
 
@@ -37,6 +43,54 @@ export async function ensureStorageObjectsTable(pool: Pool): Promise<void> {
     CREATE UNIQUE INDEX IF NOT EXISTS auth_storage_objects_object_key_key
     ON auth_storage_objects (object_key)
   `);
+}
+
+export async function listStorageObjects(pool: Pool): Promise<StorageObjectSummary[]> {
+  await ensureStorageObjectsTable(pool);
+  const db = drizzle({ client: pool });
+
+  const result = await db.execute<{
+    id: string;
+    purpose: StorageObjectPurpose;
+    bucket: string;
+    object_key: string;
+    public_url: string;
+    mime_type: string;
+    size_bytes: number;
+    checksum_sha256: string;
+    owner_user_id: string | null;
+    created_at: Date | string;
+  }>(sql`
+    SELECT
+      id,
+      purpose,
+      bucket,
+      object_key,
+      public_url,
+      mime_type,
+      size_bytes,
+      checksum_sha256,
+      owner_user_id,
+      created_at
+    FROM auth_storage_objects
+    ORDER BY created_at DESC
+    LIMIT 200
+  `);
+
+  return result.rows.map((row) => ({
+    id: row.id,
+    purpose: row.purpose,
+    folder: folderFromObjectKey(row.object_key),
+    bucket: row.bucket,
+    objectKey: row.object_key,
+    publicUrl: row.public_url,
+    mimeType: row.mime_type,
+    sizeBytes: row.size_bytes,
+    checksumSha256: row.checksum_sha256,
+    ownerUserId: row.owner_user_id,
+    createdAt:
+      row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
+  }));
 }
 
 export async function insertStorageObject(
@@ -70,4 +124,8 @@ export async function insertStorageObject(
       ${input.ownerUserId}
     )
   `);
+}
+
+function folderFromObjectKey(objectKey: string): "images" | "files" {
+  return objectKey.includes("/files/") ? "files" : "images";
 }

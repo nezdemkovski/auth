@@ -14,6 +14,7 @@ import type {
   SocialProvidersResponse,
   PolarProductsResponse,
   StorageSettings,
+  StorageObjectsResponse,
   StorageSettingsPatch
 } from "../types";
 import { pad2 } from "../utils/format";
@@ -32,6 +33,7 @@ export function ProjectView({
   socialProvidersQuery,
   billingQuery,
   storageQuery,
+  storageObjectsQuery,
   polarProductsQuery,
   emailServiceEnabled,
   resendPendingEmail,
@@ -69,6 +71,7 @@ export function ProjectView({
   socialProvidersQuery: ReturnType<typeof useQuery<SocialProvidersResponse>>;
   billingQuery: ReturnType<typeof useQuery<BillingSettings>>;
   storageQuery: ReturnType<typeof useQuery<StorageSettings>>;
+  storageObjectsQuery: ReturnType<typeof useQuery<StorageObjectsResponse>>;
   polarProductsQuery: ReturnType<typeof useQuery<PolarProductsResponse>>;
   emailServiceEnabled: boolean;
   resendPendingEmail: string | null;
@@ -254,6 +257,11 @@ export function ProjectView({
           ) : (
             <StorageSettingsForm
               settings={storageQuery.data}
+              objects={storageObjectsQuery.data?.objects ?? []}
+              objectsLoading={storageObjectsQuery.isLoading}
+              objectsError={
+                storageObjectsQuery.isError ? "Could not load storage objects." : null
+              }
               disabled={project.system}
               pending={storagePending}
               uploadPending={storageUploadPending}

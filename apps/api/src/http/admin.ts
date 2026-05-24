@@ -45,7 +45,7 @@ import {
   updateStorageSettings,
   type StorageSettingsPatch
 } from "../db/storage-settings";
-import { insertStorageObject } from "../db/storage-objects";
+import { insertStorageObject, listStorageObjects } from "../db/storage-objects";
 import { MediaUploadError, uploadMedia } from "../storage/media";
 
 type AdminApiOptions = {
@@ -781,6 +781,22 @@ export function createAdminApi(options: AdminApiOptions): Hono {
         adminProject: options.adminProject,
         project: registered.project
       })
+    });
+  });
+
+  app.get("/projects/:project/storage/objects", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const registered = options.registry.get(c.req.param("project"));
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+
+    return c.json({
+      objects: await listStorageObjects(registered.projectDb.pool)
     });
   });
 
