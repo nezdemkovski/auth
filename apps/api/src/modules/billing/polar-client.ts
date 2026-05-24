@@ -113,6 +113,12 @@ function parsePolarErrorBody(body: string): string | null {
     if (typeof data.message === "string") {
       return data.message;
     }
+    if (typeof data.error_description === "string") {
+      return data.error_description;
+    }
+    if (typeof data.error === "string") {
+      return data.error;
+    }
     return JSON.stringify(data).slice(0, 300);
   } catch {
     return body.slice(0, 300);

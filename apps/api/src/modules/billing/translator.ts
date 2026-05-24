@@ -1,7 +1,37 @@
 import type { Product } from "@polar-sh/sdk/models/components/product";
 
-import type { BillingEntitlement, BillingProductMapping } from "../../config/projects";
+import type {
+  AuthProject,
+  BillingEntitlement,
+  BillingProductMapping,
+  ProjectBillingSettings
+} from "../../config/projects";
+import type { BillingSettingsState } from "./store";
 import type { CreatePolarProductInput } from "./validator";
+
+export type PublicBillingSettings = Omit<
+  ProjectBillingSettings,
+  "accessToken" | "webhookSecret"
+> & {
+  accessTokenConfigured: boolean;
+  webhookSecretConfigured: boolean;
+  webhookUrl: string;
+};
+
+export function billingSettingsResponse(options: {
+  settings: BillingSettingsState;
+  project: AuthProject;
+  publicBaseUrl: string;
+}): PublicBillingSettings {
+  return {
+    ...options.settings,
+    webhookUrl: billingWebhookUrl(options.publicBaseUrl, options.project)
+  };
+}
+
+export function billingWebhookUrl(publicBaseUrl: string, project: AuthProject): string {
+  return `${publicBaseUrl}/api/${project.slug}/auth/polar/webhooks`;
+}
 
 export function polarProductResponse(product: Product) {
   return {

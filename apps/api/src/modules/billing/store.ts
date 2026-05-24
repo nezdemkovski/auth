@@ -11,13 +11,12 @@ import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 import { normalizeBillingProducts } from "./translator";
 import type { BillingSettingsPatch } from "./validator";
 
-export type PublicBillingSettings = Omit<
+export type BillingSettingsState = Omit<
   ProjectBillingSettings,
   "accessToken" | "webhookSecret"
 > & {
   accessTokenConfigured: boolean;
   webhookSecretConfigured: boolean;
-  webhookUrl: string;
 };
 
 type BillingSettingsRow = {
@@ -105,12 +104,11 @@ export async function loadProjectBillingSettings(options: {
   return all.get(options.project.slug) ?? cloneDefaultBilling();
 }
 
-export async function readPublicBillingSettings(options: {
+export async function readBillingSettingsState(options: {
   databaseUrl: string;
   adminProject: AuthProject;
   project: AuthProject;
-  publicBaseUrl: string;
-}): Promise<PublicBillingSettings> {
+}): Promise<BillingSettingsState> {
   await ensureBillingSettingsTable(options);
 
   const pool = createAdminPool(options.databaseUrl, options.adminProject);
@@ -131,7 +129,7 @@ export async function readPublicBillingSettings(options: {
       LIMIT 1
     `);
 
-    return rowToPublic(result.rows[0], options.project, options.publicBaseUrl);
+    return rowToState(result.rows[0]);
   } finally {
     await pool.end();
   }
@@ -223,10 +221,6 @@ export function cloneDefaultBilling(): ProjectBillingSettings {
   };
 }
 
-export function billingWebhookUrl(publicBaseUrl: string, project: AuthProject): string {
-  return `${publicBaseUrl}/api/${project.slug}/auth/polar/webhooks`;
-}
-
 function rowToBilling(row: BillingSettingsRow, encryptionSecret: string): ProjectBillingSettings {
   const provider = row.provider === "polar" ? "polar" : "none";
   const environment = row.environment === "production" ? "production" : "sandbox";
@@ -251,11 +245,7 @@ function rowToBilling(row: BillingSettingsRow, encryptionSecret: string): Projec
   };
 }
 
-function rowToPublic(
-  row: BillingSettingsRow | undefined,
-  project: AuthProject,
-  publicBaseUrl: string
-): PublicBillingSettings {
+function rowToState(row: BillingSettingsRow | undefined): BillingSettingsState {
   const products = normalizeBillingProducts(row?.products ?? []);
   const provider = row?.provider === "polar" ? "polar" : "none";
   const environment = row?.environment === "production" ? "production" : "sandbox";
@@ -266,8 +256,7 @@ function rowToPublic(
     organizationId: row?.organizationId ?? "",
     accessTokenConfigured: Boolean(row?.accessTokenCipher),
     webhookSecretConfigured: Boolean(row?.webhookSecretCipher),
-    products,
-    webhookUrl: billingWebhookUrl(publicBaseUrl, project)
+    products
   };
 }
 

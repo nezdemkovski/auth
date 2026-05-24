@@ -9,10 +9,11 @@ import {
   verifyPolarAccess
 } from "./polar-client";
 import {
-  readPublicBillingSettings,
+  readBillingSettingsState,
   updateBillingSettings
 } from "./store";
 import {
+  billingSettingsResponse,
   createdBillingProductResponse,
   polarProductResponse
 } from "./translator";
@@ -44,10 +45,15 @@ export class BillingServiceError extends Error {
 export class BillingService {
   constructor(private readonly options: BillingServiceOptions) {}
 
-  readSettings(project: AuthProject) {
-    return readPublicBillingSettings({
+  async readSettings(project: AuthProject) {
+    const settings = await readBillingSettingsState({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
+      project
+    });
+
+    return billingSettingsResponse({
+      settings,
       project,
       publicBaseUrl: this.options.publicBaseUrl
     });
