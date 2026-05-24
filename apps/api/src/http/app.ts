@@ -20,7 +20,7 @@ import type { Env } from "../config/env";
 import type { AuthProject } from "../config/projects";
 import { AuthRegistry } from "../auth/registry";
 import { bootstrapProjects, prepareProjectSchema } from "../db/bootstrap";
-import { loadDeliverySettings } from "../db/delivery-settings";
+import { loadDeliverySettings } from "../modules/delivery/store";
 import { loadEffectiveProjects } from "../db/project-settings";
 import { createEmailSender } from "../email/sender";
 import { createAdminApi } from "./admin";

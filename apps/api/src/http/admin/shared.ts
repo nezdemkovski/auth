@@ -5,6 +5,7 @@ import type { AuthProject } from "../../config/projects";
 import type { EmailConfig } from "../../email/sender";
 import { MediaUploadError } from "../../modules/storage/media";
 import type { BillingService } from "../../modules/billing/core";
+import type { DeliveryService } from "../../modules/delivery/core";
 import type { StorageService } from "../../modules/storage/core";
 
 export type AdminApiOptions = {
@@ -33,6 +34,7 @@ export type AdminRouteContext = {
   app: Hono;
   options: AdminApiOptions;
   billingService: BillingService;
+  deliveryService: DeliveryService;
   storageService: StorageService;
   getDeliverySettings(): EmailConfig;
   setDeliverySettings(settings: EmailConfig): void;

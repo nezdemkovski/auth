@@ -2,9 +2,9 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
-import type { AuthProject } from "../config/projects";
-import { EmailProvider, type EmailConfig } from "../email/sender";
-import { decryptSecretValue, encryptSecretValue } from "./secret-crypto";
+import type { AuthProject } from "../../config/projects";
+import { EmailProvider, type EmailConfig } from "../../email/sender";
+import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 
 export type PublicDeliverySettings = {
   provider: EmailConfig["provider"];

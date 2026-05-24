@@ -1,4 +1,4 @@
-import type { DeliverySettingsPatch } from "../../db/delivery-settings";
+import type { DeliverySettingsPatch } from "./store";
 
 type DeliverySettingsBody = Partial<Record<keyof DeliverySettingsPatch, unknown>>;
 

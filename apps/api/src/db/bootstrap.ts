@@ -14,7 +14,7 @@ import { createProjectDatabase } from "./project-db";
 import {
   ensureDeliverySettingsTable,
   seedDeliverySettingsFromEnv
-} from "./delivery-settings";
+} from "../modules/delivery/store";
 import { ensureProjectSettingsTable, seedAdminProjectSettings } from "./project-settings";
 import { ensureSocialProviderSettingsTable } from "./social-provider-settings";
 import {

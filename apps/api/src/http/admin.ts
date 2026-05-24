@@ -7,9 +7,10 @@ import {
   updateAdminProfile
 } from "../services/core/admin-account";
 import { BillingService } from "../modules/billing/core";
+import { DeliveryService } from "../modules/delivery/core";
 import { StorageService } from "../modules/storage/core";
 import { registerBillingRoutes } from "../modules/billing/http";
-import { registerDeliveryRoutes } from "./admin/routes/delivery";
+import { registerDeliveryRoutes } from "../modules/delivery/http";
 import { registerProjectRoutes } from "./admin/routes/projects";
 import { registerStorageRoutes } from "../modules/storage/http";
 import { registerUserRoutes } from "./admin/routes/users";
@@ -46,10 +47,20 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     encryptionSecret: options.secret,
     managedStorage: options.managedStorage
   });
+  const deliveryService = new DeliveryService({
+    registry: options.registry,
+    databaseUrl: options.databaseUrl,
+    adminProject: options.adminProject,
+    encryptionSecret: options.secret,
+    setDeliverySettings: (settings: EmailConfig) => {
+      currentDeliverySettings = settings;
+    }
+  });
   const routeContext = {
     app,
     options,
     billingService,
+    deliveryService,
     storageService,
     getDeliverySettings: () => currentDeliverySettings,
     setDeliverySettings: (settings: EmailConfig) => {
