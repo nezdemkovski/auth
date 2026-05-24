@@ -14,6 +14,11 @@ import {
   parseLoginCodeExchangeInput,
   parseLoginSessionCodeInput
 } from "./validator";
+import {
+  loginConfigResponse,
+  oauthConsentConfigResponse,
+  resetPasswordConfigResponse
+} from "./translator";
 
 export { createLoginCodeStore };
 
@@ -94,17 +99,16 @@ export function getLoginConfig(
     return json({ error: "invalid_pkce_challenge" }, 400);
   }
 
-  return runtimeConfig({
-    page: "login",
-    project,
-    projectName: registered.project.name,
-    redirectUri,
-    state,
-    mode,
-    codeChallenge,
-    features: registered.project.features,
-    socialProviders: enabledSocialProviders(registered)
-  });
+  return runtimeConfig(
+    loginConfigResponse({
+      registered,
+      project,
+      redirectUri,
+      state,
+      mode,
+      codeChallenge
+    })
+  );
 }
 
 export function getPasswordResetConfig(
@@ -119,14 +123,14 @@ export function getPasswordResetConfig(
 
   const url = new URL(req.url);
 
-  return runtimeConfig({
-    page: "reset-password",
-    project,
-    projectName: registered.project.name,
-    appUrl: registered.project.appUrl,
-    token: url.searchParams.get("token") ?? "",
-    error: url.searchParams.get("error") ?? ""
-  });
+  return runtimeConfig(
+    resetPasswordConfigResponse({
+      registered,
+      project,
+      token: url.searchParams.get("token") ?? "",
+      error: url.searchParams.get("error") ?? ""
+    })
+  );
 }
 
 export function getOAuthConsentConfig(
@@ -154,14 +158,15 @@ export function getOAuthConsentConfig(
     return json({ error: "missing_client_id" }, 400);
   }
 
-  return runtimeConfig({
-    page: "oauth-consent",
-    project,
-    projectName: registered.project.name,
-    clientId,
-    scopes,
-    oauthQuery: url.searchParams.toString()
-  });
+  return runtimeConfig(
+    oauthConsentConfigResponse({
+      registered,
+      project,
+      clientId,
+      scopes,
+      oauthQuery: url.searchParams.toString()
+    })
+  );
 }
 
 export async function createLoginSessionCode(
@@ -170,6 +175,10 @@ export async function createLoginSessionCode(
   options: LoginOptions
 ): Promise<Response> {
   const input = parseLoginSessionCodeInput(await req.json().catch(() => null));
+  if (!input) {
+    return json({ error: "invalid_body" }, 400);
+  }
+
   const service = new LoginFlowService(options);
 
   try {
@@ -193,6 +202,10 @@ export async function exchangeLoginCode(
   options: LoginOptions
 ): Promise<Response> {
   const input = parseLoginCodeExchangeInput(await req.json().catch(() => null));
+  if (!input) {
+    return json({ error: "invalid_body" }, 400);
+  }
+
   const service = new LoginFlowService(options);
 
   try {
@@ -207,14 +220,6 @@ export async function exchangeLoginCode(
   } catch (error) {
     return loginFlowError(error);
   }
-}
-
-function enabledSocialProviders(
-  registered: NonNullable<ReturnType<AuthRegistry["get"]>>
-): string[] {
-  return Object.entries(registered.project.socialProviders)
-    .filter(([, provider]) => provider.enabled && provider.clientId && provider.clientSecret)
-    .map(([provider]) => provider);
 }
 
 function loginFlowError(error: unknown): Response {

@@ -10,19 +10,32 @@ export type LoginCodeExchangeInput = {
   codeVerifier: string;
 };
 
-export function parseLoginSessionCodeInput(body: unknown): LoginSessionCodeInput {
+export function parseLoginSessionCodeInput(body: unknown): LoginSessionCodeInput | null {
+  const redirectUri = getStringField(body, "redirect_uri");
+  const codeChallenge = getStringField(body, "code_challenge");
+  if (!redirectUri || !codeChallenge) {
+    return null;
+  }
+
   return {
-    redirectUri: getStringField(body, "redirect_uri"),
+    redirectUri,
     state: getStringField(body, "state"),
-    codeChallenge: getStringField(body, "code_challenge")
+    codeChallenge
   };
 }
 
-export function parseLoginCodeExchangeInput(body: unknown): LoginCodeExchangeInput {
+export function parseLoginCodeExchangeInput(body: unknown): LoginCodeExchangeInput | null {
+  const code = getStringField(body, "code");
+  const redirectUri = getStringField(body, "redirect_uri");
+  const codeVerifier = getStringField(body, "code_verifier");
+  if (!code || !redirectUri || !codeVerifier) {
+    return null;
+  }
+
   return {
-    code: getStringField(body, "code"),
-    redirectUri: getStringField(body, "redirect_uri"),
-    codeVerifier: getStringField(body, "code_verifier")
+    code,
+    redirectUri,
+    codeVerifier
   };
 }
 
