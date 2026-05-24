@@ -13,6 +13,7 @@ import { AuthRegistry } from "../auth/registry";
 import { bootstrapProjects, prepareProjectSchema } from "../db/bootstrap";
 import { loadDeliverySettings } from "../modules/delivery/store";
 import { loadEffectiveProjects } from "../modules/projects/store";
+import { registerPublicProjectRoutes } from "../modules/projects/public-http";
 import { createEmailSender } from "../email/sender";
 import { createAdminApi } from "./admin";
 import { createRateLimiter, rateLimit, securityHeaders } from "./security";
@@ -99,19 +100,10 @@ export async function createApp(env: Env) {
     });
   });
 
-  app.get("/api/projects", (c) => {
-    const publicProjects = registry
-      .list()
-      .filter((project) => project.slug !== adminProject.slug);
-
-    return c.json({
-      projects: publicProjects.map((project) => ({
-        slug: project.slug,
-        name: project.name
-      }))
-    });
+  registerPublicProjectRoutes(app, {
+    registry,
+    adminProjectSlug: adminProject.slug
   });
-
   app.route(
     "/admin/api",
     createAdminApi({
