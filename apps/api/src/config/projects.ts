@@ -11,6 +11,7 @@ export type AuthProject = {
   features: ProjectFeatures;
   socialProviders: ProjectSocialProviders;
   billing: ProjectBillingSettings;
+  storage: ProjectStorageSettings;
 };
 
 export type ProjectFeatures = {
@@ -84,6 +85,19 @@ export type ProjectBillingSettings = {
   products: BillingProductMapping[];
 };
 
+export type StorageProvider = "none" | "s3";
+
+export type ProjectStorageSettings = {
+  provider: StorageProvider;
+  enabled: boolean;
+  endpoint: string;
+  region: string;
+  bucket: string;
+  publicBaseUrl: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+};
+
 export const DEFAULT_PROJECT_BILLING: ProjectBillingSettings = {
   provider: "none",
   enabled: false,
@@ -92,6 +106,17 @@ export const DEFAULT_PROJECT_BILLING: ProjectBillingSettings = {
   accessToken: "",
   webhookSecret: "",
   products: []
+};
+
+export const DEFAULT_PROJECT_STORAGE: ProjectStorageSettings = {
+  provider: "none",
+  enabled: false,
+  endpoint: "",
+  region: "auto",
+  bucket: "",
+  publicBaseUrl: "",
+  accessKeyId: "",
+  secretAccessKey: ""
 };
 
 export const DEFAULT_PROJECT_FEATURES: ProjectFeatures = {
@@ -137,7 +162,8 @@ export const ADMIN_PROJECT: AuthProject = {
   trustedOrigins: [],
   features: DEFAULT_PROJECT_FEATURES,
   socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  billing: DEFAULT_PROJECT_BILLING
+  billing: DEFAULT_PROJECT_BILLING,
+  storage: DEFAULT_PROJECT_STORAGE
 };
 
 export function findProject(projects: AuthProject[], slug: string): AuthProject | null {

@@ -14,6 +14,7 @@ import {
   createProjectSettings,
   normalizeProjectFeatures,
   projectSettingsExists,
+  updateProjectIconUrl,
   updateProjectSettings,
   type ProjectSettingsCreate,
   type ProjectSettingsPatch
@@ -39,6 +40,13 @@ import {
   loadProjectBillingSettings,
   type BillingSettingsPatch
 } from "../db/billing-settings";
+import {
+  readPublicStorageSettings,
+  updateStorageSettings,
+  type StorageSettingsPatch
+} from "../db/storage-settings";
+import { insertStorageObject } from "../db/storage-objects";
+import { MediaUploadError, uploadMedia } from "../storage/media";
 
 type AdminApiOptions = {
   registry: AuthRegistry;
@@ -86,6 +94,7 @@ type SocialProviderBody = {
 
 type DeliverySettingsBody = Partial<Record<keyof DeliverySettingsPatch, unknown>>;
 type BillingSettingsBody = Partial<Record<keyof BillingSettingsPatch, unknown>>;
+type StorageSettingsBody = Partial<Record<keyof StorageSettingsPatch, unknown>>;
 type BillingVerifyBody = {
   accessToken?: unknown;
   environment?: unknown;
@@ -755,6 +764,136 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     return c.json({ ok: true });
   });
 
+  app.get("/projects/:project/storage", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const registered = options.registry.get(c.req.param("project"));
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+
+    return c.json({
+      settings: await readPublicStorageSettings({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject,
+        project: registered.project
+      })
+    });
+  });
+
+  app.patch("/projects/:project/storage", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const registered = options.registry.get(c.req.param("project"));
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+    if (registered.project.slug === options.adminProject.slug) {
+      return c.json({ error: "system_project_locked" }, 409);
+    }
+
+    const body = (await c.req.json().catch(() => ({}))) as StorageSettingsBody;
+    const patch = parseStorageSettingsPatch(body);
+    if (!patch) {
+      return c.json({ error: "invalid_body" }, 400);
+    }
+
+    try {
+      const storage = await updateStorageSettings({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject,
+        project: registered.project,
+        encryptionSecret: options.secret,
+        patch
+      });
+      await options.registry.updateProject({
+        ...registered.project,
+        storage
+      });
+
+      return c.json({
+        settings: await readPublicStorageSettings({
+          databaseUrl: options.databaseUrl,
+          adminProject: options.adminProject,
+          project: registered.project
+        })
+      });
+    } catch (error) {
+      return c.json(
+        {
+          error: "invalid_storage_settings",
+          message: error instanceof Error ? error.message : "Invalid storage settings"
+        },
+        400
+      );
+    }
+  });
+
+  app.post("/projects/:project/upload", async (c) => {
+    const admin = await requireAdmin(options.registry, c.req.raw.headers);
+    if (!admin) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const registered = options.registry.get(c.req.param("project"));
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+    if (registered.project.slug === options.adminProject.slug) {
+      return c.json({ error: "system_project_locked" }, 409);
+    }
+
+    const form = await c.req.formData();
+    const purpose = form.get("purpose");
+    const file = form.get("file");
+    if (purpose !== "project_icon" || !(file instanceof File)) {
+      return c.json({ error: "invalid_body" }, 400);
+    }
+
+    try {
+      const uploaded = await uploadMedia({
+        storage: registered.project.storage,
+        realmSlug: registered.project.slug,
+        purpose,
+        file,
+        ownerUserId: admin.session.user.id
+      });
+      await insertStorageObject(registered.projectDb.pool, {
+        purpose,
+        ...uploaded,
+        ownerUserId: admin.session.user.id
+      });
+      const project = await updateProjectIconUrl({
+        databaseUrl: options.databaseUrl,
+        adminProject: options.adminProject,
+        slug: registered.project.slug,
+        iconUrl: uploaded.publicUrl
+      });
+      if (project) {
+        await options.registry.updateProject({
+          ...registered.project,
+          iconUrl: uploaded.publicUrl
+        });
+      }
+
+      return c.json({
+        upload: uploaded,
+        project: project ? serializeProject({
+          ...registered.project,
+          iconUrl: uploaded.publicUrl
+        }) : null
+      });
+    } catch (error) {
+      return mediaUploadError(c, error);
+    }
+  });
+
   app.get("/projects/:project/billing/polar-products", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
@@ -1172,6 +1311,37 @@ function parseBillingSettingsPatch(body: BillingSettingsBody): BillingSettingsPa
   return patch;
 }
 
+function parseStorageSettingsPatch(body: StorageSettingsBody): StorageSettingsPatch | null {
+  if (
+    typeof body.provider !== "string" ||
+    typeof body.enabled !== "boolean" ||
+    typeof body.endpoint !== "string" ||
+    typeof body.region !== "string" ||
+    typeof body.bucket !== "string" ||
+    typeof body.publicBaseUrl !== "string"
+  ) {
+    return null;
+  }
+
+  const patch: StorageSettingsPatch = {
+    provider: body.provider as StorageSettingsPatch["provider"],
+    enabled: body.enabled,
+    endpoint: body.endpoint.trim(),
+    region: body.region.trim() || "auto",
+    bucket: body.bucket.trim(),
+    publicBaseUrl: body.publicBaseUrl.trim()
+  };
+
+  if (typeof body.accessKeyId === "string" && body.accessKeyId.trim()) {
+    patch.accessKeyId = body.accessKeyId.trim();
+  }
+  if (typeof body.secretAccessKey === "string" && body.secretAccessKey.trim()) {
+    patch.secretAccessKey = body.secretAccessKey.trim();
+  }
+
+  return patch;
+}
+
 function parseCreatePolarProduct(body: CreatePolarProductBody): {
   slug: string;
   name: string;
@@ -1229,6 +1399,18 @@ function parseCreatePolarProduct(body: CreatePolarProductBody): {
     priceCurrency,
     recurringInterval
   };
+}
+
+function mediaUploadError(
+  c: { json: (value: object, status?: number) => Response },
+  error: unknown
+): Response {
+  if (error instanceof MediaUploadError) {
+    const status = error.code === "storage_not_configured" ? 409 : 400;
+    return Response.json({ error: error.code }, { status });
+  }
+
+  throw error;
 }
 
 function createPolarClient(project: AuthProject): Polar | null {

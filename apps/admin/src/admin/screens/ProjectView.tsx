@@ -12,7 +12,9 @@ import type {
   SocialProviderId,
   SocialProviderPatch,
   SocialProvidersResponse,
-  PolarProductsResponse
+  PolarProductsResponse,
+  StorageSettings,
+  StorageSettingsPatch
 } from "../types";
 import { pad2 } from "../utils/format";
 import { Card, EmptyState, FormAlert, SysTag } from "@nezdemkovski/auth-ui";
@@ -21,6 +23,7 @@ import { UsersSkeleton } from "@nezdemkovski/auth-ui";
 import { ProjectSettingsForm } from "./project/ProjectSettingsForm";
 import { BillingSettings as BillingSettingsForm } from "./project/BillingSettings";
 import { SocialProviderSettings } from "./project/SocialProviderSettings";
+import { StorageSettingsForm } from "./project/StorageSettings";
 import { UserTable } from "./project/UserTable";
 
 export function ProjectView({
@@ -28,6 +31,7 @@ export function ProjectView({
   usersQuery,
   socialProvidersQuery,
   billingQuery,
+  storageQuery,
   polarProductsQuery,
   emailServiceEnabled,
   resendPendingEmail,
@@ -44,6 +48,9 @@ export function ProjectView({
   billingPending,
   billingVerifyPending,
   billingError,
+  storagePending,
+  storageUploadPending,
+  storageError,
   polarProductCreatePending,
   polarProductCreateError,
   onResendVerification,
@@ -53,12 +60,15 @@ export function ProjectView({
   onVerifySocialProvider,
   onUpdateBilling,
   onVerifyBilling,
-  onCreatePolarProduct
+  onCreatePolarProduct,
+  onUpdateStorage,
+  onUploadProjectIcon
 }: {
   project: ProjectSummary;
   usersQuery: ReturnType<typeof useQuery<ProjectUsersResponse>>;
   socialProvidersQuery: ReturnType<typeof useQuery<SocialProvidersResponse>>;
   billingQuery: ReturnType<typeof useQuery<BillingSettings>>;
+  storageQuery: ReturnType<typeof useQuery<StorageSettings>>;
   polarProductsQuery: ReturnType<typeof useQuery<PolarProductsResponse>>;
   emailServiceEnabled: boolean;
   resendPendingEmail: string | null;
@@ -75,6 +85,9 @@ export function ProjectView({
   billingPending: boolean;
   billingVerifyPending: boolean;
   billingError: string | null;
+  storagePending: boolean;
+  storageUploadPending: boolean;
+  storageError: string | null;
   polarProductCreatePending: boolean;
   polarProductCreateError: string | null;
   onResendVerification: (email: string) => void;
@@ -93,6 +106,8 @@ export function ProjectView({
   onCreatePolarProduct: (
     input: CreatePolarProductInput
   ) => Promise<BillingProductMapping>;
+  onUpdateStorage: (patch: StorageSettingsPatch) => void;
+  onUploadProjectIcon: (file: File) => void;
 }) {
   const users = usersQuery.data?.users ?? [];
   const socialProviders = socialProvidersQuery.data?.providers ?? project.socialProviders;
@@ -225,7 +240,34 @@ export function ProjectView({
 
       <section>
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="eyebrow">04 — Users</span>
+          <span className="eyebrow">04 — Storage</span>
+          <span aria-hidden="true" className="h-px flex-1 bg-border" />
+        </div>
+
+        <Card>
+          {storageQuery.isLoading ? (
+            <div className="p-5 text-[13px] text-muted">Loading storage…</div>
+          ) : storageQuery.isError || !storageQuery.data ? (
+            <div className="p-5">
+              <FormAlert>Could not load storage settings.</FormAlert>
+            </div>
+          ) : (
+            <StorageSettingsForm
+              settings={storageQuery.data}
+              disabled={project.system}
+              pending={storagePending}
+              uploadPending={storageUploadPending}
+              error={storageError}
+              onSave={onUpdateStorage}
+              onUploadIcon={onUploadProjectIcon}
+            />
+          )}
+        </Card>
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-baseline gap-3">
+          <span className="eyebrow">05 — Users</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
           {!usersQuery.isLoading && users.length > 0 ? (
             <span className="eyebrow text-muted-soft tabular">

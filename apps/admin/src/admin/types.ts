@@ -153,6 +153,43 @@ export type BillingSettingsPatch = {
   products: BillingProductMapping[];
 };
 
+export type StorageProvider = "none" | "s3";
+
+export type StorageSettings = {
+  provider: StorageProvider;
+  enabled: boolean;
+  endpoint: string;
+  region: string;
+  bucket: string;
+  publicBaseUrl: string;
+  accessKeyIdConfigured: boolean;
+  secretAccessKeyConfigured: boolean;
+  configured: boolean;
+};
+
+export type StorageSettingsPatch = {
+  provider: StorageProvider;
+  enabled: boolean;
+  endpoint: string;
+  region: string;
+  bucket: string;
+  publicBaseUrl: string;
+  accessKeyId?: string;
+  secretAccessKey?: string;
+};
+
+export type UploadResponse = {
+  upload: {
+    bucket: string;
+    objectKey: string;
+    publicUrl: string;
+    mimeType: string;
+    sizeBytes: number;
+    checksumSha256: string;
+  };
+  project?: ProjectSummary | null;
+};
+
 export type PolarProductSummary = {
   id: string;
   name: string;

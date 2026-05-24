@@ -17,6 +17,8 @@ import {
 } from "./delivery-settings";
 import { ensureProjectSettingsTable, seedAdminProjectSettings } from "./project-settings";
 import { ensureSocialProviderSettingsTable } from "./social-provider-settings";
+import { ensureStorageSettingsTable } from "./storage-settings";
+import { ensureStorageObjectsTable } from "./storage-objects";
 
 type BootstrapOptions = {
   databaseUrl: string;
@@ -56,6 +58,10 @@ export async function bootstrapProjects(options: BootstrapOptions): Promise<void
       adminProject: options.adminProject
     });
     await ensureDeliverySettingsTable({
+      databaseUrl: options.databaseUrl,
+      adminProject: options.adminProject
+    });
+    await ensureStorageSettingsTable({
       databaseUrl: options.databaseUrl,
       adminProject: options.adminProject
     });
@@ -203,11 +209,14 @@ export async function prepareProjectSchema(options: Omit<BootstrapOptions, "admi
     }
 
     await migrations.runMigrations();
+    await ensureStorageObjectsTable(pool);
 
     console.info(
       `[bootstrap] ${options.project.slug}: created ${migrations.toBeCreated.length} table(s), added ${migrations.toBeAdded.length} table change(s)`
     );
+    return;
   } finally {
+    await ensureStorageObjectsTable(pool).catch(() => {});
     await pool.end();
   }
 }

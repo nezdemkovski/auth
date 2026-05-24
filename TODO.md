@@ -47,15 +47,17 @@
   - evaluate RustFS as the first homelab backend while keeping the auth service
     coupled only to the S3 API.
   - use one public bucket with realm-prefixed keys, for example
-    `realms/{realmSlug}/avatars/{userId}/{random}.webp` and
-    `realms/{realmSlug}/app-icons/{random}.webp`.
-  - add a separate private bucket/prefix before storing non-public user files.
+    `realms/{realmSlug}/images/{random}.webp` for realm images and
+    `realms/{realmSlug}/images/{userId}/{random}.webp` for user images.
+  - use `realms/{realmSlug}/files/...` before storing generic non-image files,
+    and add a separate private bucket/prefix before storing non-public user
+    files.
   - store object metadata in Postgres, not blobs: object key, mime type, size,
     checksum, owner, realm, and timestamps.
   - make backend build object keys from trusted realm/user/project context; the
     frontend must never submit arbitrary object paths.
   - validate upload size and mime type, randomize object keys, and clean up old
-    avatars/icons after replacement.
+    images after replacement.
   - expose files through a stable public URL such as `files.nezdemkovski.cloud`
     instead of leaking the internal S3 endpoint.
 - Review secure cookie behavior behind Cloudflare Tunnel and Kubernetes service

@@ -8,6 +8,7 @@ import {
 import {
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_BILLING,
+  DEFAULT_PROJECT_STORAGE,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   type AuthProject
 } from "../src/config/projects";
@@ -22,7 +23,8 @@ const baseProject: AuthProject = {
   trustedOrigins: ["https://openmarkers.app"],
   features: DEFAULT_PROJECT_FEATURES,
   socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  billing: DEFAULT_PROJECT_BILLING
+  billing: DEFAULT_PROJECT_BILLING,
+  storage: DEFAULT_PROJECT_STORAGE
 };
 
 function createOptions(project: AuthProject, trustProxyHeaders = false) {

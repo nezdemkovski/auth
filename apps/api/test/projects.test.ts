@@ -4,6 +4,7 @@ import {
   ADMIN_PROJECT,
   DEFAULT_PROJECT_BILLING,
   DEFAULT_PROJECT_FEATURES,
+  DEFAULT_PROJECT_STORAGE,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   normalizeProjectSlug,
   projectSchemaFromSlug,
@@ -27,7 +28,8 @@ describe("projects", () => {
       trustedOrigins: [],
       features: DEFAULT_PROJECT_FEATURES,
       socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-      billing: DEFAULT_PROJECT_BILLING
+      billing: DEFAULT_PROJECT_BILLING,
+      storage: DEFAULT_PROJECT_STORAGE
     });
   });
 

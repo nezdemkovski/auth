@@ -10,11 +10,14 @@ import {
   fetchProjectUsers,
   fetchProjects,
   fetchSocialProviders,
+  fetchStorageSettings,
   resendVerificationEmail,
   terminateUserSessions,
   updateBillingSettings,
   updateProjectSettings,
   updateSocialProvider,
+  updateStorageSettings,
+  uploadProjectIcon,
   verifyBillingSettings,
   verifySocialProvider
 } from "../api";
@@ -34,7 +37,8 @@ import type {
   MeResponse,
   ProjectSettingsPatch,
   SocialProviderId,
-  SocialProviderPatch
+  SocialProviderPatch,
+  StorageSettingsPatch
 } from "../types";
 import type { Theme } from "@nezdemkovski/auth-client-shared/theme";
 
@@ -314,6 +318,11 @@ function ProjectRoute() {
     queryFn: () => fetchBillingSettings(selected!.slug),
     enabled: Boolean(selected?.slug)
   });
+  const storageQuery = useQuery({
+    queryKey: ["admin", "storage", selected?.slug],
+    queryFn: () => fetchStorageSettings(selected!.slug),
+    enabled: Boolean(selected?.slug)
+  });
   const polarProductsQuery = useQuery({
     queryKey: ["admin", "polar-products", selected?.slug],
     queryFn: () => fetchPolarProducts(selected!.slug),
@@ -455,6 +464,43 @@ function ProjectRoute() {
       );
     }
   });
+  const storageUpdate = useMutation({
+    mutationFn: (input: { project: string; patch: StorageSettingsPatch }) =>
+      updateStorageSettings(input),
+    onSuccess: async (_data, variables) => {
+      notifySuccess("Storage settings saved");
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "storage", variables.project]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "projects"]
+      });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Could not save storage settings",
+        caught instanceof Error ? caught.message : undefined
+      );
+    }
+  });
+  const projectIconUpload = useMutation({
+    mutationFn: (input: { project: string; file: File }) => uploadProjectIcon(input),
+    onSuccess: async (_data, variables) => {
+      notifySuccess("App icon uploaded");
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "projects"]
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["admin", "project-users", variables.project]
+      });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Could not upload app icon",
+        caught instanceof Error ? caught.message : undefined
+      );
+    }
+  });
   const polarProductCreate = useMutation({
     mutationFn: (input: { project: string; product: CreatePolarProductInput }) =>
       createPolarProduct(input),
@@ -498,6 +544,7 @@ function ProjectRoute() {
       usersQuery={usersQuery}
       socialProvidersQuery={socialProvidersQuery}
       billingQuery={billingQuery}
+      storageQuery={storageQuery}
       polarProductsQuery={polarProductsQuery}
       emailServiceEnabled={me.emailServiceEnabled}
       resendPendingEmail={
@@ -558,6 +605,19 @@ function ProjectRoute() {
             : "Polar check failed"
           : null
       }
+      storagePending={storageUpdate.isPending}
+      storageUploadPending={projectIconUpload.isPending}
+      storageError={
+        storageUpdate.isError
+          ? storageUpdate.error instanceof Error
+            ? storageUpdate.error.message
+            : "Could not save storage settings"
+          : projectIconUpload.isError
+          ? projectIconUpload.error instanceof Error
+            ? projectIconUpload.error.message
+            : "Could not upload app icon"
+          : null
+      }
       polarProductCreatePending={polarProductCreate.isPending}
       polarProductCreateError={
         polarProductCreate.isError
@@ -613,6 +673,18 @@ function ProjectRoute() {
         polarProductCreate.mutateAsync({
           project: selected.slug,
           product
+        })
+      }
+      onUpdateStorage={(patch) =>
+        storageUpdate.mutate({
+          project: selected.slug,
+          patch
+        })
+      }
+      onUploadProjectIcon={(file) =>
+        projectIconUpload.mutate({
+          project: selected.slug,
+          file
         })
       }
     />

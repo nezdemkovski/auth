@@ -1,9 +1,12 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/node-postgres";
 import {
   oauthProviderAuthServerMetadata,
   oauthProviderOpenIdConfigMetadata
 } from "@better-auth/oauth-provider";
+import type { Pool } from "pg";
 
 import type { Env } from "../config/env";
 import type { AuthProject } from "../config/projects";
@@ -22,6 +25,8 @@ import {
   getPasswordResetConfig
 } from "./login";
 import { createRateLimiter, rateLimit, securityHeaders } from "./security";
+import { insertStorageObject } from "../db/storage-objects";
+import { MediaUploadError, uploadMedia } from "../storage/media";
 
 type AppVariables = {
   registry: AuthRegistry;
@@ -149,6 +154,76 @@ export async function createApp(env: Env) {
     });
   });
 
+  app.use(
+    "/api/:project/upload",
+    cors({
+      origin: (origin, c) => {
+        const project = c.req.param("project");
+        if (!project) {
+          return "";
+        }
+
+        return registry.isTrustedOrigin(project, origin) ? origin : "";
+      },
+      allowHeaders: ["Content-Type", "Authorization"],
+      allowMethods: ["POST", "OPTIONS"],
+      credentials: true,
+      maxAge: 600
+    })
+  );
+
+  app.post("/api/:project/upload", async (c) => {
+    const projectSlug = c.req.param("project");
+    const registered = registry.get(projectSlug);
+    if (!registered) {
+      return c.json({ error: "unknown_project" }, 404);
+    }
+
+    const session = await getProjectSession(registered.auth, c.req.raw.headers);
+    if (!session) {
+      return c.json({ error: "unauthorized" }, 401);
+    }
+
+    const form = await c.req.formData();
+    const purpose = form.get("purpose");
+    const file = form.get("file");
+    if (purpose !== "user_avatar" || !(file instanceof File)) {
+      return c.json({ error: "invalid_body" }, 400);
+    }
+
+    try {
+      const uploaded = await uploadMedia({
+        storage: registered.project.storage,
+        realmSlug: registered.project.slug,
+        purpose,
+        file,
+        ownerUserId: session.user.id
+      });
+      await insertStorageObject(registered.projectDb.pool, {
+        purpose,
+        ...uploaded,
+        ownerUserId: session.user.id
+      });
+      await updateUserImage(registered.projectDb.pool, session.user.id, uploaded.publicUrl);
+
+      return c.json({
+        upload: uploaded,
+        user: {
+          id: session.user.id,
+          image: uploaded.publicUrl
+        }
+      });
+    } catch (error) {
+      if (error instanceof MediaUploadError) {
+        return c.json(
+          { error: error.code },
+          error.code === "storage_not_configured" ? 409 : 400
+        );
+      }
+      throw error;
+    }
+  });
+
   app.get("/api/:project/.well-known/jwks.json", (c) => {
     const projectSlug = c.req.param("project");
     const registered = registry.get(projectSlug);
@@ -260,6 +335,33 @@ export async function createApp(env: Env) {
       await Promise.all([registry.close(), rateLimiter.close(), loginCodeStore.close()]);
     }
   };
+}
+
+async function getProjectSession(
+  auth: unknown,
+  headers: Headers
+): Promise<{ user: { id: string } } | null> {
+  const api = (auth as {
+    api: {
+      getSession(input: { headers: Headers }): Promise<{ user: { id: string } } | null>;
+    };
+  }).api;
+
+  return api.getSession({ headers });
+}
+
+async function updateUserImage(
+  pool: Pool,
+  userId: string,
+  image: string
+): Promise<void> {
+  const db = drizzle({ client: pool });
+  await db.execute(sql`
+    UPDATE "user"
+    SET image = ${image},
+        "updatedAt" = now()
+    WHERE id = ${userId}
+  `);
 }
 
 function isEnabledAuthFeaturePath(project: AuthProject, path: string): boolean {

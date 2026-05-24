@@ -12,6 +12,7 @@ import {
   type ProjectFeatures
 } from "../config/projects";
 import { cloneDefaultBilling, loadBillingSettings } from "./billing-settings";
+import { cloneDefaultStorage, loadStorageSettings } from "./storage-settings";
 import {
   ensureSocialProviderSettingsTable,
   cloneDefaultSocialProviders,
@@ -146,11 +147,13 @@ export async function loadEffectiveProjects(options: {
   const all = await readProjectSettings(options.databaseUrl, options.adminProject);
   const socialProviders = await loadSocialProviderSettings(options);
   const billingSettings = await loadBillingSettings(options);
+  const storageSettings = await loadStorageSettings(options);
   const allWithSettings = all.map((project) => ({
     ...project,
     socialProviders:
       socialProviders.get(project.slug) ?? cloneDefaultSocialProviders(),
-    billing: billingSettings.get(project.slug) ?? cloneDefaultBilling()
+    billing: billingSettings.get(project.slug) ?? cloneDefaultBilling(),
+    storage: storageSettings.get(project.slug) ?? cloneDefaultStorage()
   }));
   const bySlug = new Map(allWithSettings.map((project) => [project.slug, project]));
   const adminProject = bySlug.get(options.adminProject.slug) ?? options.adminProject;
@@ -285,6 +288,35 @@ export async function updateProjectSettings(options: {
   }
 }
 
+export async function updateProjectIconUrl(options: {
+  databaseUrl: string;
+  adminProject: AuthProject;
+  slug: string;
+  iconUrl: string;
+}): Promise<AuthProject | null> {
+  validateOptionalUrl(options.iconUrl, "iconUrl");
+
+  const pool = createAdminPool(options.databaseUrl, options.adminProject);
+  const db = drizzle({ client: pool });
+
+  try {
+    const updated = await db.execute<ProjectSettingsRow>(sql`
+      UPDATE auth_project_settings
+      SET icon_url = ${options.iconUrl},
+          updated_at = now()
+      WHERE slug = ${options.slug}
+      RETURNING slug, name, schema, description, icon_url AS "iconUrl",
+                app_url AS "appUrl", trusted_origins AS "trustedOrigins",
+                features,
+                system
+    `);
+
+    return updated.rows[0] ? rowToProject(updated.rows[0]) : null;
+  } finally {
+    await pool.end();
+  }
+}
+
 async function readProjectSettings(
   databaseUrl: string,
   adminProject: AuthProject
@@ -341,7 +373,8 @@ export function createProjectFromInput(input: ProjectSettingsCreate): AuthProjec
     trustedOrigins: input.trustedOrigins.map((origin) => origin.trim()).filter(Boolean),
     features: normalizeProjectFeatures(input.features),
     socialProviders: optionsDefaultSocialProviders(),
-    billing: cloneDefaultBilling()
+    billing: cloneDefaultBilling(),
+    storage: cloneDefaultStorage()
   };
 
   validateProjectSchema(project.schema);
@@ -385,7 +418,8 @@ function rowToProject(row: ProjectSettingsRow): AuthProject {
     trustedOrigins: normalizeTrustedOrigins(row.trustedOrigins),
     features: normalizeProjectFeatures(row.features),
     socialProviders: optionsDefaultSocialProviders(),
-    billing: cloneDefaultBilling()
+    billing: cloneDefaultBilling(),
+    storage: cloneDefaultStorage()
   };
 }
 
