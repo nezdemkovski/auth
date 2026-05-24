@@ -11,6 +11,7 @@ import { registerDeliveryRoutes } from "../modules/delivery/http";
 import { ProjectService } from "../modules/projects/core";
 import { registerProjectRoutes } from "../modules/projects/http";
 import { registerStorageRoutes } from "../modules/storage/http";
+import { UsersService } from "../modules/users/core";
 import { registerUserRoutes } from "../modules/users/http";
 import {
   isStateChangingMethod,
@@ -56,6 +57,10 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     publicBaseUrl: options.publicBaseUrl,
     secret: options.secret
   });
+  const usersService = new UsersService({
+    adminProject: options.adminProject,
+    getDeliverySettings: () => currentDeliverySettings
+  });
   const routeContext = {
     app,
     options,
@@ -64,6 +69,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     deliveryService,
     projectService,
     storageService,
+    usersService,
     getDeliverySettings: () => currentDeliverySettings,
     setDeliverySettings: (settings: EmailConfig) => {
       currentDeliverySettings = settings;

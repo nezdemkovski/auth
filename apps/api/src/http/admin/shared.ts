@@ -9,6 +9,7 @@ import type { BillingService } from "../../modules/billing/core";
 import type { DeliveryService } from "../../modules/delivery/core";
 import type { ProjectService } from "../../modules/projects/core";
 import type { StorageService } from "../../modules/storage/core";
+import type { UsersService } from "../../modules/users/core";
 
 export type AdminApiOptions = {
   registry: AuthRegistry;
@@ -40,6 +41,7 @@ export type AdminRouteContext = {
   deliveryService: DeliveryService;
   projectService: ProjectService;
   storageService: StorageService;
+  usersService: UsersService;
   getDeliverySettings(): EmailConfig;
   setDeliverySettings(settings: EmailConfig): void;
 };
@@ -125,27 +127,6 @@ export function requireMutableProject(
   return result;
 }
 
-export async function sendVerificationEmail(
-  auth: unknown,
-  body: {
-    email: string;
-    callbackURL?: string;
-  }
-): Promise<unknown> {
-  const api = (auth as {
-    api: {
-      sendVerificationEmail(input: {
-        body: {
-          email: string;
-          callbackURL?: string;
-        };
-      }): Promise<unknown>;
-    };
-  }).api;
-
-  return api.sendVerificationEmail({ body });
-}
-
 export function mediaUploadError(error: unknown): Response {
   if (error instanceof MediaUploadError) {
     const status = error.code === "storage_not_configured" ? 409 : 400;
@@ -175,8 +156,4 @@ export function isTrustedAdminRequest(headers: Headers, adminOrigin: string): bo
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-export function toIsoString(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
