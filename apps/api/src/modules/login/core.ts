@@ -1,6 +1,8 @@
-import { createHash } from "node:crypto";
-
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
+import {
+  randomBase64Url,
+  sha256Base64Url
+} from "../../runtime/crypto";
 import {
   LOGIN_CODE_TTL_SECONDS,
   type LoginCodeStore
@@ -94,13 +96,11 @@ export class LoginFlowService {
 }
 
 function createCode(): string {
-  return Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString(
-    "base64url"
-  );
+  return randomBase64Url(32);
 }
 
 export function pkceChallenge(verifier: string): string {
-  return createHash("sha256").update(verifier).digest("base64url");
+  return sha256Base64Url(verifier);
 }
 
 export function validPkceChallenge(value: string): boolean {

@@ -1,11 +1,11 @@
 import { getMigrations } from "better-auth/db/migration";
-import { randomBytes } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
 import type { AuthProject } from "../config/projects";
 import type { EmailConfig } from "../email/sender";
+import { randomBase64Url } from "../runtime/crypto";
 import {
   createProjectAuth,
   createProjectMigrationAuthOptions
@@ -174,7 +174,7 @@ async function bootstrapInitialAdmin(options: BootstrapOptions): Promise<void> {
 }
 
 function generateTemporaryPassword(): string {
-  return randomBytes(24).toString("base64url");
+  return randomBase64Url(24);
 }
 
 export async function prepareProjectSchema(options: Omit<BootstrapOptions, "adminEmail" | "initialDeliveryConfig"> & {

@@ -1,6 +1,8 @@
-import { createHash, randomBytes } from "node:crypto";
-
 import type { ProjectStorageSettings } from "../../config/projects";
+import {
+  randomHex,
+  sha256Hex
+} from "../../runtime/crypto";
 
 export type MediaUploadPurpose = "project_icon" | "user_avatar";
 
@@ -48,7 +50,7 @@ export async function uploadMedia(input: MediaUploadInput): Promise<MediaUploadR
   }
 
   const bytes = new Uint8Array(await input.file.arrayBuffer());
-  const checksumSha256 = createHash("sha256").update(bytes).digest("hex");
+  const checksumSha256 = sha256Hex(bytes);
   const objectKey = buildObjectKey({
     realmSlug: input.realmSlug,
     purpose: input.purpose,
@@ -123,7 +125,7 @@ function buildObjectKey(options: {
   ownerUserId: string | null;
   extension: string;
 }): string {
-  const token = randomBytes(16).toString("hex");
+  const token = randomHex(16);
   if (options.purpose === "project_icon") {
     return `realms/${options.realmSlug}/images/${token}.${options.extension}`;
   }
