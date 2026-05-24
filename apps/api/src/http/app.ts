@@ -1,12 +1,9 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
 import {
   oauthProviderAuthServerMetadata,
   oauthProviderOpenIdConfigMetadata
 } from "@better-auth/oauth-provider";
-import type { Pool } from "pg";
 
 import type { Env } from "../config/env";
 import type { AuthProject } from "../config/projects";
@@ -25,8 +22,9 @@ import {
   getPasswordResetConfig
 } from "./login";
 import { createRateLimiter, rateLimit, securityHeaders } from "./security";
-import { insertStorageObject } from "../db/storage-objects";
-import { MediaUploadError, uploadMedia } from "../storage/media";
+import { StorageService } from "../services/core/storage";
+import { MediaUploadError } from "../storage/media";
+import { parseMediaUploadRequest } from "./validator/storage";
 
 type AppVariables = {
   registry: AuthRegistry;
@@ -84,6 +82,13 @@ export async function createApp(env: Env) {
     emailSender,
     trustProxyHeaders: env.trustProxyHeaders,
     projects: [adminProject, ...projects]
+  });
+  const storageService = new StorageService({
+    registry,
+    databaseUrl: env.databaseUrl,
+    adminProject,
+    encryptionSecret: env.betterAuthSecret,
+    managedStorage: env.storage
   });
 
   const app = new Hono<{ Variables: AppVariables }>({
@@ -186,35 +191,23 @@ export async function createApp(env: Env) {
       return c.json({ error: "unauthorized" }, 401);
     }
 
-    const form = await c.req.formData();
-    const purpose = form.get("purpose");
-    const file = form.get("file");
-    if (purpose !== "user_avatar" || !(file instanceof File)) {
+    const uploadRequest = await parseMediaUploadRequest(
+      await c.req.formData(),
+      "user_avatar"
+    );
+    if (!uploadRequest) {
       return c.json({ error: "invalid_body" }, 400);
     }
 
     try {
-      const uploaded = await uploadMedia({
-        storage: registered.project.storage,
-        realmSlug: registered.project.slug,
-        purpose,
-        file,
+      const result = await storageService.uploadUserAvatar({
+        registered,
+        purpose: uploadRequest.purpose,
+        file: uploadRequest.file,
         ownerUserId: session.user.id
       });
-      await insertStorageObject(registered.projectDb.pool, {
-        purpose,
-        ...uploaded,
-        ownerUserId: session.user.id
-      });
-      await updateUserImage(registered.projectDb.pool, session.user.id, uploaded.publicUrl);
 
-      return c.json({
-        upload: uploaded,
-        user: {
-          id: session.user.id,
-          image: uploaded.publicUrl
-        }
-      });
+      return c.json(result);
     } catch (error) {
       if (error instanceof MediaUploadError) {
         return c.json(
@@ -350,20 +343,6 @@ async function getProjectSession(
   }).api;
 
   return api.getSession({ headers });
-}
-
-async function updateUserImage(
-  pool: Pool,
-  userId: string,
-  image: string
-): Promise<void> {
-  const db = drizzle({ client: pool });
-  await db.execute(sql`
-    UPDATE "user"
-    SET image = ${image},
-        "updatedAt" = now()
-    WHERE id = ${userId}
-  `);
 }
 
 function isEnabledAuthFeaturePath(project: AuthProject, path: string): boolean {

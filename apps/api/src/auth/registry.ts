@@ -5,7 +5,7 @@ import { createProjectAuth } from "./project-auth";
 
 type ProjectAuth = ReturnType<typeof createProjectAuth>;
 
-type RegisteredProject = {
+export type RegisteredProject = {
   project: AuthProject;
   auth: ProjectAuth;
   projectDb: ProjectDatabase;

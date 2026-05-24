@@ -14,7 +14,6 @@ import {
   createProjectSettings,
   normalizeProjectFeatures,
   projectSettingsExists,
-  updateProjectIconUrl,
   updateProjectSettings,
   type ProjectSettingsCreate,
   type ProjectSettingsPatch
@@ -23,7 +22,6 @@ import {
   loadProjectSocialProviders,
   markSocialProviderVerified,
   readProjectSocialProviders,
-  socialProviderCallbackUrl,
   updateProjectSocialProvider,
   type SocialProviderPatch
 } from "../db/social-provider-settings";
@@ -40,13 +38,11 @@ import {
   loadProjectBillingSettings,
   type BillingSettingsPatch
 } from "../db/billing-settings";
-import {
-  readPublicStorageSettings,
-  updateStorageSettings,
-  type StorageSettingsPatch
-} from "../db/storage-settings";
-import { insertStorageObject, listStorageObjects } from "../db/storage-objects";
-import { MediaUploadError, uploadMedia } from "../storage/media";
+import type { StorageSettingsPatch } from "../db/storage-settings";
+import { projectResponse } from "./translate/project";
+import { parseMediaUploadRequest } from "./validator/storage";
+import { StorageService } from "../services/core/storage";
+import { MediaUploadError } from "../storage/media";
 
 type AdminApiOptions = {
   registry: AuthRegistry;
@@ -128,6 +124,13 @@ export function createAdminApi(options: AdminApiOptions): Hono {
   const app = new Hono();
   const adminOrigin = new URL(options.publicBaseUrl).origin;
   let currentDeliverySettings = options.deliverySettings;
+  const storageService = new StorageService({
+    registry: options.registry,
+    databaseUrl: options.databaseUrl,
+    adminProject: options.adminProject,
+    encryptionSecret: options.secret,
+    managedStorage: options.managedStorage
+  });
 
   app.use("*", async (c, next) => {
     if (!isStateChangingMethod(c.req.method)) {
@@ -352,7 +355,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
         }
 
         const counts = await readProjectCounts(registered.projectDb.pool);
-        return serializeProject(project, counts, options.publicBaseUrl);
+        return projectResponse(project, counts, options.publicBaseUrl);
       })
     );
 
@@ -421,7 +424,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
 
       return c.json(
         {
-          project: serializeProject(created, counts, options.publicBaseUrl)
+          project: projectResponse(created, counts, options.publicBaseUrl)
         },
         201
       );
@@ -491,7 +494,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       const counts = next ? await readProjectCounts(next.projectDb.pool) : undefined;
 
       return c.json({
-        project: serializeProject(nextProject, counts, options.publicBaseUrl)
+        project: projectResponse(nextProject, counts, options.publicBaseUrl)
       });
     } catch (error) {
       return c.json(
@@ -777,12 +780,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     }
 
     return c.json({
-      settings: await readPublicStorageSettings({
-        databaseUrl: options.databaseUrl,
-        adminProject: options.adminProject,
-        project: registered.project,
-        managedStorage: options.managedStorage
-      })
+      settings: await storageService.readSettings(registered.project)
     });
   });
 
@@ -798,7 +796,7 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     }
 
     return c.json({
-      objects: await listStorageObjects(registered.projectDb.pool)
+      objects: await storageService.listObjects(registered)
     });
   });
 
@@ -823,26 +821,8 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     }
 
     try {
-      const storage = await updateStorageSettings({
-        databaseUrl: options.databaseUrl,
-        adminProject: options.adminProject,
-        project: registered.project,
-        encryptionSecret: options.secret,
-        managedStorage: options.managedStorage,
-        patch
-      });
-      await options.registry.updateProject({
-        ...registered.project,
-        storage
-      });
-
       return c.json({
-        settings: await readPublicStorageSettings({
-          databaseUrl: options.databaseUrl,
-          adminProject: options.adminProject,
-          project: registered.project,
-          managedStorage: options.managedStorage
-        })
+        settings: await storageService.updateSettings(registered, patch)
       });
     } catch (error) {
       return c.json(
@@ -869,48 +849,28 @@ export function createAdminApi(options: AdminApiOptions): Hono {
       return c.json({ error: "system_project_locked" }, 409);
     }
 
-    const form = await c.req.formData();
-    const purpose = form.get("purpose");
-    const file = form.get("file");
-    if (purpose !== "project_icon" || !(file instanceof File)) {
+    const uploadRequest = await parseMediaUploadRequest(
+      await c.req.formData(),
+      "project_icon"
+    );
+    if (!uploadRequest) {
       return c.json({ error: "invalid_body" }, 400);
     }
 
     try {
-      const uploaded = await uploadMedia({
-        storage: registered.project.storage,
-        realmSlug: registered.project.slug,
-        purpose,
-        file,
+      const result = await storageService.uploadProjectIcon({
+        registered,
+        purpose: uploadRequest.purpose,
+        file: uploadRequest.file,
         ownerUserId: admin.session.user.id
       });
-      await insertStorageObject(registered.projectDb.pool, {
-        purpose,
-        ...uploaded,
-        ownerUserId: admin.session.user.id
-      });
-      const project = await updateProjectIconUrl({
-        databaseUrl: options.databaseUrl,
-        adminProject: options.adminProject,
-        slug: registered.project.slug,
-        iconUrl: uploaded.publicUrl
-      });
-      if (project) {
-        await options.registry.updateProject({
-          ...registered.project,
-          iconUrl: uploaded.publicUrl
-        });
-      }
 
       return c.json({
-        upload: uploaded,
-        project: project ? serializeProject({
-          ...registered.project,
-          iconUrl: uploaded.publicUrl
-        }) : null
+        upload: result.upload,
+        project: result.project ? projectResponse(result.project) : null
       });
     } catch (error) {
-      return mediaUploadError(c, error);
+      return mediaUploadError(error);
     }
   });
 
@@ -1128,39 +1088,6 @@ export function createAdminApi(options: AdminApiOptions): Hono {
   });
 
   return app;
-}
-
-function serializeProject(
-  project: AuthProject,
-  counts: { userCount: number; activeSessionCount: number } = {
-    userCount: 0,
-    activeSessionCount: 0
-  },
-  publicBaseUrl = ""
-) {
-  return {
-    slug: project.slug,
-    name: project.name,
-    schema: project.schema,
-    description: project.description,
-    iconUrl: project.iconUrl,
-    appUrl: project.appUrl,
-    trustedOrigins: project.trustedOrigins,
-    features: project.features,
-    socialProviders: Object.values(SOCIAL_PROVIDER_CATALOG).map((provider) => {
-      const settings = project.socialProviders[provider.id];
-      return {
-        provider: provider.id,
-        enabled: settings.enabled,
-        clientId: settings.clientId,
-        configured: Boolean(settings.clientId && settings.clientSecret),
-        verifiedAt: settings.verifiedAt,
-        callbackUrl: socialProviderCallbackUrl(publicBaseUrl, project, provider.id)
-      };
-    }),
-    system: project.slug === "admin",
-    ...counts
-  };
 }
 
 function parseProjectCreate(body: CreateProjectBody): ProjectSettingsCreate | null {
@@ -1418,10 +1345,7 @@ function parseCreatePolarProduct(body: CreatePolarProductBody): {
   };
 }
 
-function mediaUploadError(
-  c: { json: (value: object, status?: number) => Response },
-  error: unknown
-): Response {
+function mediaUploadError(error: unknown): Response {
   if (error instanceof MediaUploadError) {
     const status = error.code === "storage_not_configured" ? 409 : 400;
     return Response.json({ error: error.code }, { status });
