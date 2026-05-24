@@ -1,4 +1,4 @@
-import { projectResponse } from "../../http/translate/project";
+import { projectResponse } from "../projects/translator";
 import {
   parseMediaUploadRequest,
   parseStorageSettingsPatch

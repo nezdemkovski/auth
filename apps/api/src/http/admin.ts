@@ -11,7 +11,7 @@ import { DeliveryService } from "../modules/delivery/core";
 import { StorageService } from "../modules/storage/core";
 import { registerBillingRoutes } from "../modules/billing/http";
 import { registerDeliveryRoutes } from "../modules/delivery/http";
-import { registerProjectRoutes } from "./admin/routes/projects";
+import { registerProjectRoutes } from "../modules/projects/http";
 import { registerStorageRoutes } from "../modules/storage/http";
 import { registerUserRoutes } from "./admin/routes/users";
 import {

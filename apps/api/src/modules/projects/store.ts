@@ -10,14 +10,14 @@ import {
   validateProjectSlug,
   type AuthProject,
   type ProjectFeatures
-} from "../config/projects";
-import { cloneDefaultBilling, loadBillingSettings } from "../modules/billing/store";
-import { cloneDefaultStorage, loadStorageSettings } from "../modules/storage/store";
+} from "../../config/projects";
+import { cloneDefaultBilling, loadBillingSettings } from "../billing/store";
+import { cloneDefaultStorage, loadStorageSettings } from "../storage/store";
 import {
   ensureSocialProviderSettingsTable,
   cloneDefaultSocialProviders,
   loadSocialProviderSettings
-} from "./social-provider-settings";
+} from "./social-provider-store";
 
 export type ProjectSettingsPatch = {
   name: string;

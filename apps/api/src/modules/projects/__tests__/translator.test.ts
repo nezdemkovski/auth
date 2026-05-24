@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { DEFAULT_PROJECT_FEATURES, DEFAULT_PROJECT_STORAGE } from "../src/config/projects";
-import { cloneDefaultSocialProviders } from "../src/db/social-provider-settings";
-import { projectResponse } from "../src/http/translate/project";
+import { DEFAULT_PROJECT_FEATURES, DEFAULT_PROJECT_STORAGE } from "../../../config/projects";
+import { cloneDefaultSocialProviders } from "../social-provider-store";
+import { projectResponse } from "../translator";
+
 describe("project translator", () => {
   test("serializes realm metadata without exposing provider secrets", () => {
     const socialProviders = cloneDefaultSocialProviders();

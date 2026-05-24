@@ -2,8 +2,8 @@ import {
   normalizeProjectFeatures,
   type ProjectSettingsCreate,
   type ProjectSettingsPatch
-} from "../../db/project-settings";
-import type { SocialProviderPatch } from "../../db/social-provider-settings";
+} from "./store";
+import type { SocialProviderPatch } from "./social-provider-store";
 
 type ProjectCreateBody = Partial<Record<keyof ProjectSettingsCreate, unknown>>;
 type ProjectSettingsBody = Partial<Record<keyof ProjectSettingsPatch, unknown>>;

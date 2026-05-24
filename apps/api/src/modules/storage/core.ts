@@ -4,7 +4,7 @@ import type { Pool } from "pg";
 
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
-import { updateProjectIconUrl } from "../../db/project-settings";
+import { updateProjectIconUrl } from "../projects/store";
 import {
   insertStorageObject,
   listStorageObjects,

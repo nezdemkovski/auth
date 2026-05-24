@@ -14,7 +14,7 @@ import {
   createProjectFromInput,
   normalizeProjectFeatures,
   validateProjectSettingsPatch
-} from "../src/db/project-settings";
+} from "../src/modules/projects/store";
 
 describe("projects", () => {
   test("uses a stable built-in admin project", () => {

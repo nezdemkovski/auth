@@ -21,7 +21,7 @@ import type { AuthProject } from "../config/projects";
 import { AuthRegistry } from "../auth/registry";
 import { bootstrapProjects, prepareProjectSchema } from "../db/bootstrap";
 import { loadDeliverySettings } from "../modules/delivery/store";
-import { loadEffectiveProjects } from "../db/project-settings";
+import { loadEffectiveProjects } from "../modules/projects/store";
 import { createEmailSender } from "../email/sender";
 import { createAdminApi } from "./admin";
 import { createRateLimiter, rateLimit, securityHeaders } from "./security";

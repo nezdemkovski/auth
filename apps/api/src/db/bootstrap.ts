@@ -15,8 +15,11 @@ import {
   ensureDeliverySettingsTable,
   seedDeliverySettingsFromEnv
 } from "../modules/delivery/store";
-import { ensureProjectSettingsTable, seedAdminProjectSettings } from "./project-settings";
-import { ensureSocialProviderSettingsTable } from "./social-provider-settings";
+import {
+  ensureProjectSettingsTable,
+  seedAdminProjectSettings
+} from "../modules/projects/store";
+import { ensureSocialProviderSettingsTable } from "../modules/projects/social-provider-store";
 import {
   ensureStorageObjectsTable,
   ensureStorageSettingsTable

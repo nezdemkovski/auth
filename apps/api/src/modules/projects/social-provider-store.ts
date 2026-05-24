@@ -6,13 +6,13 @@ import {
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   type AuthProject,
   type ProjectSocialProviders
-} from "../config/projects";
+} from "../../config/projects";
 import {
   isSocialProviderId,
   SOCIAL_PROVIDER_IDS,
   type SocialProviderId
-} from "../config/social-providers";
-import { decryptSecretValue, encryptSecretValue } from "./secret-crypto";
+} from "../../config/social-providers";
+import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 
 export type PublicSocialProviderSettings = {
   provider: SocialProviderId;

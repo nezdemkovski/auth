@@ -3,17 +3,17 @@ import { describe, expect, test } from "bun:test";
 import {
   ADMIN_PROJECT,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS
-} from "../src/config/projects";
+} from "../../../config/projects";
 import {
   isSocialProviderId,
   SOCIAL_PROVIDER_CATALOG,
   SOCIAL_PROVIDER_IDS
-} from "../src/config/social-providers";
+} from "../../../config/social-providers";
 import {
   __socialProviderTestUtils,
   cloneDefaultSocialProviders,
   socialProviderCallbackUrl
-} from "../src/db/social-provider-settings";
+} from "../social-provider-store";
 
 describe("social provider settings", () => {
   test("catalog and default settings stay in sync", () => {

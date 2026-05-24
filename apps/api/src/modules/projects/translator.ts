@@ -1,6 +1,6 @@
 import type { AuthProject } from "../../config/projects";
 import { SOCIAL_PROVIDER_CATALOG } from "../../config/social-providers";
-import { socialProviderCallbackUrl } from "../../db/social-provider-settings";
+import { socialProviderCallbackUrl } from "./social-provider-store";
 
 export type ProjectCounts = {
   userCount: number;

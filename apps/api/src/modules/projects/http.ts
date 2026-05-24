@@ -1,30 +1,30 @@
-import type { AuthProject } from "../../../config/projects";
-import { SOCIAL_PROVIDER_CATALOG, isSocialProviderId } from "../../../config/social-providers";
-import { prepareProjectSchema } from "../../../db/bootstrap";
-import { loadProjectBillingSettings } from "../../../modules/billing/store";
+import type { AuthProject } from "../../config/projects";
+import { SOCIAL_PROVIDER_CATALOG, isSocialProviderId } from "../../config/social-providers";
+import { prepareProjectSchema } from "../../db/bootstrap";
+import { loadProjectBillingSettings } from "../billing/store";
 import {
   createProjectFromInput,
   createProjectSettings,
   projectSettingsExists,
   updateProjectSettings
-} from "../../../db/project-settings";
+} from "./store";
 import {
   loadProjectSocialProviders,
   markSocialProviderVerified,
   readProjectSocialProviders,
   updateProjectSocialProvider
-} from "../../../db/social-provider-settings";
-import { readProjectCounts } from "../../../services/core/admin-projects";
+} from "./social-provider-store";
+import { readProjectCounts } from "../../services/core/admin-projects";
 import {
   parseProjectCreate,
   parseProjectSettingsPatch,
   parseSocialProviderPatch
-} from "../../validator/project";
-import { projectResponse } from "../../translate/project";
+} from "./validator";
+import { projectResponse } from "./translator";
 import {
   requireAdmin,
   type AdminRouteRegistration
-} from "../shared";
+} from "../../http/admin/shared";
 
 export const registerProjectRoutes: AdminRouteRegistration = ({ app, options }) => {
   app.get("/projects", async (c) => {
