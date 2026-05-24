@@ -53,6 +53,14 @@ Done when:
 - `http/admin.ts` only creates services, installs middleware, and registers
   modules.
 
+Progress:
+
+- `requireRegisteredProject` and `requireMutableProject` are shared.
+- `/me`, `/profile`, and `/change-password` live in `admin-account`.
+- `http/admin/shared.ts` is split into focused helper files and re-exported
+  for compatibility.
+- Remaining work: shared `parseJson` and common domain-error response helpers.
+
 ## Priority 2: Projects Module
 
 Current problem:
@@ -102,6 +110,13 @@ Done when:
 - `projects/http.ts` does no DB or Better Auth API work directly.
 - Project lifecycle behavior can be tested without Hono.
 
+Progress:
+
+- `ProjectService` owns project listing, creation, updates, social provider
+  updates, social verification, registry refresh, and response orchestration.
+- Remaining work: reduce `projects/store.ts` helper sprawl and add service
+  tests around duplicate/system project boundaries.
+
 ## Priority 3: Billing Module
 
 Current problem:
@@ -146,6 +161,14 @@ Done when:
 - Store returns domain settings, not public DTOs.
 - Polar SDK can be mocked at one boundary.
 
+Progress:
+
+- Billing patch validation now lives in `validator.ts`.
+- Product JSON normalization now lives in `translator.ts`.
+- Remaining work: split Polar SDK integration into `polar-client.ts`, move
+  default entitlements out of translator, and make store stop returning public
+  settings DTOs.
+
 ## Priority 4: Storage Module
 
 Current problem:
@@ -188,6 +211,14 @@ Done when:
 - `storage/store.ts` no longer exceeds one persistence concern.
 - Upload behavior has clear failure semantics.
 
+Progress:
+
+- Storage settings and object metadata are split into `settings-store.ts` and
+  `objects-store.ts`.
+- User avatar image updates now go through `users/store.ts`.
+- Remaining work: add storage translators and define cleanup behavior for
+  upload workflows when later DB updates fail.
+
 ## Priority 5: Login Module
 
 Current problem:
@@ -228,6 +259,13 @@ Done when:
 - `login/http.ts` only maps URL/query/body to service calls and responses.
 - Redis dependency is not imported from `http/security`.
 
+Progress:
+
+- Shared Redis reconnect wrapper lives in `db/redis.ts`; login store and rate
+  limiter both depend on it.
+- Remaining work: add login config translators, stricter malformed-body
+  handling, and isolate/document synthetic Better Auth session requests.
+
 ## Priority 6: Delivery Module
 
 Current problem:
@@ -257,6 +295,13 @@ Done when:
 
 - Store does not return public DTOs.
 - Runtime config conversion is a named, tested function.
+
+Progress:
+
+- Public delivery settings response shaping now lives in `translator.ts`.
+- Delivery patch validation now lives in `validator.ts`.
+- Remaining work: introduce an internal delivery settings domain type and named
+  runtime-config conversion helpers.
 
 ## Priority 7: Users Module
 
@@ -289,6 +334,13 @@ Done when:
 
 - `users/http.ts` has no Better Auth API calls and no DTO construction.
 
+Progress:
+
+- `UsersService` owns list, terminate sessions, and resend verification.
+- `users/translator.ts` owns project/user DTO shaping.
+- Remaining work: add focused tests for DTO date serialization and resend
+  verification failure modes.
+
 ## Priority 8: Admin Account Module
 
 Current problem:
@@ -320,6 +372,10 @@ Tests to add:
 Done when:
 
 - `http/admin.ts` no longer contains admin-account routes.
+
+Progress:
+
+- Done. Admin account routes and core behavior live in `modules/admin-account`.
 
 ## Priority 9: Cross-Cutting Store Infrastructure
 
@@ -379,17 +435,18 @@ Done when:
 
 ## Suggested Execution Order
 
-1. Shared admin route helpers. In progress:
-   `requireRegisteredProject` and `requireMutableProject` are shared, but
-   `http/admin/shared.ts` still needs to be split into focused files.
+1. Shared admin route helpers. Mostly done; remaining work is response/parsing
+   helpers.
 2. Admin account module HTTP/core extraction. Done.
 3. Projects core extraction. Done for the main service flow. Store cleanup and
    social provider sub-domain cleanup remain.
 4. Users core/translator extraction. Done.
-5. Storage store split and upload workflow cleanup.
-6. Billing Polar client/entitlements split.
-7. Delivery translator/runtime config cleanup.
-8. Login Redis infra and validator cleanup.
+5. Storage store split is done; upload workflow cleanup remains.
+6. Billing validation/translation cleanup is started; Polar
+   client/entitlements split remains.
+7. Delivery translator/validation cleanup is started; runtime config cleanup
+   remains.
+8. Login Redis infra cleanup is done; validator/config cleanup remains.
 9. Shared DB helper.
 10. App-level route extraction.
 
