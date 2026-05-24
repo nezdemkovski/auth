@@ -69,3 +69,17 @@ export async function terminateUserSessions(
 
   return result.rows.length;
 }
+
+export async function updateUserImage(
+  pool: Pool,
+  userId: string,
+  image: string
+): Promise<void> {
+  const db = drizzle({ client: pool });
+  await db.execute(sql`
+    UPDATE "user"
+    SET image = ${image},
+        "updatedAt" = now()
+    WHERE id = ${userId}
+  `);
+}

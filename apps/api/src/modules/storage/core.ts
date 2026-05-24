@@ -1,18 +1,17 @@
-import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
-import type { Pool } from "pg";
-
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import { updateProjectIconUrl } from "../projects/store";
+import { updateUserImage } from "../users/store";
 import {
   insertStorageObject,
-  listStorageObjects,
+  listStorageObjects
+} from "./objects-store";
+import {
   readPublicStorageSettings,
   updateStorageSettings,
   type PublicStorageSettings,
   type StorageSettingsPatch
-} from "./store";
+} from "./settings-store";
 import {
   uploadMedia,
   type MediaUploadPurpose,
@@ -142,18 +141,4 @@ export class StorageService {
 
     return uploaded;
   }
-}
-
-async function updateUserImage(
-  pool: Pool,
-  userId: string,
-  image: string
-): Promise<void> {
-  const db = drizzle({ client: pool });
-  await db.execute(sql`
-    UPDATE "user"
-    SET image = ${image},
-        "updatedAt" = now()
-    WHERE id = ${userId}
-  `);
 }

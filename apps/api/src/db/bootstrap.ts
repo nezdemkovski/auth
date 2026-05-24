@@ -20,10 +20,8 @@ import {
   seedAdminProjectSettings
 } from "../modules/projects/store";
 import { ensureSocialProviderSettingsTable } from "../modules/projects/social-provider-store";
-import {
-  ensureStorageObjectsTable,
-  ensureStorageSettingsTable
-} from "../modules/storage/store";
+import { ensureStorageObjectsTable } from "../modules/storage/objects-store";
+import { ensureStorageSettingsTable } from "../modules/storage/settings-store";
 
 type BootstrapOptions = {
   databaseUrl: string;
