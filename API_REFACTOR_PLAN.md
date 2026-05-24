@@ -379,10 +379,13 @@ Done when:
 
 ## Suggested Execution Order
 
-1. Shared admin route helpers.
-2. Admin account module HTTP/core extraction.
-3. Projects core extraction.
-4. Users core/translator extraction.
+1. Shared admin route helpers. In progress:
+   `requireRegisteredProject` and `requireMutableProject` are shared, but
+   `http/admin/shared.ts` still needs to be split into focused files.
+2. Admin account module HTTP/core extraction. Done.
+3. Projects core extraction. Done for the main service flow. Store cleanup and
+   social provider sub-domain cleanup remain.
+4. Users core/translator extraction. Done.
 5. Storage store split and upload workflow cleanup.
 6. Billing Polar client/entitlements split.
 7. Delivery translator/runtime config cleanup.
