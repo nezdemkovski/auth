@@ -1,17 +1,24 @@
 import { describe, expect, test } from "bun:test";
 
-import { __loginTestUtils } from "../src/http/login";
+import {
+  internalAuthHeaders,
+  pkceChallenge,
+  redirectUriAllowed,
+  validPkceChallenge,
+  verifyPkce
+} from "../core";
+import { createLoginCodeStore } from "../store";
 
 const verifier = "A".repeat(43);
 
 describe("login auth security helpers", () => {
   test("requires S256-shaped PKCE values and verifies the matching verifier", () => {
-    const challenge = __loginTestUtils.pkceChallenge(verifier);
+    const challenge = pkceChallenge(verifier);
 
-    expect(__loginTestUtils.validPkceChallenge(challenge)).toBe(true);
-    expect(__loginTestUtils.verifyPkce(challenge, verifier)).toBe(true);
-    expect(__loginTestUtils.verifyPkce(challenge, "B".repeat(43))).toBe(false);
-    expect(__loginTestUtils.validPkceChallenge("too-short")).toBe(false);
+    expect(validPkceChallenge(challenge)).toBe(true);
+    expect(verifyPkce(challenge, verifier)).toBe(true);
+    expect(verifyPkce(challenge, "B".repeat(43))).toBe(false);
+    expect(validPkceChallenge("too-short")).toBe(false);
   });
 
   test("allows redirects by exact trusted origin only", () => {
@@ -22,21 +29,21 @@ describe("login auth security helpers", () => {
     };
 
     expect(
-      __loginTestUtils.redirectUriAllowed(
+      redirectUriAllowed(
         registry as never,
         "openmarkers",
         "https://openmarkers.app/auth/callback"
       )
     ).toBe(true);
     expect(
-      __loginTestUtils.redirectUriAllowed(
+      redirectUriAllowed(
         registry as never,
         "openmarkers",
         "https://evil.example/auth/callback"
       )
     ).toBe(false);
     expect(
-      __loginTestUtils.redirectUriAllowed(
+      redirectUriAllowed(
         registry as never,
         "openmarkers",
         "not a url"
@@ -53,7 +60,7 @@ describe("login auth security helpers", () => {
       "user-agent": "test-agent"
     });
 
-    const direct = __loginTestUtils.internalAuthHeaders(
+    const direct = internalAuthHeaders(
       source,
       {},
       { trustProxyHeaders: false }
@@ -62,7 +69,7 @@ describe("login auth security helpers", () => {
     expect(direct.get("cf-connecting-ip")).toBeNull();
     expect(direct.get("x-forwarded-for")).toBeNull();
 
-    const proxied = __loginTestUtils.internalAuthHeaders(
+    const proxied = internalAuthHeaders(
       source,
       {},
       { trustProxyHeaders: true }
@@ -72,13 +79,13 @@ describe("login auth security helpers", () => {
   });
 
   test("memory login-code store expires codes and deletes only when asked", async () => {
-    const store = __loginTestUtils.createLoginCodeStore(null);
+    const store = createLoginCodeStore(null);
     await store.set("valid-code", {
       project: "openmarkers",
       sessionCookie: "auth.session=value",
       email: "user@example.com",
       redirectUri: "https://openmarkers.app/auth/callback",
-      codeChallenge: __loginTestUtils.pkceChallenge(verifier),
+      codeChallenge: pkceChallenge(verifier),
       expiresAt: Date.now() + 60_000
     });
 
@@ -93,7 +100,7 @@ describe("login auth security helpers", () => {
       sessionCookie: "auth.session=value",
       email: "user@example.com",
       redirectUri: "https://openmarkers.app/auth/callback",
-      codeChallenge: __loginTestUtils.pkceChallenge(verifier),
+      codeChallenge: pkceChallenge(verifier),
       expiresAt: Date.now() - 1
     });
 

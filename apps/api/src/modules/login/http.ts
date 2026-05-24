@@ -1,15 +1,18 @@
-import type { AuthRegistry } from "../auth/registry";
+import type { AuthRegistry } from "../../auth/registry";
 import {
-  createLoginCodeStore,
-  internalAuthHeaders,
   LoginFlowError,
   LoginFlowService,
-  pkceChallenge,
   redirectUriAllowed,
-  validPkceChallenge,
-  verifyPkce,
+  validPkceChallenge
+} from "./core";
+import {
+  createLoginCodeStore,
   type LoginCodeStore
-} from "../services/core/login";
+} from "./store";
+import {
+  parseLoginCodeExchangeInput,
+  parseLoginSessionCodeInput
+} from "./validator";
 
 export { createLoginCodeStore };
 
@@ -138,18 +141,16 @@ export async function createLoginSessionCode(
   project: string,
   options: LoginOptions
 ): Promise<Response> {
-  const body = await req.json().catch(() => null);
+  const input = parseLoginSessionCodeInput(await req.json().catch(() => null));
   const service = new LoginFlowService(options);
 
   try {
     return json(
       await service.createSessionCode({
         project,
-        redirectUri:
-          typeof body?.redirect_uri === "string" ? body.redirect_uri : "",
-        state: typeof body?.state === "string" ? body.state : "",
-        codeChallenge:
-          typeof body?.code_challenge === "string" ? body.code_challenge : "",
+        redirectUri: input.redirectUri,
+        state: input.state,
+        codeChallenge: input.codeChallenge,
         headers: req.headers
       })
     );
@@ -163,18 +164,16 @@ export async function exchangeLoginCode(
   project: string,
   options: LoginOptions
 ): Promise<Response> {
-  const body = await req.json().catch(() => null);
+  const input = parseLoginCodeExchangeInput(await req.json().catch(() => null));
   const service = new LoginFlowService(options);
 
   try {
     return json(
       await service.exchangeCode({
         project,
-        code: typeof body?.code === "string" ? body.code : "",
-        redirectUri:
-          typeof body?.redirect_uri === "string" ? body.redirect_uri : "",
-        codeVerifier:
-          typeof body?.code_verifier === "string" ? body.code_verifier : ""
+        code: input.code,
+        redirectUri: input.redirectUri,
+        codeVerifier: input.codeVerifier
       })
     );
   } catch (error) {
@@ -197,12 +196,3 @@ function loginFlowError(error: unknown): Response {
 
   throw error;
 }
-
-export const __loginTestUtils = {
-  createLoginCodeStore,
-  internalAuthHeaders,
-  pkceChallenge,
-  redirectUriAllowed,
-  validPkceChallenge,
-  verifyPkce
-};

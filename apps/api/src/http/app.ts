@@ -5,6 +5,17 @@ import {
   oauthProviderOpenIdConfigMetadata
 } from "@better-auth/oauth-provider";
 
+import {
+  createLoginSessionCode,
+  createLoginCodeStore,
+  exchangeLoginCode,
+  getLoginConfig,
+  getOAuthConsentConfig,
+  getPasswordResetConfig
+} from "../modules/login/http";
+import { StorageService } from "../modules/storage/core";
+import { MediaUploadError } from "../modules/storage/media";
+import { parseMediaUploadRequest } from "../modules/storage/validator";
 import type { Env } from "../config/env";
 import type { AuthProject } from "../config/projects";
 import { AuthRegistry } from "../auth/registry";
@@ -13,18 +24,7 @@ import { loadDeliverySettings } from "../db/delivery-settings";
 import { loadEffectiveProjects } from "../db/project-settings";
 import { createEmailSender } from "../email/sender";
 import { createAdminApi } from "./admin";
-import {
-  createLoginSessionCode,
-  createLoginCodeStore,
-  exchangeLoginCode,
-  getLoginConfig,
-  getOAuthConsentConfig,
-  getPasswordResetConfig
-} from "./login";
 import { createRateLimiter, rateLimit, securityHeaders } from "./security";
-import { StorageService } from "../modules/storage/core";
-import { MediaUploadError } from "../modules/storage/media";
-import { parseMediaUploadRequest } from "../modules/storage/validator";
 
 type AppVariables = {
   registry: AuthRegistry;
