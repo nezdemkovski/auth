@@ -55,13 +55,7 @@ export async function uploadMedia(input: MediaUploadInput): Promise<MediaUploadR
     ownerUserId: input.ownerUserId,
     extension
   });
-  const client = new Bun.S3Client({
-    bucket: input.storage.bucket,
-    endpoint: input.storage.endpoint || undefined,
-    region: input.storage.region || "auto",
-    accessKeyId: input.storage.accessKeyId,
-    secretAccessKey: input.storage.secretAccessKey
-  });
+  const client = createS3Client(input.storage);
 
   await client.write(objectKey, bytes, {
     type: mimeType,
@@ -77,6 +71,16 @@ export async function uploadMedia(input: MediaUploadInput): Promise<MediaUploadR
     sizeBytes: input.file.size,
     checksumSha256
   };
+}
+
+export async function deleteUploadedMedia(input: {
+  storage: ProjectStorageSettings;
+  objectKey: string;
+}): Promise<void> {
+  assertStorageConfigured(input.storage);
+
+  const client = createS3Client(input.storage);
+  await client.delete(input.objectKey);
 }
 
 function sanitizeFileName(value: string): string {
@@ -101,6 +105,16 @@ function assertStorageConfigured(storage: ProjectStorageSettings): void {
   ) {
     throw new MediaUploadError("storage_not_configured");
   }
+}
+
+function createS3Client(storage: ProjectStorageSettings): Bun.S3Client {
+  return new Bun.S3Client({
+    bucket: storage.bucket,
+    endpoint: storage.endpoint || undefined,
+    region: storage.region || "auto",
+    accessKeyId: storage.accessKeyId,
+    secretAccessKey: storage.secretAccessKey
+  });
 }
 
 function buildObjectKey(options: {
