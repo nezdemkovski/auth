@@ -403,6 +403,12 @@ Done when:
 
 - No module defines its own `createAdminPool`.
 
+Progress:
+
+- Admin stores now use shared `db/admin-pool.ts`.
+- Remaining work: add tests around search path formatting or schema
+  validation, and consider `withAdminDb` if store boilerplate keeps growing.
+
 ## Priority 10: App-Level Routes
 
 Current problem:
@@ -447,7 +453,8 @@ Done when:
 7. Delivery translator/validation cleanup is started; runtime config cleanup
    remains.
 8. Login Redis infra cleanup is done; validator/config cleanup remains.
-9. Shared DB helper.
+9. Shared DB helper is started; duplicate module-level `createAdminPool`
+   functions are gone.
 10. App-level route extraction.
 
 Each step should be a separate commit and must pass:
