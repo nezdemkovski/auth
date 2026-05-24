@@ -224,8 +224,10 @@ Progress:
 - User avatar image updates now go through `users/store.ts`.
 - Storage settings and object explorer response shaping now live in
   `translator.ts`.
-- Remaining work: define cleanup behavior for upload workflows when later DB
-  updates fail.
+- Upload workflows clean up S3 objects when metadata or target persistence
+  fails after upload.
+- Remaining work: add integration coverage around project icon/user avatar
+  upload paths if needed.
 
 ## Priority 5: Login Module
 
@@ -471,8 +473,7 @@ Progress:
 3. Projects core extraction. Done for the main service flow. Store cleanup and
    social provider sub-domain cleanup remain.
 4. Users core/translator extraction and core translator tests are done.
-5. Storage store split and response translators are done; upload workflow
-   cleanup remains.
+5. Storage store split, response translators, and upload cleanup are done.
 6. Billing validation/translation cleanup, Polar client split, entitlement split,
    and store DTO cleanup are done. Secret-preservation tests remain.
 7. Delivery translator/validation cleanup and runtime config cleanup are done.
