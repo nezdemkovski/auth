@@ -439,6 +439,16 @@ Done when:
 
 - `http/app.ts` mostly wires middleware and route modules.
 
+Progress:
+
+- Login routes are registered from `modules/login/http.ts`.
+- Public user avatar upload is registered from `modules/storage/public-http.ts`.
+- Auth proxy, feature gating, and well-known metadata live in
+  `modules/auth-proxy/http.ts`.
+- Public project listing is registered from `modules/projects/public-http.ts`.
+- Remaining work: add route-level regression tests for the extracted public
+  CORS behavior if we want stronger coverage.
+
 ## Suggested Execution Order
 
 1. Shared admin route helpers. Mostly done; remaining work is response/parsing
@@ -455,7 +465,8 @@ Done when:
 8. Login Redis infra cleanup is done; validator/config cleanup remains.
 9. Shared DB helper is started; duplicate module-level `createAdminPool`
    functions are gone.
-10. App-level route extraction.
+10. App-level route extraction is mostly done; `http/app.ts` now wires
+    middleware and route modules.
 
 Each step should be a separate commit and must pass:
 
