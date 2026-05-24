@@ -5,14 +5,17 @@ import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import {
   readPublicBillingSettings,
-  updateBillingSettings,
-  type BillingSettingsPatch
+  updateBillingSettings
 } from "./store";
 import {
   createdBillingProductResponse,
   polarProductResponse
 } from "./translator";
-import type { CreatePolarProductInput } from "./validator";
+import {
+  validateBillingSettingsPatch,
+  type BillingSettingsPatch,
+  type CreatePolarProductInput
+} from "./validator";
 
 export type BillingServiceOptions = {
   registry: AuthRegistry;
@@ -49,6 +52,7 @@ export class BillingService {
     registered: RegisteredProject,
     patch: BillingSettingsPatch
   ) {
+    validateBillingSettingsPatch(patch);
     const billing = await updateBillingSettings({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,

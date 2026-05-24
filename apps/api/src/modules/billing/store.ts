@@ -5,11 +5,11 @@ import { Pool } from "pg";
 import {
   DEFAULT_PROJECT_BILLING,
   type AuthProject,
-  type BillingEntitlement,
-  type BillingProductMapping,
   type ProjectBillingSettings
 } from "../../config/projects";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
+import { normalizeBillingProducts } from "./translator";
+import type { BillingSettingsPatch } from "./validator";
 
 export type PublicBillingSettings = Omit<
   ProjectBillingSettings,
@@ -18,16 +18,6 @@ export type PublicBillingSettings = Omit<
   accessTokenConfigured: boolean;
   webhookSecretConfigured: boolean;
   webhookUrl: string;
-};
-
-export type BillingSettingsPatch = {
-  provider: ProjectBillingSettings["provider"];
-  enabled: boolean;
-  environment: ProjectBillingSettings["environment"];
-  organizationId?: string;
-  accessToken?: string;
-  webhookSecret?: string;
-  products: BillingProductMapping[];
 };
 
 type BillingSettingsRow = {
@@ -154,7 +144,6 @@ export async function updateBillingSettings(options: {
   encryptionSecret: string;
   patch: BillingSettingsPatch;
 }): Promise<ProjectBillingSettings> {
-  validateBillingPatch(options.patch);
   await ensureBillingSettingsTable(options);
 
   const current = await readBillingSettingsRow(options);
@@ -258,7 +247,7 @@ function rowToBilling(row: BillingSettingsRow, encryptionSecret: string): Projec
       row.projectSlug,
       "webhook-secret"
     ),
-    products: normalizeProducts(row.products)
+    products: normalizeBillingProducts(row.products)
   };
 }
 
@@ -267,7 +256,7 @@ function rowToPublic(
   project: AuthProject,
   publicBaseUrl: string
 ): PublicBillingSettings {
-  const products = normalizeProducts(row?.products ?? []);
+  const products = normalizeBillingProducts(row?.products ?? []);
   const provider = row?.provider === "polar" ? "polar" : "none";
   const environment = row?.environment === "production" ? "production" : "sandbox";
   return {
@@ -311,128 +300,6 @@ async function readBillingSettingsRow(options: {
   }
 }
 
-function validateBillingPatch(patch: BillingSettingsPatch): void {
-  if (patch.provider !== "none" && patch.provider !== "polar") {
-    throw new Error("Invalid billing provider");
-  }
-  if (patch.environment !== "sandbox" && patch.environment !== "production") {
-    throw new Error("Invalid billing environment");
-  }
-  if (!Array.isArray(patch.products)) {
-    throw new Error("Products must be an array");
-  }
-  if (patch.organizationId !== undefined && typeof patch.organizationId !== "string") {
-    throw new Error("Invalid organization ID");
-  }
-
-  const slugs = new Set<string>();
-  for (const product of patch.products) {
-    if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(product.slug)) {
-      throw new Error(`Invalid product slug: ${product.slug}`);
-    }
-    if (slugs.has(product.slug)) {
-      throw new Error(`Duplicate product slug: ${product.slug}`);
-    }
-    slugs.add(product.slug);
-    if (!product.name.trim()) {
-      throw new Error(`Product name is required: ${product.slug}`);
-    }
-    if (product.active && !product.productId.trim()) {
-      throw new Error(`Polar product ID is required: ${product.slug}`);
-    }
-    for (const entitlement of product.entitlements) {
-      validateEntitlement(entitlement);
-    }
-  }
-}
-
-function validateEntitlement(entitlement: BillingEntitlement): void {
-  if (!/^[a-z][a-z0-9_]*$/.test(entitlement.key)) {
-    throw new Error(`Invalid entitlement key: ${entitlement.key}`);
-  }
-  if (
-    !["boolean", "recurring_quota", "one_time_credits", "lifetime", "metered"].includes(
-      entitlement.grantType
-    )
-  ) {
-    throw new Error(`Invalid entitlement grant type: ${entitlement.key}`);
-  }
-  if (!["never", "monthly", "yearly"].includes(entitlement.resetPeriod)) {
-    throw new Error(`Invalid entitlement reset period: ${entitlement.key}`);
-  }
-  if (
-    entitlement.amount !== null &&
-    (!Number.isFinite(entitlement.amount) || entitlement.amount < 0)
-  ) {
-    throw new Error(`Invalid entitlement amount: ${entitlement.key}`);
-  }
-}
-
-function normalizeProducts(value: unknown): BillingProductMapping[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .filter(isRecord)
-    .map((product) => ({
-      slug: typeof product.slug === "string" ? product.slug : "",
-      name: typeof product.name === "string" ? product.name : "",
-      description: typeof product.description === "string" ? product.description : "",
-      productId: typeof product.productId === "string" ? product.productId : "",
-      type: normalizeProductType(product.type),
-      active: typeof product.active === "boolean" ? product.active : false,
-      entitlements: normalizeEntitlements(product.entitlements)
-    }))
-    .filter((product) => product.slug);
-}
-
-function normalizeEntitlements(value: unknown): BillingEntitlement[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.filter(isRecord).map((entitlement) => ({
-    key: typeof entitlement.key === "string" ? entitlement.key : "",
-    grantType: normalizeGrantType(entitlement.grantType),
-    amount:
-      typeof entitlement.amount === "number" && Number.isFinite(entitlement.amount)
-        ? entitlement.amount
-        : null,
-    resetPeriod: normalizeResetPeriod(entitlement.resetPeriod),
-    priority:
-      typeof entitlement.priority === "number" && Number.isFinite(entitlement.priority)
-        ? entitlement.priority
-        : 100
-  }));
-}
-
-function normalizeProductType(value: unknown): BillingProductMapping["type"] {
-  return value === "subscription" ||
-    value === "one_time" ||
-    value === "credit_pack" ||
-    value === "lifetime" ||
-    value === "metered"
-    ? value
-    : "one_time";
-}
-
-function normalizeGrantType(value: unknown): BillingEntitlement["grantType"] {
-  return value === "boolean" ||
-    value === "recurring_quota" ||
-    value === "one_time_credits" ||
-    value === "lifetime" ||
-    value === "metered"
-    ? value
-    : "boolean";
-}
-
-function normalizeResetPeriod(value: unknown): BillingEntitlement["resetPeriod"] {
-  return value === "monthly" || value === "yearly" || value === "never"
-    ? value
-    : "never";
-}
-
 function encryptSecret(value: string, secret: string, projectSlug: string, key: string): string {
   return encryptSecretValue(value, secret, encryptionContext(projectSlug, key));
 }
@@ -447,10 +314,6 @@ function decryptSecret(value: string, secret: string, projectSlug: string, key: 
 
 function encryptionContext(projectSlug: string, key: string): string {
   return `billing:${projectSlug}:${key}`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }
 
 function createAdminPool(databaseUrl: string, adminProject: AuthProject): Pool {

@@ -1,4 +1,18 @@
-import type { BillingSettingsPatch } from "./store";
+import type {
+  BillingEntitlement,
+  BillingProductMapping,
+  ProjectBillingSettings
+} from "../../config/projects";
+
+export type BillingSettingsPatch = {
+  provider: ProjectBillingSettings["provider"];
+  enabled: boolean;
+  environment: ProjectBillingSettings["environment"];
+  organizationId?: string;
+  accessToken?: string;
+  webhookSecret?: string;
+  products: BillingProductMapping[];
+};
 
 type BillingSettingsBody = Partial<Record<keyof BillingSettingsPatch, unknown>>;
 type CreatePolarProductBody = {
@@ -156,6 +170,63 @@ export function parseCreatePolarProduct(
     priceCurrency,
     recurringInterval
   };
+}
+
+export function validateBillingSettingsPatch(patch: BillingSettingsPatch): void {
+  if (patch.provider !== "none" && patch.provider !== "polar") {
+    throw new Error("Invalid billing provider");
+  }
+  if (patch.environment !== "sandbox" && patch.environment !== "production") {
+    throw new Error("Invalid billing environment");
+  }
+  if (!Array.isArray(patch.products)) {
+    throw new Error("Products must be an array");
+  }
+  if (patch.organizationId !== undefined && typeof patch.organizationId !== "string") {
+    throw new Error("Invalid organization ID");
+  }
+
+  const slugs = new Set<string>();
+  for (const product of patch.products) {
+    if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(product.slug)) {
+      throw new Error(`Invalid product slug: ${product.slug}`);
+    }
+    if (slugs.has(product.slug)) {
+      throw new Error(`Duplicate product slug: ${product.slug}`);
+    }
+    slugs.add(product.slug);
+    if (!product.name.trim()) {
+      throw new Error(`Product name is required: ${product.slug}`);
+    }
+    if (product.active && !product.productId.trim()) {
+      throw new Error(`Polar product ID is required: ${product.slug}`);
+    }
+    for (const entitlement of product.entitlements) {
+      validateEntitlement(entitlement);
+    }
+  }
+}
+
+function validateEntitlement(entitlement: BillingEntitlement): void {
+  if (!/^[a-z][a-z0-9_]*$/.test(entitlement.key)) {
+    throw new Error(`Invalid entitlement key: ${entitlement.key}`);
+  }
+  if (
+    !["boolean", "recurring_quota", "one_time_credits", "lifetime", "metered"].includes(
+      entitlement.grantType
+    )
+  ) {
+    throw new Error(`Invalid entitlement grant type: ${entitlement.key}`);
+  }
+  if (!["never", "monthly", "yearly"].includes(entitlement.resetPeriod)) {
+    throw new Error(`Invalid entitlement reset period: ${entitlement.key}`);
+  }
+  if (
+    entitlement.amount !== null &&
+    (!Number.isFinite(entitlement.amount) || entitlement.amount < 0)
+  ) {
+    throw new Error(`Invalid entitlement amount: ${entitlement.key}`);
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
