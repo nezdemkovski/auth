@@ -169,8 +169,10 @@ Progress:
 - Default product entitlements live in `entitlements.ts`.
 - Billing settings parser rejects invalid provider/environment/product/grant
   enum values before they reach core/store.
-- Remaining work: make store stop returning public settings DTOs and add
-  focused tests for secret preservation and Polar error mapping.
+- Store now returns internal billing settings state; public settings DTOs live in
+  `translator.ts`.
+- Polar error mapping has focused tests.
+- Remaining work: add focused tests for secret preservation.
 
 ## Priority 4: Storage Module
 
@@ -266,8 +268,9 @@ Progress:
 
 - Shared Redis reconnect wrapper lives in `db/redis.ts`; login store and rate
   limiter both depend on it.
-- Remaining work: add login config translators, stricter malformed-body
-  handling, and isolate/document synthetic Better Auth session requests.
+- Login config/reset/consent DTOs now live in `translator.ts`.
+- Malformed login/token request bodies now return `invalid_body`.
+- Remaining work: isolate/document synthetic Better Auth session requests.
 
 ## Priority 6: Delivery Module
 
@@ -303,8 +306,11 @@ Progress:
 
 - Public delivery settings response shaping now lives in `translator.ts`.
 - Delivery patch validation now lives in `validator.ts`.
-- Remaining work: introduce an internal delivery settings domain type and named
-  runtime-config conversion helpers.
+- Delivery store now returns an internal `DeliverySettings` domain type.
+- Runtime `EmailConfig` conversion is a named `toRuntimeEmailConfig` helper and
+  has focused tests.
+- Remaining work: add focused tests for secret preservation and verify failure
+  modes.
 
 ## Priority 7: Users Module
 
@@ -461,11 +467,12 @@ Progress:
    social provider sub-domain cleanup remain.
 4. Users core/translator extraction. Done.
 5. Storage store split is done; upload workflow cleanup remains.
-6. Billing validation/translation cleanup, Polar client split, and
-   entitlement split are done. Store DTO cleanup remains.
-7. Delivery translator/validation cleanup is started; runtime config cleanup
-   remains.
-8. Login Redis infra cleanup is done; validator/config cleanup remains.
+6. Billing validation/translation cleanup, Polar client split, entitlement split,
+   and store DTO cleanup are done. Secret-preservation tests remain.
+7. Delivery translator/validation cleanup and runtime config cleanup are done.
+   Secret-preservation and verify failure tests remain.
+8. Login Redis infra cleanup, config translators, and malformed-body handling
+   are done. Synthetic Better Auth request boundary cleanup remains.
 9. Shared DB helper is started; duplicate module-level `createAdminPool`
    functions are gone.
 10. App-level route extraction is mostly done; `http/app.ts` now wires
