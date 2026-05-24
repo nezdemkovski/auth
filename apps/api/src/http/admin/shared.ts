@@ -7,6 +7,7 @@ import { MediaUploadError } from "../../modules/storage/media";
 import type { AdminAccountService } from "../../modules/admin-account/core";
 import type { BillingService } from "../../modules/billing/core";
 import type { DeliveryService } from "../../modules/delivery/core";
+import type { ProjectService } from "../../modules/projects/core";
 import type { StorageService } from "../../modules/storage/core";
 
 export type AdminApiOptions = {
@@ -37,6 +38,7 @@ export type AdminRouteContext = {
   adminAccountService: AdminAccountService;
   billingService: BillingService;
   deliveryService: DeliveryService;
+  projectService: ProjectService;
   storageService: StorageService;
   getDeliverySettings(): EmailConfig;
   setDeliverySettings(settings: EmailConfig): void;

@@ -8,6 +8,7 @@ import { DeliveryService } from "../modules/delivery/core";
 import { StorageService } from "../modules/storage/core";
 import { registerBillingRoutes } from "../modules/billing/http";
 import { registerDeliveryRoutes } from "../modules/delivery/http";
+import { ProjectService } from "../modules/projects/core";
 import { registerProjectRoutes } from "../modules/projects/http";
 import { registerStorageRoutes } from "../modules/storage/http";
 import { registerUserRoutes } from "../modules/users/http";
@@ -48,12 +49,20 @@ export function createAdminApi(options: AdminApiOptions): Hono {
     publicBaseUrl: options.publicBaseUrl,
     getDeliverySettings: () => currentDeliverySettings
   });
+  const projectService = new ProjectService({
+    registry: options.registry,
+    databaseUrl: options.databaseUrl,
+    adminProject: options.adminProject,
+    publicBaseUrl: options.publicBaseUrl,
+    secret: options.secret
+  });
   const routeContext = {
     app,
     options,
     adminAccountService,
     billingService,
     deliveryService,
+    projectService,
     storageService,
     getDeliverySettings: () => currentDeliverySettings,
     setDeliverySettings: (settings: EmailConfig) => {
