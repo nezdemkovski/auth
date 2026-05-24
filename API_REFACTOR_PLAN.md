@@ -165,9 +165,12 @@ Progress:
 
 - Billing patch validation now lives in `validator.ts`.
 - Product JSON normalization now lives in `translator.ts`.
-- Remaining work: split Polar SDK integration into `polar-client.ts`, move
-  default entitlements out of translator, and make store stop returning public
-  settings DTOs.
+- Polar SDK integration lives in `polar-client.ts`.
+- Default product entitlements live in `entitlements.ts`.
+- Billing settings parser rejects invalid provider/environment/product/grant
+  enum values before they reach core/store.
+- Remaining work: make store stop returning public settings DTOs and add
+  focused tests for secret preservation and Polar error mapping.
 
 ## Priority 4: Storage Module
 
@@ -458,8 +461,8 @@ Progress:
    social provider sub-domain cleanup remain.
 4. Users core/translator extraction. Done.
 5. Storage store split is done; upload workflow cleanup remains.
-6. Billing validation/translation cleanup is started; Polar
-   client/entitlements split remains.
+6. Billing validation/translation cleanup, Polar client split, and
+   entitlement split are done. Store DTO cleanup remains.
 7. Delivery translator/validation cleanup is started; runtime config cleanup
    remains.
 8. Login Redis infra cleanup is done; validator/config cleanup remains.
