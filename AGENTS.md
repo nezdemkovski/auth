@@ -67,6 +67,16 @@ apps/api/src/modules/<domain>/__tests__/*.test.ts
 
 Use module tests for validators, translators, core business rules, and store behavior when it can be tested safely. Shared cross-cutting tests may stay in `apps/api/test` when they cover app-wide behavior rather than one domain.
 
+Write tests as behavior specifications, not implementation checks:
+
+- Prefer public HTTP routes, public service methods, validators, or translators over private helpers.
+- Add one meaningful test at a time, then implement or refactor only enough to make that behavior pass.
+- Do not write shape-only translator tests that just mirror object fields without protecting a real invariant.
+- Do not mock internal collaborators when a small fake at the public boundary is enough.
+- Do not use real project, product, user, or company names in tests. Use neutral fixtures such as `demo`, `Demo App`, `demo.example.com`, and `user@example.com`.
+- Every security-sensitive fix must include a regression test for the failure mode.
+- Critical flows should have at least one integration-style test through the HTTP boundary when the route can be exercised without real external services.
+
 ## Naming
 
 Use noun-based layer names:

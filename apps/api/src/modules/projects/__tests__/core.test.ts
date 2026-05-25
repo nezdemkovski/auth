@@ -36,17 +36,17 @@ describe("projects", () => {
   });
 
   test("normalizes admin-created slugs", () => {
-    expect(normalizeProjectSlug(" Open Markers! ")).toBe("open-markers");
+    expect(normalizeProjectSlug(" Demo Portal! ")).toBe("demo-portal");
   });
 
   test("derives an isolated schema from slug", () => {
-    expect(projectSchemaFromSlug("open-markers")).toBe("open_markers_auth");
+    expect(projectSchemaFromSlug("demo-portal")).toBe("demo_portal_auth");
   });
 
   test("creates project settings with normalized slug, schema, and origins", () => {
     expect(
       createProjectFromInput({
-        slug: " Open Markers ",
+        slug: " Demo Portal ",
         name: " Demo App ",
         description: " Marker maps ",
         iconUrl: "",
@@ -54,9 +54,9 @@ describe("projects", () => {
         trustedOrigins: [" https://demo.example.com ", ""]
       })
     ).toMatchObject({
-      slug: "open-markers",
+      slug: "demo-portal",
       name: "Demo App",
-      schema: "open_markers_auth",
+      schema: "demo_portal_auth",
       description: "Marker maps",
       appUrl: "https://demo.example.com",
       trustedOrigins: ["https://demo.example.com"]

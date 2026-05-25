@@ -2,18 +2,30 @@ import {
   oauthProviderAuthServerMetadata,
   oauthProviderOpenIdConfigMetadata
 } from "@better-auth/oauth-provider";
-import type { Hono } from "hono";
+import type { Env, Hono } from "hono";
 import { cors } from "hono/cors";
 
-import type { AuthRegistry } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import { BillingProvider } from "../../config/projects";
 
-type AuthProxyVariables = {
-  registry: AuthRegistry;
+export type AuthProxyRegistry = {
+  get(slug: string): AuthProxyRegisteredProject | null;
+  isTrustedOrigin(slug: string, origin: string | undefined): boolean;
 };
 
-export const registerAuthProxyRoutes = (app: Hono<{ Variables: AuthProxyVariables }>, options: { registry: AuthRegistry }) => {
+export type AuthProxyRegisteredProject = {
+  project: AuthProject;
+  auth: {
+    handler(request: Request): Promise<Response>;
+    api: {
+      getAgentConfiguration(input: { headers: Headers }): Promise<unknown>;
+      getOAuthServerConfig(input: unknown): unknown;
+      getOpenIdConfig(input: unknown): unknown;
+    };
+  };
+};
+
+export const registerAuthProxyRoutes = <TEnv extends Env>(app: Hono<TEnv>, options: { registry: AuthProxyRegistry }) => {
   app.get("/api/:project/.well-known/jwks.json", (c) => {
     const registered = options.registry.get(c.req.param("project"));
 
