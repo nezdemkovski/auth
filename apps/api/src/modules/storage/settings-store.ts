@@ -122,7 +122,7 @@ export const updateStorageSettings = async (options: AdminDatabaseOptions & {
 }) => {
   const patch = storagePatchWithManagedDefaults(options.patch, options.managedStorage);
   validateStoragePatch(patch, {
-    allowPrivateEndpoint: options.managedStorage.managed
+    allowHttpEndpoint: options.managedStorage.managed
   });
   await ensureStorageSettingsTable(options);
 
@@ -309,7 +309,7 @@ const readStorageSettingsRow = async (options: AdminDatabaseOptions & {
 const validateStoragePatch = (
   patch: StorageSettingsPatch,
   options: {
-    allowPrivateEndpoint: boolean;
+    allowHttpEndpoint: boolean;
   }
 ) => {
   if (!isEnumValue(StorageProvider, patch.provider)) {
@@ -318,7 +318,7 @@ const validateStoragePatch = (
 
   validateOptionalStorageEndpoint(
     patch.endpoint ?? "",
-    options.allowPrivateEndpoint
+    options.allowHttpEndpoint
   );
   validateOptionalUrl(patch.publicBaseUrl ?? "", "publicBaseUrl");
 
@@ -360,15 +360,15 @@ const validateOptionalUrl = (value: string, field: string) => {
 
 const validateOptionalStorageEndpoint = (
   value: string,
-  allowPrivateEndpoint: boolean
+  allowHttpEndpoint: boolean
 ) => {
   if (!value.trim()) {
     return;
   }
 
   const url = validateUrl(value, "endpoint");
-  if (!allowPrivateEndpoint && storageEndpointHostIsPrivate(url.hostname)) {
-    throw new Error("Storage endpoint must not target a private network");
+  if (!storageEndpointProtocolIsAllowed(url, { allowHttpEndpoint })) {
+    throw new Error("Storage endpoint must use HTTPS");
   }
 };
 
@@ -385,50 +385,13 @@ const validateUrl = (value: string, field: string) => {
   }
 };
 
-export const storageEndpointHostIsPrivate = (hostname: string) => {
-  const normalized = hostname.toLowerCase();
-  if (
-    normalized === "localhost" ||
-    normalized === "metadata.google.internal" ||
-    normalized.endsWith(".localhost") ||
-    normalized.endsWith(".local")
-  ) {
-    return true;
+export const storageEndpointProtocolIsAllowed = (
+  url: URL,
+  options: {
+    allowHttpEndpoint: boolean;
   }
-
-  const ipv4 = parseIpv4(normalized);
-  if (!ipv4) {
-    return false;
-  }
-
-  const [a, b] = ipv4;
-  return (
-    a === 10 ||
-    a === 127 ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    (a === 0) ||
-    a >= 224
-  );
-};
-
-const parseIpv4 = (hostname: string) => {
-  const parts = hostname.split(".");
-  if (parts.length !== 4) {
-    return null;
-  }
-
-  const octets = parts.map((part) => Number(part));
-  if (
-    octets.some(
-      (octet) => !Number.isInteger(octet) || octet < 0 || octet > 255
-    )
-  ) {
-    return null;
-  }
-
-  return octets;
+) => {
+  return options.allowHttpEndpoint || url.protocol === "https:";
 };
 
 const trimTrailingSlash = (value: string) => {
