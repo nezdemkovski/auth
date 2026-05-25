@@ -1,6 +1,7 @@
 import { projectResponse } from "../projects/translator";
 import {
-  mediaUploadBodyTooLarge,
+  mediaUploadBodyError,
+  MediaUploadBodyError,
   MediaUploadPurpose
 } from "./media";
 import {
@@ -102,8 +103,12 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
     if (project.error) {
       return c.json({ error: project.error }, project.status);
     }
-    if (mediaUploadBodyTooLarge(c.req.raw.headers.get("content-length"))) {
-      return c.json({ error: "file_too_large" }, 413);
+    const bodyError = mediaUploadBodyError(c.req.raw.headers.get("content-length"));
+    if (bodyError) {
+      return c.json(
+        { error: bodyError },
+        bodyError === MediaUploadBodyError.LengthRequired ? 411 : 413
+      );
     }
 
     const uploadRequest = await parseMediaUploadRequest(

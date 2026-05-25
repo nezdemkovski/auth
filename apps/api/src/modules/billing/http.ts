@@ -61,12 +61,12 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
         settings
       });
     } catch (error) {
-      return c.json(
-        {
-          error: "invalid_billing_settings",
-          message: error instanceof Error ? error.message : "Invalid billing settings"
-        },
-        400
+      return domainErrorResponse(
+        new BillingServiceError(
+          "invalid_billing_settings",
+          error instanceof Error ? error.message : "Invalid billing settings",
+          400
+        )
       );
     }
   });

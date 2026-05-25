@@ -141,7 +141,20 @@ export const rateLimit = (store: RateLimiterStore, options: { trustProxyHeaders:
     }
 
     const now = Date.now();
-    const key = `${rule.name}:${clientKey(c.req.raw.headers, options)}:${normalizeRateLimitPath(path)}`;
+    const client = clientKey(c.req.raw.headers, options);
+    if (!client) {
+      logError("rate_limit_client_ip_missing", {
+        path: normalizeRateLimitPath(path)
+      });
+      return c.json(
+        {
+          error: "rate_limit_unavailable"
+        },
+        503
+      );
+    }
+
+    const key = `${rule.name}:${client}:${normalizeRateLimitPath(path)}`;
     let result: RateLimitResult;
 
     try {
@@ -278,7 +291,7 @@ return count
 
 export const clientKey = (headers: Headers, options: { trustProxyHeaders: boolean }) => {
   if (!options.trustProxyHeaders) {
-    return headers.get(DIRECT_CLIENT_IP_HEADER) ?? "direct";
+    return headers.get(DIRECT_CLIENT_IP_HEADER) ?? null;
   }
 
   return (

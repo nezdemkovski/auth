@@ -21,7 +21,7 @@ type RegistryOptions = {
 };
 
 export class AuthRegistry {
-  private readonly projects = new Map<string, RegisteredProject>();
+  private projects = new Map<string, RegisteredProject>();
   private options: RegistryOptions;
 
   constructor(options: RegistryOptions) {
@@ -60,10 +60,7 @@ export class AuthRegistry {
       nextProjects.set(project.slug, this.createRegisteredProject(project));
     }
 
-    this.projects.clear();
-    for (const [slug, registered] of nextProjects) {
-      this.projects.set(slug, registered);
-    }
+    this.projects = nextProjects;
 
     await Promise.all(
       currentProjects.map(({ projectDb }) => projectDb.pool.end())

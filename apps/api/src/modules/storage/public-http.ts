@@ -5,7 +5,8 @@ import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import { mediaUploadError } from "../../http/admin/shared";
 import { StorageService } from "./core";
 import {
-  mediaUploadBodyTooLarge,
+  mediaUploadBodyError,
+  MediaUploadBodyError,
   MediaUploadPurpose
 } from "./media";
 import { parseMediaUploadRequest } from "./validator";
@@ -46,8 +47,12 @@ export const registerPublicStorageRoutes = (app: Hono<{ Variables: PublicStorage
     if (!session) {
       return c.json({ error: "unauthorized" }, 401);
     }
-    if (mediaUploadBodyTooLarge(c.req.raw.headers.get("content-length"))) {
-      return c.json({ error: "file_too_large" }, 413);
+    const bodyError = mediaUploadBodyError(c.req.raw.headers.get("content-length"));
+    if (bodyError) {
+      return c.json(
+        { error: bodyError },
+        bodyError === MediaUploadBodyError.LengthRequired ? 411 : 413
+      );
     }
 
     const uploadRequest = await parseMediaUploadRequest(

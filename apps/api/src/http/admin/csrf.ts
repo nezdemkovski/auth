@@ -4,8 +4,8 @@ export const isStateChangingMethod = (method: string) => {
 
 export const isTrustedAdminRequest = (headers: Headers, adminOrigin: string) => {
   const origin = headers.get("origin");
-  if (origin) {
-    return origin === adminOrigin;
+  if (!origin || origin !== adminOrigin) {
+    return false;
   }
 
   const secFetchSite = headers.get("sec-fetch-site");
@@ -13,5 +13,5 @@ export const isTrustedAdminRequest = (headers: Headers, adminOrigin: string) => 
     return secFetchSite === "same-origin";
   }
 
-  return false;
+  return true;
 };

@@ -44,12 +44,12 @@ export const registerDeliveryRoutes: AdminRouteRegistration = ({
       });
       return c.json({ settings });
     } catch (error) {
-      return c.json(
-        {
-          error: "invalid_delivery_settings",
-          message: error instanceof Error ? error.message : "Invalid delivery settings"
-        },
-        400
+      return domainErrorResponse(
+        new DeliveryServiceError(
+          "invalid_delivery_settings",
+          400,
+          error instanceof Error ? error.message : "Invalid delivery settings"
+        )
       );
     }
   });

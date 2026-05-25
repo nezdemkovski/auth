@@ -13,7 +13,7 @@ describe("http security helpers", () => {
       "x-forwarded-for": "203.0.113.11"
     });
 
-    expect(clientKey(headers, { trustProxyHeaders: false })).toBe("direct");
+    expect(clientKey(headers, { trustProxyHeaders: false })).toBeNull();
   });
 
   test("uses the Bun-provided direct IP when proxy headers are disabled", () => {

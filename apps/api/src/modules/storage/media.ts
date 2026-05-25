@@ -82,13 +82,20 @@ export const uploadMedia = async (input: MediaUploadInput) => {
   };
 };
 
-export const mediaUploadBodyTooLarge = (contentLength: string | null) => {
+export enum MediaUploadBodyError {
+  LengthRequired = "length_required",
+  FileTooLarge = "file_too_large"
+}
+
+export const mediaUploadBodyError = (contentLength: string | null) => {
   if (!contentLength) {
-    return false;
+    return MediaUploadBodyError.LengthRequired;
   }
 
   const size = Number(contentLength);
-  return Number.isFinite(size) && size > MAX_MEDIA_UPLOAD_BODY_BYTES;
+  return Number.isFinite(size) && size > MAX_MEDIA_UPLOAD_BODY_BYTES
+    ? MediaUploadBodyError.FileTooLarge
+    : null;
 };
 
 export const deleteUploadedMedia = async (input: {

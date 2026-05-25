@@ -7,7 +7,8 @@ describe("admin API security helpers", () => {
     expect(
       isTrustedAdminRequest(
         new Headers({
-          origin: "https://auth.example.com"
+          origin: "https://auth.example.com",
+          "sec-fetch-site": "same-origin"
         }),
         "https://auth.example.com"
       )
@@ -44,7 +45,7 @@ describe("admin API security helpers", () => {
     ).toBe(false);
   });
 
-  test("accepts browser same-origin fetch metadata when Origin is absent", () => {
+  test("rejects browser same-origin fetch metadata when Origin is absent", () => {
     expect(
       isTrustedAdminRequest(
         new Headers({
@@ -52,7 +53,19 @@ describe("admin API security helpers", () => {
         }),
         "https://auth.example.com"
       )
-    ).toBe(true);
+    ).toBe(false);
+  });
+
+  test("rejects requests with matching Origin but cross-site fetch metadata", () => {
+    expect(
+      isTrustedAdminRequest(
+        new Headers({
+          origin: "https://auth.example.com",
+          "sec-fetch-site": "cross-site"
+        }),
+        "https://auth.example.com"
+      )
+    ).toBe(false);
   });
 
   test("rejects requests without origin, fetch metadata, or referer", () => {
