@@ -18,15 +18,11 @@ export const encryptSecretValue = async (
         iv,
         additionalData: encoder.encode(context)
       },
-      await encryptionKey(secret),
+      await encryptionKey(secret, context),
       encoder.encode(value)
     )
   );
-  const tagOffset = encrypted.byteLength - 16;
-  const ciphertext = encrypted.slice(0, tagOffset);
-  const tag = encrypted.slice(tagOffset);
-
-  return `v1:${base64UrlEncode(iv)}:${base64UrlEncode(tag)}:${base64UrlEncode(ciphertext)}`;
+  return `v1:${base64UrlEncode(iv)}:${base64UrlEncode(encrypted)}`;
 };
 
 export const decryptSecretValue = async (
@@ -38,16 +34,12 @@ export const decryptSecretValue = async (
     return "";
   }
 
-  const [version, iv, tag, encrypted] = value.split(":");
-  if (version !== "v1" || !iv || !tag || !encrypted) {
+  const [version, iv, encrypted] = value.split(":");
+  if (version !== "v1" || !iv || !encrypted) {
     throw new Error("Invalid encrypted secret");
   }
 
-  const ciphertext = base64UrlDecode(encrypted);
-  const authTag = base64UrlDecode(tag);
-  const payload = new Uint8Array(ciphertext.byteLength + authTag.byteLength);
-  payload.set(ciphertext);
-  payload.set(authTag, ciphertext.byteLength);
+  const payload = base64UrlDecode(encrypted);
 
   const decrypted = await crypto.subtle.decrypt(
     {
@@ -55,14 +47,14 @@ export const decryptSecretValue = async (
       iv: base64UrlDecode(iv),
       additionalData: encoder.encode(context)
     },
-    await encryptionKey(secret),
+    await encryptionKey(secret, context),
     payload
   );
 
   return decoder.decode(decrypted);
 };
 
-const encryptionKey = async (secret: string) => {
+const encryptionKey = async (secret: string, context: string) => {
   const rootKey = await crypto.subtle.importKey(
     "raw",
     encoder.encode(secret),
@@ -76,7 +68,7 @@ const encryptionKey = async (secret: string) => {
       name: "HKDF",
       hash: "SHA-256",
       salt: encoder.encode("auth-encryption-v1"),
-      info: encoder.encode("secret-value")
+      info: encoder.encode(context)
     },
     rootKey,
     {

@@ -12,7 +12,6 @@ import {
   loadStorageSettings
 } from "../storage/settings-store";
 import {
-  ensureSocialProviderSettingsTable,
   cloneDefaultSocialProviders,
   loadSocialProviderSettings
 } from "./social-provider-store";
@@ -112,10 +111,6 @@ export const loadEffectiveProjects = async (options: AdminDatabaseOptions & {
   encryptionSecret: string;
   managedStorage: AuthProject["storage"];
 }) => {
-  await ensureProjectSettingsTable(options);
-  await seedAdminProjectSettings(options);
-  await ensureSocialProviderSettingsTable(options);
-
   const all = await readProjectSettings(options);
   const socialProviders = await loadSocialProviderSettings(options);
   const billingSettings = await loadBillingSettings(options);

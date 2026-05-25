@@ -6,6 +6,7 @@ import { Pool } from "pg";
 import type { AuthProject } from "../config/projects";
 import type { EmailConfig } from "../email/sender";
 import { randomBase64Url } from "../runtime/crypto";
+import { logError } from "../runtime/logger";
 import {
   createProjectAuth,
   createProjectMigrationAuthOptions
@@ -85,7 +86,11 @@ export const bootstrapProjects = async (options: BootstrapOptions) => {
   } finally {
     await db
       .execute(sql`SELECT pg_advisory_unlock(hashtext(${BOOTSTRAP_LOCK_KEY}))`)
-      .catch(() => {});
+      .catch((error) => {
+        logError("bootstrap_advisory_unlock_failed", {
+          error: error instanceof Error ? error.message : String(error)
+        });
+      });
     await adminPool.end();
   }
 };

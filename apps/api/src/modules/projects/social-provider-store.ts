@@ -157,6 +157,15 @@ export const updateProjectSocialProvider = async (options: AdminDatabaseOptions 
         ON CONFLICT (project_slug, provider) DO UPDATE
         SET enabled = EXCLUDED.enabled,
             client_id = EXCLUDED.client_id,
+            verified_at = CASE
+              WHEN EXCLUDED.enabled = true
+                   AND (
+                     auth_social_provider_settings.enabled = false
+                     OR auth_social_provider_settings.client_id <> EXCLUDED.client_id
+                   )
+              THEN NULL
+              ELSE auth_social_provider_settings.verified_at
+            END,
             updated_at = now()
       `);
     } else {

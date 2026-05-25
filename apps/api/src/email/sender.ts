@@ -71,8 +71,7 @@ class CloudflareEmailSender implements EmailSender {
     );
 
     if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      throw new Error(`Cloudflare Email send failed: ${response.status} ${body}`);
+      throw new Error(`Cloudflare Email send failed: ${response.status}`);
     }
   }
 }
@@ -104,8 +103,7 @@ class ResendEmailSender implements EmailSender {
     });
 
     if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      throw new Error(`Resend email send failed: ${response.status} ${body}`);
+      throw new Error(`Resend email send failed: ${response.status}`);
     }
   }
 }
