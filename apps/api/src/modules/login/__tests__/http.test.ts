@@ -24,11 +24,11 @@ const unusedOptions: LoginOptions = {
 describe("login HTTP handlers", () => {
   test("returns invalid_body for malformed session-code requests", async () => {
     const response = await createLoginSessionCode(
-      new Request("http://auth.local/api/openmarkers/login/session-code", {
+      new Request("http://auth.local/api/demo/login/session-code", {
         method: "POST",
         body: JSON.stringify({})
       }),
-      "openmarkers",
+      "demo",
       unusedOptions
     );
 
@@ -38,11 +38,11 @@ describe("login HTTP handlers", () => {
 
   test("returns invalid_body for malformed token exchange requests", async () => {
     const response = await exchangeLoginCode(
-      new Request("http://auth.local/api/openmarkers/login/token", {
+      new Request("http://auth.local/api/demo/login/token", {
         method: "POST",
         body: JSON.stringify({})
       }),
-      "openmarkers",
+      "demo",
       unusedOptions
     );
 

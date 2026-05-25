@@ -5,7 +5,7 @@ import {
   randomHex,
   sha256Base64Url,
   sha256Hex
-} from "../src/runtime/crypto";
+} from "../crypto";
 
 describe("Bun runtime crypto helpers", () => {
   test("hashes with Bun.CryptoHasher", () => {

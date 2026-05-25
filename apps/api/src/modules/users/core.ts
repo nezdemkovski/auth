@@ -1,4 +1,3 @@
-import type { RegisteredProject } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import { EmailProvider, type EmailConfig } from "../../email/sender";
 import {
@@ -9,6 +8,33 @@ import {
   projectUserResponse,
   usersProjectResponse
 } from "./translator";
+
+type UsersStore = {
+  readProjectUsers: typeof readProjectUsers;
+  terminateUserSessions: typeof terminateUserSessions;
+};
+
+const defaultStore: UsersStore = {
+  readProjectUsers,
+  terminateUserSessions
+};
+
+export type UsersRegisteredProject = {
+  project: AuthProject;
+  projectDb: {
+    pool: Parameters<typeof readProjectUsers>[0];
+  };
+  auth: {
+    api: {
+      sendVerificationEmail(input: {
+        body: {
+          email: string;
+          callbackURL?: string;
+        };
+      }): Promise<unknown>;
+    };
+  };
+};
 
 export class UsersServiceError extends Error {
   constructor(
@@ -26,11 +52,16 @@ export class UsersService {
     private readonly options: {
       adminProject: AuthProject;
       getDeliverySettings(): EmailConfig;
+      store?: UsersStore;
     }
-  ) {}
+  ) {
+    this.store = options.store ?? defaultStore;
+  }
 
-  async listUsers(registered: RegisteredProject) {
-    const users = await readProjectUsers(registered.projectDb.pool);
+  private readonly store: UsersStore;
+
+  async listUsers(registered: UsersRegisteredProject) {
+    const users = await this.store.readProjectUsers(registered.projectDb.pool);
 
     return {
       project: usersProjectResponse(registered.project, this.options.adminProject),
@@ -38,11 +69,11 @@ export class UsersService {
     };
   }
 
-  async terminateSessions(registered: RegisteredProject, userId: string) {
-    return terminateUserSessions(registered.projectDb.pool, userId);
+  async terminateSessions(registered: UsersRegisteredProject, userId: string) {
+    return this.store.terminateUserSessions(registered.projectDb.pool, userId);
   }
 
-  async resendVerification(registered: RegisteredProject, email: string) {
+  async resendVerification(registered: UsersRegisteredProject, email: string) {
     if (this.options.getDeliverySettings().provider === EmailProvider.None) {
       throw new UsersServiceError(
         "email_service_disabled",

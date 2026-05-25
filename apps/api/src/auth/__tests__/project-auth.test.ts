@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  __projectAuthTestUtils,
+  buildOAuthValidAudiences,
+  createBaseProjectAuthOptions,
   createProjectMigrationAuthOptions
-} from "../src/auth/project-auth";
+} from "../project-auth";
 import {
   BillingProvider,
   DEFAULT_PROJECT_FEATURES,
@@ -11,16 +12,16 @@ import {
   DEFAULT_PROJECT_STORAGE,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   type AuthProject
-} from "../src/config/projects";
+} from "../../config/projects";
 
 const baseProject: AuthProject = {
-  slug: "openmarkers",
-  name: "OpenMarkers",
-  schema: "openmarkers_auth",
+  slug: "demo",
+  name: "Demo App",
+  schema: "demo_auth",
   description: "Marker maps",
   iconUrl: "",
-  appUrl: "https://openmarkers.app",
-  trustedOrigins: ["https://openmarkers.app"],
+  appUrl: "https://demo.example.com",
+  trustedOrigins: ["https://demo.example.com"],
   features: DEFAULT_PROJECT_FEATURES,
   socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   billing: DEFAULT_PROJECT_BILLING,
@@ -28,7 +29,7 @@ const baseProject: AuthProject = {
 };
 
 function createOptions(project: AuthProject, trustProxyHeaders = false) {
-  return __projectAuthTestUtils.createBaseProjectAuthOptions({
+  return createBaseProjectAuthOptions({
     project,
     publicBaseUrl: "https://auth.example.com",
     secret: "x".repeat(32),
@@ -50,10 +51,10 @@ describe("project auth options", () => {
   test("builds isolated Better Auth settings per realm", () => {
     const options = createOptions(baseProject);
 
-    expect(options.appName).toBe("OpenMarkers");
-    expect(options.baseURL).toBe("https://auth.example.com/api/openmarkers/auth");
-    expect(options.trustedOrigins).toEqual(["https://openmarkers.app"]);
-    expect(options.advanced?.cookiePrefix).toBe("auth_openmarkers");
+    expect(options.appName).toBe("Demo App");
+    expect(options.baseURL).toBe("https://auth.example.com/api/demo/auth");
+    expect(options.trustedOrigins).toEqual(["https://demo.example.com"]);
+    expect(options.advanced?.cookiePrefix).toBe("auth_demo");
   });
 
   test("wires security-sensitive plugins without test helpers in production options", () => {
@@ -107,15 +108,15 @@ describe("project auth options", () => {
 
   test("allows OAuth tokens for trusted app resources", () => {
     expect(
-      __projectAuthTestUtils.buildOAuthValidAudiences(
+      buildOAuthValidAudiences(
         baseProject,
         "https://auth.example.com"
       )
     ).toEqual([
-      "https://auth.example.com/api/openmarkers",
-      "https://auth.example.com/api/openmarkers/auth",
-      "https://openmarkers.app",
-      "https://openmarkers.app/mcp"
+      "https://auth.example.com/api/demo",
+      "https://auth.example.com/api/demo/auth",
+      "https://demo.example.com",
+      "https://demo.example.com/mcp"
     ]);
   });
 
@@ -151,9 +152,13 @@ describe("project auth options", () => {
 });
 
 function providerEnabled(provider: unknown) {
-  if (typeof provider === "function" || !provider || typeof provider !== "object") {
-    return undefined;
+  if (
+    typeof provider === "object" &&
+    provider !== null &&
+    "enabled" in provider
+  ) {
+    return provider.enabled === true;
   }
 
-  return Reflect.get(provider, "enabled");
+  return false;
 }

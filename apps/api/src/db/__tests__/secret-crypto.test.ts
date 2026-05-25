@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   decryptSecretValue,
   encryptSecretValue
-} from "../src/db/secret-crypto";
+} from "../secret-crypto";
 
 describe("secret crypto", () => {
   test("encrypts with authenticated context", () => {

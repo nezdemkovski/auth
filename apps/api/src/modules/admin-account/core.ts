@@ -1,5 +1,4 @@
 import { EmailProvider, type EmailConfig } from "../../email/sender";
-import type { RegisteredProject } from "../../auth/registry";
 import type { AdminSession } from "../../http/admin/shared";
 import {
   markPasswordChanged,
@@ -8,6 +7,44 @@ import {
   type AdminProfilePatch
 } from "./store";
 import type { ChangePasswordInput } from "./validator";
+
+type AdminAccountAuth = {
+  api: {
+    changeEmail(input: {
+      headers: Headers;
+      body: {
+        newEmail: string;
+        callbackURL: string;
+      };
+    }): Promise<unknown>;
+    changePassword(input: {
+      headers: Headers;
+      body: {
+        currentPassword: string;
+        newPassword: string;
+        revokeOtherSessions: boolean;
+      };
+    }): Promise<unknown>;
+    verifyPassword(input: {
+      headers: Headers;
+      body: {
+        password: string;
+      };
+    }): Promise<{ status?: boolean } | null>;
+  };
+};
+
+type AdminAccountStore = {
+  mustChangePassword: typeof mustChangePassword;
+  updateAdminProfile: typeof updateAdminProfile;
+  markPasswordChanged: typeof markPasswordChanged;
+};
+
+const defaultStore: AdminAccountStore = {
+  mustChangePassword,
+  updateAdminProfile,
+  markPasswordChanged
+};
 
 export class AdminAccountServiceError extends Error {
   constructor(
@@ -25,8 +62,13 @@ export class AdminAccountService {
     private readonly options: {
       publicBaseUrl: string;
       getDeliverySettings(): EmailConfig;
+      store?: AdminAccountStore;
     }
-  ) {}
+  ) {
+    this.store = options.store ?? defaultStore;
+  }
+
+  private readonly store: AdminAccountStore;
 
   async currentProfile(input: {
     projectDb: { pool: Parameters<typeof mustChangePassword>[0] };
@@ -34,7 +76,7 @@ export class AdminAccountService {
   }) {
     return {
       user: input.session.user,
-      mustChangePassword: await mustChangePassword(
+      mustChangePassword: await this.store.mustChangePassword(
         input.projectDb.pool,
         input.session.user.id
       ),
@@ -43,7 +85,7 @@ export class AdminAccountService {
   }
 
   async updateProfile(input: {
-    auth: RegisteredProject["auth"];
+    auth: AdminAccountAuth;
     headers: Headers;
     projectDb: { pool: Parameters<typeof updateAdminProfile>[0] };
     session: AdminSession;
@@ -75,7 +117,7 @@ export class AdminAccountService {
     }
 
     try {
-      await updateAdminProfile(input.projectDb.pool, input.session.user.id, {
+      await this.store.updateAdminProfile(input.projectDb.pool, input.session.user.id, {
         name: input.patch.name
       });
     } catch (error) {
@@ -94,7 +136,7 @@ export class AdminAccountService {
   }
 
   async changePassword(input: {
-    auth: RegisteredProject["auth"];
+    auth: AdminAccountAuth;
     headers: Headers;
     projectDb: { pool: Parameters<typeof markPasswordChanged>[0] };
     session: AdminSession;
@@ -109,13 +151,13 @@ export class AdminAccountService {
       newPassword: input.password.newPassword
     });
 
-    await markPasswordChanged(input.projectDb.pool, input.session.user.id);
+    await this.store.markPasswordChanged(input.projectDb.pool, input.session.user.id);
 
     return response;
   }
 }
 
-const changePassword = async (auth: RegisteredProject["auth"], headers: Headers, body: {
+const changePassword = async (auth: AdminAccountAuth, headers: Headers, body: {
     currentPassword: string;
     newPassword: string;
   }) => {
@@ -128,7 +170,7 @@ const changePassword = async (auth: RegisteredProject["auth"], headers: Headers,
   });
 };
 
-const verifyPassword = async (auth: RegisteredProject["auth"], headers: Headers, password: string) => {
+const verifyPassword = async (auth: AdminAccountAuth, headers: Headers, password: string) => {
   const result = await auth.api
     .verifyPassword({
       headers,
@@ -141,7 +183,7 @@ const verifyPassword = async (auth: RegisteredProject["auth"], headers: Headers,
   return result?.status === true;
 };
 
-const changeEmail = async (auth: RegisteredProject["auth"], headers: Headers, body: {
+const changeEmail = async (auth: AdminAccountAuth, headers: Headers, body: {
     newEmail: string;
     callbackURL: string;
   }) => {

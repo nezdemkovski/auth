@@ -23,13 +23,13 @@ describe("project translator", () => {
 
     const response = projectResponse(
       {
-        slug: "openmarkers",
-        schema: "openmarkers_auth",
-        name: "OpenMarkers",
+        slug: "demo",
+        schema: "demo_auth",
+        name: "Demo App",
         description: "Collaborative maps",
         iconUrl: "https://example.test/icon.png",
-        appUrl: "https://openmarkers.app",
-        trustedOrigins: ["https://openmarkers.app"],
+        appUrl: "https://demo.example.com",
+        trustedOrigins: ["https://demo.example.com"],
         features: DEFAULT_PROJECT_FEATURES,
         socialProviders,
         billing: {
@@ -44,7 +44,7 @@ describe("project translator", () => {
         storage: DEFAULT_PROJECT_STORAGE
       },
       { userCount: 1, activeSessionCount: 2 },
-      "https://auth.nezdemkovski.cloud"
+      "https://auth.example.com"
     );
 
     const github = response.socialProviders.find(
@@ -60,7 +60,7 @@ describe("project translator", () => {
       configured: true,
       verifiedAt: "2026-05-24T00:00:00.000Z",
       callbackUrl:
-        "https://auth.nezdemkovski.cloud/api/openmarkers/auth/callback/github"
+        "https://auth.example.com/api/demo/auth/callback/github"
     });
     expect(JSON.stringify(response)).not.toContain("github-secret");
   });

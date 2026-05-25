@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { __securityTestUtils } from "../src/http/security";
+import {
+  clientKey,
+  normalizeRateLimitPath
+} from "../security";
 
 describe("http security helpers", () => {
   test("does not trust client-supplied proxy headers by default", () => {
@@ -9,9 +12,7 @@ describe("http security helpers", () => {
       "x-forwarded-for": "203.0.113.11"
     });
 
-    expect(__securityTestUtils.clientKey(headers, { trustProxyHeaders: false })).toBe(
-      "direct"
-    );
+    expect(clientKey(headers, { trustProxyHeaders: false })).toBe("direct");
   });
 
   test("uses Cloudflare IP first when proxy headers are trusted", () => {
@@ -20,30 +21,28 @@ describe("http security helpers", () => {
       "x-forwarded-for": "203.0.113.11, 10.0.0.1"
     });
 
-    expect(__securityTestUtils.clientKey(headers, { trustProxyHeaders: true })).toBe(
-      "203.0.113.10"
-    );
+    expect(clientKey(headers, { trustProxyHeaders: true })).toBe("203.0.113.10");
   });
 
   test("falls back to first forwarded IP and then unknown in trusted proxy mode", () => {
     expect(
-      __securityTestUtils.clientKey(
+      clientKey(
         new Headers({ "x-forwarded-for": "203.0.113.11, 10.0.0.1" }),
         { trustProxyHeaders: true }
       )
     ).toBe("203.0.113.11");
-    expect(__securityTestUtils.clientKey(new Headers(), { trustProxyHeaders: true })).toBe(
+    expect(clientKey(new Headers(), { trustProxyHeaders: true })).toBe(
       "unknown"
     );
   });
 
   test("normalizes project auth paths into one rate-limit bucket", () => {
     expect(
-      __securityTestUtils.normalizePath("/api/openmarkers/auth/sign-in/email")
+      normalizeRateLimitPath("/api/demo/auth/sign-in/email")
     ).toBe("/api/:project/auth/sign-in/email");
-    expect(__securityTestUtils.normalizePath("/api/admin/auth/sign-in/email")).toBe(
+    expect(normalizeRateLimitPath("/api/admin/auth/sign-in/email")).toBe(
       "/api/:project/auth/sign-in/email"
     );
-    expect(__securityTestUtils.normalizePath("/admin/login")).toBe("/admin/login");
+    expect(normalizeRateLimitPath("/admin/login")).toBe("/admin/login");
   });
 });

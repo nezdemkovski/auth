@@ -138,7 +138,7 @@ export const rateLimit = (store: RateLimiterStore, options: { trustProxyHeaders:
     }
 
     const now = Date.now();
-    const key = `${rule.name}:${clientKey(c.req.raw.headers, options)}:${normalizePath(path)}`;
+    const key = `${rule.name}:${clientKey(c.req.raw.headers, options)}:${normalizeRateLimitPath(path)}`;
     let result: RateLimitResult;
 
     try {
@@ -260,7 +260,7 @@ class RedisRateLimiterStore implements RateLimiterStore {
   }
 }
 
-const clientKey = (headers: Headers, options: { trustProxyHeaders: boolean }) => {
+export const clientKey = (headers: Headers, options: { trustProxyHeaders: boolean }) => {
   if (!options.trustProxyHeaders) {
     return "direct";
   }
@@ -272,11 +272,6 @@ const clientKey = (headers: Headers, options: { trustProxyHeaders: boolean }) =>
   );
 };
 
-const normalizePath = (path: string) => {
+export const normalizeRateLimitPath = (path: string) => {
   return path.replace(/^\/api\/[^/]+\/auth\//, "/api/:project/auth/");
-};
-
-export const __securityTestUtils = {
-  clientKey,
-  normalizePath
 };

@@ -16,7 +16,8 @@ import {
 import {
   billingSettingsResponse,
   createdBillingProductResponse,
-  polarProductResponse
+  polarProductResponse,
+  type PolarProductSummary
 } from "./translator";
 import {
   validateBillingSettingsPatch,
@@ -25,11 +26,29 @@ import {
 } from "./validator";
 
 export type BillingServiceOptions = {
-  registry: AuthRegistry;
+  registry: Pick<AuthRegistry, "updateProject">;
   databaseUrl: string;
   adminProject: AuthProject;
   publicBaseUrl: string;
   encryptionSecret: string;
+  polar?: BillingPolarGateway;
+};
+
+export type BillingPolarGateway = {
+  verifyAccess: typeof verifyPolarAccess;
+  createClientFromProject(project: AuthProject): NonNullable<ReturnType<typeof createPolarClientFromProject>> | null;
+  listProducts(client: NonNullable<ReturnType<typeof createPolarClientFromProject>>): Promise<PolarProductSummary[]>;
+  createProduct(
+    client: NonNullable<ReturnType<typeof createPolarClientFromProject>>,
+    input: CreatePolarProductInput
+  ): Promise<PolarProductSummary>;
+};
+
+const defaultPolarGateway: BillingPolarGateway = {
+  verifyAccess: verifyPolarAccess,
+  createClientFromProject: createPolarClientFromProject,
+  listProducts: listPolarProducts,
+  createProduct: createPolarProduct
 };
 
 export class BillingServiceError extends Error {
@@ -44,7 +63,11 @@ export class BillingServiceError extends Error {
 }
 
 export class BillingService {
-  constructor(private readonly options: BillingServiceOptions) {}
+  constructor(private readonly options: BillingServiceOptions) {
+    this.polar = options.polar ?? defaultPolarGateway;
+  }
+
+  private readonly polar: BillingPolarGateway;
 
   async readSettings(project: AuthProject) {
     const settings = await readBillingSettingsState({
@@ -106,7 +129,7 @@ export class BillingService {
     }
 
     try {
-      await verifyPolarAccess({ accessToken, environment });
+      await this.polar.verifyAccess({ accessToken, environment });
     } catch (error) {
       throw new BillingServiceError(
         "polar_check_failed",
@@ -116,7 +139,7 @@ export class BillingService {
   }
 
   async listPolarProducts(project: AuthProject) {
-    const client = createPolarClientFromProject(project);
+    const client = this.polar.createClientFromProject(project);
     if (!client) {
       throw new BillingServiceError(
         "billing_not_configured",
@@ -126,7 +149,7 @@ export class BillingService {
     }
 
     try {
-      const products = await listPolarProducts(client);
+      const products = await this.polar.listProducts(client);
       return products.map(polarProductResponse);
     } catch (error) {
       throw new BillingServiceError(
@@ -137,7 +160,7 @@ export class BillingService {
   }
 
   async createPolarProduct(project: AuthProject, input: CreatePolarProductInput) {
-    const client = createPolarClientFromProject(project);
+    const client = this.polar.createClientFromProject(project);
     if (!client) {
       throw new BillingServiceError(
         "billing_not_configured",
@@ -147,7 +170,7 @@ export class BillingService {
     }
 
     try {
-      const product = await createPolarProduct(client, input);
+      const product = await this.polar.createProduct(client, input);
       return createdBillingProductResponse(
         product,
         input,

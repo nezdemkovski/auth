@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { parseJson } from "../src/http/admin/shared";
+import { parseJson } from "../shared";
 
 describe("admin HTTP utils", () => {
   test("returns parsed JSON when request body is valid", async () => {

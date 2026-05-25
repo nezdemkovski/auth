@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
-import { ADMIN_PROJECT } from "../src/config/projects";
-import { createProjectEmailHandlers } from "../src/email/templates";
-import type { EmailSender } from "../src/email/sender";
+import { ADMIN_PROJECT } from "../../config/projects";
+import { createProjectEmailHandlers } from "../templates";
+import type { EmailSender } from "../sender";
 
 describe("project email handlers", () => {
   test("are disabled when no sender is configured", () => {
@@ -25,7 +25,7 @@ describe("project email handlers", () => {
       sender,
       project: {
         ...ADMIN_PROJECT,
-        name: "OpenMarkers"
+        name: "Demo App"
       }
     });
 
@@ -33,13 +33,13 @@ describe("project email handlers", () => {
       user: {
         email: "user@example.com"
       },
-      url: "https://auth.example.com/api/openmarkers/auth/verify-email?token=token"
+      url: "https://auth.example.com/api/demo/auth/verify-email?token=token"
     });
 
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toBe("user@example.com");
-    expect(sent[0].subject).toBe("Verify your OpenMarkers account");
-    expect(sent[0].html).toContain("https://auth.example.com/api/openmarkers/auth");
+    expect(sent[0].subject).toBe("Verify your Demo App account");
+    expect(sent[0].html).toContain("https://auth.example.com/api/demo/auth");
     expect(sent[0].text).toContain("Confirm this email address");
   });
 
@@ -54,7 +54,7 @@ describe("project email handlers", () => {
       sender,
       project: {
         ...ADMIN_PROJECT,
-        name: "OpenMarkers"
+        name: "Demo App"
       }
     });
 
@@ -62,11 +62,11 @@ describe("project email handlers", () => {
       user: {
         email: "user@example.com"
       },
-      url: "https://auth.example.com/api/openmarkers/auth/reset-password/token"
+      url: "https://auth.example.com/api/demo/auth/reset-password/token"
     });
 
     expect(sent).toHaveLength(1);
-    expect(sent[0].subject).toBe("Reset your OpenMarkers password");
+    expect(sent[0].subject).toBe("Reset your Demo App password");
     expect(sent[0].text).toContain("It expires in 1 hour");
   });
 });

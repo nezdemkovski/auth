@@ -11,16 +11,16 @@ import { LoginMode, loginConfigResponse } from "../translator";
 describe("login translator", () => {
   test("exposes only enabled and configured social providers", () => {
     const response = loginConfigResponse({
-      project: "openmarkers",
-      redirectUri: "https://openmarkers.app/auth/callback",
+      project: "demo",
+      redirectUri: "https://demo.example.com/auth/callback",
       state: "state",
       mode: LoginMode.Login,
       codeChallenge: "A".repeat(43),
       registered: {
         project: {
-          slug: "openmarkers",
-          name: "OpenMarkers",
-          schema: "openmarkers_auth",
+          slug: "demo",
+          name: "Demo App",
+          schema: "demo_auth",
           description: "",
           iconUrl: "",
           appUrl: "",

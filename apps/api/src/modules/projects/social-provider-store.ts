@@ -96,7 +96,7 @@ export const loadSocialProviderSettings = async (options: {
       current[row.provider] = {
         enabled: row.enabled,
         clientId: row.clientId,
-        clientSecret: decryptSecret(
+        clientSecret: decryptSocialProviderSecret(
           row.clientSecretCipher,
           options.encryptionSecret,
           row.projectSlug,
@@ -168,7 +168,7 @@ export const updateProjectSocialProvider = async (options: {
   const clientId = options.patch.clientId.trim();
   const secretCipher =
     options.patch.clientSecret !== undefined
-      ? encryptSecret(
+      ? encryptSocialProviderSecret(
           options.patch.clientSecret.trim(),
           options.encryptionSecret,
           options.project.slug,
@@ -272,7 +272,7 @@ export const cloneDefaultSocialProviders = () => {
   return structuredClone(DEFAULT_PROJECT_SOCIAL_PROVIDERS);
 };
 
-const encryptSecret = (value: string, secret: string, projectSlug: string, provider: SocialProviderId) => {
+export const encryptSocialProviderSecret = (value: string, secret: string, projectSlug: string, provider: SocialProviderId) => {
   if (!value) {
     return "";
   }
@@ -280,7 +280,7 @@ const encryptSecret = (value: string, secret: string, projectSlug: string, provi
   return encryptSecretValue(value, secret, encryptionContext(projectSlug, provider));
 };
 
-const decryptSecret = (value: string, secret: string, projectSlug: string, provider: SocialProviderId) => {
+export const decryptSocialProviderSecret = (value: string, secret: string, projectSlug: string, provider: SocialProviderId) => {
   if (!value) {
     return "";
   }
@@ -298,10 +298,4 @@ const normalizeDate = (value: Date | string | null | undefined) => {
   }
 
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
-};
-
-export const __socialProviderTestUtils = {
-  encryptSecret,
-  decryptSecret,
-  normalizeDate
 };

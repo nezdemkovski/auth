@@ -170,7 +170,3 @@ const isPolarEnabled = (project: AuthProject) => {
     Boolean(project.billing.accessToken.trim())
   );
 };
-
-export const __authProxyTestUtils = {
-  isEnabledAuthFeaturePath
-};

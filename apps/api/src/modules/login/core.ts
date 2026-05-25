@@ -1,4 +1,5 @@
-import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
+import type { AuthRegistry } from "../../auth/registry";
+import type { AuthProject } from "../../config/projects";
 import {
   randomBase64Url,
   sha256Base64Url
@@ -14,7 +15,16 @@ export type LoginFlowOptions = {
   trustProxyHeaders?: boolean;
 };
 
-export type LoginProjectRegistry = Pick<AuthRegistry, "get" | "isTrustedOrigin">;
+export type LoginRegisteredProject = {
+  project: AuthProject;
+  auth: {
+    handler(request: Request): Promise<Response>;
+  };
+};
+
+export type LoginProjectRegistry = {
+  get(slug: string): LoginRegisteredProject | null;
+} & Pick<AuthRegistry, "isTrustedOrigin">;
 type TrustedOriginRegistry = Pick<LoginProjectRegistry, "isTrustedOrigin">;
 
 export class LoginFlowError extends Error {
@@ -147,7 +157,7 @@ export const internalAuthHeaders = (source: Headers, headers: HeadersInit, optio
 };
 
 const issueLoginCodeFromSession = async (options: {
-  registered: RegisteredProject;
+  registered: LoginRegisteredProject;
   redirectUri: string;
   state: string;
   codeChallenge: string;

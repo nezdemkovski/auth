@@ -11,8 +11,9 @@ import {
   SocialProvider
 } from "../../../config/social-providers";
 import {
-  __socialProviderTestUtils,
   cloneDefaultSocialProviders,
+  decryptSocialProviderSecret,
+  encryptSocialProviderSecret,
   socialProviderCallbackUrl
 } from "../social-provider-store";
 
@@ -42,33 +43,33 @@ describe("social provider settings", () => {
 
   test("encrypts secrets with authenticated encryption and rejects tampering", () => {
     const secret = "x".repeat(32);
-    const cipher = __socialProviderTestUtils.encryptSecret(
+    const cipher = encryptSocialProviderSecret(
       "client-secret",
       secret,
-      "openmarkers",
+      "demo",
       SocialProvider.GitHub
     );
 
     expect(cipher).toMatch(/^v1:/);
     expect(cipher).not.toContain("client-secret");
     expect(
-      __socialProviderTestUtils.decryptSecret(
+      decryptSocialProviderSecret(
         cipher,
         secret,
-        "openmarkers",
+        "demo",
         SocialProvider.GitHub
       )
     ).toBe("client-secret");
     expect(() =>
-      __socialProviderTestUtils.decryptSecret(
+      decryptSocialProviderSecret(
         cipher,
         "y".repeat(32),
-        "openmarkers",
+        "demo",
         SocialProvider.GitHub
       )
     ).toThrow();
     expect(() =>
-      __socialProviderTestUtils.decryptSecret(
+      decryptSocialProviderSecret(
         cipher,
         secret,
         "other",
@@ -76,10 +77,10 @@ describe("social provider settings", () => {
       )
     ).toThrow();
     expect(() =>
-      __socialProviderTestUtils.decryptSecret(
+      decryptSocialProviderSecret(
         cipher,
         secret,
-        "openmarkers",
+        "demo",
         SocialProvider.Google
       )
     ).toThrow();

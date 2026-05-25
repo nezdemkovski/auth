@@ -1,5 +1,3 @@
-import type { Product } from "@polar-sh/sdk/models/components/product";
-
 import type {
   AuthProject,
   BillingEntitlement,
@@ -14,6 +12,15 @@ import {
 import { isEnumValue } from "../../runtime/enums";
 import type { BillingSettingsState } from "./store";
 import type { CreatePolarProductInput } from "./validator";
+
+export type PolarProductSummary = {
+  id: string;
+  name: string;
+  description?: string | null;
+  isRecurring: boolean;
+  isArchived: boolean;
+  organizationId: string;
+};
 
 export type PublicBillingSettings = Omit<
   ProjectBillingSettings,
@@ -39,7 +46,7 @@ export const billingWebhookUrl = (publicBaseUrl: string, project: AuthProject) =
   return `${publicBaseUrl}/api/${project.slug}/auth/polar/webhooks`;
 };
 
-export const polarProductResponse = (product: Product) => {
+export const polarProductResponse = (product: PolarProductSummary) => {
   return {
     id: product.id,
     name: product.name,
@@ -50,7 +57,7 @@ export const polarProductResponse = (product: Product) => {
   };
 };
 
-export const createdBillingProductResponse = (product: Product, input: CreatePolarProductInput, entitlements: BillingProductMapping["entitlements"]) => {
+export const createdBillingProductResponse = (product: PolarProductSummary, input: CreatePolarProductInput, entitlements: BillingProductMapping["entitlements"]) => {
   return {
     slug: input.slug,
     name: product.name,

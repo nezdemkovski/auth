@@ -57,7 +57,7 @@ export const createProjectMigrationAuthOptions = (options: ProjectMigrationOptio
   };
 };
 
-const createBaseProjectAuthOptions = (options: {
+export const createBaseProjectAuthOptions = (options: {
   project: AuthProject;
   publicBaseUrl: string;
   secret: string;
@@ -272,7 +272,7 @@ const buildSocialProviders = (project: AuthProject) => {
   return socialProviders;
 };
 
-const buildOAuthValidAudiences = (project: AuthProject, publicBaseUrl: string) => {
+export const buildOAuthValidAudiences = (project: AuthProject, publicBaseUrl: string) => {
   const audiences = new Set([
     `${publicBaseUrl}/api/${project.slug}`,
     `${publicBaseUrl}/api/${project.slug}/auth`
@@ -297,9 +297,4 @@ const normalizeOrigin = (value: string) => {
   } catch {
     return null;
   }
-};
-
-export const __projectAuthTestUtils = {
-  buildOAuthValidAudiences,
-  createBaseProjectAuthOptions
 };

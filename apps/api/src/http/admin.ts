@@ -100,7 +100,3 @@ export const createAdminApi = (options: AdminApiOptions) => {
 
   return app;
 };
-
-export const __adminTestUtils = {
-  isTrustedAdminRequest
-};

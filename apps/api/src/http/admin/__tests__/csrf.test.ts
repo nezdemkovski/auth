@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import { __adminTestUtils } from "../src/http/admin";
+import { isTrustedAdminRequest } from "../csrf";
 
 describe("admin API security helpers", () => {
   test("accepts same-origin state-changing admin requests", () => {
     expect(
-      __adminTestUtils.isTrustedAdminRequest(
+      isTrustedAdminRequest(
         new Headers({
           origin: "https://auth.example.com"
         }),
@@ -16,7 +16,7 @@ describe("admin API security helpers", () => {
 
   test("rejects cross-origin state-changing admin requests", () => {
     expect(
-      __adminTestUtils.isTrustedAdminRequest(
+      isTrustedAdminRequest(
         new Headers({
           origin: "https://evil.example"
         }),
@@ -27,7 +27,7 @@ describe("admin API security helpers", () => {
 
   test("does not trust Referer when Origin is absent", () => {
     expect(
-      __adminTestUtils.isTrustedAdminRequest(
+      isTrustedAdminRequest(
         new Headers({
           referer: "https://auth.example.com/admin/settings"
         }),
@@ -35,7 +35,7 @@ describe("admin API security helpers", () => {
       )
     ).toBe(false);
     expect(
-      __adminTestUtils.isTrustedAdminRequest(
+      isTrustedAdminRequest(
         new Headers({
           referer: "not a url"
         }),
@@ -46,7 +46,7 @@ describe("admin API security helpers", () => {
 
   test("accepts browser same-origin fetch metadata when Origin is absent", () => {
     expect(
-      __adminTestUtils.isTrustedAdminRequest(
+      isTrustedAdminRequest(
         new Headers({
           "sec-fetch-site": "same-origin"
         }),
@@ -57,7 +57,7 @@ describe("admin API security helpers", () => {
 
   test("rejects requests without origin, fetch metadata, or referer", () => {
     expect(
-      __adminTestUtils.isTrustedAdminRequest(
+      isTrustedAdminRequest(
         new Headers(),
         "https://auth.example.com"
       )

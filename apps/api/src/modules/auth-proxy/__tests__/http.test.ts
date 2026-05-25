@@ -7,17 +7,17 @@ import {
   DEFAULT_PROJECT_STORAGE,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   type AuthProject
-} from "../src/config/projects";
-import { __authProxyTestUtils } from "../src/modules/auth-proxy/http";
+} from "../../../config/projects";
+import { isEnabledAuthFeaturePath } from "../http";
 
 const project: AuthProject = {
-  slug: "openmarkers",
-  name: "OpenMarkers",
-  schema: "openmarkers_auth",
+  slug: "demo",
+  name: "Demo App",
+  schema: "demo_auth",
   description: "",
   iconUrl: "",
   appUrl: "",
-  trustedOrigins: ["https://openmarkers.app"],
+  trustedOrigins: ["https://demo.example.com"],
   features: DEFAULT_PROJECT_FEATURES,
   socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   billing: DEFAULT_PROJECT_BILLING,
@@ -27,7 +27,7 @@ const project: AuthProject = {
 describe("auth route feature gates", () => {
   test("blocks public sign-up in the built-in admin realm", () => {
     expect(
-      __authProxyTestUtils.isEnabledAuthFeaturePath(
+      isEnabledAuthFeaturePath(
         ADMIN_PROJECT,
         "/api/admin/auth/sign-up/email"
       )
@@ -36,30 +36,30 @@ describe("auth route feature gates", () => {
 
   test("keeps sign-up available for regular realms", () => {
     expect(
-      __authProxyTestUtils.isEnabledAuthFeaturePath(
+      isEnabledAuthFeaturePath(
         project,
-        "/api/openmarkers/auth/sign-up/email"
+        "/api/demo/auth/sign-up/email"
       )
     ).toBe(true);
   });
 
   test("keeps disabled feature endpoints closed", () => {
     expect(
-      __authProxyTestUtils.isEnabledAuthFeaturePath(
+      isEnabledAuthFeaturePath(
         project,
-        "/api/openmarkers/auth/passkey/verify-authentication"
+        "/api/demo/auth/passkey/verify-authentication"
       )
     ).toBe(false);
     expect(
-      __authProxyTestUtils.isEnabledAuthFeaturePath(
+      isEnabledAuthFeaturePath(
         project,
-        "/api/openmarkers/auth/oauth2/authorize"
+        "/api/demo/auth/oauth2/authorize"
       )
     ).toBe(false);
     expect(
-      __authProxyTestUtils.isEnabledAuthFeaturePath(
+      isEnabledAuthFeaturePath(
         project,
-        "/api/openmarkers/auth/checkout"
+        "/api/demo/auth/checkout"
       )
     ).toBe(false);
   });

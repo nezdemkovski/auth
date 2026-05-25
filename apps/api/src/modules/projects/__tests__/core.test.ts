@@ -11,12 +11,12 @@ import {
   normalizeProjectSlug,
   projectSchemaFromSlug,
   validateProjectSlug
-} from "../src/config/projects";
+} from "../../../config/projects";
 import {
   createProjectFromInput,
   normalizeProjectFeatures,
   validateProjectSettingsPatch
-} from "../src/modules/projects/store";
+} from "../store";
 
 describe("projects", () => {
   test("uses a stable built-in admin project", () => {
@@ -47,19 +47,19 @@ describe("projects", () => {
     expect(
       createProjectFromInput({
         slug: " Open Markers ",
-        name: " OpenMarkers ",
+        name: " Demo App ",
         description: " Marker maps ",
         iconUrl: "",
-        appUrl: "https://openmarkers.app",
-        trustedOrigins: [" https://openmarkers.app ", ""]
+        appUrl: "https://demo.example.com",
+        trustedOrigins: [" https://demo.example.com ", ""]
       })
     ).toMatchObject({
       slug: "open-markers",
-      name: "OpenMarkers",
+      name: "Demo App",
       schema: "open_markers_auth",
       description: "Marker maps",
-      appUrl: "https://openmarkers.app",
-      trustedOrigins: ["https://openmarkers.app"]
+      appUrl: "https://demo.example.com",
+      trustedOrigins: ["https://demo.example.com"]
     });
   });
 
@@ -69,11 +69,11 @@ describe("projects", () => {
 
   test("rejects invalid project settings patches", () => {
     const patch = {
-      name: "OpenMarkers",
+      name: "Demo App",
       description: "",
       iconUrl: "",
-      appUrl: "https://openmarkers.app",
-      trustedOrigins: ["https://openmarkers.app"],
+      appUrl: "https://demo.example.com",
+      trustedOrigins: ["https://demo.example.com"],
       features: DEFAULT_PROJECT_FEATURES
     };
 
@@ -92,13 +92,13 @@ describe("projects", () => {
     expect(() =>
       validateProjectSettingsPatch({
         ...patch,
-        trustedOrigins: ["https://openmarkers.app/path"]
+        trustedOrigins: ["https://demo.example.com/path"]
       })
     ).toThrow("Invalid trusted origin");
     expect(() =>
       validateProjectSettingsPatch({
         ...patch,
-        trustedOrigins: ["https://openmarkers.app", "https://openmarkers.app"]
+        trustedOrigins: ["https://demo.example.com", "https://demo.example.com"]
       })
     ).toThrow("Duplicate trusted origin");
   });

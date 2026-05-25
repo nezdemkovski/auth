@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
-import { StorageProvider } from "../src/config/projects";
-import { EmailProvider } from "../src/email/sender";
-import { loadEnv } from "../src/config/env";
+import { StorageProvider } from "../projects";
+import { EmailProvider } from "../../email/sender";
+import { loadEnv } from "../env";
 
 const baseEnv = {
   AUTH_PUBLIC_BASE_URL: "https://auth.example.com",
