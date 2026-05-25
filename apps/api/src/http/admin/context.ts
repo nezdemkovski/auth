@@ -7,6 +7,8 @@ import type { EmailConfig } from "../../email/sender";
 import type { AdminAccountService } from "../../modules/admin-account/core";
 import type { BillingService } from "../../modules/billing/core";
 import type { DeliveryService } from "../../modules/delivery/core";
+import type { ObservabilityService } from "../../modules/observability/core";
+import type { ObservabilityReporter } from "../../modules/observability/core";
 import type { ProjectService } from "../../modules/projects/core";
 import type { StorageService } from "../../modules/storage/core";
 import type { UsersService } from "../../modules/users/core";
@@ -21,6 +23,7 @@ export type AdminApiOptions = {
   secret: string;
   encryptionSecret: string;
   managedStorage: AuthProject["storage"];
+  observabilityReporter: ObservabilityReporter;
 };
 
 export type AdminRouteContext = {
@@ -29,6 +32,7 @@ export type AdminRouteContext = {
   adminAccountService: AdminAccountService;
   billingService: BillingService;
   deliveryService: DeliveryService;
+  observabilityService: ObservabilityService;
   projectService: ProjectService;
   storageService: StorageService;
   usersService: UsersService;

@@ -33,7 +33,7 @@ services:
     command: bun --watch run src/index.ts
     environment:
       PORT: "3000"
-      AUTH_PUBLIC_BASE_URL: http://127.0.0.1:3000
+      AUTH_PUBLIC_BASE_URL: http://localhost:3000
       AUTH_ADMIN_EMAIL: ${AUTH_ADMIN_EMAIL:-admin@localhost.test}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"

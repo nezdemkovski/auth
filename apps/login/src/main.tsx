@@ -32,6 +32,7 @@ import Github from "@lobehub/icons/es/Github";
 import Google from "@lobehub/icons/es/Google";
 import { Moon, Sun } from "lucide-react";
 import "@nezdemkovski/auth-client-shared/style.css";
+import { configureBrowserObservability } from "@nezdemkovski/auth-client-shared/observability";
 import {
   applyTheme,
   resolveTheme,
@@ -50,6 +51,7 @@ type LoginConfig = {
   codeChallenge: string;
   features: ProjectFeatures;
   socialProviders: SocialProviderId[];
+  observability: PublicObservabilityConfig;
   error?: string;
 };
 
@@ -60,6 +62,7 @@ type LoginOAuthConsentConfig = {
   clientId: string;
   scopes: string[];
   oauthQuery: string;
+  observability: PublicObservabilityConfig;
 };
 
 type LoginPasswordResetConfig = {
@@ -68,6 +71,7 @@ type LoginPasswordResetConfig = {
   projectName: string;
   appUrl: string;
   token: string;
+  observability: PublicObservabilityConfig;
   error?: string;
 };
 
@@ -77,6 +81,12 @@ type LoginAuthConfig =
   | LoginPasswordResetConfig;
 
 type SocialProviderId = "github" | "google" | "twitter" | "facebook";
+
+type PublicObservabilityConfig = {
+  enabled: boolean;
+  dsn: string;
+  environment: string;
+};
 
 type ProjectFeatures = {
   passkey: {
@@ -215,6 +225,11 @@ function LoginConfigLoader({
         return;
       }
 
+      configureBrowserObservability({
+        ...loadedConfig.observability,
+        component: "login",
+        projectSlug: loadedConfig.project
+      });
       setConfig(loadedConfig);
       setFailed(false);
     });

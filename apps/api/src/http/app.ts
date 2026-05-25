@@ -3,6 +3,10 @@ import { Hono } from "hono";
 import { registerLoginRoutes } from "../modules/login/http";
 import { createLoginCodeStore } from "../modules/login/store";
 import { registerAuthProxyRoutes } from "../modules/auth-proxy/http";
+import {
+  createObservabilityReporter,
+  inferObservabilityContext
+} from "../modules/observability/core";
 import { StorageService } from "../modules/storage/core";
 import { registerPublicStorageRoutes } from "../modules/storage/public-http";
 import type { Env } from "../config/env";
@@ -42,6 +46,12 @@ export const createApp = async (env: Env) => {
   }
 
   const adminDb = createAdminDatabase(env.databaseUrl, adminProject);
+  const observabilityReporter = await createObservabilityReporter({
+    databaseUrl: env.databaseUrl,
+    adminProject,
+    adminDb,
+    encryptionSecret: env.secretEncryptionKey
+  });
   const deliverySettings = await readDeliverySettings({
     databaseUrl: env.databaseUrl,
     adminProject,
@@ -116,7 +126,8 @@ export const createApp = async (env: Env) => {
       publicBaseUrl: env.publicBaseUrl,
       secret: env.betterAuthSecret,
       encryptionSecret: env.secretEncryptionKey,
-      managedStorage: env.storage
+      managedStorage: env.storage,
+      observabilityReporter
     })
   );
 
@@ -124,7 +135,8 @@ export const createApp = async (env: Env) => {
     registry,
     secret: env.betterAuthSecret,
     trustProxyHeaders: env.trustProxyHeaders,
-    codeStore: loginCodeStore
+    codeStore: loginCodeStore,
+    observabilityReporter
   });
   registerPublicStorageRoutes(app, { registry, storageService });
   registerAuthProxyRoutes(app, { registry });
@@ -135,6 +147,16 @@ export const createApp = async (env: Env) => {
         error: "not_found"
       },
       404
+    );
+  });
+
+  app.onError((error, c) => {
+    observabilityReporter.captureException(error, inferObservabilityContext(c.req.raw));
+    return c.json(
+      {
+        error: "internal_server_error"
+      },
+      500
     );
   });
 

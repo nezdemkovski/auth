@@ -1,4 +1,5 @@
 import type { AuthRegistry } from "../../auth/registry";
+import type { ObservabilityReporter } from "../observability/core";
 import type { Hono } from "hono";
 import {
   LoginFlowError,
@@ -23,15 +24,19 @@ type LoginVariables = {
   registry: AuthRegistry;
 };
 
+type PublicObservabilityReporter = Pick<ObservabilityReporter, "publicConfig">;
+
 export type LoginOptions = {
   registry: LoginProjectRegistry;
   secret: string;
   codeStore: LoginCodeStore;
   trustProxyHeaders?: boolean;
+  observabilityReporter: PublicObservabilityReporter;
 };
 
 type LoginConfigOptions = {
   registry: LoginProjectRegistry;
+  observabilityReporter: PublicObservabilityReporter;
 };
 
 export const registerLoginRoutes = (app: Hono<{ Variables: LoginVariables }>, options: LoginOptions) => {
@@ -99,7 +104,8 @@ export const getLoginConfig = (req: Request, project: string, options: LoginConf
       redirectUri,
       state,
       mode,
-      codeChallenge
+      codeChallenge,
+      observability: options.observabilityReporter.publicConfig()
     })
   );
 };
@@ -117,7 +123,8 @@ export const getPasswordResetConfig = (req: Request, project: string, options: L
       registered,
       project,
       token: url.searchParams.get("token") ?? "",
-      error: url.searchParams.get("error") ?? ""
+      error: url.searchParams.get("error") ?? "",
+      observability: options.observabilityReporter.publicConfig()
     })
   );
 };
@@ -149,7 +156,8 @@ export const getOAuthConsentConfig = (req: Request, project: string, options: Lo
       project,
       clientId,
       scopes,
-      oauthQuery: url.searchParams.toString()
+      oauthQuery: url.searchParams.toString(),
+      observability: options.observabilityReporter.publicConfig()
     })
   );
 };

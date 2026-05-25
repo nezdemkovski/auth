@@ -5,9 +5,11 @@ import { AdminAccountService } from "../modules/admin-account/core";
 import { registerAdminAccountRoutes } from "../modules/admin-account/http";
 import { BillingService } from "../modules/billing/core";
 import { DeliveryService } from "../modules/delivery/core";
+import { ObservabilityService } from "../modules/observability/core";
 import { StorageService } from "../modules/storage/core";
 import { registerBillingRoutes } from "../modules/billing/http";
 import { registerDeliveryRoutes } from "../modules/delivery/http";
+import { registerObservabilityRoutes } from "../modules/observability/http";
 import { ProjectService } from "../modules/projects/core";
 import { registerProjectRoutes } from "../modules/projects/http";
 import { registerStorageRoutes } from "../modules/storage/http";
@@ -49,6 +51,13 @@ export const createAdminApi = (options: AdminApiOptions) => {
       currentDeliverySettings = settings;
     }
   });
+  const observabilityService = new ObservabilityService({
+    databaseUrl: options.databaseUrl,
+    adminProject: options.adminProject,
+    adminDb: options.adminDb,
+    encryptionSecret: options.encryptionSecret,
+    reporter: options.observabilityReporter
+  });
   const adminAccountService = new AdminAccountService({
     publicBaseUrl: options.publicBaseUrl,
     getDeliverySettings: () => currentDeliverySettings
@@ -72,6 +81,7 @@ export const createAdminApi = (options: AdminApiOptions) => {
     adminAccountService,
     billingService,
     deliveryService,
+    observabilityService,
     projectService,
     storageService,
     usersService,
@@ -96,6 +106,7 @@ export const createAdminApi = (options: AdminApiOptions) => {
 
   registerAdminAccountRoutes(routeContext);
   registerDeliveryRoutes(routeContext);
+  registerObservabilityRoutes(routeContext);
 
   registerProjectRoutes(routeContext);
   registerBillingRoutes(routeContext);

@@ -16,6 +16,11 @@ describe("login translator", () => {
       state: "state",
       mode: LoginMode.Login,
       codeChallenge: "A".repeat(43),
+      observability: {
+        enabled: false,
+        dsn: "",
+        environment: "test"
+      },
       registered: {
         project: {
           slug: "demo",

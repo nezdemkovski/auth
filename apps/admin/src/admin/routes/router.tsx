@@ -1,7 +1,8 @@
 import { QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, Outlet, RouterProvider, createRootRouteWithContext, createRoute, createRouter, useNavigate, useParams, useRouterState } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { setBrowserObservabilityProject } from "@nezdemkovski/auth-client-shared/observability";
 import {
   createProject,
   createPolarProduct,
@@ -170,6 +171,10 @@ function DashboardLayout() {
     ? "__new_project__"
     : params.projectSlug ?? "__overview__";
   const selected = allProjects.find((project) => project.slug === params.projectSlug);
+
+  useEffect(() => {
+    setBrowserObservabilityProject(selected?.slug);
+  }, [selected?.slug]);
 
   async function selectProject(slug: string) {
     if (slug === "__overview__") {

@@ -19,6 +19,7 @@
     "@polar-sh/sdk": "0.47.1",
     "@react-email/components": "1.0.12",
     "@react-email/render": "2.0.8",
+    "@sentry/bun": "10.53.1",
     "better-auth": "1.6.11",
     "drizzle-orm": "1.0.0-rc.3",
     "hono": "4.12.21",

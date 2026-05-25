@@ -7,6 +7,9 @@ import type {
   DeliverySettings,
   DeliverySettingsPatch,
   MeResponse,
+  ObservabilitySettings,
+  ObservabilitySettingsPatch,
+  PublicObservabilityConfig,
   ProjectSettingsPatch,
   SocialProviderId,
   SocialProviderPatch,
@@ -66,6 +69,61 @@ export async function fetchDeliverySettings(): Promise<DeliverySettings> {
   });
   if (!response.ok) throw new Error("Could not load delivery settings");
   return ((await response.json()) as { settings: DeliverySettings }).settings;
+}
+
+export async function fetchObservabilityConfig(): Promise<PublicObservabilityConfig> {
+  const response = await fetch("/admin/api/observability-config", {
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error("Could not load observability config");
+  return ((await response.json()) as {
+    observability: PublicObservabilityConfig;
+  }).observability;
+}
+
+export async function fetchObservabilitySettings(): Promise<ObservabilitySettings> {
+  const response = await fetch("/admin/api/observability-settings", {
+    credentials: "include"
+  });
+  if (!response.ok) throw new Error("Could not load observability settings");
+  return ((await response.json()) as {
+    settings: ObservabilitySettings;
+  }).settings;
+}
+
+export async function updateObservabilitySettings(
+  patch: ObservabilitySettingsPatch
+): Promise<ObservabilitySettings> {
+  const response = await fetch("/admin/api/observability-settings", {
+    method: "PATCH",
+    credentials: "include",
+    headers: jsonHeaders,
+    body: JSON.stringify(patch)
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      message?: string;
+    } | null;
+    throw new Error(body?.message ?? "Could not save observability settings");
+  }
+
+  return ((await response.json()) as {
+    settings: ObservabilitySettings;
+  }).settings;
+}
+
+export async function sendObservabilityTestEvent(): Promise<void> {
+  const response = await fetch("/admin/api/observability-settings/test", {
+    method: "POST",
+    credentials: "include"
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      message?: string;
+    } | null;
+    throw new Error(body?.message ?? "Could not send test event");
+  }
 }
 
 export async function updateDeliverySettings(

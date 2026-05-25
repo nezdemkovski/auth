@@ -98,6 +98,30 @@ export type DeliverySettingsPatch = {
   resendApiKey?: string;
 };
 
+export type ObservabilityProvider = "none" | "sentry";
+
+export type PublicObservabilityConfig = {
+  enabled: boolean;
+  dsn: string;
+  environment: string;
+};
+
+export type ObservabilitySettings = {
+  provider: ObservabilityProvider;
+  enabled: boolean;
+  environment: string;
+  dsnConfigured: boolean;
+  configured: boolean;
+  updatedAt: string | null;
+};
+
+export type ObservabilitySettingsPatch = {
+  provider: ObservabilityProvider;
+  enabled: boolean;
+  environment: string;
+  dsn?: string;
+};
+
 export type BillingProvider = "none" | "polar";
 export type BillingEnvironment = "sandbox" | "production";
 export type BillingProductType =

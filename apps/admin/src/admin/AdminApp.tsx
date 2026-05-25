@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
+import { configureBrowserObservability } from "@nezdemkovski/auth-client-shared/observability";
 import { applyTheme, resolveTheme, setTheme, watchSystemTheme, type Theme } from "@nezdemkovski/auth-client-shared/theme";
-import { UnauthorizedError, fetchMe, signOut } from "./api";
+import { UnauthorizedError, fetchMe, fetchObservabilityConfig, signOut } from "./api";
 import { CenteredShell } from "./components/CenteredShell";
 import { LoadingPanel } from "@nezdemkovski/auth-ui";
 import { ChangePasswordPanel } from "./screens/ChangePasswordPanel";
@@ -20,6 +21,13 @@ export function AdminApp() {
     staleTime: 30_000,
     refetchOnWindowFocus: false
   });
+  const observabilityQuery = useQuery({
+    queryKey: ["admin", "observability-config"],
+    queryFn: fetchObservabilityConfig,
+    retry: false,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false
+  });
 
   useEffect(() => {
     applyTheme(theme);
@@ -28,6 +36,17 @@ export function AdminApp() {
   useEffect(() => {
     return watchSystemTheme((next) => setThemeState(next));
   }, []);
+
+  useEffect(() => {
+    if (!observabilityQuery.data) {
+      return;
+    }
+
+    configureBrowserObservability({
+      ...observabilityQuery.data,
+      component: "admin"
+    });
+  }, [observabilityQuery.data]);
 
   function toggleTheme() {
     const next: Theme = theme === "dark" ? "light" : "dark";

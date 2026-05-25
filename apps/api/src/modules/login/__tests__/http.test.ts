@@ -30,6 +30,15 @@ const project: AuthProject = {
 };
 
 const verifier = "A".repeat(43);
+const observabilityReporter = {
+  publicConfig() {
+    return {
+      enabled: false,
+      dsn: "",
+      environment: "test"
+    };
+  }
+};
 
 const unusedOptions: LoginOptions = {
   registry: {
@@ -41,6 +50,7 @@ const unusedOptions: LoginOptions = {
     }
   },
   secret: "test-secret",
+  observabilityReporter,
   codeStore: {
     connect: async () => {},
     close: () => {},
@@ -66,7 +76,8 @@ const configOptions = {
     isTrustedOrigin(slug: string, origin: string | undefined) {
       return slug === project.slug && origin === "https://demo.example.com";
     }
-  }
+  },
+  observabilityReporter
 };
 
 describe("login HTTP handlers", () => {

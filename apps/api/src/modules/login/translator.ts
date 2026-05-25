@@ -18,6 +18,7 @@ type LoginConfigInput = {
   state: string;
   mode: LoginMode;
   codeChallenge: string;
+  observability: PublicObservabilityConfig;
 };
 
 type ResetPasswordConfigInput = {
@@ -25,6 +26,7 @@ type ResetPasswordConfigInput = {
   project: string;
   token: string;
   error: string;
+  observability: PublicObservabilityConfig;
 };
 
 type OAuthConsentConfigInput = {
@@ -33,6 +35,13 @@ type OAuthConsentConfigInput = {
   clientId: string;
   scopes: string[];
   oauthQuery: string;
+  observability: PublicObservabilityConfig;
+};
+
+type PublicObservabilityConfig = {
+  enabled: boolean;
+  dsn: string;
+  environment: string;
 };
 
 export const loginConfigResponse = (input: LoginConfigInput) => {
@@ -45,7 +54,8 @@ export const loginConfigResponse = (input: LoginConfigInput) => {
     mode: input.mode,
     codeChallenge: input.codeChallenge,
     features: input.registered.project.features,
-    socialProviders: enabledSocialProviders(input.registered)
+    socialProviders: enabledSocialProviders(input.registered),
+    observability: input.observability
   };
 };
 
@@ -56,7 +66,8 @@ export const resetPasswordConfigResponse = (input: ResetPasswordConfigInput) => 
     projectName: input.registered.project.name,
     appUrl: input.registered.project.appUrl,
     token: input.token,
-    error: input.error
+    error: input.error,
+    observability: input.observability
   };
 };
 
@@ -67,7 +78,8 @@ export const oauthConsentConfigResponse = (input: OAuthConsentConfigInput) => {
     projectName: input.registered.project.name,
     clientId: input.clientId,
     scopes: input.scopes,
-    oauthQuery: input.oauthQuery
+    oauthQuery: input.oauthQuery,
+    observability: input.observability
   };
 };
 

@@ -21,6 +21,7 @@ import {
   ensureProjectSettingsTable,
   seedAdminProjectSettings
 } from "../modules/projects/store";
+import { ensureObservabilitySettingsTable } from "../modules/observability/store";
 import { ensureSocialProviderSettingsTable } from "../modules/projects/social-provider-store";
 import { ensureStorageObjectsTable } from "../modules/storage/objects-store";
 import { ensureStorageSettingsTable } from "../modules/storage/settings-store";
@@ -68,6 +69,10 @@ export const bootstrapProjects = async (options: BootstrapOptions) => {
       adminProject: options.adminProject
     });
     await ensureDeliverySettingsTable({
+      databaseUrl: options.databaseUrl,
+      adminProject: options.adminProject
+    });
+    await ensureObservabilitySettingsTable({
       databaseUrl: options.databaseUrl,
       adminProject: options.adminProject
     });
