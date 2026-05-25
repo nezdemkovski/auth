@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   clientKey,
+  DIRECT_CLIENT_IP_HEADER,
   normalizeRateLimitPath
 } from "../security";
 
@@ -13,6 +14,15 @@ describe("http security helpers", () => {
     });
 
     expect(clientKey(headers, { trustProxyHeaders: false })).toBe("direct");
+  });
+
+  test("uses the Bun-provided direct IP when proxy headers are disabled", () => {
+    const headers = new Headers({
+      [DIRECT_CLIENT_IP_HEADER]: "198.51.100.10",
+      "cf-connecting-ip": "203.0.113.10"
+    });
+
+    expect(clientKey(headers, { trustProxyHeaders: false })).toBe("198.51.100.10");
   });
 
   test("uses Cloudflare IP first when proxy headers are trusted", () => {

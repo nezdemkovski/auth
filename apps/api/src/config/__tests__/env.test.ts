@@ -7,6 +7,7 @@ import { loadEnv } from "../env";
 const baseEnv = {
   AUTH_PUBLIC_BASE_URL: "https://auth.example.com",
   BETTER_AUTH_SECRET: "x".repeat(32),
+  SECRET_ENCRYPTION_KEY: "y".repeat(32),
   POSTGRES_HOST: "postgres.example.com",
   POSTGRES_DB: "auth",
   POSTGRES_USER: "auth",
@@ -33,6 +34,22 @@ describe("loadEnv email config", () => {
         BETTER_AUTH_SECRET: "short"
       })
     ).toThrow("BETTER_AUTH_SECRET must be at least 32 characters");
+  });
+
+  test("requires a separate encryption key", () => {
+    expect(() => {
+      const { SECRET_ENCRYPTION_KEY: _secretEncryptionKey, ...env } = baseEnv;
+      loadEnv(env);
+    }).toThrow("SECRET_ENCRYPTION_KEY is required");
+  });
+
+  test("rejects short encryption keys", () => {
+    expect(() =>
+      loadEnv({
+        ...baseEnv,
+        SECRET_ENCRYPTION_KEY: "short"
+      })
+    ).toThrow("SECRET_ENCRYPTION_KEY must be at least 32 characters");
   });
 
   test("parses Resend email settings", () => {

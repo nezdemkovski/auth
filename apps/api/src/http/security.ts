@@ -3,6 +3,8 @@ import type { RedisClient } from "bun";
 
 import { ReconnectingRedisClient } from "../db/redis";
 
+export const DIRECT_CLIENT_IP_HEADER = "x-auth-direct-client-ip";
+
 type RateLimitRule = {
   name: string;
   windowMs: number;
@@ -273,7 +275,7 @@ return count
 
 export const clientKey = (headers: Headers, options: { trustProxyHeaders: boolean }) => {
   if (!options.trustProxyHeaders) {
-    return "direct";
+    return headers.get(DIRECT_CLIENT_IP_HEADER) ?? "direct";
   }
 
   return (

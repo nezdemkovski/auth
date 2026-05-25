@@ -5,6 +5,7 @@ import {
   type SocialProviderId
 } from "../../config/social-providers";
 import { prepareProjectSchema } from "../../db/bootstrap";
+import type { AdminDatabase } from "../../db/admin-pool";
 import { loadProjectBillingSettings } from "../billing/store";
 import { readProjectCounts } from "../users/store";
 import {
@@ -17,6 +18,8 @@ import {
 import {
   createProjectFromInput,
   createProjectSettings,
+  deleteProjectSettings,
+  dropProjectSchema,
   projectSettingsExists,
   updateProjectSettings,
   type ProjectSettingsCreate,
@@ -41,8 +44,10 @@ export class ProjectService {
       registry: AuthRegistry;
       databaseUrl: string;
       adminProject: AuthProject;
+      adminDb?: AdminDatabase;
       publicBaseUrl: string;
       secret: string;
+      encryptionSecret: string;
     }
   ) {}
 
@@ -86,6 +91,7 @@ export class ProjectService {
       await projectSettingsExists({
         databaseUrl: this.options.databaseUrl,
         adminProject: this.options.adminProject,
+        adminDb: this.options.adminDb,
         slug: project.slug,
         schema: project.schema
       })
@@ -93,6 +99,8 @@ export class ProjectService {
       throw new ProjectServiceError("project_exists", 409, "Project already exists");
     }
 
+    let schemaPrepared = false;
+    let settingsCreated = false;
     try {
       await prepareProjectSchema({
         databaseUrl: this.options.databaseUrl,
@@ -101,15 +109,47 @@ export class ProjectService {
         adminProject: this.options.adminProject,
         project
       });
+      schemaPrepared = true;
 
       const created = await createProjectSettings({
         databaseUrl: this.options.databaseUrl,
         adminProject: this.options.adminProject,
+        adminDb: this.options.adminDb,
         input
       });
+      settingsCreated = true;
       await this.options.registry.updateProject(created);
       return this.projectResponseWithCounts(created);
     } catch (error) {
+      if (settingsCreated) {
+        await deleteProjectSettings({
+          databaseUrl: this.options.databaseUrl,
+          adminProject: this.options.adminProject,
+          adminDb: this.options.adminDb,
+          slug: project.slug
+        }).catch((cleanupError) => {
+          console.error("[projects] failed to clean up project settings", {
+            slug: project.slug,
+            error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+          });
+        });
+      }
+
+      if (schemaPrepared) {
+        await dropProjectSchema({
+          databaseUrl: this.options.databaseUrl,
+          adminProject: this.options.adminProject,
+          adminDb: this.options.adminDb,
+          schema: project.schema
+        }).catch((cleanupError) => {
+          console.error("[projects] failed to clean up project schema", {
+            slug: project.slug,
+            schema: project.schema,
+            error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+          });
+        });
+      }
+
       throw new ProjectServiceError(
         "create_project_failed",
         400,
@@ -123,6 +163,7 @@ export class ProjectService {
       const updated = await updateProjectSettings({
         databaseUrl: this.options.databaseUrl,
         adminProject: this.options.adminProject,
+        adminDb: this.options.adminDb,
         slug: registered.project.slug,
         patch
       });
@@ -134,14 +175,16 @@ export class ProjectService {
       const socialProviders = await loadProjectSocialProviders({
         databaseUrl: this.options.databaseUrl,
         adminProject: this.options.adminProject,
+        adminDb: this.options.adminDb,
         project: updated,
-        encryptionSecret: this.options.secret
+        encryptionSecret: this.options.encryptionSecret
       });
       const billing = await loadProjectBillingSettings({
         databaseUrl: this.options.databaseUrl,
         adminProject: this.options.adminProject,
+        adminDb: this.options.adminDb,
         project: updated,
-        encryptionSecret: this.options.secret
+        encryptionSecret: this.options.encryptionSecret
       });
       const nextProject = {
         ...updated,
@@ -168,6 +211,7 @@ export class ProjectService {
       providers: await readProjectSocialProviders({
         databaseUrl: this.options.databaseUrl,
         adminProject: this.options.adminProject,
+        adminDb: this.options.adminDb,
         project,
         publicBaseUrl: this.options.publicBaseUrl
       }),
@@ -183,10 +227,11 @@ export class ProjectService {
     const socialProviders = await updateProjectSocialProvider({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
+      adminDb: this.options.adminDb,
       project: registered.project,
       provider,
       patch,
-      encryptionSecret: this.options.secret
+      encryptionSecret: this.options.encryptionSecret
     });
     await this.options.registry.updateProject({
       ...registered.project,
@@ -232,14 +277,16 @@ export class ProjectService {
     await markSocialProviderVerified({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
+      adminDb: this.options.adminDb,
       project: registered.project,
       provider
     });
     const socialProviders = await loadProjectSocialProviders({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
+      adminDb: this.options.adminDb,
       project: registered.project,
-      encryptionSecret: this.options.secret
+      encryptionSecret: this.options.encryptionSecret
     });
     await this.options.registry.updateProject({
       ...registered.project,

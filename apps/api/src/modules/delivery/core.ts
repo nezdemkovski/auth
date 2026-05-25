@@ -1,5 +1,6 @@
 import type { AuthRegistry } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
+import type { AdminDatabase } from "../../db/admin-pool";
 import { createEmailSender, EmailProvider, type EmailConfig } from "../../email/sender";
 import type { AdminSession } from "../../http/admin/shared";
 import {
@@ -32,6 +33,7 @@ export class DeliveryService {
       registry: AuthRegistry;
       databaseUrl: string;
       adminProject: AuthProject;
+      adminDb?: AdminDatabase;
       encryptionSecret: string;
       setDeliverySettings(settings: EmailConfig): void;
     }
@@ -41,6 +43,7 @@ export class DeliveryService {
     const settings = await readDeliverySettings({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
+      adminDb: this.options.adminDb,
       encryptionSecret: this.options.encryptionSecret
     });
 
@@ -52,6 +55,7 @@ export class DeliveryService {
     const settings = await updateDeliverySettings({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
+      adminDb: this.options.adminDb,
       encryptionSecret: this.options.encryptionSecret,
       patch
     });
@@ -86,6 +90,7 @@ export class DeliveryService {
     const settings = await readDeliverySettings({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
+      adminDb: this.options.adminDb,
       encryptionSecret: this.options.encryptionSecret
     });
 

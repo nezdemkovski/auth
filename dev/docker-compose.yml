@@ -41,6 +41,7 @@ services:
       POSTGRES_USER: auth
       POSTGRES_PASSWORD: auth
       BETTER_AUTH_SECRET: local-dev-secret-local-dev-secret-32
+      SECRET_ENCRYPTION_KEY: local-dev-encryption-key-local-dev-32
       AUTH_AUTO_MIGRATE: "true"
       REDIS_URL: redis://redis:6379
       TRUST_PROXY_HEADERS: "false"

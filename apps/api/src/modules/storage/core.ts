@@ -1,5 +1,6 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
+import type { AdminDatabase } from "../../db/admin-pool";
 import { updateProjectIconUrl } from "../projects/store";
 import { updateUserImage } from "../users/store";
 import {
@@ -26,6 +27,7 @@ export type StorageServiceOptions = {
   registry: AuthRegistry;
   databaseUrl: string;
   adminProject: AuthProject;
+  adminDb?: AdminDatabase;
   encryptionSecret: string;
   managedStorage: AuthProject["storage"];
 };
@@ -74,6 +76,7 @@ export class StorageService {
     return readPublicStorageSettings({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
+      adminDb: this.options.adminDb,
       project,
       managedStorage: this.options.managedStorage
     });
@@ -92,6 +95,7 @@ export class StorageService {
     const storage = await updateStorageSettings({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
+      adminDb: this.options.adminDb,
       project: registered.project,
       encryptionSecret: this.options.encryptionSecret,
       managedStorage: this.options.managedStorage,

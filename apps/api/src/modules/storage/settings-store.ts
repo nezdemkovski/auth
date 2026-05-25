@@ -1,5 +1,4 @@
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
 
 import {
   DEFAULT_PROJECT_STORAGE,
@@ -7,7 +6,7 @@ import {
   type AuthProject,
   type ProjectStorageSettings
 } from "../../config/projects";
-import { createAdminPool } from "../../db/admin-pool";
+import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 import { isEnumValue } from "../../runtime/enums";
 import { storageSettingsResponse } from "./translator";
@@ -45,14 +44,8 @@ type StorageSettingsRow = {
   secretAccessKeyCipher: string;
 };
 
-export const ensureStorageSettingsTable = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
-}) => {
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+export const ensureStorageSettingsTable = async (options: AdminDatabaseOptions) => {
+  await withAdminDb(options, async ({ db }) => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS auth_storage_settings (
         project_slug text PRIMARY KEY REFERENCES auth_project_settings(slug) ON DELETE CASCADE,
@@ -68,23 +61,16 @@ export const ensureStorageSettingsTable = async (options: {
         updated_at timestamptz NOT NULL DEFAULT now()
       )
     `);
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-export const loadStorageSettings = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const loadStorageSettings = async (options: AdminDatabaseOptions & {
   encryptionSecret: string;
   managedStorage: ProjectStorageSettings;
 }) => {
   await ensureStorageSettingsTable(options);
 
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+  return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<StorageSettingsRow>(sql`
       SELECT project_slug AS "projectSlug",
              provider,
@@ -106,14 +92,10 @@ export const loadStorageSettings = async (options: {
       );
     }
     return byProject;
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-export const loadProjectStorageSettings = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const loadProjectStorageSettings = async (options: AdminDatabaseOptions & {
   project: AuthProject;
   encryptionSecret: string;
   managedStorage: ProjectStorageSettings;
@@ -122,9 +104,7 @@ export const loadProjectStorageSettings = async (options: {
   return all.get(options.project.slug) ?? cloneDefaultStorage(options.managedStorage);
 };
 
-export const readPublicStorageSettings = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const readPublicStorageSettings = async (options: AdminDatabaseOptions & {
   project: AuthProject;
   managedStorage: ProjectStorageSettings;
 }) => {
@@ -134,16 +114,16 @@ export const readPublicStorageSettings = async (options: {
   return storageSettingsResponse(rowToState(row, options.managedStorage));
 };
 
-export const updateStorageSettings = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const updateStorageSettings = async (options: AdminDatabaseOptions & {
   project: AuthProject;
   encryptionSecret: string;
   managedStorage: ProjectStorageSettings;
   patch: StorageSettingsPatch;
 }) => {
   const patch = storagePatchWithManagedDefaults(options.patch, options.managedStorage);
-  validateStoragePatch(patch);
+  validateStoragePatch(patch, {
+    allowPrivateEndpoint: options.managedStorage.managed
+  });
   await ensureStorageSettingsTable(options);
 
   const current = await readStorageSettingsRow(options);
@@ -166,10 +146,7 @@ export const updateStorageSettings = async (options: {
         )
       : current?.secretAccessKeyCipher ?? "";
 
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+  return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<StorageSettingsRow>(sql`
       INSERT INTO auth_storage_settings (
         project_slug,
@@ -215,9 +192,7 @@ export const updateStorageSettings = async (options: {
     `);
 
     return rowToStorage(result.rows[0], options.encryptionSecret, options.managedStorage);
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
 export const cloneDefaultStorage = (managedStorage: ProjectStorageSettings = DEFAULT_PROJECT_STORAGE) => {
@@ -308,15 +283,10 @@ const rowToState = (row: StorageSettingsRow | null, managedStorage: ProjectStora
   };
 };
 
-const readStorageSettingsRow = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+const readStorageSettingsRow = async (options: AdminDatabaseOptions & {
   project: AuthProject;
 }) => {
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+  return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<StorageSettingsRow>(sql`
       SELECT project_slug AS "projectSlug",
              provider,
@@ -333,15 +303,24 @@ const readStorageSettingsRow = async (options: {
     `);
 
     return result.rows[0] ?? null;
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-const validateStoragePatch = (patch: StorageSettingsPatch) => {
+const validateStoragePatch = (
+  patch: StorageSettingsPatch,
+  options: {
+    allowPrivateEndpoint: boolean;
+  }
+) => {
   if (!isEnumValue(StorageProvider, patch.provider)) {
     throw new Error("Invalid storage provider");
   }
+
+  validateOptionalStorageEndpoint(
+    patch.endpoint ?? "",
+    options.allowPrivateEndpoint
+  );
+  validateOptionalUrl(patch.publicBaseUrl ?? "", "publicBaseUrl");
 
   if (patch.provider === StorageProvider.None || !patch.enabled) {
     return;
@@ -353,8 +332,6 @@ const validateStoragePatch = (patch: StorageSettingsPatch) => {
   if (!(patch.publicBaseUrl ?? "").trim()) {
     throw new Error("Public base URL is required");
   }
-  validateOptionalUrl(patch.endpoint ?? "", "endpoint");
-  validateUrl(patch.publicBaseUrl ?? "", "publicBaseUrl");
 };
 
 const storagePatchWithManagedDefaults = (patch: StorageSettingsPatch, managedStorage: ProjectStorageSettings) => {
@@ -381,15 +358,77 @@ const validateOptionalUrl = (value: string, field: string) => {
   validateUrl(value, field);
 };
 
+const validateOptionalStorageEndpoint = (
+  value: string,
+  allowPrivateEndpoint: boolean
+) => {
+  if (!value.trim()) {
+    return;
+  }
+
+  const url = validateUrl(value, "endpoint");
+  if (!allowPrivateEndpoint && storageEndpointHostIsPrivate(url.hostname)) {
+    throw new Error("Storage endpoint must not target a private network");
+  }
+};
+
 const validateUrl = (value: string, field: string) => {
   try {
     const url = new URL(value);
     if (!["http:", "https:"].includes(url.protocol)) {
       throw new Error();
     }
+
+    return url;
   } catch {
     throw new Error(`Invalid ${field}`);
   }
+};
+
+export const storageEndpointHostIsPrivate = (hostname: string) => {
+  const normalized = hostname.toLowerCase();
+  if (
+    normalized === "localhost" ||
+    normalized === "metadata.google.internal" ||
+    normalized.endsWith(".localhost") ||
+    normalized.endsWith(".local")
+  ) {
+    return true;
+  }
+
+  const ipv4 = parseIpv4(normalized);
+  if (!ipv4) {
+    return false;
+  }
+
+  const [a, b] = ipv4;
+  return (
+    a === 10 ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 0) ||
+    a >= 224
+  );
+};
+
+const parseIpv4 = (hostname: string) => {
+  const parts = hostname.split(".");
+  if (parts.length !== 4) {
+    return null;
+  }
+
+  const octets = parts.map((part) => Number(part));
+  if (
+    octets.some(
+      (octet) => !Number.isInteger(octet) || octet < 0 || octet > 255
+    )
+  ) {
+    return null;
+  }
+
+  return octets;
 };
 
 const trimTrailingSlash = (value: string) => {

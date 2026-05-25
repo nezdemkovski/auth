@@ -53,11 +53,21 @@ export class AuthRegistry {
       emailSender
     };
     const projects = this.list();
-    await Promise.all([...this.projects.values()].map(({ projectDb }) => projectDb.pool.end()));
-    this.projects.clear();
+    const currentProjects = [...this.projects.values()];
+    const nextProjects = new Map<string, RegisteredProject>();
+
     for (const project of projects) {
-      this.projects.set(project.slug, this.createRegisteredProject(project));
+      nextProjects.set(project.slug, this.createRegisteredProject(project));
     }
+
+    this.projects.clear();
+    for (const [slug, registered] of nextProjects) {
+      this.projects.set(slug, registered);
+    }
+
+    await Promise.all(
+      currentProjects.map(({ projectDb }) => projectDb.pool.end())
+    );
   }
 
   isTrustedOrigin(slug: string, origin: string | undefined) {

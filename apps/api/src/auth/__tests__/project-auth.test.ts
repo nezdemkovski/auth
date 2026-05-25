@@ -3,7 +3,8 @@ import { describe, expect, test } from "bun:test";
 import {
   buildOAuthValidAudiences,
   createBaseProjectAuthOptions,
-  createProjectMigrationAuthOptions
+  createProjectMigrationAuthOptions,
+  projectAuthSecret
 } from "../project-auth";
 import {
   BillingProvider,
@@ -55,6 +56,14 @@ describe("project auth options", () => {
     expect(options.baseURL).toBe("https://auth.example.com/api/demo/auth");
     expect(options.trustedOrigins).toEqual(["https://demo.example.com"]);
     expect(options.advanced?.cookiePrefix).toBe("auth_demo");
+    expect(options.secret).toBe(projectAuthSecret("x".repeat(32), "demo"));
+    expect(options.secret).not.toBe("x".repeat(32));
+  });
+
+  test("derives different Better Auth secrets per realm", () => {
+    expect(projectAuthSecret("x".repeat(32), "demo")).not.toBe(
+      projectAuthSecret("x".repeat(32), "another-demo")
+    );
   });
 
   test("wires security-sensitive plugins without test helpers in production options", () => {

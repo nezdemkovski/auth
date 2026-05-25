@@ -12,6 +12,7 @@ export type Env = {
   publicBaseUrl: string;
   databaseUrl: string;
   betterAuthSecret: string;
+  secretEncryptionKey: string;
   autoMigrate: boolean;
   adminProject: AuthProject;
   adminEmail: string;
@@ -38,6 +39,13 @@ export const loadEnv = (source: NodeJS.ProcessEnv = process.env) => {
   if (betterAuthSecret.length < MIN_SECRET_LENGTH) {
     throw new Error(`BETTER_AUTH_SECRET must be at least ${MIN_SECRET_LENGTH} characters`);
   }
+  const secretEncryptionKey = required(
+    source.SECRET_ENCRYPTION_KEY,
+    "SECRET_ENCRYPTION_KEY"
+  );
+  if (secretEncryptionKey.length < MIN_SECRET_LENGTH) {
+    throw new Error(`SECRET_ENCRYPTION_KEY must be at least ${MIN_SECRET_LENGTH} characters`);
+  }
   const email = parseEmailConfig(source);
   const storage = parseStorageConfig(source);
 
@@ -46,6 +54,7 @@ export const loadEnv = (source: NodeJS.ProcessEnv = process.env) => {
     publicBaseUrl: trimTrailingSlash(publicBaseUrl),
     databaseUrl,
     betterAuthSecret,
+    secretEncryptionKey,
     autoMigrate: parseBoolean(source.AUTH_AUTO_MIGRATE, true),
     adminProject: ADMIN_PROJECT,
     adminEmail: source.AUTH_ADMIN_EMAIL ?? "admin@localhost",

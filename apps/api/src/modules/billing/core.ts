@@ -1,5 +1,6 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
+import type { AdminDatabase } from "../../db/admin-pool";
 import { BillingEnvironment } from "../../config/projects";
 import { defaultEntitlementsForBillingProduct } from "./entitlements";
 import {
@@ -29,6 +30,7 @@ export type BillingServiceOptions = {
   registry: Pick<AuthRegistry, "updateProject">;
   databaseUrl: string;
   adminProject: AuthProject;
+  adminDb?: AdminDatabase;
   publicBaseUrl: string;
   encryptionSecret: string;
   polar?: BillingPolarGateway;
@@ -73,6 +75,7 @@ export class BillingService {
     const settings = await readBillingSettingsState({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
+      adminDb: this.options.adminDb,
       project
     });
 
@@ -91,6 +94,7 @@ export class BillingService {
     const billing = await updateBillingSettings({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
+      adminDb: this.options.adminDb,
       project: registered.project,
       encryptionSecret: this.options.encryptionSecret,
       patch

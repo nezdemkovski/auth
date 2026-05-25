@@ -12,6 +12,7 @@ import { SOCIAL_PROVIDER_IDS } from "../config/social-providers";
 import type { ProjectDatabase } from "../db/project-db";
 import type { EmailSender } from "../email/sender";
 import { createProjectEmailHandlers } from "../email/templates";
+import { sha256Hex } from "../runtime/crypto";
 
 type ProjectAuthOptions = {
   project: AuthProject;
@@ -65,6 +66,7 @@ export const createBaseProjectAuthOptions = (options: {
   trustProxyHeaders: boolean;
 }) => {
   const { project, publicBaseUrl, secret } = options;
+  const realmSecret = projectAuthSecret(secret, project.slug);
   const publicOrigin = new URL(publicBaseUrl).origin;
   const publicHostname = new URL(publicBaseUrl).hostname;
   const emailHandlers = createProjectEmailHandlers({
@@ -75,7 +77,7 @@ export const createBaseProjectAuthOptions = (options: {
   return {
     appName: project.name,
     baseURL: `${publicBaseUrl}/api/${project.slug}/auth`,
-    secret,
+    secret: realmSecret,
     trustedOrigins: project.trustedOrigins,
     socialProviders: buildSocialProviders(project),
     emailAndPassword: {
@@ -195,6 +197,10 @@ export const createBaseProjectAuthOptions = (options: {
       enabled: false
     }
   };
+};
+
+export const projectAuthSecret = (rootSecret: string, projectSlug: string) => {
+  return sha256Hex(`better-auth-session:v1:${projectSlug}:${rootSecret}`);
 };
 
 const buildPolarPlugins = (project: AuthProject) => {

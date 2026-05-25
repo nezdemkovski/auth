@@ -1,5 +1,4 @@
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
 
 import {
   DEFAULT_PROJECT_FEATURES,
@@ -12,7 +11,7 @@ import {
   type AuthProject,
   type ProjectFeatures
 } from "../../config/projects";
-import { createAdminPool } from "../../db/admin-pool";
+import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
 import { cloneDefaultBilling, loadBillingSettings } from "../billing/store";
 import {
   cloneDefaultStorage,
@@ -50,11 +49,8 @@ type ProjectSettingsRow = {
   system: boolean;
 };
 
-export const ensureProjectSettingsTable = async (databaseUrl: string, adminProject: AuthProject) => {
-  const pool = createAdminPool(databaseUrl, adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+export const ensureProjectSettingsTable = async (options: AdminDatabaseOptions) => {
+  await withAdminDb(options, async ({ db }) => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS auth_project_settings (
         slug text PRIMARY KEY,
@@ -82,19 +78,11 @@ export const ensureProjectSettingsTable = async (databaseUrl: string, adminProje
       CREATE UNIQUE INDEX IF NOT EXISTS auth_project_settings_schema_key
       ON auth_project_settings (schema)
     `);
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-export const seedAdminProjectSettings = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
-}) => {
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+export const seedAdminProjectSettings = async (options: AdminDatabaseOptions) => {
+  await withAdminDb(options, async ({ db }) => {
     const project = options.adminProject;
     await db.execute(sql`
       INSERT INTO auth_project_settings (
@@ -132,22 +120,18 @@ export const seedAdminProjectSettings = async (options: {
           system = true,
           enabled = true
     `);
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-export const loadEffectiveProjects = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const loadEffectiveProjects = async (options: AdminDatabaseOptions & {
   encryptionSecret: string;
   managedStorage: AuthProject["storage"];
 }) => {
-  await ensureProjectSettingsTable(options.databaseUrl, options.adminProject);
+  await ensureProjectSettingsTable(options);
   await seedAdminProjectSettings(options);
   await ensureSocialProviderSettingsTable(options);
 
-  const all = await readProjectSettings(options.databaseUrl, options.adminProject);
+  const all = await readProjectSettings(options);
   const socialProviders = await loadSocialProviderSettings(options);
   const billingSettings = await loadBillingSettings(options);
   const storageSettings = await loadStorageSettings(options);
@@ -167,19 +151,14 @@ export const loadEffectiveProjects = async (options: {
   };
 };
 
-export const projectSettingsExists = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const projectSettingsExists = async (options: AdminDatabaseOptions & {
   slug: string;
   schema: string;
 }) => {
   validateProjectSlug(options.slug);
   validateProjectSchema(options.schema);
 
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+  return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<{ exists: boolean }>(sql`
       SELECT EXISTS (
         SELECT 1
@@ -189,23 +168,16 @@ export const projectSettingsExists = async (options: {
       ) AS "exists"
     `);
     return result.rows[0]?.exists ?? false;
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-export const createProjectSettings = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const createProjectSettings = async (options: AdminDatabaseOptions & {
   input: ProjectSettingsCreate;
 }) => {
   const project = createProjectFromInput(options.input);
   validateProjectSettingsPatch(project);
 
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+  return withAdminDb(options, async ({ db }) => {
     const created = await db.execute<ProjectSettingsRow>(sql`
       INSERT INTO auth_project_settings (
         slug,
@@ -238,23 +210,40 @@ export const createProjectSettings = async (options: {
     `);
 
     return rowToProject(created.rows[0]);
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-export const updateProjectSettings = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const dropProjectSchema = async (options: AdminDatabaseOptions & {
+  schema: string;
+}) => {
+  validateProjectSchema(options.schema);
+
+  await withAdminDb(options, async ({ db }) => {
+    await db.execute(sql`DROP SCHEMA IF EXISTS ${sql.identifier(options.schema)} CASCADE`);
+  });
+};
+
+export const deleteProjectSettings = async (options: AdminDatabaseOptions & {
+  slug: string;
+}) => {
+  validateProjectSlug(options.slug);
+
+  await withAdminDb(options, async ({ db }) => {
+    await db.execute(sql`
+      DELETE FROM auth_project_settings
+      WHERE slug = ${options.slug}
+        AND system = false
+    `);
+  });
+};
+
+export const updateProjectSettings = async (options: AdminDatabaseOptions & {
   slug: string;
   patch: ProjectSettingsPatch;
 }) => {
   validateProjectSettingsPatch(options.patch);
 
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+  return withAdminDb(options, async ({ db }) => {
     const existing = await db.execute<ProjectSettingsRow>(sql`
       SELECT slug, name, schema, description, icon_url AS "iconUrl",
              app_url AS "appUrl", trusted_origins AS "trustedOrigins",
@@ -286,23 +275,16 @@ export const updateProjectSettings = async (options: {
     `);
 
     return rowToProject(updated.rows[0]);
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-export const updateProjectIconUrl = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const updateProjectIconUrl = async (options: AdminDatabaseOptions & {
   slug: string;
   iconUrl: string;
 }) => {
   validateOptionalUrl(options.iconUrl, "iconUrl");
 
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+  return withAdminDb(options, async ({ db }) => {
     const updated = await db.execute<ProjectSettingsRow>(sql`
       UPDATE auth_project_settings
       SET icon_url = ${options.iconUrl},
@@ -315,16 +297,11 @@ export const updateProjectIconUrl = async (options: {
     `);
 
     return updated.rows[0] ? rowToProject(updated.rows[0]) : null;
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-const readProjectSettings = async (databaseUrl: string, adminProject: AuthProject) => {
-  const pool = createAdminPool(databaseUrl, adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+const readProjectSettings = async (options: AdminDatabaseOptions) => {
+  return withAdminDb(options, async ({ db }) => {
     const rows = await db.execute<ProjectSettingsRow>(sql`
       SELECT slug, name, schema, description, icon_url AS "iconUrl",
              app_url AS "appUrl", trusted_origins AS "trustedOrigins",
@@ -336,9 +313,7 @@ const readProjectSettings = async (databaseUrl: string, adminProject: AuthProjec
     `);
 
     return rows.rows.map(rowToProject);
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
 export const validateProjectSettingsPatch = (patch: ProjectSettingsPatch) => {

@@ -1,8 +1,6 @@
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
 
-import type { AuthProject } from "../../config/projects";
-import { createAdminPool } from "../../db/admin-pool";
+import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
 import { EmailProvider, type EmailConfig } from "../../email/sender";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 import { isEnumValue } from "../../runtime/enums";
@@ -30,14 +28,8 @@ type DeliverySettingsRow = {
 
 const SETTINGS_KEY = "default";
 
-export const ensureDeliverySettingsTable = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
-}) => {
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+export const ensureDeliverySettingsTable = async (options: AdminDatabaseOptions) => {
+  await withAdminDb(options, async ({ db }) => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS auth_delivery_settings (
         key text PRIMARY KEY DEFAULT 'default',
@@ -50,14 +42,10 @@ export const ensureDeliverySettingsTable = async (options: {
         updated_at timestamptz NOT NULL DEFAULT now()
       )
     `);
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-export const seedDeliverySettingsFromEnv = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const seedDeliverySettingsFromEnv = async (options: AdminDatabaseOptions & {
   encryptionSecret: string;
   email: EmailConfig;
 }) => {
@@ -92,9 +80,7 @@ export const seedDeliverySettingsFromEnv = async (options: {
   });
 };
 
-export const readDeliverySettings = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const readDeliverySettings = async (options: AdminDatabaseOptions & {
   encryptionSecret: string;
 }) => {
   await ensureDeliverySettingsTable(options);
@@ -102,9 +88,7 @@ export const readDeliverySettings = async (options: {
   return rowToDeliverySettings(row, options.encryptionSecret);
 };
 
-export const updateDeliverySettings = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const updateDeliverySettings = async (options: AdminDatabaseOptions & {
   encryptionSecret: string;
   patch: DeliverySettingsPatch;
 }) => {
@@ -128,10 +112,7 @@ export const updateDeliverySettings = async (options: {
         )
       : current?.cloudflareApiTokenCipher ?? "";
 
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+  return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<DeliverySettingsRow>(sql`
       INSERT INTO auth_delivery_settings (
         key,
@@ -165,19 +146,11 @@ export const updateDeliverySettings = async (options: {
     `);
 
     return rowToDeliverySettings(result.rows[0], options.encryptionSecret);
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-const readDeliverySettingsRow = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
-}) => {
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+const readDeliverySettingsRow = async (options: AdminDatabaseOptions) => {
+  return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<DeliverySettingsRow>(sql`
       SELECT provider,
              from_address AS "fromAddress",
@@ -191,9 +164,7 @@ const readDeliverySettingsRow = async (options: {
     `);
 
     return result.rows[0] ?? null;
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
 const encryptSecret = (value: string, secret: string, key: string) => {

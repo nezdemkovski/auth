@@ -9,10 +9,10 @@ import type { Env } from "../config/env";
 import type { AuthProject } from "../config/projects";
 import { AuthRegistry } from "../auth/registry";
 import { bootstrapProjects, prepareProjectSchema } from "../db/bootstrap";
+import { createAdminDatabase } from "../db/admin-pool";
 import { toRuntimeEmailConfig } from "../modules/delivery/core";
 import { readDeliverySettings } from "../modules/delivery/store";
 import { loadEffectiveProjects } from "../modules/projects/store";
-import { registerPublicProjectRoutes } from "../modules/projects/public-http";
 import { createEmailSender } from "../email/sender";
 import { createAdminApi } from "./admin";
 import { createRateLimiter, rateLimit, securityHeaders } from "./security";
@@ -36,14 +36,17 @@ export const createApp = async (env: Env) => {
       secret: env.betterAuthSecret,
       adminProject,
       adminEmail: env.adminEmail,
+      encryptionSecret: env.secretEncryptionKey,
       initialDeliveryConfig: env.email
     });
   }
 
+  const adminDb = createAdminDatabase(env.databaseUrl, adminProject);
   const deliverySettings = await readDeliverySettings({
     databaseUrl: env.databaseUrl,
     adminProject,
-    encryptionSecret: env.betterAuthSecret
+    adminDb,
+    encryptionSecret: env.secretEncryptionKey
   });
   const runtimeDeliverySettings = toRuntimeEmailConfig(deliverySettings);
   const emailSender = createEmailSender(runtimeDeliverySettings);
@@ -51,7 +54,8 @@ export const createApp = async (env: Env) => {
   ({ adminProject, projects } = await loadEffectiveProjects({
     databaseUrl: env.databaseUrl,
     adminProject,
-    encryptionSecret: env.betterAuthSecret,
+    adminDb,
+    encryptionSecret: env.secretEncryptionKey,
     managedStorage: env.storage
   }));
 
@@ -79,7 +83,8 @@ export const createApp = async (env: Env) => {
     registry,
     databaseUrl: env.databaseUrl,
     adminProject,
-    encryptionSecret: env.betterAuthSecret,
+    adminDb,
+    encryptionSecret: env.secretEncryptionKey,
     managedStorage: env.storage
   });
 
@@ -100,10 +105,6 @@ export const createApp = async (env: Env) => {
     });
   });
 
-  registerPublicProjectRoutes(app, {
-    registry,
-    adminProjectSlug: adminProject.slug
-  });
   app.route(
     "/admin/api",
     createAdminApi({
@@ -111,8 +112,10 @@ export const createApp = async (env: Env) => {
       deliverySettings: runtimeDeliverySettings,
       databaseUrl: env.databaseUrl,
       adminProject,
+      adminDb,
       publicBaseUrl: env.publicBaseUrl,
       secret: env.betterAuthSecret,
+      encryptionSecret: env.secretEncryptionKey,
       managedStorage: env.storage
     })
   );
@@ -139,7 +142,12 @@ export const createApp = async (env: Env) => {
     app,
     registry,
     async close() {
-      await Promise.all([registry.close(), rateLimiter.close(), loginCodeStore.close()]);
+      await Promise.all([
+        registry.close(),
+        rateLimiter.close(),
+        loginCodeStore.close(),
+        adminDb.pool.end()
+      ]);
     }
   };
 };

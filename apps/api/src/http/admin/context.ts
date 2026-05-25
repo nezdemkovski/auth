@@ -2,6 +2,7 @@ import type { Hono } from "hono";
 
 import type { AuthRegistry } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
+import type { AdminDatabase } from "../../db/admin-pool";
 import type { EmailConfig } from "../../email/sender";
 import type { AdminAccountService } from "../../modules/admin-account/core";
 import type { BillingService } from "../../modules/billing/core";
@@ -15,8 +16,10 @@ export type AdminApiOptions = {
   deliverySettings: EmailConfig;
   databaseUrl: string;
   adminProject: AuthProject;
+  adminDb: AdminDatabase;
   publicBaseUrl: string;
   secret: string;
+  encryptionSecret: string;
   managedStorage: AuthProject["storage"];
 };
 

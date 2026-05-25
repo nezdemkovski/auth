@@ -1,5 +1,4 @@
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
 
 import {
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
@@ -11,7 +10,7 @@ import {
   SOCIAL_PROVIDER_IDS,
   type SocialProviderId
 } from "../../config/social-providers";
-import { createAdminPool } from "../../db/admin-pool";
+import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 
 export type PublicSocialProviderSettings = {
@@ -37,14 +36,8 @@ type SocialProviderRow = {
   verifiedAt: Date | string | null;
 };
 
-export const ensureSocialProviderSettingsTable = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
-}) => {
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+export const ensureSocialProviderSettingsTable = async (options: AdminDatabaseOptions) => {
+  await withAdminDb(options, async ({ db }) => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS auth_social_provider_settings (
         project_slug text NOT NULL REFERENCES auth_project_settings(slug) ON DELETE CASCADE,
@@ -58,22 +51,15 @@ export const ensureSocialProviderSettingsTable = async (options: {
         PRIMARY KEY (project_slug, provider)
       )
     `);
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-export const loadSocialProviderSettings = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const loadSocialProviderSettings = async (options: AdminDatabaseOptions & {
   encryptionSecret: string;
 }) => {
   await ensureSocialProviderSettingsTable(options);
 
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+  return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<
       SocialProviderRow & { projectSlug: string }
     >(sql`
@@ -108,23 +94,16 @@ export const loadSocialProviderSettings = async (options: {
     }
 
     return byProject;
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-export const readProjectSocialProviders = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const readProjectSocialProviders = async (options: AdminDatabaseOptions & {
   project: AuthProject;
   publicBaseUrl: string;
 }) => {
   await ensureSocialProviderSettingsTable(options);
 
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+  return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<SocialProviderRow>(sql`
       SELECT provider,
              enabled,
@@ -148,14 +127,10 @@ export const readProjectSocialProviders = async (options: {
         callbackUrl: socialProviderCallbackUrl(options.publicBaseUrl, options.project, provider)
       };
     });
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-export const updateProjectSocialProvider = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const updateProjectSocialProvider = async (options: AdminDatabaseOptions & {
   project: AuthProject;
   provider: SocialProviderId;
   patch: SocialProviderPatch;
@@ -163,8 +138,6 @@ export const updateProjectSocialProvider = async (options: {
 }) => {
   await ensureSocialProviderSettingsTable(options);
 
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
   const clientId = options.patch.clientId.trim();
   const secretCipher =
     options.patch.clientSecret !== undefined
@@ -176,7 +149,7 @@ export const updateProjectSocialProvider = async (options: {
         )
       : null;
 
-  try {
+  await withAdminDb(options, async ({ db }) => {
     if (secretCipher === null) {
       await db.execute(sql`
         INSERT INTO auth_social_provider_settings (
@@ -218,30 +191,24 @@ export const updateProjectSocialProvider = async (options: {
             updated_at = now()
       `);
     }
-  } finally {
-    await pool.end();
-  }
+  });
 
   return loadProjectSocialProviders({
     databaseUrl: options.databaseUrl,
     adminProject: options.adminProject,
+    adminDb: options.adminDb,
     project: options.project,
     encryptionSecret: options.encryptionSecret
   });
 };
 
-export const markSocialProviderVerified = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const markSocialProviderVerified = async (options: AdminDatabaseOptions & {
   project: AuthProject;
   provider: SocialProviderId;
 }) => {
   await ensureSocialProviderSettingsTable(options);
 
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+  await withAdminDb(options, async ({ db }) => {
     await db.execute(sql`
       UPDATE auth_social_provider_settings
       SET verified_at = now(),
@@ -249,14 +216,10 @@ export const markSocialProviderVerified = async (options: {
       WHERE project_slug = ${options.project.slug}
         AND provider = ${options.provider}
     `);
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-export const loadProjectSocialProviders = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const loadProjectSocialProviders = async (options: AdminDatabaseOptions & {
   project: AuthProject;
   encryptionSecret: string;
 }) => {

@@ -27,21 +27,24 @@ export const createAdminApi = (options: AdminApiOptions) => {
     registry: options.registry,
     databaseUrl: options.databaseUrl,
     adminProject: options.adminProject,
+    adminDb: options.adminDb,
     publicBaseUrl: options.publicBaseUrl,
-    encryptionSecret: options.secret
+    encryptionSecret: options.encryptionSecret
   });
   const storageService = new StorageService({
     registry: options.registry,
     databaseUrl: options.databaseUrl,
     adminProject: options.adminProject,
-    encryptionSecret: options.secret,
+    adminDb: options.adminDb,
+    encryptionSecret: options.encryptionSecret,
     managedStorage: options.managedStorage
   });
   const deliveryService = new DeliveryService({
     registry: options.registry,
     databaseUrl: options.databaseUrl,
     adminProject: options.adminProject,
-    encryptionSecret: options.secret,
+    adminDb: options.adminDb,
+    encryptionSecret: options.encryptionSecret,
     setDeliverySettings: (settings: EmailConfig) => {
       currentDeliverySettings = settings;
     }
@@ -54,8 +57,10 @@ export const createAdminApi = (options: AdminApiOptions) => {
     registry: options.registry,
     databaseUrl: options.databaseUrl,
     adminProject: options.adminProject,
+    adminDb: options.adminDb,
     publicBaseUrl: options.publicBaseUrl,
-    secret: options.secret
+    secret: options.secret,
+    encryptionSecret: options.encryptionSecret
   });
   const usersService = new UsersService({
     adminProject: options.adminProject,

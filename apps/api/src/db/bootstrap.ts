@@ -27,6 +27,7 @@ type BootstrapOptions = {
   databaseUrl: string;
   publicBaseUrl: string;
   secret: string;
+  encryptionSecret: string;
   adminProject: AuthProject;
   adminEmail: string;
   initialDeliveryConfig?: EmailConfig;
@@ -51,7 +52,7 @@ export const bootstrapProjects = async (options: BootstrapOptions) => {
     });
 
     await bootstrapInitialAdmin(options);
-    await ensureProjectSettingsTable(options.databaseUrl, options.adminProject);
+    await ensureProjectSettingsTable(options);
     await seedAdminProjectSettings({
       databaseUrl: options.databaseUrl,
       adminProject: options.adminProject
@@ -72,7 +73,7 @@ export const bootstrapProjects = async (options: BootstrapOptions) => {
       await seedDeliverySettingsFromEnv({
         databaseUrl: options.databaseUrl,
         adminProject: options.adminProject,
-        encryptionSecret: options.secret,
+        encryptionSecret: options.encryptionSecret,
         email: options.initialDeliveryConfig
       });
     }
@@ -168,7 +169,7 @@ const generateTemporaryPassword = () => {
   return randomBase64Url(24);
 };
 
-export const prepareProjectSchema = async (options: Omit<BootstrapOptions, "adminEmail" | "initialDeliveryConfig"> & {
+export const prepareProjectSchema = async (options: Omit<BootstrapOptions, "adminEmail" | "initialDeliveryConfig" | "encryptionSecret"> & {
   project: AuthProject;
 }) => {
   const adminPool = new Pool({

@@ -1,5 +1,4 @@
 import { sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/node-postgres";
 
 import {
   BillingEnvironment,
@@ -8,7 +7,7 @@ import {
   type AuthProject,
   type ProjectBillingSettings
 } from "../../config/projects";
-import { createAdminPool } from "../../db/admin-pool";
+import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 import { normalizeBillingProducts } from "./translator";
 import type { BillingSettingsPatch } from "./validator";
@@ -32,14 +31,8 @@ type BillingSettingsRow = {
   products: unknown;
 };
 
-export const ensureBillingSettingsTable = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
-}) => {
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+export const ensureBillingSettingsTable = async (options: AdminDatabaseOptions) => {
+  await withAdminDb(options, async ({ db }) => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS auth_billing_settings (
         project_slug text PRIMARY KEY REFERENCES auth_project_settings(slug) ON DELETE CASCADE,
@@ -58,22 +51,14 @@ export const ensureBillingSettingsTable = async (options: {
       ALTER TABLE auth_billing_settings
       ADD COLUMN IF NOT EXISTS organization_id text NOT NULL DEFAULT ''
     `);
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-export const loadBillingSettings = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const loadBillingSettings = async (options: AdminDatabaseOptions & {
   encryptionSecret: string;
 }) => {
   await ensureBillingSettingsTable(options);
-
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+  return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<BillingSettingsRow>(sql`
       SELECT project_slug AS "projectSlug",
              provider,
@@ -91,14 +76,10 @@ export const loadBillingSettings = async (options: {
       byProject.set(row.projectSlug, rowToBilling(row, options.encryptionSecret));
     }
     return byProject;
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-export const loadProjectBillingSettings = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const loadProjectBillingSettings = async (options: AdminDatabaseOptions & {
   project: AuthProject;
   encryptionSecret: string;
 }) => {
@@ -106,17 +87,11 @@ export const loadProjectBillingSettings = async (options: {
   return all.get(options.project.slug) ?? cloneDefaultBilling();
 };
 
-export const readBillingSettingsState = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const readBillingSettingsState = async (options: AdminDatabaseOptions & {
   project: AuthProject;
 }) => {
   await ensureBillingSettingsTable(options);
-
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+  return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<BillingSettingsRow>(sql`
       SELECT project_slug AS "projectSlug",
              provider,
@@ -132,14 +107,10 @@ export const readBillingSettingsState = async (options: {
     `);
 
     return rowToState(result.rows[0]);
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
-export const updateBillingSettings = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+export const updateBillingSettings = async (options: AdminDatabaseOptions & {
   project: AuthProject;
   encryptionSecret: string;
   patch: BillingSettingsPatch;
@@ -166,10 +137,7 @@ export const updateBillingSettings = async (options: {
         )
       : current?.webhookSecretCipher ?? "";
 
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+  return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<BillingSettingsRow>(sql`
       INSERT INTO auth_billing_settings (
         project_slug,
@@ -211,9 +179,7 @@ export const updateBillingSettings = async (options: {
     `);
 
     return rowToBilling(result.rows[0], options.encryptionSecret);
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
 export const cloneDefaultBilling = () => {
@@ -270,15 +236,10 @@ const rowToState = (row: BillingSettingsRow | undefined) => {
   };
 };
 
-const readBillingSettingsRow = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
+const readBillingSettingsRow = async (options: AdminDatabaseOptions & {
   project: AuthProject;
 }) => {
-  const pool = createAdminPool(options.databaseUrl, options.adminProject);
-  const db = drizzle({ client: pool });
-
-  try {
+  return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<BillingSettingsRow>(sql`
       SELECT project_slug AS "projectSlug",
              provider,
@@ -294,9 +255,7 @@ const readBillingSettingsRow = async (options: {
     `);
 
     return result.rows[0] ?? null;
-  } finally {
-    await pool.end();
-  }
+  });
 };
 
 const encryptSecret = (value: string, secret: string, projectSlug: string, key: string) => {
