@@ -1,9 +1,7 @@
 import { Hono } from "hono";
 
-import {
-  createLoginCodeStore,
-  registerLoginRoutes
-} from "../modules/login/http";
+import { registerLoginRoutes } from "../modules/login/http";
+import { createLoginCodeStore } from "../modules/login/store";
 import { registerAuthProxyRoutes } from "../modules/auth-proxy/http";
 import { StorageService } from "../modules/storage/core";
 import { registerPublicStorageRoutes } from "../modules/storage/public-http";

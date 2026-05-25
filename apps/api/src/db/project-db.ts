@@ -11,7 +11,7 @@ export type ProjectDatabase = {
 export const createProjectDatabase = (databaseUrl: string, project: AuthProject) => {
   const pool = new Pool({
     connectionString: databaseUrl,
-    options: `-c search_path=${project.schema},public`
+    options: `-c search_path="${project.schema}",public`
   });
 
   return {

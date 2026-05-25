@@ -14,10 +14,16 @@ export type PendingLoginCode = {
 export type LoginCodeStore = RedisBackedStore & {
   set(code: string, payload: PendingLoginCode): Promise<void>;
   get(code: string): Promise<PendingLoginCode | null>;
+  consume(
+    code: string,
+    expected: {
+      project: string;
+      redirectUri: string;
+      codeChallenge: string;
+    }
+  ): Promise<PendingLoginCode | null>;
   delete(code: string): Promise<void>;
 };
-
-const pendingLoginCodes = new Map<string, PendingLoginCode>();
 
 export const createLoginCodeStore = (redisUrl: string | null) => {
   if (redisUrl) {
@@ -28,29 +34,61 @@ export const createLoginCodeStore = (redisUrl: string | null) => {
 };
 
 class MemoryLoginCodeStore implements LoginCodeStore {
+  private readonly pendingLoginCodes = new Map<string, PendingLoginCode>();
+
   async connect() {}
 
   async set(code: string, payload: PendingLoginCode) {
-    pruneExpiredCodes();
-    pendingLoginCodes.set(code, payload);
+    this.pruneExpiredCodes();
+    this.pendingLoginCodes.set(code, payload);
   }
 
   async get(code: string) {
-    pruneExpiredCodes();
-    const pending = pendingLoginCodes.get(code);
+    this.pruneExpiredCodes();
+    const pending = this.pendingLoginCodes.get(code);
     if (!pending || pending.expiresAt < Date.now()) {
-      pendingLoginCodes.delete(code);
+      this.pendingLoginCodes.delete(code);
       return null;
     }
 
     return pending;
   }
 
+  async consume(
+    code: string,
+    expected: {
+      project: string;
+      redirectUri: string;
+      codeChallenge: string;
+    }
+  ) {
+    const pending = await this.get(code);
+    if (
+      !pending ||
+      pending.project !== expected.project ||
+      pending.redirectUri !== expected.redirectUri ||
+      pending.codeChallenge !== expected.codeChallenge
+    ) {
+      return null;
+    }
+
+    this.pendingLoginCodes.delete(code);
+    return pending;
+  }
+
   async delete(code: string) {
-    pendingLoginCodes.delete(code);
+    this.pendingLoginCodes.delete(code);
   }
 
   async close() {}
+
+  private pruneExpiredCodes(now = Date.now()) {
+    for (const [code, payload] of this.pendingLoginCodes) {
+      if (payload.expiresAt < now) {
+        this.pendingLoginCodes.delete(code);
+      }
+    }
+  }
 }
 
 class RedisLoginCodeStore implements LoginCodeStore {
@@ -90,6 +128,37 @@ class RedisLoginCodeStore implements LoginCodeStore {
     return parsed;
   }
 
+  async consume(
+    code: string,
+    expected: {
+      project: string;
+      redirectUri: string;
+      codeChallenge: string;
+    }
+  ) {
+    const value = await this.client.withClient((redis) =>
+      redis.send("EVAL", [
+        CONSUME_LOGIN_CODE_SCRIPT,
+        "1",
+        loginCodeKey(code),
+        expected.project,
+        expected.redirectUri,
+        expected.codeChallenge,
+        String(Date.now())
+      ])
+    );
+    if (typeof value !== "string") {
+      return null;
+    }
+
+    const parsed = parsePendingLoginCode(value);
+    if (!parsed) {
+      return null;
+    }
+
+    return parsed;
+  }
+
   async delete(code: string) {
     await this.client.withClient((redis) => redis.del(loginCodeKey(code)));
   }
@@ -103,13 +172,36 @@ const loginCodeKey = (code: string) => {
   return `auth:login-code:${code}`;
 };
 
-const pruneExpiredCodes = (now = Date.now()) => {
-  for (const [code, payload] of pendingLoginCodes) {
-    if (payload.expiresAt < now) {
-      pendingLoginCodes.delete(code);
-    }
-  }
-};
+const CONSUME_LOGIN_CODE_SCRIPT = `
+local value = redis.call("GET", KEYS[1])
+if not value then
+  return nil
+end
+
+local ok, payload = pcall(cjson.decode, value)
+if not ok then
+  redis.call("DEL", KEYS[1])
+  return nil
+end
+
+if tonumber(payload.expiresAt) < tonumber(ARGV[4]) then
+  redis.call("DEL", KEYS[1])
+  return nil
+end
+
+if payload.project ~= ARGV[1] then
+  return nil
+end
+if payload.redirectUri ~= ARGV[2] then
+  return nil
+end
+if payload.codeChallenge ~= ARGV[3] then
+  return nil
+end
+
+redis.call("DEL", KEYS[1])
+return value
+`;
 
 const parsePendingLoginCode = (value: string) => {
   const parsed: unknown = JSON.parse(value);

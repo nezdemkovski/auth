@@ -7,10 +7,7 @@ import {
   redirectUriAllowed,
   validPkceChallenge
 } from "./core";
-import {
-  createLoginCodeStore,
-  type LoginCodeStore
-} from "./store";
+import type { LoginCodeStore } from "./store";
 import {
   parseLoginCodeExchangeInput,
   parseLoginSessionCodeInput
@@ -21,8 +18,6 @@ import {
   oauthConsentConfigResponse,
   resetPasswordConfigResponse
 } from "./translator";
-
-export { createLoginCodeStore };
 
 type LoginVariables = {
   registry: AuthRegistry;

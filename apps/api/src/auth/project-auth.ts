@@ -137,8 +137,7 @@ export const createBaseProjectAuthOptions = (options: {
         consentPage: `/login/${project.slug}/oauth/consent`,
         allowDynamicClientRegistration:
           project.features.oauthProvider.dynamicClientRegistration,
-        allowUnauthenticatedClientRegistration:
-          project.features.oauthProvider.dynamicClientRegistration,
+        allowUnauthenticatedClientRegistration: false,
         validAudiences: buildOAuthValidAudiences(project, publicBaseUrl),
         silenceWarnings: {
           oauthAuthServerConfig: true,

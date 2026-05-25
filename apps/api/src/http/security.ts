@@ -235,11 +235,14 @@ class RedisRateLimiterStore implements RateLimiterStore {
     rule: RateLimitRule
   ) {
     const redisKey = `auth:rate-limit:${key}`;
-    const count = await redis.incr(redisKey);
-
-    if (count === 1) {
-      await redis.expire(redisKey, Math.ceil(rule.windowMs / 1000));
-    }
+    const ttlSeconds = Math.ceil(rule.windowMs / 1000);
+    const value = await redis.send("EVAL", [
+      RATE_LIMIT_HIT_SCRIPT,
+      "1",
+      redisKey,
+      String(ttlSeconds)
+    ]);
+    const count = typeof value === "number" ? value : Number(value);
 
     if (count > rule.max) {
       const ttl = await redis.ttl(redisKey);
@@ -259,6 +262,14 @@ class RedisRateLimiterStore implements RateLimiterStore {
     return result;
   }
 }
+
+const RATE_LIMIT_HIT_SCRIPT = `
+local count = redis.call("INCR", KEYS[1])
+if count == 1 then
+  redis.call("EXPIRE", KEYS[1], tonumber(ARGV[1]))
+end
+return count
+`;
 
 export const clientKey = (headers: Headers, options: { trustProxyHeaders: boolean }) => {
   if (!options.trustProxyHeaders) {

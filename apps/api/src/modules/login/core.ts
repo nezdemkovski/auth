@@ -89,17 +89,15 @@ export class LoginFlowService {
       throw new LoginFlowError("invalid_redirect_uri");
     }
 
-    const payload = await this.options.codeStore.get(input.code);
-    if (
-      !payload ||
-      payload.project !== input.project ||
-      payload.redirectUri !== input.redirectUri ||
-      !verifyPkce(payload.codeChallenge, input.codeVerifier)
-    ) {
+    const codeChallenge = pkceChallenge(input.codeVerifier);
+    const payload = await this.options.codeStore.consume(input.code, {
+      project: input.project,
+      redirectUri: input.redirectUri,
+      codeChallenge
+    });
+    if (!payload) {
       throw new LoginFlowError("invalid_code");
     }
-
-    await this.options.codeStore.delete(input.code);
 
     return {
       sessionCookie: payload.sessionCookie,

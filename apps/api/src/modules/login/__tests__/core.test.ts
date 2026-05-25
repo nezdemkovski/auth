@@ -61,7 +61,7 @@ const createRegisteredProject = (sessionResponse: Response): LoginRegisteredProj
 
 const createMemoryStore = () => {
   const codes = new Map<string, PendingLoginCode>();
-  const deletedCodes: string[] = [];
+  const consumedCodes: string[] = [];
 
   const store: LoginCodeStore = {
     connect: async () => {},
@@ -72,15 +72,29 @@ const createMemoryStore = () => {
     get: async (code) => {
       return codes.get(code) ?? null;
     },
+    consume: async (code, expected) => {
+      const payload = codes.get(code) ?? null;
+      if (
+        !payload ||
+        payload.project !== expected.project ||
+        payload.redirectUri !== expected.redirectUri ||
+        payload.codeChallenge !== expected.codeChallenge
+      ) {
+        return null;
+      }
+
+      consumedCodes.push(code);
+      codes.delete(code);
+      return payload;
+    },
     delete: async (code) => {
-      deletedCodes.push(code);
       codes.delete(code);
     }
   };
 
   return {
     codes,
-    deletedCodes,
+    consumedCodes,
     store
   };
 };
@@ -181,6 +195,39 @@ describe("login auth security helpers", () => {
     expect(await store.get("expired-code")).toBeNull();
   });
 
+  test("memory login-code store consumes only matching codes once", async () => {
+    const store = createLoginCodeStore(null);
+    await store.set("login-code", {
+      project: "demo",
+      sessionCookie: "auth.session=value",
+      email: "user@example.com",
+      redirectUri: "https://demo.example.com/auth/callback",
+      codeChallenge: pkceChallenge(verifier),
+      expiresAt: Date.now() + 60_000
+    });
+
+    await expect(
+      store.consume("login-code", {
+        project: "demo",
+        redirectUri: "https://demo.example.com/auth/callback",
+        codeChallenge: pkceChallenge("B".repeat(43))
+      })
+    ).resolves.toBeNull();
+    expect(await store.get("login-code")).not.toBeNull();
+
+    await expect(
+      store.consume("login-code", {
+        project: "demo",
+        redirectUri: "https://demo.example.com/auth/callback",
+        codeChallenge: pkceChallenge(verifier)
+      })
+    ).resolves.toMatchObject({
+      sessionCookie: "auth.session=value",
+      email: "user@example.com"
+    });
+    expect(await store.get("login-code")).toBeNull();
+  });
+
   test("issues a login code only from an authenticated session", async () => {
     const { codes, store } = createMemoryStore();
     const service = new LoginFlowService({
@@ -221,7 +268,7 @@ describe("login auth security helpers", () => {
   });
 
   test("does not consume a login code until project, redirect, and PKCE all match", async () => {
-    const { deletedCodes, store } = createMemoryStore();
+    const { consumedCodes, store } = createMemoryStore();
     await store.set("login-code", {
       project: "demo",
       sessionCookie: "auth.session=value",
@@ -243,7 +290,7 @@ describe("login auth security helpers", () => {
         codeVerifier: "B".repeat(43)
       })
     ).rejects.toBeInstanceOf(LoginFlowError);
-    expect(deletedCodes).toEqual([]);
+    expect(consumedCodes).toEqual([]);
 
     await expect(
       service.exchangeCode({
@@ -256,6 +303,6 @@ describe("login auth security helpers", () => {
       sessionCookie: "auth.session=value",
       email: "user@example.com"
     });
-    expect(deletedCodes).toEqual(["login-code"]);
+    expect(consumedCodes).toEqual(["login-code"]);
   });
 });

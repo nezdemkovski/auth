@@ -3,7 +3,11 @@ import { cors } from "hono/cors";
 
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import { StorageService } from "./core";
-import { MediaUploadError, MediaUploadPurpose } from "./media";
+import {
+  mediaUploadBodyTooLarge,
+  MediaUploadError,
+  MediaUploadPurpose
+} from "./media";
 import { parseMediaUploadRequest } from "./validator";
 
 type PublicStorageVariables = {
@@ -41,6 +45,9 @@ export const registerPublicStorageRoutes = (app: Hono<{ Variables: PublicStorage
     const session = await getProjectSession(registered.auth, c.req.raw.headers);
     if (!session) {
       return c.json({ error: "unauthorized" }, 401);
+    }
+    if (mediaUploadBodyTooLarge(c.req.raw.headers.get("content-length"))) {
+      return c.json({ error: "file_too_large" }, 413);
     }
 
     const uploadRequest = await parseMediaUploadRequest(

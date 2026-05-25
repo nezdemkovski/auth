@@ -46,6 +46,7 @@ const unusedOptions: LoginOptions = {
     close: () => {},
     set: async () => {},
     get: async () => null,
+    consume: async () => null,
     delete: async () => {}
   }
 };

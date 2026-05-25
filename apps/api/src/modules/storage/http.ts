@@ -1,5 +1,8 @@
 import { projectResponse } from "../projects/translator";
-import { MediaUploadPurpose } from "./media";
+import {
+  mediaUploadBodyTooLarge,
+  MediaUploadPurpose
+} from "./media";
 import {
   parseMediaUploadRequest,
   parseStorageSettingsPatch
@@ -91,6 +94,9 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
     const project = requireMutableProject(options, c.req.param("project"));
     if (project.error) {
       return c.json({ error: project.error }, project.status);
+    }
+    if (mediaUploadBodyTooLarge(c.req.raw.headers.get("content-length"))) {
+      return c.json({ error: "file_too_large" }, 413);
     }
 
     const uploadRequest = await parseMediaUploadRequest(

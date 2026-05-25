@@ -184,7 +184,7 @@ export const prepareProjectSchema = async (options: Omit<BootstrapOptions, "admi
 
   const pool = new Pool({
     connectionString: options.databaseUrl,
-    options: `-c search_path=${options.project.schema},public`
+    options: `-c search_path="${options.project.schema}",public`
   });
 
   try {
@@ -196,6 +196,7 @@ export const prepareProjectSchema = async (options: Omit<BootstrapOptions, "admi
         secret: options.secret
       })
     );
+    await ensureStorageObjectsTable(pool);
 
     if (migrations.toBeCreated.length === 0 && migrations.toBeAdded.length === 0) {
       console.info(`[bootstrap] ${options.project.slug}: schema is up to date`);
@@ -203,14 +204,12 @@ export const prepareProjectSchema = async (options: Omit<BootstrapOptions, "admi
     }
 
     await migrations.runMigrations();
-    await ensureStorageObjectsTable(pool);
 
     console.info(
       `[bootstrap] ${options.project.slug}: created ${migrations.toBeCreated.length} table(s), added ${migrations.toBeAdded.length} table change(s)`
     );
     return;
   } finally {
-    await ensureStorageObjectsTable(pool).catch(() => {});
     await pool.end();
   }
 };

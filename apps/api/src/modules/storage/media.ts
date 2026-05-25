@@ -30,7 +30,8 @@ export type MediaUploadResult = {
   checksumSha256: string;
 };
 
-const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+export const MAX_MEDIA_UPLOAD_BODY_BYTES = MAX_IMAGE_BYTES + 512 * 1024;
 const ALLOWED_IMAGE_TYPES = new Map([
   ["image/png", "png"],
   ["image/jpeg", "jpg"],
@@ -79,6 +80,15 @@ export const uploadMedia = async (input: MediaUploadInput) => {
     sizeBytes: input.file.size,
     checksumSha256
   };
+};
+
+export const mediaUploadBodyTooLarge = (contentLength: string | null) => {
+  if (!contentLength) {
+    return false;
+  }
+
+  const size = Number(contentLength);
+  return Number.isFinite(size) && size > MAX_MEDIA_UPLOAD_BODY_BYTES;
 };
 
 export const deleteUploadedMedia = async (input: {

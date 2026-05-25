@@ -115,6 +115,15 @@ Prefer arrow functions for standalone backend functions:
 - Keep `function` declarations for type guards (`value is Type`) and other cases where TypeScript syntax or narrowing is clearer with `function`.
 - Do not rely on hoisting for new code. If order matters, move the helper above its first top-level use.
 
+## Duplication
+
+Do not copy-paste helper functions across files.
+
+- If the same helper appears a second time, stop and extract it to the closest sensible owner.
+- Prefer a pure helper in the domain module over duplicating request-specific wrappers in multiple HTTP files.
+- Keep shared helpers small and named by the invariant they enforce, not by the first caller that needed them.
+- Do not create broad utility folders for one-off helpers; use the nearest domain owner first.
+
 ## Migration Rule
 
 When moving existing code into modules, migrate one domain at a time and keep each move behavior-preserving. Run `bun run typecheck` and `bun run test` after every meaningful slice.
