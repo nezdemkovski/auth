@@ -13,10 +13,10 @@ import {
   validateProjectSlug
 } from "../../../config/projects";
 import {
-  createProjectFromInput,
   normalizeProjectFeatures,
   validateProjectSettingsPatch
-} from "../store";
+} from "../validator";
+import { createProjectFromInput } from "../core";
 
 describe("projects", () => {
   test("uses a stable built-in admin project", () => {

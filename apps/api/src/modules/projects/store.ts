@@ -1,15 +1,9 @@
 import { sql } from "drizzle-orm";
 
 import {
-  DEFAULT_PROJECT_FEATURES,
-  ProjectAgentAuthMode,
-  ProjectTwoFactorRequirement,
-  normalizeProjectSlug,
-  projectSchemaFromSlug,
   validateProjectSchema,
   validateProjectSlug,
-  type AuthProject,
-  type ProjectFeatures
+  type AuthProject
 } from "../../config/projects";
 import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
 import { cloneDefaultBilling, loadBillingSettings } from "../billing/store";
@@ -22,20 +16,11 @@ import {
   cloneDefaultSocialProviders,
   loadSocialProviderSettings
 } from "./social-provider-store";
-
-export type ProjectSettingsPatch = {
-  name: string;
-  description: string;
-  iconUrl: string;
-  appUrl: string;
-  trustedOrigins: string[];
-  features: ProjectFeatures;
-};
-
-export type ProjectSettingsCreate = Omit<ProjectSettingsPatch, "features"> & {
-  slug: string;
-  features?: ProjectFeatures;
-};
+import {
+  normalizeProjectFeatures,
+  validateProjectSettingsPatch,
+  type ProjectSettingsPatch
+} from "./validator";
 
 type ProjectSettingsRow = {
   slug: string;
@@ -172,10 +157,9 @@ export const projectSettingsExists = async (options: AdminDatabaseOptions & {
 };
 
 export const createProjectSettings = async (options: AdminDatabaseOptions & {
-  input: ProjectSettingsCreate;
+  project: AuthProject;
 }) => {
-  const project = createProjectFromInput(options.input);
-  validateProjectSettingsPatch(project);
+  validateProjectSettingsPatch(options.project);
 
   return withAdminDb(options, async ({ db }) => {
     const created = await db.execute<ProjectSettingsRow>(sql`
@@ -192,14 +176,14 @@ export const createProjectSettings = async (options: AdminDatabaseOptions & {
         enabled
       )
       VALUES (
-        ${project.slug},
-        ${project.name},
-        ${project.schema},
-        ${project.description},
-        ${project.iconUrl},
-        ${project.appUrl},
-        ${JSON.stringify(project.trustedOrigins)}::jsonb,
-        ${JSON.stringify(project.features)}::jsonb,
+        ${options.project.slug},
+        ${options.project.name},
+        ${options.project.schema},
+        ${options.project.description},
+        ${options.project.iconUrl},
+        ${options.project.appUrl},
+        ${JSON.stringify(options.project.trustedOrigins)}::jsonb,
+        ${JSON.stringify(options.project.features)}::jsonb,
         false,
         true
       )
@@ -316,46 +300,6 @@ const readProjectSettings = async (options: AdminDatabaseOptions) => {
   });
 };
 
-export const validateProjectSettingsPatch = (patch: ProjectSettingsPatch) => {
-  if (patch.name.trim().length === 0) {
-    throw new Error("Project name is required");
-  }
-
-  validateOptionalUrl(patch.iconUrl, "iconUrl");
-  validateOptionalUrl(patch.appUrl, "appUrl");
-
-  const seen = new Set<string>();
-  for (const origin of patch.trustedOrigins) {
-    validateOrigin(origin);
-    if (seen.has(origin)) {
-      throw new Error(`Duplicate trusted origin: ${origin}`);
-    }
-    seen.add(origin);
-  }
-};
-
-export const createProjectFromInput = (input: ProjectSettingsCreate) => {
-  const slug = normalizeProjectSlug(input.slug);
-  validateProjectSlug(slug);
-
-  const project = {
-    slug,
-    name: input.name.trim(),
-    schema: projectSchemaFromSlug(slug),
-    description: input.description.trim(),
-    iconUrl: input.iconUrl.trim(),
-    appUrl: input.appUrl.trim(),
-    trustedOrigins: input.trustedOrigins.map((origin) => origin.trim()).filter(Boolean),
-    features: normalizeProjectFeatures(input.features),
-    socialProviders: optionsDefaultSocialProviders(),
-    billing: cloneDefaultBilling(),
-    storage: cloneDefaultStorage()
-  };
-
-  validateProjectSchema(project.schema);
-  return project;
-};
-
 const validateOptionalUrl = (value: string, field: string) => {
   if (!value) {
     return;
@@ -368,17 +312,6 @@ const validateOptionalUrl = (value: string, field: string) => {
     }
   } catch {
     throw new Error(`Invalid ${field}`);
-  }
-};
-
-const validateOrigin = (value: string) => {
-  try {
-    const url = new URL(value);
-    if (!["http:", "https:"].includes(url.protocol) || url.origin !== value) {
-      throw new Error();
-    }
-  } catch {
-    throw new Error(`Invalid trusted origin: ${value}`);
   }
 };
 
@@ -398,68 +331,6 @@ const rowToProject = (row: ProjectSettingsRow) => {
   };
 };
 
-export const normalizeProjectFeatures = (value: unknown) => {
-  if (!isRecord(value)) {
-    return cloneDefaultFeatures();
-  }
-
-  const passkey = isRecord(value.passkey) ? value.passkey : {};
-  const twoFactor = isRecord(value.twoFactor) ? value.twoFactor : {};
-  const agentAuth = isRecord(value.agentAuth) ? value.agentAuth : {};
-  const oauthProvider = isRecord(value.oauthProvider) ? value.oauthProvider : {};
-
-  const required = twoFactor.required;
-  const mode = agentAuth.mode;
-
-  return {
-    passkey: {
-      enabled: typeof passkey.enabled === "boolean" ? passkey.enabled : false
-    },
-    twoFactor: {
-      enabled: typeof twoFactor.enabled === "boolean" ? twoFactor.enabled : false,
-      required:
-        required === ProjectTwoFactorRequirement.Admins ||
-        required === ProjectTwoFactorRequirement.Everyone ||
-        required === ProjectTwoFactorRequirement.Optional
-          ? required
-          : ProjectTwoFactorRequirement.Optional
-    },
-    agentAuth: {
-      enabled: typeof agentAuth.enabled === "boolean" ? agentAuth.enabled : false,
-      mode:
-        mode === ProjectAgentAuthMode.ScopedWrite ||
-        mode === ProjectAgentAuthMode.ReadOnly
-          ? mode
-          : ProjectAgentAuthMode.ReadOnly
-    },
-    oauthProvider: {
-      enabled:
-        typeof oauthProvider.enabled === "boolean" ? oauthProvider.enabled : false,
-      dynamicClientRegistration:
-        typeof oauthProvider.dynamicClientRegistration === "boolean"
-          ? oauthProvider.dynamicClientRegistration
-          : false
-    }
-  };
-};
-
-const cloneDefaultFeatures = () => {
-  return {
-    passkey: {
-      ...DEFAULT_PROJECT_FEATURES.passkey
-    },
-    twoFactor: {
-      ...DEFAULT_PROJECT_FEATURES.twoFactor
-    },
-    agentAuth: {
-      ...DEFAULT_PROJECT_FEATURES.agentAuth
-    },
-    oauthProvider: {
-      ...DEFAULT_PROJECT_FEATURES.oauthProvider
-    }
-  };
-};
-
 const optionsDefaultSocialProviders = () => {
   return cloneDefaultSocialProviders();
 };
@@ -471,7 +342,3 @@ const normalizeTrustedOrigins = (value: unknown) => {
 
   return value.filter((item): item is string => typeof item === "string");
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}

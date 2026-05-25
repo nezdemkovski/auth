@@ -1,31 +1,42 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
-import type { AuthProject } from "../../config/projects";
+import {
+  normalizeProjectSlug,
+  projectSchemaFromSlug,
+  validateProjectSchema,
+  validateProjectSlug,
+  type AuthProject
+} from "../../config/projects";
 import {
   SOCIAL_PROVIDER_CATALOG,
   type SocialProviderId
 } from "../../config/social-providers";
 import { prepareProjectSchema } from "../../db/bootstrap";
 import type { AdminDatabase } from "../../db/admin-pool";
-import { loadProjectBillingSettings } from "../billing/store";
+import { cloneDefaultBilling, loadProjectBillingSettings } from "../billing/store";
 import { readProjectCounts } from "../users/store";
 import {
   loadProjectSocialProviders,
   markSocialProviderVerified,
   readProjectSocialProviders,
   updateProjectSocialProvider,
+  cloneDefaultSocialProviders,
   type SocialProviderPatch
 } from "./social-provider-store";
 import {
-  createProjectFromInput,
   createProjectSettings,
   deleteProjectSettings,
   dropProjectSchema,
   projectSettingsExists,
-  updateProjectSettings,
-  type ProjectSettingsCreate,
-  type ProjectSettingsPatch
+  updateProjectSettings
 } from "./store";
 import { projectResponse } from "./translator";
+import { cloneDefaultStorage } from "../storage/settings-store";
+import {
+  normalizeProjectFeatures,
+  type ProjectSettingsCreate,
+  type ProjectSettingsPatch
+} from "./validator";
+import { logError } from "../../runtime/logger";
 
 export class ProjectServiceError extends Error {
   constructor(
@@ -115,7 +126,7 @@ export class ProjectService {
         databaseUrl: this.options.databaseUrl,
         adminProject: this.options.adminProject,
         adminDb: this.options.adminDb,
-        input
+        project
       });
       settingsCreated = true;
       await this.options.registry.updateProject(created);
@@ -128,7 +139,7 @@ export class ProjectService {
           adminDb: this.options.adminDb,
           slug: project.slug
         }).catch((cleanupError) => {
-          console.error("[projects] failed to clean up project settings", {
+          logError("project_settings_cleanup_failed", {
             slug: project.slug,
             error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
           });
@@ -142,7 +153,7 @@ export class ProjectService {
           adminDb: this.options.adminDb,
           schema: project.schema
         }).catch((cleanupError) => {
-          console.error("[projects] failed to clean up project schema", {
+          logError("project_schema_cleanup_failed", {
             slug: project.slug,
             schema: project.schema,
             error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
@@ -305,3 +316,25 @@ export class ProjectService {
     return projectResponse(project, counts, this.options.publicBaseUrl);
   }
 }
+
+export const createProjectFromInput = (input: ProjectSettingsCreate) => {
+  const slug = normalizeProjectSlug(input.slug);
+  validateProjectSlug(slug);
+
+  const project = {
+    slug,
+    name: input.name.trim(),
+    schema: projectSchemaFromSlug(slug),
+    description: input.description.trim(),
+    iconUrl: input.iconUrl.trim(),
+    appUrl: input.appUrl.trim(),
+    trustedOrigins: input.trustedOrigins.map((origin) => origin.trim()).filter(Boolean),
+    features: normalizeProjectFeatures(input.features),
+    socialProviders: cloneDefaultSocialProviders(),
+    billing: cloneDefaultBilling(),
+    storage: cloneDefaultStorage()
+  };
+
+  validateProjectSchema(project.schema);
+  return project;
+};

@@ -194,11 +194,13 @@ export const DEFAULT_PROJECT_SOCIAL_PROVIDERS: ProjectSocialProviders = {
   [SocialProvider.Facebook]: defaultSocialProvider()
 };
 
+export const ADMIN_PROJECT_SLUG = "admin";
+
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/;
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
 
 export const ADMIN_PROJECT: AuthProject = {
-  slug: "admin",
+  slug: ADMIN_PROJECT_SLUG,
   name: "Auth Admin",
   schema: "auth_admin",
   description: "System admin realm for managing auth projects.",

@@ -1,6 +1,6 @@
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
+import { isRecord } from "../../runtime/type-guards";
+
+export { isRecord };
 
 export const parseJson = async (req: { json(): Promise<unknown> }) => {
   const body = await req.json().catch(() => ({}));

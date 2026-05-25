@@ -1,4 +1,4 @@
-import type { AuthProject } from "../../config/projects";
+import { ADMIN_PROJECT_SLUG, type AuthProject } from "../../config/projects";
 import { SOCIAL_PROVIDER_CATALOG } from "../../config/social-providers";
 import { socialProviderCallbackUrl } from "./social-provider-store";
 
@@ -33,7 +33,7 @@ export const projectResponse = (project: AuthProject, counts: ProjectCounts = EM
         callbackUrl: socialProviderCallbackUrl(publicBaseUrl, project, provider.id)
       };
     }),
-    system: project.slug === "admin",
+    system: project.slug === ADMIN_PROJECT_SLUG,
     ...counts
   };
 };

@@ -1,6 +1,7 @@
 import { loadEnv } from "./config/env";
 import { createApp } from "./http/app";
 import { DIRECT_CLIENT_IP_HEADER } from "./http/security";
+import { logError, logInfo } from "./runtime/logger";
 
 const env = loadEnv();
 const { app, close } = await createApp(env);
@@ -21,7 +22,9 @@ const server = Bun.serve({
   }
 });
 
-console.log(`auth service listening on ${server.url}`);
+logInfo("auth_service_listening", {
+  url: server.url.toString()
+});
 
 const shutdown = async () => {
   await close();
@@ -29,9 +32,21 @@ const shutdown = async () => {
 };
 
 process.on("SIGINT", () => {
-  void shutdown();
+  shutdown().catch((error) => {
+    logError("auth_service_shutdown_failed", {
+      signal: "SIGINT",
+      error: error instanceof Error ? error.message : String(error)
+    });
+    process.exit(1);
+  });
 });
 
 process.on("SIGTERM", () => {
-  void shutdown();
+  shutdown().catch((error) => {
+    logError("auth_service_shutdown_failed", {
+      signal: "SIGTERM",
+      error: error instanceof Error ? error.message : String(error)
+    });
+    process.exit(1);
+  });
 });

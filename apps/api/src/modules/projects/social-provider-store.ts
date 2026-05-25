@@ -57,8 +57,6 @@ export const ensureSocialProviderSettingsTable = async (options: AdminDatabaseOp
 export const loadSocialProviderSettings = async (options: AdminDatabaseOptions & {
   encryptionSecret: string;
 }) => {
-  await ensureSocialProviderSettingsTable(options);
-
   return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<
       SocialProviderRow & { projectSlug: string }
@@ -82,7 +80,7 @@ export const loadSocialProviderSettings = async (options: AdminDatabaseOptions &
       current[row.provider] = {
         enabled: row.enabled,
         clientId: row.clientId,
-        clientSecret: decryptSocialProviderSecret(
+        clientSecret: await decryptSocialProviderSecret(
           row.clientSecretCipher,
           options.encryptionSecret,
           row.projectSlug,
@@ -101,8 +99,6 @@ export const readProjectSocialProviders = async (options: AdminDatabaseOptions &
   project: AuthProject;
   publicBaseUrl: string;
 }) => {
-  await ensureSocialProviderSettingsTable(options);
-
   return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<SocialProviderRow>(sql`
       SELECT provider,
@@ -136,12 +132,10 @@ export const updateProjectSocialProvider = async (options: AdminDatabaseOptions 
   patch: SocialProviderPatch;
   encryptionSecret: string;
 }) => {
-  await ensureSocialProviderSettingsTable(options);
-
   const clientId = options.patch.clientId.trim();
   const secretCipher =
     options.patch.clientSecret !== undefined
-      ? encryptSocialProviderSecret(
+      ? await encryptSocialProviderSecret(
           options.patch.clientSecret.trim(),
           options.encryptionSecret,
           options.project.slug,
@@ -206,8 +200,6 @@ export const markSocialProviderVerified = async (options: AdminDatabaseOptions &
   project: AuthProject;
   provider: SocialProviderId;
 }) => {
-  await ensureSocialProviderSettingsTable(options);
-
   await withAdminDb(options, async ({ db }) => {
     await db.execute(sql`
       UPDATE auth_social_provider_settings

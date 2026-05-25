@@ -4,7 +4,8 @@ export type {
   AdminRouteRegistration
 } from "./context";
 export { isStateChangingMethod, isTrustedAdminRequest } from "./csrf";
-export { mediaUploadError } from "./errors";
+export { domainErrorResponse, mediaUploadError } from "./errors";
+export { auditLog } from "../../runtime/logger";
 export {
   requireMutableProject,
   requireRegisteredProject,

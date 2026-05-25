@@ -8,6 +8,7 @@ import {
   parseStorageSettingsPatch
 } from "./validator";
 import {
+  auditLog,
   mediaUploadError,
   parseJson,
   requireAdmin,
@@ -71,8 +72,14 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
     }
 
     try {
+      const settings = await storageService.updateSettings(project.registered, patch);
+      auditLog("storage.settings.updated", {
+        actorId: admin.session.user.id,
+        actorEmail: admin.session.user.email,
+        projectSlug: project.registered.project.slug
+      });
       return c.json({
-        settings: await storageService.updateSettings(project.registered, patch)
+        settings
       });
     } catch (error) {
       return c.json(
@@ -113,6 +120,11 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
         purpose: uploadRequest.purpose,
         file: uploadRequest.file,
         ownerUserId: admin.session.user.id
+      });
+      auditLog("storage.project_icon.uploaded", {
+        actorId: admin.session.user.id,
+        actorEmail: admin.session.user.email,
+        projectSlug: project.registered.project.slug
       });
 
       return c.json({

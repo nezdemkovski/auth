@@ -1,4 +1,6 @@
 import {
+  auditLog,
+  domainErrorResponse,
   parseJson,
   requireAdmin,
   requireRegisteredProject,
@@ -37,12 +39,17 @@ export const registerUserRoutes: AdminRouteRegistration = ({
       return c.json({ error: project.error }, project.status);
     }
 
-    return c.json({
-      terminated: await usersService.terminateSessions(
-        project.registered,
-        c.req.param("userId")
-      )
+    const terminated = await usersService.terminateSessions(
+      project.registered,
+      c.req.param("userId")
+    );
+    auditLog("user.sessions.terminated", {
+      actorId: admin.session.user.id,
+      actorEmail: admin.session.user.email,
+      projectSlug: project.registered.project.slug,
+      targetUserId: c.req.param("userId")
     });
+    return c.json({ terminated });
   });
 
   app.post("/projects/:project/users/resend-verification", async (c) => {
@@ -63,9 +70,15 @@ export const registerUserRoutes: AdminRouteRegistration = ({
 
     try {
       await usersService.resendVerification(project.registered, email);
+      auditLog("user.verification_email.resent", {
+        actorId: admin.session.user.id,
+        actorEmail: admin.session.user.email,
+        projectSlug: project.registered.project.slug,
+        targetEmail: email
+      });
     } catch (error) {
       if (error instanceof UsersServiceError) {
-        return c.json({ error: error.code }, error.status);
+        return domainErrorResponse(error);
       }
       throw error;
     }

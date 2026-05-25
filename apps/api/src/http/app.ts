@@ -10,7 +10,7 @@ import type { AuthProject } from "../config/projects";
 import { AuthRegistry } from "../auth/registry";
 import { bootstrapProjects, prepareProjectSchema } from "../db/bootstrap";
 import { createAdminDatabase } from "../db/admin-pool";
-import { toRuntimeEmailConfig } from "../modules/delivery/core";
+import { toRuntimeEmailConfig } from "../modules/delivery/translator";
 import { readDeliverySettings } from "../modules/delivery/store";
 import { loadEffectiveProjects } from "../modules/projects/store";
 import { createEmailSender } from "../email/sender";

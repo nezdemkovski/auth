@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { EmailProvider } from "../../../email/sender";
-import { toRuntimeEmailConfig } from "../core";
+import { toRuntimeEmailConfig } from "../translator";
 
 describe("delivery core", () => {
   test("converts complete Resend settings to runtime email config", () => {

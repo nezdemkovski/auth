@@ -1,4 +1,5 @@
 import { ReconnectingRedisClient, type RedisBackedStore } from "../../db/redis";
+import { isRecord } from "../../runtime/type-guards";
 
 export const LOGIN_CODE_TTL_SECONDS = 60;
 
@@ -62,9 +63,11 @@ class MemoryLoginCodeStore implements LoginCodeStore {
       codeChallenge: string;
     }
   ) {
-    const pending = await this.get(code);
+    this.pruneExpiredCodes();
+    const pending = this.pendingLoginCodes.get(code);
     if (
       !pending ||
+      pending.expiresAt < Date.now() ||
       pending.project !== expected.project ||
       pending.redirectUri !== expected.redirectUri ||
       pending.codeChallenge !== expected.codeChallenge
@@ -212,7 +215,7 @@ const parsePendingLoginCode = (value: string) => {
   return parsed;
 };
 
-function isPendingLoginCode(value: unknown): value is PendingLoginCode {
+const isPendingLoginCode = (value: unknown): value is PendingLoginCode => {
   return (
     isRecord(value) &&
     typeof value.project === "string" &&
@@ -222,8 +225,4 @@ function isPendingLoginCode(value: unknown): value is PendingLoginCode {
     typeof value.codeChallenge === "string" &&
     typeof value.expiresAt === "number"
   );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
+};

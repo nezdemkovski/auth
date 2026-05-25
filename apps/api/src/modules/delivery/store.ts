@@ -83,7 +83,6 @@ export const seedDeliverySettingsFromEnv = async (options: AdminDatabaseOptions 
 export const readDeliverySettings = async (options: AdminDatabaseOptions & {
   encryptionSecret: string;
 }) => {
-  await ensureDeliverySettingsTable(options);
   const row = await readDeliverySettingsRow(options);
   return rowToDeliverySettings(row, options.encryptionSecret);
 };
@@ -92,12 +91,10 @@ export const updateDeliverySettings = async (options: AdminDatabaseOptions & {
   encryptionSecret: string;
   patch: DeliverySettingsPatch;
 }) => {
-  await ensureDeliverySettingsTable(options);
-
   const current = await readDeliverySettingsRow(options);
   const resendApiKeyCipher =
     options.patch.resendApiKey && options.patch.resendApiKey.trim()
-      ? encryptSecret(
+      ? await encryptSecret(
           options.patch.resendApiKey.trim(),
           options.encryptionSecret,
           EmailProvider.Resend
@@ -105,7 +102,7 @@ export const updateDeliverySettings = async (options: AdminDatabaseOptions & {
       : current?.resendApiKeyCipher ?? "";
   const cloudflareApiTokenCipher =
     options.patch.cloudflareApiToken && options.patch.cloudflareApiToken.trim()
-      ? encryptSecret(
+      ? await encryptSecret(
           options.patch.cloudflareApiToken.trim(),
           options.encryptionSecret,
           EmailProvider.Cloudflare
@@ -183,7 +180,10 @@ const encryptionContext = (key: string) => {
   return `delivery:${key}`;
 };
 
-const rowToDeliverySettings = (row: DeliverySettingsRow | null | undefined, encryptionSecret: string) => {
+const rowToDeliverySettings = async (
+  row: DeliverySettingsRow | null | undefined,
+  encryptionSecret: string
+) => {
   if (!row) {
     return {
       provider: EmailProvider.None,
@@ -198,12 +198,12 @@ const rowToDeliverySettings = (row: DeliverySettingsRow | null | undefined, encr
   }
 
   const provider = isDeliveryProvider(row.provider) ? row.provider : EmailProvider.None;
-  const cloudflareApiToken = decryptSecret(
+  const cloudflareApiToken = await decryptSecret(
     row.cloudflareApiTokenCipher,
     encryptionSecret,
     EmailProvider.Cloudflare
   );
-  const resendApiKey = decryptSecret(
+  const resendApiKey = await decryptSecret(
     row.resendApiKeyCipher,
     encryptionSecret,
     EmailProvider.Resend
@@ -221,9 +221,9 @@ const rowToDeliverySettings = (row: DeliverySettingsRow | null | undefined, encr
   };
 };
 
-function isDeliveryProvider(value: string): value is EmailConfig["provider"] {
+const isDeliveryProvider = (value: string): value is EmailConfig["provider"] => {
   return isEnumValue(EmailProvider, value);
-}
+};
 
 const normalizeDate = (value: Date | string | null | undefined) => {
   if (!value) {

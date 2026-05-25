@@ -39,7 +39,7 @@ export type UsersRegisteredProject = {
 export class UsersServiceError extends Error {
   constructor(
     readonly code: string,
-    readonly status: 409,
+    readonly status: 400 | 404 | 409,
     message = code
   ) {
     super(message);

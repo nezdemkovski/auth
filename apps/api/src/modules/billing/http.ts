@@ -4,6 +4,8 @@ import {
   parseCreatePolarProduct
 } from "./validator";
 import {
+  auditLog,
+  domainErrorResponse,
   parseJson,
   requireAdmin,
   requireMutableProject,
@@ -49,8 +51,14 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
     }
 
     try {
+      const settings = await billingService.updateSettings(project.registered, patch);
+      auditLog("billing.settings.updated", {
+        actorId: admin.session.user.id,
+        actorEmail: admin.session.user.email,
+        projectSlug: project.registered.project.slug
+      });
       return c.json({
-        settings: await billingService.updateSettings(project.registered, patch)
+        settings
       });
     } catch (error) {
       return c.json(
@@ -122,12 +130,16 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
     }
 
     try {
-      return c.json(
-        {
-          product: await billingService.createPolarProduct(project.registered.project, input)
-        },
-        201
+      const product = await billingService.createPolarProduct(
+        project.registered.project,
+        input
       );
+      auditLog("billing.product.created", {
+        actorId: admin.session.user.id,
+        actorEmail: admin.session.user.email,
+        projectSlug: project.registered.project.slug
+      });
+      return c.json({ product }, 201);
     } catch (error) {
       return billingServiceError(error);
     }
@@ -136,13 +148,7 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
 
 const billingServiceError = (error: unknown) => {
   if (error instanceof BillingServiceError) {
-    return Response.json(
-      {
-        error: error.code,
-        message: error.message
-      },
-      { status: error.status }
-    );
+    return domainErrorResponse(error);
   }
 
   throw error;

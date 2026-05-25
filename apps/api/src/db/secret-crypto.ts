@@ -1,20 +1,39 @@
-import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
 
-export const encryptSecretValue = (value: string, secret: string, context: string) => {
+export const encryptSecretValue = async (
+  value: string,
+  secret: string,
+  context: string
+) => {
   if (!value) {
     return "";
   }
 
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", encryptionKey(secret), iv);
-  cipher.setAAD(Buffer.from(context));
-  const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encrypted = new Uint8Array(
+    await crypto.subtle.encrypt(
+      {
+        name: "AES-GCM",
+        iv,
+        additionalData: encoder.encode(context)
+      },
+      await encryptionKey(secret),
+      encoder.encode(value)
+    )
+  );
+  const tagOffset = encrypted.byteLength - 16;
+  const ciphertext = encrypted.slice(0, tagOffset);
+  const tag = encrypted.slice(tagOffset);
 
-  return `v1:${iv.toString("base64url")}:${tag.toString("base64url")}:${encrypted.toString("base64url")}`;
+  return `v1:${base64UrlEncode(iv)}:${base64UrlEncode(tag)}:${base64UrlEncode(ciphertext)}`;
 };
 
-export const decryptSecretValue = (value: string, secret: string, context: string) => {
+export const decryptSecretValue = async (
+  value: string,
+  secret: string,
+  context: string
+) => {
   if (!value) {
     return "";
   }
@@ -24,28 +43,64 @@ export const decryptSecretValue = (value: string, secret: string, context: strin
     throw new Error("Invalid encrypted secret");
   }
 
-  const decipher = createDecipheriv(
-    "aes-256-gcm",
-    encryptionKey(secret),
-    Buffer.from(iv, "base64url")
-  );
-  decipher.setAAD(Buffer.from(context));
-  decipher.setAuthTag(Buffer.from(tag, "base64url"));
+  const ciphertext = base64UrlDecode(encrypted);
+  const authTag = base64UrlDecode(tag);
+  const payload = new Uint8Array(ciphertext.byteLength + authTag.byteLength);
+  payload.set(ciphertext);
+  payload.set(authTag, ciphertext.byteLength);
 
-  return Buffer.concat([
-    decipher.update(Buffer.from(encrypted, "base64url")),
-    decipher.final()
-  ]).toString("utf8");
+  const decrypted = await crypto.subtle.decrypt(
+    {
+      name: "AES-GCM",
+      iv: base64UrlDecode(iv),
+      additionalData: encoder.encode(context)
+    },
+    await encryptionKey(secret),
+    payload
+  );
+
+  return decoder.decode(decrypted);
 };
 
-const encryptionKey = (secret: string) => {
-  return Buffer.from(
-    hkdfSync(
-      "sha256",
-      Buffer.from(secret),
-      Buffer.from("auth-encryption-v1"),
-      Buffer.from("secret-value"),
-      32
-    )
+const encryptionKey = async (secret: string) => {
+  const rootKey = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    "HKDF",
+    false,
+    ["deriveKey"]
   );
+
+  return crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: encoder.encode("auth-encryption-v1"),
+      info: encoder.encode("secret-value")
+    },
+    rootKey,
+    {
+      name: "AES-GCM",
+      length: 256
+    },
+    false,
+    ["encrypt", "decrypt"]
+  );
+};
+
+const base64UrlEncode = (value: Uint8Array) => {
+  return btoa(String.fromCharCode(...value))
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replaceAll("=", "");
+};
+
+const base64UrlDecode = (value: string) => {
+  const padded = value.padEnd(value.length + ((4 - (value.length % 4)) % 4), "=");
+  const binary = atob(padded.replaceAll("-", "+").replaceAll("_", "/"));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
 };

@@ -1,3 +1,5 @@
+import { isRecord } from "../../runtime/type-guards";
+
 export type LoginSessionCodeInput = {
   redirectUri: string;
   state: string;
@@ -47,7 +49,3 @@ const getStringField = (body: unknown, field: string) => {
   const value = body[field];
   return typeof value === "string" ? value : "";
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}

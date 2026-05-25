@@ -14,6 +14,7 @@ import {
   EntitlementResetPeriod
 } from "../../config/projects";
 import { isEnumValue } from "../../runtime/enums";
+import { isRecord } from "../../runtime/type-guards";
 
 export type BillingSettingsPatch = {
   provider: ProjectBillingSettings["provider"];
@@ -282,7 +283,3 @@ const parseCreatePolarProductType = (value: string) => {
 const parseBillingRecurringInterval = (value: string) => {
   return isEnumValue(BillingRecurringInterval, value) ? value : null;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}

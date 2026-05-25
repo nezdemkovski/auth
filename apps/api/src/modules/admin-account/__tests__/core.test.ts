@@ -2,13 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { Pool } from "pg";
 
 import { EmailProvider } from "../../../email/sender";
-import type { AdminSession } from "../../../http/admin/shared";
 import {
   AdminAccountService,
   AdminAccountServiceError
 } from "../core";
 
-const session: AdminSession = {
+const session = {
   user: {
     id: "admin-user",
     email: "admin@example.com",

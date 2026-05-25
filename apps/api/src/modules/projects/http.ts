@@ -6,6 +6,8 @@ import {
   parseSocialProviderPatch
 } from "./validator";
 import {
+  auditLog,
+  domainErrorResponse,
   parseJson,
   requireAdmin,
   requireMutableProject,
@@ -42,12 +44,13 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
     }
 
     try {
-      return c.json(
-        {
-          project: await projectService.createProject(input)
-        },
-        201
-      );
+      const project = await projectService.createProject(input);
+      auditLog("project.created", {
+        actorId: admin.session.user.id,
+        actorEmail: admin.session.user.email,
+        projectSlug: project.slug
+      });
+      return c.json({ project }, 201);
     } catch (error) {
       return projectServiceError(error);
     }
@@ -71,8 +74,14 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
     }
 
     try {
+      const updated = await projectService.updateProject(project.registered, patch);
+      auditLog("project.updated", {
+        actorId: admin.session.user.id,
+        actorEmail: admin.session.user.email,
+        projectSlug: updated.slug
+      });
       return c.json({
-        project: await projectService.updateProject(project.registered, patch)
+        project: updated
       });
     } catch (error) {
       return projectServiceError(error);
@@ -116,9 +125,24 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
       return c.json({ error: "invalid_body" }, 400);
     }
 
-    return c.json({
-      ...(await projectService.updateSocialProvider(project.registered, provider, patch))
-    });
+    try {
+      const updated = await projectService.updateSocialProvider(
+        project.registered,
+        provider,
+        patch
+      );
+      auditLog("project.social_provider.updated", {
+        actorId: admin.session.user.id,
+        actorEmail: admin.session.user.email,
+        projectSlug: project.registered.project.slug,
+        provider
+      });
+      return c.json({
+        ...updated
+      });
+    } catch (error) {
+      return projectServiceError(error);
+    }
   });
 
   app.post("/projects/:project/social-providers/:provider/verify", async (c) => {
@@ -137,13 +161,18 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
     }
 
     try {
-      return c.json(
-        await projectService.verifySocialProvider(
-          project.registered,
-          provider,
-          c.req.raw.headers
-        )
+      const result = await projectService.verifySocialProvider(
+        project.registered,
+        provider,
+        c.req.raw.headers
       );
+      auditLog("project.social_provider.verified", {
+        actorId: admin.session.user.id,
+        actorEmail: admin.session.user.email,
+        projectSlug: project.registered.project.slug,
+        provider
+      });
+      return c.json(result);
     } catch (error) {
       return projectServiceError(error);
     }
@@ -152,13 +181,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
 
 const projectServiceError = (error: unknown) => {
   if (error instanceof ProjectServiceError) {
-    return Response.json(
-      {
-        error: error.code,
-        message: error.message
-      },
-      { status: error.status }
-    );
+    return domainErrorResponse(error);
   }
 
   throw error;

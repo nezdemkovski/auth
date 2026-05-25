@@ -5,8 +5,9 @@ import {
 import type { Env, Hono } from "hono";
 import { cors } from "hono/cors";
 
-import type { AuthProject } from "../../config/projects";
+import { ADMIN_PROJECT_SLUG, type AuthProject } from "../../config/projects";
 import { BillingProvider } from "../../config/projects";
+import { auditLog } from "../../runtime/logger";
 
 export type AuthProxyRegistry = {
   get(slug: string): AuthProxyRegisteredProject | null;
@@ -98,7 +99,7 @@ export const registerAuthProxyRoutes = <TEnv extends Env>(app: Hono<TEnv>, optio
     })
   );
 
-  app.on(["GET", "POST"], "/api/:project/auth/*", (c) => {
+  app.on(["GET", "POST"], "/api/:project/auth/*", async (c) => {
     const registered = options.registry.get(c.req.param("project"));
 
     if (!registered) {
@@ -114,14 +115,22 @@ export const registerAuthProxyRoutes = <TEnv extends Env>(app: Hono<TEnv>, optio
       return c.notFound();
     }
 
-    return registered.auth.handler(c.req.raw);
+    const response = await registered.auth.handler(c.req.raw);
+    if (isSensitiveFailedAuthRequest(c.req.method, c.req.path, response.status)) {
+      auditLog("auth.request.failed", {
+        projectSlug: registered.project.slug,
+        path: normalizeAuthPath(c.req.path, registered.project.slug),
+        status: response.status
+      });
+    }
+    return response;
   });
 };
 
 export const isEnabledAuthFeaturePath = (project: AuthProject, path: string) => {
   const authPath = path.replace(new RegExp(`^/api/${project.slug}/auth`), "") || "/";
 
-  if (project.slug === "admin" && authPath.startsWith("/sign-up/")) {
+  if (project.slug === ADMIN_PROJECT_SLUG && authPath.startsWith("/sign-up/")) {
     return false;
   }
 
@@ -181,4 +190,25 @@ const isPolarEnabled = (project: AuthProject) => {
     project.billing.enabled &&
     Boolean(project.billing.accessToken.trim())
   );
+};
+
+const isSensitiveFailedAuthRequest = (
+  method: string,
+  path: string,
+  status: number
+) => {
+  if (method.toUpperCase() !== "POST" || status < 400) {
+    return false;
+  }
+
+  return (
+    path.includes("/sign-in/") ||
+    path.includes("/sign-up/") ||
+    path.includes("/reset-password") ||
+    path.includes("/verify-email")
+  );
+};
+
+const normalizeAuthPath = (path: string, projectSlug: string) => {
+  return path.replace(new RegExp(`^/api/${projectSlug}/auth`), "/api/:project/auth");
 };

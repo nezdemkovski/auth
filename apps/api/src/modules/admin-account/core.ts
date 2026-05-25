@@ -1,5 +1,4 @@
 import { EmailProvider, type EmailConfig } from "../../email/sender";
-import type { AdminSession } from "../../http/admin/shared";
 import {
   markPasswordChanged,
   mustChangePassword,
@@ -7,6 +6,18 @@ import {
   type AdminProfilePatch
 } from "./store";
 import type { ChangePasswordInput } from "./validator";
+
+type AdminAccountSession = {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role?: string | null;
+  };
+  session: {
+    id: string;
+  };
+};
 
 type AdminAccountAuth = {
   api: {
@@ -72,7 +83,7 @@ export class AdminAccountService {
 
   async currentProfile(input: {
     projectDb: { pool: Parameters<typeof mustChangePassword>[0] };
-    session: AdminSession;
+    session: AdminAccountSession;
   }) {
     return {
       user: input.session.user,
@@ -88,7 +99,7 @@ export class AdminAccountService {
     auth: AdminAccountAuth;
     headers: Headers;
     projectDb: { pool: Parameters<typeof updateAdminProfile>[0] };
-    session: AdminSession;
+    session: AdminAccountSession;
     patch: AdminProfilePatch;
     currentPassword: string | null;
   }) {
@@ -139,7 +150,7 @@ export class AdminAccountService {
     auth: AdminAccountAuth;
     headers: Headers;
     projectDb: { pool: Parameters<typeof markPasswordChanged>[0] };
-    session: AdminSession;
+    session: AdminAccountSession;
     password: ChangePasswordInput;
   }) {
     if (input.password.newPassword.length < 12) {

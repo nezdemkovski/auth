@@ -7,6 +7,7 @@ import {
   type AuthProject,
   type ProjectBillingSettings
 } from "../../config/projects";
+import { isRecord } from "../../runtime/type-guards";
 import type { CreatePolarProductInput } from "./validator";
 
 export const createPolarClientFromProject = (project: AuthProject) => {
@@ -129,7 +130,3 @@ const parsePolarErrorBody = (body: string) => {
     return body.slice(0, 300);
   }
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}

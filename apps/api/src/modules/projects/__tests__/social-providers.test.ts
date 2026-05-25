@@ -41,9 +41,9 @@ describe("social provider settings", () => {
     expect(second[SocialProvider.GitHub].enabled).toBe(false);
   });
 
-  test("encrypts secrets with authenticated encryption and rejects tampering", () => {
+  test("encrypts secrets with authenticated encryption and rejects tampering", async () => {
     const secret = "x".repeat(32);
-    const cipher = encryptSocialProviderSecret(
+    const cipher = await encryptSocialProviderSecret(
       "client-secret",
       secret,
       "demo",
@@ -53,37 +53,37 @@ describe("social provider settings", () => {
     expect(cipher).toMatch(/^v1:/);
     expect(cipher).not.toContain("client-secret");
     expect(
-      decryptSocialProviderSecret(
+      await decryptSocialProviderSecret(
         cipher,
         secret,
         "demo",
         SocialProvider.GitHub
       )
     ).toBe("client-secret");
-    expect(() =>
+    await expect(
       decryptSocialProviderSecret(
         cipher,
         "y".repeat(32),
         "demo",
         SocialProvider.GitHub
       )
-    ).toThrow();
-    expect(() =>
+    ).rejects.toThrow();
+    await expect(
       decryptSocialProviderSecret(
         cipher,
         secret,
         "other",
         SocialProvider.GitHub
       )
-    ).toThrow();
-    expect(() =>
+    ).rejects.toThrow();
+    await expect(
       decryptSocialProviderSecret(
         cipher,
         secret,
         "demo",
         SocialProvider.Google
       )
-    ).toThrow();
+    ).rejects.toThrow();
   });
 
   test("builds provider callback URLs under the realm auth endpoint", () => {

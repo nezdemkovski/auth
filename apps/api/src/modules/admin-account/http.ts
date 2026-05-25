@@ -1,5 +1,8 @@
 import type { RegisteredProject } from "../../auth/registry";
+import { ADMIN_PROJECT_SLUG } from "../../config/projects";
 import {
+  auditLog,
+  domainErrorResponse,
   getSession,
   parseJson,
   type AdminRouteRegistration,
@@ -18,7 +21,7 @@ export const registerAdminAccountRoutes: AdminRouteRegistration = ({
   adminAccountService
 }) => {
   app.get("/me", async (c) => {
-    const admin = await requireAdminAccount(options.registry.get("admin"), c.req.raw.headers);
+    const admin = await requireAdminAccount(options.registry.get(ADMIN_PROJECT_SLUG), c.req.raw.headers);
     if (admin.error) {
       return c.json({ error: admin.error }, admin.status);
     }
@@ -32,7 +35,7 @@ export const registerAdminAccountRoutes: AdminRouteRegistration = ({
   });
 
   app.patch("/profile", async (c) => {
-    const admin = await requireAdminAccount(options.registry.get("admin"), c.req.raw.headers);
+    const admin = await requireAdminAccount(options.registry.get(ADMIN_PROJECT_SLUG), c.req.raw.headers);
     if (admin.error) {
       return c.json({ error: admin.error }, admin.status);
     }
@@ -52,6 +55,10 @@ export const registerAdminAccountRoutes: AdminRouteRegistration = ({
         patch,
         currentPassword: getProfileCurrentPassword(body)
       });
+      auditLog("admin.profile.updated", {
+        actorId: admin.session.user.id,
+        actorEmail: admin.session.user.email
+      });
     } catch (error) {
       return adminAccountError(error);
     }
@@ -60,7 +67,7 @@ export const registerAdminAccountRoutes: AdminRouteRegistration = ({
   });
 
   app.post("/change-password", async (c) => {
-    const admin = await requireAdminAccount(options.registry.get("admin"), c.req.raw.headers);
+    const admin = await requireAdminAccount(options.registry.get(ADMIN_PROJECT_SLUG), c.req.raw.headers);
     if (admin.error) {
       return c.json({ error: admin.error }, admin.status);
     }
@@ -71,15 +78,18 @@ export const registerAdminAccountRoutes: AdminRouteRegistration = ({
     }
 
     try {
-      return c.json(
-        await adminAccountService.changePassword({
-          auth: admin.registered.auth,
-          headers: c.req.raw.headers,
-          projectDb: admin.registered.projectDb,
-          session: admin.session,
-          password: input
-        })
-      );
+      const result = await adminAccountService.changePassword({
+        auth: admin.registered.auth,
+        headers: c.req.raw.headers,
+        projectDb: admin.registered.projectDb,
+        session: admin.session,
+        password: input
+      });
+      auditLog("admin.password.changed", {
+        actorId: admin.session.user.id,
+        actorEmail: admin.session.user.email
+      });
+      return c.json(result);
     } catch (error) {
       return adminAccountError(error);
     }
@@ -130,7 +140,7 @@ const requireAdminAccount = async (registered: RegisteredProject | null | undefi
 
 const adminAccountError = (error: unknown) => {
   if (error instanceof AdminAccountServiceError) {
-    return Response.json({ error: error.code }, { status: error.status });
+    return domainErrorResponse(error);
   }
 
   throw error;

@@ -2,14 +2,18 @@ import { sql } from "drizzle-orm";
 
 import {
   BillingEnvironment,
+  BillingProductType,
   BillingProvider,
   DEFAULT_PROJECT_BILLING,
+  EntitlementGrantType,
+  EntitlementResetPeriod,
   type AuthProject,
   type ProjectBillingSettings
 } from "../../config/projects";
 import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
-import { normalizeBillingProducts } from "./translator";
+import { isEnumValue } from "../../runtime/enums";
+import { isRecord } from "../../runtime/type-guards";
 import type { BillingSettingsPatch } from "./validator";
 
 export type BillingSettingsState = Omit<
@@ -57,7 +61,6 @@ export const ensureBillingSettingsTable = async (options: AdminDatabaseOptions) 
 export const loadBillingSettings = async (options: AdminDatabaseOptions & {
   encryptionSecret: string;
 }) => {
-  await ensureBillingSettingsTable(options);
   return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<BillingSettingsRow>(sql`
       SELECT project_slug AS "projectSlug",
@@ -73,7 +76,10 @@ export const loadBillingSettings = async (options: AdminDatabaseOptions & {
 
     const byProject = new Map<string, ProjectBillingSettings>();
     for (const row of result.rows) {
-      byProject.set(row.projectSlug, rowToBilling(row, options.encryptionSecret));
+      byProject.set(
+        row.projectSlug,
+        await rowToBilling(row, options.encryptionSecret)
+      );
     }
     return byProject;
   });
@@ -90,7 +96,6 @@ export const loadProjectBillingSettings = async (options: AdminDatabaseOptions &
 export const readBillingSettingsState = async (options: AdminDatabaseOptions & {
   project: AuthProject;
 }) => {
-  await ensureBillingSettingsTable(options);
   return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<BillingSettingsRow>(sql`
       SELECT project_slug AS "projectSlug",
@@ -115,12 +120,10 @@ export const updateBillingSettings = async (options: AdminDatabaseOptions & {
   encryptionSecret: string;
   patch: BillingSettingsPatch;
 }) => {
-  await ensureBillingSettingsTable(options);
-
   const current = await readBillingSettingsRow(options);
   const accessTokenCipher =
     options.patch.accessToken && options.patch.accessToken.trim()
-      ? encryptSecret(
+      ? await encryptSecret(
           options.patch.accessToken.trim(),
           options.encryptionSecret,
           options.project.slug,
@@ -129,7 +132,7 @@ export const updateBillingSettings = async (options: AdminDatabaseOptions & {
       : current?.accessTokenCipher ?? "";
   const webhookSecretCipher =
     options.patch.webhookSecret && options.patch.webhookSecret.trim()
-      ? encryptSecret(
+      ? await encryptSecret(
           options.patch.webhookSecret.trim(),
           options.encryptionSecret,
           options.project.slug,
@@ -189,7 +192,7 @@ export const cloneDefaultBilling = () => {
   };
 };
 
-const rowToBilling = (row: BillingSettingsRow, encryptionSecret: string) => {
+const rowToBilling = async (row: BillingSettingsRow, encryptionSecret: string) => {
   const provider =
     row.provider === BillingProvider.Polar ? BillingProvider.Polar : BillingProvider.None;
   const environment =
@@ -201,13 +204,13 @@ const rowToBilling = (row: BillingSettingsRow, encryptionSecret: string) => {
     enabled: row.enabled,
     environment,
     organizationId: row.organizationId ?? "",
-    accessToken: decryptSecret(
+    accessToken: await decryptSecret(
       row.accessTokenCipher,
       encryptionSecret,
       row.projectSlug,
       "access-token"
     ),
-    webhookSecret: decryptSecret(
+    webhookSecret: await decryptSecret(
       row.webhookSecretCipher,
       encryptionSecret,
       row.projectSlug,
@@ -258,7 +261,12 @@ const readBillingSettingsRow = async (options: AdminDatabaseOptions & {
   });
 };
 
-const encryptSecret = (value: string, secret: string, projectSlug: string, key: string) => {
+const encryptSecret = (
+  value: string,
+  secret: string,
+  projectSlug: string,
+  key: string
+) => {
   return encryptSecretValue(value, secret, encryptionContext(projectSlug, key));
 };
 
@@ -272,4 +280,61 @@ const decryptSecret = (value: string, secret: string, projectSlug: string, key: 
 
 const encryptionContext = (projectSlug: string, key: string) => {
   return `billing:${projectSlug}:${key}`;
+};
+
+const normalizeBillingProducts = (value: unknown) => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter(isRecord)
+    .map((product) => ({
+      slug: typeof product.slug === "string" ? product.slug : "",
+      name: typeof product.name === "string" ? product.name : "",
+      description: typeof product.description === "string" ? product.description : "",
+      productId: typeof product.productId === "string" ? product.productId : "",
+      type: normalizeProductType(product.type),
+      active: typeof product.active === "boolean" ? product.active : false,
+      entitlements: normalizeEntitlements(product.entitlements)
+    }))
+    .filter((product) => product.slug);
+};
+
+const normalizeEntitlements = (value: unknown) => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter(isRecord).map((entitlement) => ({
+    key: typeof entitlement.key === "string" ? entitlement.key : "",
+    grantType: normalizeGrantType(entitlement.grantType),
+    amount:
+      typeof entitlement.amount === "number" && Number.isFinite(entitlement.amount)
+        ? entitlement.amount
+        : null,
+    resetPeriod: normalizeResetPeriod(entitlement.resetPeriod),
+    priority:
+      typeof entitlement.priority === "number" && Number.isFinite(entitlement.priority)
+        ? entitlement.priority
+        : 100
+  }));
+};
+
+const normalizeProductType = (value: unknown) => {
+  return isEnumValue(BillingProductType, value)
+    ? value
+    : BillingProductType.OneTime;
+};
+
+const normalizeGrantType = (value: unknown) => {
+  return isEnumValue(EntitlementGrantType, value)
+    ? value
+    : EntitlementGrantType.Boolean;
+};
+
+const normalizeResetPeriod = (value: unknown) => {
+  return isEnumValue(EntitlementResetPeriod, value)
+    ? value
+    : EntitlementResetPeriod.Never;
 };

@@ -2,10 +2,10 @@ import type { Hono } from "hono";
 import { cors } from "hono/cors";
 
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
+import { mediaUploadError } from "../../http/admin/shared";
 import { StorageService } from "./core";
 import {
   mediaUploadBodyTooLarge,
-  MediaUploadError,
   MediaUploadPurpose
 } from "./media";
 import { parseMediaUploadRequest } from "./validator";
@@ -68,13 +68,7 @@ export const registerPublicStorageRoutes = (app: Hono<{ Variables: PublicStorage
 
       return c.json(result);
     } catch (error) {
-      if (error instanceof MediaUploadError) {
-        return c.json(
-          { error: error.code },
-          error.code === "storage_not_configured" ? 409 : 400
-        );
-      }
-      throw error;
+      return mediaUploadError(error);
     }
   });
 };

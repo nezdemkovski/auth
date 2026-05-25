@@ -36,3 +36,41 @@ export const isDeliveryConfigured = (settings: DeliverySettings) => {
 
   return false;
 };
+
+export const toRuntimeEmailConfig = (settings: DeliverySettings) => {
+  if (
+    settings.provider === EmailProvider.Resend &&
+    settings.from &&
+    settings.resendApiKey
+  ) {
+    const config: EmailConfig = {
+      provider: EmailProvider.Resend,
+      from: settings.from,
+      apiKey: settings.resendApiKey
+    };
+
+    return config;
+  }
+
+  if (
+    settings.provider === EmailProvider.Cloudflare &&
+    settings.from &&
+    settings.cloudflareAccountId &&
+    settings.cloudflareApiToken
+  ) {
+    const config: EmailConfig = {
+      provider: EmailProvider.Cloudflare,
+      from: settings.from,
+      accountId: settings.cloudflareAccountId,
+      apiToken: settings.cloudflareApiToken
+    };
+
+    return config;
+  }
+
+  const config: EmailConfig = {
+    provider: EmailProvider.None
+  };
+
+  return config;
+};

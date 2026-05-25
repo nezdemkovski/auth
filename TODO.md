@@ -9,12 +9,12 @@
 - Add a small example client showing how a product app should integrate with:
   project-scoped auth endpoints, hosted login, JWT/session validation, OAuth MCP
   clients, and billing entitlement checks.
-- Add structured request logging without leaking credentials, tokens, cookies, or
-  PII.
-- Add audit events for sensitive auth actions:
-  signin failures, password changes, email changes, session termination, project
-  settings changes, social provider changes, delivery settings changes, and
-  billing settings changes.
+- Expand structured request logging to cover request/response metadata without
+  leaking credentials, tokens, cookies, or PII.
+- Expand audit events to cover successful email verification/reset flows. Failed
+  sensitive auth requests, admin settings, password changes, session
+  termination, social provider, storage, delivery, and billing mutations already
+  emit structured audit logs.
 - Add a minimal read-only diagnostics endpoint for configured projects, Redis,
   database connectivity, delivery provider status, and billing provider status.
 
@@ -42,6 +42,47 @@
 
 ## Security and Operations
 
+- Audit follow-up checklist:
+  - [x] Use Redis-backed atomic login code consume for production PKCE exchange.
+  - [x] Make the in-memory login code store consume codes atomically as well.
+  - [x] Use real direct client IPs for rate-limit keys when proxy headers are
+    not trusted.
+  - [x] Use atomic Redis `INCR` + `EXPIRE` for rate limiting.
+  - [x] Replace admin DB pool-per-operation with a shared long-lived admin pool.
+  - [x] Quote `search_path` values in libpq options.
+  - [x] Clean up project schema/settings when realm creation fails midway.
+  - [x] Rebuild `AuthRegistry` with an atomic swap when delivery settings
+    change.
+  - [x] Derive Better Auth session secrets per realm.
+  - [x] Split session signing secret from encrypted settings key with
+    `SECRET_ENCRYPTION_KEY`.
+  - [x] Validate storage endpoints even when storage is disabled.
+  - [x] Require HTTPS for user-configured storage endpoints while allowing
+    deployment-managed internal endpoints.
+  - [x] Reject oversized uploads before calling `formData()`.
+  - [x] Disable unauthenticated OAuth dynamic client registration.
+  - [x] Remove the public `/api/projects` realm enumeration endpoint.
+  - [x] Run typecheck and tests in the image publish workflow before building
+    images.
+  - [x] Add test/typecheck gating to the Helm chart publish workflow, or document
+    why image CI is the canonical code gate.
+  - [x] Move storage response shaping out of the store and remove identity
+    translator placeholders.
+  - [x] Move project creation/patch validation and feature normalization out of
+    the project store.
+  - [x] Keep billing JSON parsing local to the billing store instead of importing
+    it from the translator.
+  - [x] Move delivery runtime config mapping from core to translator/runtime
+    boundary.
+  - [x] Stop importing HTTP `AdminSession` types into core modules.
+  - [x] Replace raw `"admin"` realm comparisons with shared constants.
+  - [x] Move settings-table DDL out of hot read/update paths.
+  - [x] Standardize HTTP error envelopes across modules.
+  - [x] Validate resend-verification email format and length.
+  - [x] Port `secret-crypto.ts` from `node:crypto` to WebCrypto/Bun-native crypto.
+  - [x] Add structured logging and audit events for sensitive actions.
+  - [ ] Add integration tests with real Postgres, Redis, and S3-compatible
+    storage.
 - Define backup and restore procedure before accepting real users.
 - Add S3-compatible object storage for media and future user files:
   - evaluate RustFS as the first homelab backend while keeping the auth service
@@ -62,8 +103,6 @@
     instead of leaking the internal S3 endpoint.
 - Review secure cookie behavior behind Cloudflare Tunnel and Kubernetes service
   proxies after the split frontend/API deployment settles.
-- Decide whether `/api/projects` should remain public or move behind admin-only
-  access.
 - Add production readiness docs:
   required Redis behavior for multi-replica deployments, proxy header trust
   assumptions, Cloudflare Tunnel assumptions, and secret rotation procedure.

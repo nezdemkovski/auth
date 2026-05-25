@@ -60,7 +60,6 @@ export const ensureStorageObjectsTable = async (pool: Pool) => {
 };
 
 export const listStorageObjects = async (pool: Pool) => {
-  await ensureStorageObjectsTable(pool);
   const db = drizzle({ client: pool });
 
   const result = await db.execute<{
@@ -111,7 +110,6 @@ export const listStorageObjects = async (pool: Pool) => {
 };
 
 export const insertStorageObject = async (pool: Pool, input: StorageObjectInput) => {
-  await ensureStorageObjectsTable(pool);
   const db = drizzle({ client: pool });
 
   await db.execute(sql`

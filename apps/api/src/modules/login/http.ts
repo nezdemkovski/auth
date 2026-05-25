@@ -201,7 +201,13 @@ export const exchangeLoginCode = async (req: Request, project: string, options: 
 
 const loginFlowError = (error: unknown) => {
   if (error instanceof LoginFlowError) {
-    return json({ error: error.code }, error.status);
+    return json(
+      {
+        error: error.code,
+        message: error.message
+      },
+      error.status
+    );
   }
 
   throw error;

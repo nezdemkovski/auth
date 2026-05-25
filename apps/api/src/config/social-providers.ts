@@ -63,6 +63,6 @@ export const SOCIAL_PROVIDER_CATALOG: Record<
 
 export const SOCIAL_PROVIDER_IDS = Object.values(SocialProvider);
 
-export function isSocialProviderId(value: string): value is SocialProviderId {
+export const isSocialProviderId = (value: string): value is SocialProviderId => {
   return isEnumValue(SocialProvider, value);
-}
+};

@@ -1,4 +1,5 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
+import { ADMIN_PROJECT_SLUG } from "../../config/projects";
 
 export type AdminSession = {
   user: {
@@ -13,7 +14,7 @@ export type AdminSession = {
 };
 
 export const requireAdmin = async (registry: AuthRegistry, headers: Headers) => {
-  const registered = registry.get("admin");
+  const registered = registry.get(ADMIN_PROJECT_SLUG);
   if (!registered) {
     return null;
   }

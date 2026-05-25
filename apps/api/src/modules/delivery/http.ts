@@ -1,4 +1,6 @@
 import {
+  auditLog,
+  domainErrorResponse,
   parseJson,
   requireAdmin,
   type AdminRouteRegistration
@@ -36,6 +38,10 @@ export const registerDeliveryRoutes: AdminRouteRegistration = ({
 
     try {
       const settings = await deliveryService.updateSettings(patch);
+      auditLog("delivery.settings.updated", {
+        actorId: admin.session.user.id,
+        actorEmail: admin.session.user.email
+      });
       return c.json({ settings });
     } catch (error) {
       return c.json(
@@ -56,9 +62,13 @@ export const registerDeliveryRoutes: AdminRouteRegistration = ({
 
     try {
       await deliveryService.verify(admin.session);
+      auditLog("delivery.settings.verified", {
+        actorId: admin.session.user.id,
+        actorEmail: admin.session.user.email
+      });
     } catch (error) {
       if (error instanceof DeliveryServiceError) {
-        return c.json({ error: error.code }, error.status);
+        return domainErrorResponse(error);
       }
       throw error;
     }

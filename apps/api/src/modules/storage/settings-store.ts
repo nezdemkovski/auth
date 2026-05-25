@@ -9,8 +9,6 @@ import {
 import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 import { isEnumValue } from "../../runtime/enums";
-import { storageSettingsResponse } from "./translator";
-import type { PublicStorageSettings } from "./translator";
 
 export type StorageSettingsState = Omit<
   ProjectStorageSettings,
@@ -20,6 +18,8 @@ export type StorageSettingsState = Omit<
   secretAccessKeyConfigured: boolean;
   configured: boolean;
 };
+
+export type PublicStorageSettings = StorageSettingsState;
 
 export type StorageSettingsPatch = {
   provider: ProjectStorageSettings["provider"];
@@ -68,8 +68,6 @@ export const loadStorageSettings = async (options: AdminDatabaseOptions & {
   encryptionSecret: string;
   managedStorage: ProjectStorageSettings;
 }) => {
-  await ensureStorageSettingsTable(options);
-
   return withAdminDb(options, async ({ db }) => {
     const result = await db.execute<StorageSettingsRow>(sql`
       SELECT project_slug AS "projectSlug",
@@ -88,7 +86,7 @@ export const loadStorageSettings = async (options: AdminDatabaseOptions & {
     for (const row of result.rows) {
       byProject.set(
         row.projectSlug,
-        rowToStorage(row, options.encryptionSecret, options.managedStorage)
+        await rowToStorage(row, options.encryptionSecret, options.managedStorage)
       );
     }
     return byProject;
@@ -108,10 +106,8 @@ export const readPublicStorageSettings = async (options: AdminDatabaseOptions & 
   project: AuthProject;
   managedStorage: ProjectStorageSettings;
 }) => {
-  await ensureStorageSettingsTable(options);
-
   const row = await readStorageSettingsRow(options);
-  return storageSettingsResponse(rowToState(row, options.managedStorage));
+  return rowToState(row, options.managedStorage);
 };
 
 export const updateStorageSettings = async (options: AdminDatabaseOptions & {
@@ -124,12 +120,11 @@ export const updateStorageSettings = async (options: AdminDatabaseOptions & {
   validateStoragePatch(patch, {
     allowHttpEndpoint: options.managedStorage.managed
   });
-  await ensureStorageSettingsTable(options);
 
   const current = await readStorageSettingsRow(options);
   const accessKeyIdCipher =
     patch.accessKeyId && patch.accessKeyId.trim()
-      ? encryptSecret(
+      ? await encryptSecret(
           patch.accessKeyId.trim(),
           options.encryptionSecret,
           options.project.slug,
@@ -138,7 +133,7 @@ export const updateStorageSettings = async (options: AdminDatabaseOptions & {
       : current?.accessKeyIdCipher ?? "";
   const secretAccessKeyCipher =
     patch.secretAccessKey && patch.secretAccessKey.trim()
-      ? encryptSecret(
+      ? await encryptSecret(
           patch.secretAccessKey.trim(),
           options.encryptionSecret,
           options.project.slug,
@@ -208,7 +203,11 @@ export const cloneDefaultStorage = (managedStorage: ProjectStorageSettings = DEF
   };
 };
 
-const rowToStorage = (row: StorageSettingsRow, encryptionSecret: string, managedStorage: ProjectStorageSettings) => {
+const rowToStorage = async (
+  row: StorageSettingsRow,
+  encryptionSecret: string,
+  managedStorage: ProjectStorageSettings
+) => {
   if (managedStorage.managed) {
     return {
       ...managedStorage,
@@ -226,13 +225,13 @@ const rowToStorage = (row: StorageSettingsRow, encryptionSecret: string, managed
     region: row.region || "auto",
     bucket: row.bucket ?? "",
     publicBaseUrl: row.publicBaseUrl ?? "",
-    accessKeyId: decryptSecret(
+    accessKeyId: await decryptSecret(
       row.accessKeyIdCipher,
       encryptionSecret,
       row.projectSlug,
       "access-key-id"
     ),
-    secretAccessKey: decryptSecret(
+    secretAccessKey: await decryptSecret(
       row.secretAccessKeyCipher,
       encryptionSecret,
       row.projectSlug,
@@ -398,7 +397,12 @@ const trimTrailingSlash = (value: string) => {
   return value.trim().replace(/\/+$/, "");
 };
 
-const encryptSecret = (value: string, secret: string, projectSlug: string, key: string) => {
+const encryptSecret = (
+  value: string,
+  secret: string,
+  projectSlug: string,
+  key: string
+) => {
   return encryptSecretValue(value, secret, encryptionContext(projectSlug, key));
 };
 

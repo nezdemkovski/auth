@@ -2,6 +2,7 @@ import type { MiddlewareHandler } from "hono";
 import type { RedisClient } from "bun";
 
 import { ReconnectingRedisClient } from "../db/redis";
+import { logError } from "../runtime/logger";
 
 export const DIRECT_CLIENT_IP_HEADER = "x-auth-direct-client-ip";
 
@@ -146,7 +147,9 @@ export const rateLimit = (store: RateLimiterStore, options: { trustProxyHeaders:
     try {
       result = await store.hit(key, rule, now);
     } catch (error) {
-      console.error("[rate-limit] backend error", error);
+      logError("rate_limit_backend_error", {
+        error: error instanceof Error ? error.message : String(error)
+      });
       return c.json(
         {
           error: "rate_limit_unavailable"

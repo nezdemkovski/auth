@@ -55,7 +55,7 @@ export const loadEnv = (source: NodeJS.ProcessEnv = process.env) => {
     databaseUrl,
     betterAuthSecret,
     secretEncryptionKey,
-    autoMigrate: parseBoolean(source.AUTH_AUTO_MIGRATE, true),
+    autoMigrate: parseBoolean(source.AUTH_AUTO_MIGRATE, true, "AUTH_AUTO_MIGRATE"),
     adminProject: ADMIN_PROJECT,
     adminEmail: source.AUTH_ADMIN_EMAIL ?? "admin@localhost",
     email,
@@ -93,7 +93,7 @@ const buildDatabaseUrl = (source: NodeJS.ProcessEnv) => {
   return url.toString();
 };
 
-const parseBoolean = (value: string | undefined, defaultValue: boolean, name = "AUTH_AUTO_MIGRATE") => {
+const parseBoolean = (value: string | undefined, defaultValue: boolean, name: string) => {
   if (value === undefined) {
     return defaultValue;
   }

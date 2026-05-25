@@ -1,21 +1,26 @@
 import type { AuthRegistry } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import type { AdminDatabase } from "../../db/admin-pool";
-import { createEmailSender, EmailProvider, type EmailConfig } from "../../email/sender";
-import type { AdminSession } from "../../http/admin/shared";
+import { createEmailSender, type EmailConfig } from "../../email/sender";
 import {
   deliverySettingsResponse,
+  toRuntimeEmailConfig,
   type PublicDeliverySettings
 } from "./translator";
 import {
   readDeliverySettings,
   updateDeliverySettings
 } from "./store";
-import type { DeliverySettings } from "./store";
 import {
   validateDeliverySettingsPatch,
   type DeliverySettingsPatch
 } from "./validator";
+
+type DeliveryAdminSession = {
+  user: {
+    email: string;
+  };
+};
 
 export class DeliveryServiceError extends Error {
   constructor(
@@ -67,7 +72,7 @@ export class DeliveryService {
     return deliverySettingsResponse(settings);
   }
 
-  async verify(admin: AdminSession) {
+  async verify(admin: DeliveryAdminSession) {
     const settings = await this.loadRuntimeSettings();
     const sender = createEmailSender(settings);
     if (!sender) {
@@ -97,41 +102,3 @@ export class DeliveryService {
     return toRuntimeEmailConfig(settings);
   }
 }
-
-export const toRuntimeEmailConfig = (settings: DeliverySettings) => {
-  if (
-    settings.provider === EmailProvider.Resend &&
-    settings.from &&
-    settings.resendApiKey
-  ) {
-    const config: EmailConfig = {
-      provider: EmailProvider.Resend,
-      from: settings.from,
-      apiKey: settings.resendApiKey
-    };
-
-    return config;
-  }
-
-  if (
-    settings.provider === EmailProvider.Cloudflare &&
-    settings.from &&
-    settings.cloudflareAccountId &&
-    settings.cloudflareApiToken
-  ) {
-    const config: EmailConfig = {
-      provider: EmailProvider.Cloudflare,
-      from: settings.from,
-      accountId: settings.cloudflareAccountId,
-      apiToken: settings.cloudflareApiToken
-    };
-
-    return config;
-  }
-
-  const config: EmailConfig = {
-    provider: EmailProvider.None
-  };
-
-  return config;
-};

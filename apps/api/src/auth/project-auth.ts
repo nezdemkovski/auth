@@ -13,6 +13,7 @@ import type { ProjectDatabase } from "../db/project-db";
 import type { EmailSender } from "../email/sender";
 import { createProjectEmailHandlers } from "../email/templates";
 import { sha256Hex } from "../runtime/crypto";
+import { logInfo } from "../runtime/logger";
 
 type ProjectAuthOptions = {
   project: AuthProject;
@@ -243,8 +244,8 @@ const buildPolarPlugins = (project: AuthProject) => {
           webhooks({
             secret: settings.webhookSecret,
             onPayload: async (payload) => {
-              console.info("[polar] webhook received", {
-                project: project.slug,
+              logInfo("polar_webhook_received", {
+                projectSlug: project.slug,
                 type: payload.type
               });
             }
