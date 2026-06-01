@@ -63,7 +63,7 @@ const project: AuthProject = {
 };
 
 describe("billing translator", () => {
-  test("returns server-side benefit presets and starter grant suggestions from product entitlements", () => {
+  test("returns server-side benefit presets and grant templates from product entitlements", () => {
     const response = billingSettingsResponse({
       project,
       publicBaseUrl: "https://auth.example.com",
@@ -116,10 +116,10 @@ describe("billing translator", () => {
         priority: 80
       }
     ]);
-    expect(response.starterGrantSuggestion).toEqual({
+    expect(response.grantTemplate).toEqual({
       key: "usage_units",
       grantType: EntitlementGrantType.OneTimeCredits,
-      amount: 5,
+      amount: null,
       resetPeriod: EntitlementResetPeriod.Never,
       priority: 40
     });
@@ -129,36 +129,31 @@ describe("billing translator", () => {
     {
       grantType: EntitlementGrantType.Boolean,
       productAmount: null,
-      suggestedAmount: null,
       resetPeriod: EntitlementResetPeriod.Never
     },
     {
       grantType: EntitlementGrantType.Lifetime,
       productAmount: null,
-      suggestedAmount: null,
       resetPeriod: EntitlementResetPeriod.Never
     },
     {
       grantType: EntitlementGrantType.OneTimeCredits,
       productAmount: 50,
-      suggestedAmount: 5,
       resetPeriod: EntitlementResetPeriod.Never
     },
     {
       grantType: EntitlementGrantType.RecurringQuota,
       productAmount: 50,
-      suggestedAmount: 5,
       resetPeriod: EntitlementResetPeriod.Monthly
     },
     {
       grantType: EntitlementGrantType.Metered,
       productAmount: 50,
-      suggestedAmount: 5,
       resetPeriod: EntitlementResetPeriod.Never
     }
   ])(
-    "builds a starter grant suggestion for $grantType product benefits",
-    ({ grantType, productAmount, suggestedAmount, resetPeriod }) => {
+    "builds an editable grant template for $grantType product benefits",
+    ({ grantType, productAmount, resetPeriod }) => {
       const response = billingSettingsResponse({
         project,
         publicBaseUrl: "https://auth.example.com",
@@ -185,17 +180,17 @@ describe("billing translator", () => {
         }
       });
 
-      expect(response.starterGrantSuggestion).toEqual({
+      expect(response.grantTemplate).toEqual({
         key: "premium",
         grantType,
-        amount: suggestedAmount,
+        amount: null,
         resetPeriod,
         priority: 80
       });
     }
   );
 
-  test("returns a generic starter suggestion when no product benefits exist", () => {
+  test("returns a generic grant template when no product benefits exist", () => {
     const response = billingSettingsResponse({
       project,
       publicBaseUrl: "https://auth.example.com",
@@ -211,10 +206,10 @@ describe("billing translator", () => {
       }
     });
 
-    expect(response.starterGrantSuggestion).toEqual({
+    expect(response.grantTemplate).toEqual({
       key: "",
       grantType: EntitlementGrantType.OneTimeCredits,
-      amount: 5,
+      amount: null,
       resetPeriod: EntitlementResetPeriod.Never,
       priority: 100
     });

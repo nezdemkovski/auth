@@ -167,7 +167,7 @@ export type BillingSettings = {
   products: BillingProductMapping[];
   webhookUrl: string;
   benefitPresets: BillingEntitlement[];
-  starterGrantSuggestion: BillingEntitlement;
+  grantTemplate: BillingEntitlement;
 };
 
 export type BillingSettingsPatch = {

@@ -315,7 +315,7 @@ export function BillingSettings({
           onAddStarterCreditGrant={() =>
             update("freeEntitlements", [
               ...form.freeEntitlements,
-              { ...settings.starterGrantSuggestion }
+              { ...settings.grantTemplate }
             ])
           }
           onRemoveFreeEntitlement={(entitlementIndex) =>
@@ -476,17 +476,15 @@ function SetupView({
 
       <div className="lg:col-span-2">
         <div className="mb-3 rounded-xl border border-border bg-surface p-4">
-          <div className="eyebrow">Included on signup</div>
+          <div className="eyebrow">Automatic grants</div>
           <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="text-[18px] font-semibold tracking-[-0.02em] text-ink">
-                Give every new user a starter balance.
+                Configure grants issued by the auth service.
               </h3>
               <p className="mt-1 max-w-[44rem] text-[12.5px] leading-5 text-muted">
-                Signup grants are separate from products. Use them for free credits,
-                trial quotas, or baseline access that every user in this realm should
-                receive automatically. Paid products can grant the same key later and
-                the balances are added together.
+                Use the same benefit keys as your products, or enter a custom key.
+                Amounts stay editable, so this does not assume a fixed value.
               </p>
               {benefitKeys.length > 0 ? (
                 <div className="mt-3 flex flex-wrap gap-1.5">
@@ -501,8 +499,7 @@ function SetupView({
                 </div>
               ) : (
                 <p className="mt-3 text-[12px] leading-5 text-muted-soft">
-                  Add product benefits first and signup grants will offer those keys
-                  automatically.
+                  Add product benefits first to reuse their keys and grant types here.
                 </p>
               )}
             </div>
@@ -514,19 +511,19 @@ function SetupView({
               className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
             >
               {benefitKeys.length > 0
-                ? `Add 5 ${benefitKeys[0]}`
-                : "Add 5-credit starter grant"}
+                ? `Add ${benefitKeys[0]} grant`
+                : "Add grant"}
             </button>
           </div>
         </div>
         <EntitlementsEditor
-          title="Signup grants"
-          description="Granted once per user before any purchase. Set the same key your app checks, for example ai_requests, exports, or storage_gb."
+          title="Automatic grants"
+          description="Optional grants managed by auth. Pick a product benefit key when possible, then set the amount and behavior explicitly."
           entitlements={form.freeEntitlements}
           idPrefix="billing-default-entitlement"
           disabled={disabled || pending}
-          addLabel="Add signup grant"
-          emptyMessage="No signup grants yet. Users will only receive access from checkout products."
+          addLabel="Add grant"
+          emptyMessage="No automatic grants configured. Access will come from checkout products only."
           keyOptions={benefitKeys}
           onAdd={onAddFreeEntitlement}
           onUpdate={onUpdateFreeEntitlement}

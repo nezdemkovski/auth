@@ -28,7 +28,7 @@ export type PublicBillingSettings = Omit<
   webhookSecretConfigured: boolean;
   webhookUrl: string;
   benefitPresets: BillingEntitlement[];
-  starterGrantSuggestion: BillingEntitlement;
+  grantTemplate: BillingEntitlement;
 };
 
 export const billingSettingsResponse = (options: {
@@ -42,7 +42,7 @@ export const billingSettingsResponse = (options: {
     ...options.settings,
     webhookUrl: billingWebhookUrl(options.publicBaseUrl, options.project),
     benefitPresets,
-    starterGrantSuggestion: starterGrantSuggestion(benefitPresets[0] ?? null)
+    grantTemplate: grantTemplate(benefitPresets[0] ?? null)
   };
 };
 
@@ -93,14 +93,12 @@ export const productBenefitPresets = (products: BillingProductMapping[]) => {
   return Array.from(presets.values());
 };
 
-const starterGrantSuggestion = (
-  source: BillingEntitlement | null
-): BillingEntitlement => {
+const grantTemplate = (source: BillingEntitlement | null): BillingEntitlement => {
   if (!source) {
     return {
       key: "",
       grantType: EntitlementGrantType.OneTimeCredits,
-      amount: 5,
+      amount: null,
       resetPeriod: EntitlementResetPeriod.Never,
       priority: 100
     };
@@ -109,19 +107,8 @@ const starterGrantSuggestion = (
   return {
     key: source.key,
     grantType: source.grantType,
-    amount: starterGrantAmount(source),
+    amount: null,
     resetPeriod: source.resetPeriod,
     priority: source.priority
   };
-};
-
-const starterGrantAmount = (source: BillingEntitlement) => {
-  if (
-    source.grantType === EntitlementGrantType.Boolean ||
-    source.grantType === EntitlementGrantType.Lifetime
-  ) {
-    return null;
-  }
-
-  return 5;
 };
