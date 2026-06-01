@@ -7,6 +7,7 @@ import { cors } from "hono/cors";
 
 import { ADMIN_PROJECT_SLUG, type AuthProject } from "../../config/projects";
 import { BillingProvider } from "../../config/projects";
+import { ErrorCode } from "../../runtime/error-codes";
 import { auditLog } from "../../runtime/logger";
 
 export type AuthProxyRegistry = {
@@ -33,7 +34,7 @@ export const registerAuthProxyRoutes = <TEnv extends Env>(app: Hono<TEnv>, optio
     if (!registered) {
       return c.json(
         {
-          error: "unknown_project"
+          error: ErrorCode.UnknownProject
         },
         404
       );
@@ -66,7 +67,7 @@ export const registerAuthProxyRoutes = <TEnv extends Env>(app: Hono<TEnv>, optio
     if (!registered) {
       return c.json(
         {
-          error: "unknown_project"
+          error: ErrorCode.UnknownProject
         },
         404
       );
@@ -105,7 +106,7 @@ export const registerAuthProxyRoutes = <TEnv extends Env>(app: Hono<TEnv>, optio
     if (!registered) {
       return c.json(
         {
-          error: "unknown_project"
+          error: ErrorCode.UnknownProject
         },
         404
       );

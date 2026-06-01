@@ -12,9 +12,10 @@ import {
 import {
   createLoginAuthClient,
   createLoginSessionRedirect,
-  getLoginSession,
+  getLoginNextAction,
+  LoginNextAction,
+  PkceChallengeMethod,
   getOAuthPublicClient,
-  hasPasskeys,
   requestLoginPasswordReset,
   resetLoginPassword,
   type OAuthPublicClient,
@@ -50,7 +51,7 @@ type LoginConfig = {
   mode: "login" | "signup";
   codeChallenge: string;
   features: ProjectFeatures;
-  socialProviders: SocialProviderId[];
+  socialProviders: SocialProviderConfig[];
   observability: PublicObservabilityConfig;
   error?: string;
 };
@@ -61,6 +62,7 @@ type LoginOAuthConsentConfig = {
   projectName: string;
   clientId: string;
   scopes: string[];
+  scopeDescriptions: Record<string, ScopeDescription>;
   oauthQuery: string;
   observability: PublicObservabilityConfig;
 };
@@ -81,6 +83,17 @@ type LoginAuthConfig =
   | LoginPasswordResetConfig;
 
 type SocialProviderId = "github" | "google" | "twitter" | "facebook";
+
+type SocialProviderConfig = {
+  id: SocialProviderId;
+  label: string;
+  shortLabel: string;
+};
+
+type ScopeDescription = {
+  title: string;
+  description: string;
+};
 
 type PublicObservabilityConfig = {
   enabled: boolean;
@@ -328,7 +341,6 @@ function LoginPage({ config }: { config: LoginConfig }) {
   );
   const isSignup = config.mode === "signup";
   const passkeysEnabled = config.features.passkey.enabled;
-  const twoFactorEnabled = config.features.twoFactor.enabled;
   const socialProviders = config.socialProviders;
   const title = getTitle(step, isSignup);
   const subtitle = getSubtitle(step, isSignup, config.projectName);
@@ -338,7 +350,7 @@ function LoginPage({ config }: { config: LoginConfig }) {
     url.searchParams.set("state", config.state);
     url.searchParams.set("mode", isSignup ? "login" : "signup");
     url.searchParams.set("code_challenge", config.codeChallenge);
-    url.searchParams.set("code_challenge_method", "S256");
+    url.searchParams.set("code_challenge_method", PkceChallengeMethod.S256);
     return url;
   }, [config, isSignup]);
 
@@ -389,7 +401,7 @@ function LoginPage({ config }: { config: LoginConfig }) {
           setError("Invalid email or password");
           return;
         }
-        if (twoFactorEnabled && signedIn.twoFactorRedirect) {
+        if (signedIn.twoFactorRedirect) {
           setStep("two-factor");
           return;
         }
@@ -430,7 +442,7 @@ function LoginPage({ config }: { config: LoginConfig }) {
     callbackURL.searchParams.set("state", config.state);
     callbackURL.searchParams.set("mode", config.mode);
     callbackURL.searchParams.set("code_challenge", config.codeChallenge);
-    callbackURL.searchParams.set("code_challenge_method", "S256");
+    callbackURL.searchParams.set("code_challenge_method", PkceChallengeMethod.S256);
     callbackURL.searchParams.set("social", "1");
 
     try {
@@ -571,20 +583,15 @@ function LoginPage({ config }: { config: LoginConfig }) {
     offerPasskey: boolean;
     password: string | null;
   }) {
-    const session = await getLoginSession(config.project);
-    if (mustEnrollTwoFactor(config.features.twoFactor, session?.user)) {
+    const nextAction = await getLoginNextAction(config.project);
+
+    if (nextAction === LoginNextAction.EnrollTwoFactor) {
       setVerifiedPassword(password);
       setStep("two-factor-enroll");
       return;
     }
 
-    if (offerPasskey) {
-      const alreadyEnrolled = await hasPasskeys(config.project);
-      if (alreadyEnrolled) {
-        await redirectWithCurrentSession();
-        return;
-      }
-
+    if (offerPasskey && nextAction === LoginNextAction.OfferPasskey) {
       setStep("passkey-enroll");
       return;
     }
@@ -861,7 +868,8 @@ function OAuthConsentPage({ config }: { config: LoginOAuthConsentConfig }) {
               {config.scopes.length > 0 ? (
                 <ul className="space-y-2">
                   {config.scopes.map((scope) => {
-                    const permission = describeScope(scope);
+                    const permission =
+                      config.scopeDescriptions[scope] ?? fallbackScopeDescription(scope);
                     return (
                       <li
                         key={scope}
@@ -1137,7 +1145,7 @@ function CredentialsStep({
 }: {
   isSignup: boolean;
   passkeysEnabled: boolean;
-  socialProviders: SocialProviderId[];
+  socialProviders: SocialProviderConfig[];
   lastLoginMethod: string | null;
   pending: boolean;
   email: string;
@@ -1181,11 +1189,11 @@ function CredentialsStep({
             <div className="grid gap-2">
               {socialProviders.map((provider) => (
                 <SocialButton
-                  key={provider}
+                  key={provider.id}
                   provider={provider}
                   disabled={pending}
-                  lastUsed={lastLoginMethod === provider}
-                  onClick={() => onSocialSignIn(provider)}
+                  lastUsed={lastLoginMethod === provider.id}
+                  onClick={() => onSocialSignIn(provider.id)}
                 />
               ))}
             </div>
@@ -1300,12 +1308,12 @@ function SocialButton({
   lastUsed,
   onClick
 }: {
-  provider: SocialProviderId;
+  provider: SocialProviderConfig;
   disabled: boolean;
   lastUsed: boolean;
   onClick: () => void;
 }) {
-  const meta = socialProviderMeta[provider];
+  const meta = socialProviderMeta[provider.id];
   const Icon = meta.icon;
 
   return (
@@ -1317,7 +1325,7 @@ function SocialButton({
       className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface px-3 text-[14px] font-medium text-ink outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
     >
       <Icon size={16} />
-      <span className="min-w-0 flex-1 text-center">Continue with {meta.label}</span>
+      <span className="min-w-0 flex-1 text-center">Continue with {provider.label}</span>
       {lastUsed ? <LastUsedBadge /> : null}
     </button>
   );
@@ -1765,54 +1773,9 @@ function loginMethodLabel(method: string | null): string {
   return method;
 }
 
-function mustEnrollTwoFactor(
-  policy: ProjectFeatures["twoFactor"],
-  user: { role?: string | null; twoFactorEnabled?: boolean } | undefined
-): boolean {
-  if (!policy.enabled || policy.required === "optional" || user?.twoFactorEnabled) {
-    return false;
-  }
-
-  if (policy.required === "everyone") {
-    return true;
-  }
-
-  return policy.required === "admins" && user?.role === "admin";
-}
-
-function describeScope(scope: string): { title: string; description: string } {
-  const normalized = scope.toLowerCase();
-  const known: Record<string, { title: string; description: string }> = {
-    openid: {
-      title: "Sign you in",
-      description: "Issue an OpenID identity token for this application."
-    },
-    profile: {
-      title: "Read profile",
-      description: "Access your basic profile details, such as name and avatar."
-    },
-    email: {
-      title: "Read email",
-      description: "Access your email address and verification status."
-    },
-    offline_access: {
-      title: "Keep access",
-      description: "Issue a refresh token so the application can stay connected."
-    },
-    "realm.info": {
-      title: "Read realm information",
-      description: "Access public metadata about this authentication realm."
-    }
+function fallbackScopeDescription(scope: string): ScopeDescription {
+  return {
+    title: scope,
+    description: "Access this application-specific permission."
   };
-
-  return (
-    known[normalized] ?? {
-      title: scope
-        .split(/[.:_-]+/)
-        .filter(Boolean)
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(" "),
-      description: "Access this OAuth permission scope."
-    }
-  );
 }

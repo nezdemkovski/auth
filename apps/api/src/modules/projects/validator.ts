@@ -122,6 +122,8 @@ export const normalizeProjectFeatures = (value: unknown) => {
 
   const required = twoFactor.required;
   const mode = agentAuth.mode;
+  const oauthProviderEnabled =
+    typeof oauthProvider.enabled === "boolean" ? oauthProvider.enabled : false;
 
   return {
     passkey: {
@@ -145,9 +147,9 @@ export const normalizeProjectFeatures = (value: unknown) => {
           : ProjectAgentAuthMode.ReadOnly
     },
     oauthProvider: {
-      enabled:
-        typeof oauthProvider.enabled === "boolean" ? oauthProvider.enabled : false,
+      enabled: oauthProviderEnabled,
       dynamicClientRegistration:
+        oauthProviderEnabled &&
         typeof oauthProvider.dynamicClientRegistration === "boolean"
           ? oauthProvider.dynamicClientRegistration
           : false

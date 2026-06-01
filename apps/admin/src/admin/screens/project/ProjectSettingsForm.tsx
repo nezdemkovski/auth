@@ -77,8 +77,7 @@ export function ProjectSettingsForm({
         },
         oauthProvider: {
           enabled: form.oauthProviderEnabled,
-          dynamicClientRegistration:
-            form.oauthProviderEnabled && form.oauthDynamicClientRegistration
+          dynamicClientRegistration: form.oauthDynamicClientRegistration
         }
       }
     });

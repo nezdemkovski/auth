@@ -1,4 +1,5 @@
 import { isSocialProviderId } from "../../config/social-providers";
+import { ErrorCode } from "../../runtime/error-codes";
 import { ProjectServiceError } from "./core";
 import {
   parseProjectCreate,
@@ -23,7 +24,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
   app.get("/projects", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     return c.json({
@@ -34,13 +35,13 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
   app.post("/projects", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const body = await parseJson(c.req);
     const input = parseProjectCreate(body);
     if (!input) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     try {
@@ -59,7 +60,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
   app.patch("/projects/:project", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const project = requireMutableProject(options, c.req.param("project"));
@@ -70,7 +71,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
     const body = await parseJson(c.req);
     const patch = parseProjectSettingsPatch(body);
     if (!patch) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     try {
@@ -91,7 +92,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
   app.get("/projects/:project/social-providers", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const project = requireRegisteredProject(options, c.req.param("project"));
@@ -107,7 +108,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
   app.patch("/projects/:project/social-providers/:provider", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const project = requireRegisteredProject(options, c.req.param("project"));
@@ -116,13 +117,13 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
       return c.json({ error: project.error }, project.status);
     }
     if (!isSocialProviderId(provider)) {
-      return c.json({ error: "unknown_provider" }, 404);
+      return c.json({ error: ErrorCode.UnknownProvider }, 404);
     }
 
     const body = await parseJson(c.req);
     const patch = parseSocialProviderPatch(body);
     if (!patch) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     try {
@@ -148,7 +149,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
   app.post("/projects/:project/social-providers/:provider/verify", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const project = requireRegisteredProject(options, c.req.param("project"));
@@ -157,7 +158,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
       return c.json({ error: project.error }, project.status);
     }
     if (!isSocialProviderId(provider)) {
-      return c.json({ error: "unknown_provider" }, 404);
+      return c.json({ error: ErrorCode.UnknownProvider }, 404);
     }
 
     try {

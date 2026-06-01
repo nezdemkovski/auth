@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import type { AdminDatabase } from "../../db/admin-pool";
+import { ErrorCode } from "../../runtime/error-codes";
 import { isRecord } from "../../runtime/type-guards";
 import {
   commitBillingUsageReservation,
@@ -49,17 +50,17 @@ export const registerBillingUsageRoutes = (
   app.get("/api/:project/billing/usage/summary", async (c) => {
     const project = options.registry.get(c.req.param("project"));
     if (!project) {
-      return c.json({ error: "unknown_project" }, 404);
+      return c.json({ error: ErrorCode.UnknownProject }, 404);
     }
 
     const session = await getProjectSession(project, c.req.raw.headers);
     if (!session) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const key = c.req.query("key");
     if (!validBenefitKey(key)) {
-      return c.json({ error: "invalid_benefit_key" }, 400);
+      return c.json({ error: ErrorCode.InvalidBenefitKey }, 400);
     }
 
     return c.json({
@@ -75,18 +76,18 @@ export const registerBillingUsageRoutes = (
   app.post("/api/:project/billing/usage/consume", async (c) => {
     const project = options.registry.get(c.req.param("project"));
     if (!project) {
-      return c.json({ error: "unknown_project" }, 404);
+      return c.json({ error: ErrorCode.UnknownProject }, 404);
     }
 
     const session = await getProjectSession(project, c.req.raw.headers);
     if (!session) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const body = await c.req.json().catch(() => null);
     const request = parseConsumeRequest(body);
     if (!request) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     const result = await consumeBillingUsage({
@@ -103,18 +104,18 @@ export const registerBillingUsageRoutes = (
   app.post("/api/:project/billing/usage/reserve", async (c) => {
     const project = options.registry.get(c.req.param("project"));
     if (!project) {
-      return c.json({ error: "unknown_project" }, 404);
+      return c.json({ error: ErrorCode.UnknownProject }, 404);
     }
 
     const session = await getProjectSession(project, c.req.raw.headers);
     if (!session) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const body = await c.req.json().catch(() => null);
     const request = parseConsumeRequest(body);
     if (!request) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     const result = await reserveBillingUsage({
@@ -131,18 +132,18 @@ export const registerBillingUsageRoutes = (
   app.post("/api/:project/billing/usage/commit", async (c) => {
     const project = options.registry.get(c.req.param("project"));
     if (!project) {
-      return c.json({ error: "unknown_project" }, 404);
+      return c.json({ error: ErrorCode.UnknownProject }, 404);
     }
 
     const session = await getProjectSession(project, c.req.raw.headers);
     if (!session) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const body = await c.req.json().catch(() => null);
     const request = parseReservationRequest(body);
     if (!request) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     const result = await commitBillingUsageReservation({
@@ -152,7 +153,7 @@ export const registerBillingUsageRoutes = (
       reservationId: request.reservationId
     });
     if (!result) {
-      return c.json({ error: "unknown_reservation" }, 404);
+      return c.json({ error: ErrorCode.UnknownReservation }, 404);
     }
 
     return c.json(result);
@@ -161,18 +162,18 @@ export const registerBillingUsageRoutes = (
   app.post("/api/:project/billing/usage/release", async (c) => {
     const project = options.registry.get(c.req.param("project"));
     if (!project) {
-      return c.json({ error: "unknown_project" }, 404);
+      return c.json({ error: ErrorCode.UnknownProject }, 404);
     }
 
     const session = await getProjectSession(project, c.req.raw.headers);
     if (!session) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const body = await c.req.json().catch(() => null);
     const request = parseReservationRequest(body);
     if (!request) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     const result = await releaseBillingUsageReservation({
@@ -182,7 +183,7 @@ export const registerBillingUsageRoutes = (
       reservationId: request.reservationId
     });
     if (!result) {
-      return c.json({ error: "unknown_reservation" }, 404);
+      return c.json({ error: ErrorCode.UnknownReservation }, 404);
     }
 
     return c.json(result);

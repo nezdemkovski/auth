@@ -13,7 +13,10 @@ import {
   type BillingEntitlement,
   type BillingProductMapping
 } from "../../../config/projects";
-import { billingSettingsResponse } from "../translator";
+import {
+  billingSettingsResponse,
+  polarProductResponse
+} from "../translator";
 
 const creditBenefit = (input: Partial<BillingEntitlement> = {}) => {
   return {
@@ -212,6 +215,38 @@ describe("billing translator", () => {
       amount: null,
       resetPeriod: EntitlementResetPeriod.Never,
       priority: 100
+    });
+    expect(response.catalog.productTypes).toContainEqual({
+      value: BillingProductType.CreditPack,
+      label: "Credit pack"
+    });
+    expect(response.templates.entitlement).toEqual({
+      key: "",
+      grantType: EntitlementGrantType.OneTimeCredits,
+      amount: null,
+      resetPeriod: EntitlementResetPeriod.Never,
+      priority: 100
+    });
+  });
+
+  test("returns suggested mappings for Polar products", () => {
+    expect(
+      polarProductResponse({
+        id: "prod_123",
+        name: "Starter Pack",
+        description: "One-time credits",
+        isRecurring: false,
+        isArchived: false,
+        organizationId: "org_123"
+      }).suggestedMapping
+    ).toEqual({
+      slug: "starter-pack",
+      name: "Starter Pack",
+      description: "One-time credits",
+      productId: "prod_123",
+      type: BillingProductType.OneTime,
+      active: true,
+      entitlements: []
     });
   });
 });

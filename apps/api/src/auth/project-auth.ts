@@ -7,7 +7,11 @@ import { passkey } from "@better-auth/passkey";
 import { checkout, polar, portal, usage, webhooks } from "@polar-sh/better-auth";
 import { Polar } from "@polar-sh/sdk";
 
-import { BillingProvider, type AuthProject } from "../config/projects";
+import {
+  AuthUserRole,
+  BillingProvider,
+  type AuthProject
+} from "../config/projects";
 import { SOCIAL_PROVIDER_IDS } from "../config/social-providers";
 import type { ProjectDatabase } from "../db/project-db";
 import type { EmailSender } from "../email/sender";
@@ -97,7 +101,7 @@ export const createBaseProjectAuthOptions = (options: {
       : {}),
     plugins: [
       admin({
-        defaultRole: "user",
+        defaultRole: AuthUserRole.User,
         adminRoles: ["admin"]
       }),
       passkey({

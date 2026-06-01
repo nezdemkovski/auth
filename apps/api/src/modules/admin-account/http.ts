@@ -1,5 +1,6 @@
 import type { RegisteredProject } from "../../auth/registry";
 import { ADMIN_PROJECT_SLUG } from "../../config/projects";
+import { ErrorCode } from "../../runtime/error-codes";
 import {
   auditLog,
   domainErrorResponse,
@@ -43,7 +44,7 @@ export const registerAdminAccountRoutes: AdminRouteRegistration = ({
     const body = await parseJson(c.req);
     const patch = parseAdminProfilePatch(body);
     if (!patch) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     try {
@@ -74,7 +75,7 @@ export const registerAdminAccountRoutes: AdminRouteRegistration = ({
 
     const input = parseChangePasswordInput(await parseJson(c.req));
     if (!input) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     try {
@@ -106,14 +107,14 @@ type AdminAccountLookup =
   | {
       registered?: never;
       session?: never;
-      error: "admin_not_configured" | "unauthorized";
+      error: ErrorCode.AdminNotConfigured | ErrorCode.Unauthorized;
       status: 500 | 401;
     };
 
 const requireAdminAccount = async (registered: RegisteredProject | null | undefined, headers: Headers) => {
   if (!registered) {
     const lookup: AdminAccountLookup = {
-      error: "admin_not_configured",
+      error: ErrorCode.AdminNotConfigured,
       status: 500
     };
 
@@ -123,7 +124,7 @@ const requireAdminAccount = async (registered: RegisteredProject | null | undefi
   const session = await getSession(registered.auth, headers);
   if (!session) {
     const lookup: AdminAccountLookup = {
-      error: "unauthorized",
+      error: ErrorCode.Unauthorized,
       status: 401
     };
 

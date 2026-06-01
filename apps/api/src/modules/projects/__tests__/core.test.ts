@@ -134,4 +134,15 @@ describe("projects", () => {
       oauthProvider: { enabled: false, dynamicClientRegistration: false }
     });
   });
+
+  test("normalizes dynamic client registration behind oauth provider enablement", () => {
+    expect(
+      normalizeProjectFeatures({
+        oauthProvider: { enabled: false, dynamicClientRegistration: true }
+      }).oauthProvider
+    ).toEqual({
+      enabled: false,
+      dynamicClientRegistration: false
+    });
+  });
 });

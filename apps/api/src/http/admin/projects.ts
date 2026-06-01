@@ -1,8 +1,9 @@
 import type { RegisteredProject } from "../../auth/registry";
+import { ErrorCode } from "../../runtime/error-codes";
 import type { AdminApiOptions } from "./context";
 
 export type AdminRouteError = {
-  error: "unknown_project" | "system_project_locked";
+  error: ErrorCode.UnknownProject | ErrorCode.SystemProjectLocked;
   status: 404 | 409;
 };
 
@@ -18,7 +19,7 @@ export const requireRegisteredProject = (options: AdminApiOptions, slug: string)
   const registered = options.registry.get(slug);
   if (!registered) {
     const result: AdminProjectLookup = {
-      error: "unknown_project",
+      error: ErrorCode.UnknownProject,
       status: 404
     };
 
@@ -37,7 +38,7 @@ export const requireMutableProject = (options: AdminApiOptions, slug: string) =>
   }
   if (result.registered.project.slug === options.adminProject.slug) {
     const locked: AdminProjectLookup = {
-      error: "system_project_locked",
+      error: ErrorCode.SystemProjectLocked,
       status: 409
     };
 

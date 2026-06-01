@@ -3,10 +3,17 @@ import { describe, expect, test } from "bun:test";
 import {
   DEFAULT_PROJECT_BILLING,
   DEFAULT_PROJECT_FEATURES,
+  DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   DEFAULT_PROJECT_STORAGE
 } from "../../../config/projects";
 import { SocialProvider } from "../../../config/social-providers";
-import { LoginMode, loginConfigResponse } from "../translator";
+import {
+  LoginMode,
+  LoginNextAction,
+  loginConfigResponse,
+  loginNextActionResponse,
+  oauthConsentConfigResponse
+} from "../translator";
 
 describe("login translator", () => {
   test("exposes only enabled and configured social providers", () => {
@@ -63,6 +70,62 @@ describe("login translator", () => {
       }
     });
 
-    expect(response.socialProviders).toEqual([SocialProvider.GitHub]);
+    expect(response.socialProviders).toEqual([
+      {
+        id: SocialProvider.GitHub,
+        label: "GitHub",
+        shortLabel: "GitHub"
+      }
+    ]);
+  });
+
+  test("describes oauth scopes on the server", () => {
+    const response = oauthConsentConfigResponse({
+      project: "demo",
+      clientId: "client",
+      scopes: ["openid", "custom:write"],
+      oauthQuery: "client_id=client",
+      observability: {
+        enabled: false,
+        dsn: "",
+        environment: "test"
+      },
+      registered: {
+        project: {
+          slug: "demo",
+          name: "Demo App",
+          schema: "demo_auth",
+          description: "",
+          iconUrl: "",
+          appUrl: "",
+          trustedOrigins: [],
+          features: DEFAULT_PROJECT_FEATURES,
+          billing: DEFAULT_PROJECT_BILLING,
+          storage: DEFAULT_PROJECT_STORAGE,
+          socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS
+        }
+      }
+    });
+
+    expect(response.scopeDescriptions.openid.title).toBe("Sign you in");
+    expect(response.scopeDescriptions["custom:write"]).toEqual({
+      title: "custom:write",
+      description: "Access this application-specific permission."
+    });
+  });
+
+  test("returns server-owned post-login actions", () => {
+    expect(
+      loginNextActionResponse({
+        project: {
+          features: {
+            ...DEFAULT_PROJECT_FEATURES,
+            passkey: { enabled: true }
+          }
+        },
+        user: { twoFactorEnabled: true },
+        hasPasskeys: false
+      })
+    ).toEqual({ action: LoginNextAction.OfferPasskey });
   });
 });

@@ -5,8 +5,13 @@ import type {
   ProjectBillingSettings
 } from "../../config/projects";
 import {
+  BillingEnvironment,
+  BillingProductType,
+  BillingRecurringInterval,
+  DEFAULT_BILLING_PRODUCT_SLUG,
   EntitlementGrantType,
-  EntitlementResetPeriod
+  EntitlementResetPeriod,
+  normalizeProjectSlug
 } from "../../config/projects";
 import type { BillingSettingsState } from "./store";
 import type { CreatePolarProductInput } from "./validator";
@@ -29,6 +34,27 @@ export type PublicBillingSettings = Omit<
   webhookUrl: string;
   benefitPresets: BillingEntitlement[];
   grantTemplate: BillingEntitlement;
+  catalog: BillingCatalog;
+  templates: BillingTemplates;
+};
+
+type CatalogOption<T extends string> = {
+  value: T;
+  label: string;
+};
+
+export type BillingCatalog = {
+  environments: Array<CatalogOption<BillingEnvironment>>;
+  productTypes: Array<CatalogOption<BillingProductType>>;
+  grantTypes: Array<CatalogOption<EntitlementGrantType>>;
+  resetPeriods: Array<CatalogOption<EntitlementResetPeriod>>;
+  recurringIntervals: Array<CatalogOption<BillingRecurringInterval>>;
+};
+
+export type BillingTemplates = {
+  createProduct: CreatePolarProductInput;
+  product: BillingProductMapping;
+  entitlement: BillingEntitlement;
 };
 
 export const billingSettingsResponse = (options: {
@@ -42,7 +68,9 @@ export const billingSettingsResponse = (options: {
     ...options.settings,
     webhookUrl: billingWebhookUrl(options.publicBaseUrl, options.project),
     benefitPresets,
-    grantTemplate: grantTemplate(benefitPresets[0] ?? null)
+    grantTemplate: grantTemplate(benefitPresets[0] ?? null),
+    catalog: billingCatalog(),
+    templates: billingTemplates()
   };
 };
 
@@ -57,7 +85,8 @@ export const polarProductResponse = (product: PolarProductSummary) => {
     description: product.description ?? "",
     isRecurring: product.isRecurring,
     isArchived: product.isArchived,
-    organizationId: product.organizationId
+    organizationId: product.organizationId,
+    suggestedMapping: billingProductFromPolar(product)
   };
 };
 
@@ -70,6 +99,18 @@ export const createdBillingProductResponse = (product: PolarProductSummary, inpu
     type: input.type,
     active: true,
     entitlements
+  };
+};
+
+export const billingProductFromPolar = (product: PolarProductSummary): BillingProductMapping => {
+  return {
+    slug: normalizeProjectSlug(product.name) || DEFAULT_BILLING_PRODUCT_SLUG,
+    name: product.name,
+    description: product.description ?? "",
+    productId: product.id,
+    type: product.isRecurring ? BillingProductType.Subscription : BillingProductType.OneTime,
+    active: true,
+    entitlements: []
   };
 };
 
@@ -110,5 +151,67 @@ const grantTemplate = (source: BillingEntitlement | null): BillingEntitlement =>
     amount: null,
     resetPeriod: source.resetPeriod,
     priority: source.priority
+  };
+};
+
+const billingTemplates = (): BillingTemplates => {
+  return {
+    createProduct: {
+      slug: "",
+      name: "",
+      description: "",
+      type: BillingProductType.CreditPack,
+      priceAmount: 1000,
+      priceCurrency: "eur",
+      recurringInterval: BillingRecurringInterval.Month
+    },
+    product: {
+      slug: "",
+      name: "",
+      description: "",
+      productId: "",
+      type: BillingProductType.Subscription,
+      active: true,
+      entitlements: []
+    },
+    entitlement: {
+      key: "",
+      grantType: EntitlementGrantType.OneTimeCredits,
+      amount: null,
+      resetPeriod: EntitlementResetPeriod.Never,
+      priority: 100
+    }
+  };
+};
+
+const billingCatalog = (): BillingCatalog => {
+  return {
+    environments: [
+      { value: BillingEnvironment.Sandbox, label: "Sandbox" },
+      { value: BillingEnvironment.Production, label: "Production" }
+    ],
+    productTypes: [
+      { value: BillingProductType.Subscription, label: "Subscription" },
+      { value: BillingProductType.OneTime, label: "One-time" },
+      { value: BillingProductType.CreditPack, label: "Credit pack" },
+      { value: BillingProductType.Lifetime, label: "Lifetime" },
+      { value: BillingProductType.Metered, label: "Metered" }
+    ],
+    grantTypes: [
+      { value: EntitlementGrantType.Boolean, label: "Feature access" },
+      { value: EntitlementGrantType.RecurringQuota, label: "Recurring quota" },
+      { value: EntitlementGrantType.OneTimeCredits, label: "One-time credits" },
+      { value: EntitlementGrantType.Lifetime, label: "Lifetime access" },
+      { value: EntitlementGrantType.Metered, label: "Metered usage" }
+    ],
+    resetPeriods: [
+      { value: EntitlementResetPeriod.Never, label: "Never" },
+      { value: EntitlementResetPeriod.Monthly, label: "Monthly" },
+      { value: EntitlementResetPeriod.Yearly, label: "Yearly" }
+    ],
+    recurringIntervals: [
+      { value: BillingRecurringInterval.Month, label: "Monthly" },
+      { value: BillingRecurringInterval.Year, label: "Yearly" }
+    ]
   };
 };

@@ -2,6 +2,7 @@ import type { MiddlewareHandler } from "hono";
 import type { RedisClient } from "bun";
 
 import { ReconnectingRedisClient } from "../db/redis";
+import { ErrorCode } from "../runtime/error-codes";
 import { logError } from "../runtime/logger";
 
 export const DIRECT_CLIENT_IP_HEADER = "x-auth-direct-client-ip";
@@ -148,7 +149,7 @@ export const rateLimit = (store: RateLimiterStore, options: { trustProxyHeaders:
       });
       return c.json(
         {
-          error: "rate_limit_unavailable"
+          error: ErrorCode.RateLimitUnavailable
         },
         503
       );
@@ -165,7 +166,7 @@ export const rateLimit = (store: RateLimiterStore, options: { trustProxyHeaders:
       });
       return c.json(
         {
-          error: "rate_limit_unavailable"
+          error: ErrorCode.RateLimitUnavailable
         },
         503
       );
@@ -174,7 +175,7 @@ export const rateLimit = (store: RateLimiterStore, options: { trustProxyHeaders:
     if (!result.allowed) {
       return c.json(
         {
-          error: "rate_limited"
+          error: ErrorCode.RateLimited
         },
         429,
         {

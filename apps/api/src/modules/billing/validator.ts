@@ -10,8 +10,10 @@ import {
   BillingProductType,
   BillingProvider,
   BillingRecurringInterval,
+  DEFAULT_BILLING_PRODUCT_SLUG,
   EntitlementGrantType,
-  EntitlementResetPeriod
+  EntitlementResetPeriod,
+  normalizeProjectSlug
 } from "../../config/projects";
 import { isEnumValue } from "../../runtime/enums";
 import { isRecord } from "../../runtime/type-guards";
@@ -139,7 +141,10 @@ export const parseCreatePolarProduct = (body: CreatePolarProductBody) => {
     return null;
   }
 
-  const slug = body.slug.trim();
+  const slug =
+    body.slug.trim() ||
+    normalizeProjectSlug(body.name) ||
+    DEFAULT_BILLING_PRODUCT_SLUG;
   const name = body.name.trim();
   const priceCurrency = body.priceCurrency.trim().toLowerCase();
   const type = parseCreatePolarProductType(body.type);

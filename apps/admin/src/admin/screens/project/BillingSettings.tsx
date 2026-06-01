@@ -11,44 +11,6 @@ import type {
 } from "../../types";
 import { FormAlert, SettingsInput, SettingsTextarea } from "@nezdemkovski/auth-ui";
 
-const productTypes = [
-  "subscription",
-  "one_time",
-  "credit_pack",
-  "lifetime",
-  "metered"
-] as const;
-const grantTypes = [
-  "boolean",
-  "recurring_quota",
-  "one_time_credits",
-  "lifetime",
-  "metered"
-] as const;
-const resetPeriods = ["never", "monthly", "yearly"] as const;
-
-const productTypeLabels: Record<BillingProductMapping["type"], string> = {
-  subscription: "Subscription",
-  one_time: "One-time",
-  credit_pack: "Credit pack",
-  lifetime: "Lifetime",
-  metered: "Metered"
-};
-
-const grantLabels: Record<BillingEntitlement["grantType"], string> = {
-  boolean: "Feature access",
-  recurring_quota: "Recurring quota",
-  one_time_credits: "One-time credits",
-  lifetime: "Lifetime access",
-  metered: "Metered usage"
-};
-
-const resetLabels: Record<BillingEntitlement["resetPeriod"], string> = {
-  never: "Never",
-  monthly: "Monthly",
-  yearly: "Yearly"
-};
-
 type BillingView = "setup" | "products";
 type ProductWorkspace =
   | { mode: "product"; index: number }
@@ -89,7 +51,7 @@ export function BillingSettings({
   ) => Promise<BillingProductMapping>;
 }) {
   const [form, setForm] = useState(() => settingsToForm(settings));
-  const [createForm, setCreateForm] = useState(() => defaultCreateForm());
+  const [createForm, setCreateForm] = useState(() => settings.templates.createProduct);
   const [view, setView] = useState<BillingView>("setup");
   const [workspace, setWorkspace] = useState<ProductWorkspace>(() => ({
     mode: settings.products.length > 0 ? "product" : "create",
@@ -99,6 +61,7 @@ export function BillingSettings({
 
   useEffect(() => {
     setForm(settingsToForm(settings));
+    setCreateForm(settings.templates.createProduct);
     setLocalError(null);
     setWorkspace((current) => {
       if (settings.products.length === 0) return { mode: "create" };
@@ -149,7 +112,7 @@ export function BillingSettings({
   }
 
   function addProduct(product?: BillingProductMapping) {
-    const nextProduct = product ?? defaultProduct();
+    const nextProduct = product ?? settings.templates.product;
     update("products", [...form.products, nextProduct]);
     setWorkspace({ mode: "product", index: form.products.length });
     setView("products");
@@ -167,7 +130,7 @@ export function BillingSettings({
 
   function connectPolarProduct(product: PolarProductSummary) {
     if (mappedProductIds.has(product.id)) return;
-    addProduct(productFromPolar(product));
+    addProduct(product.suggestedMapping);
   }
 
   async function createInPolar() {
@@ -175,22 +138,17 @@ export function BillingSettings({
       setLocalError("Product name is required.");
       return;
     }
-    if (createForm.priceAmount < 50) {
-      setLocalError("Price amount must be at least 50 minor currency units.");
-      return;
-    }
-
     setLocalError(null);
     const product = await onCreatePolarProduct({
       ...createForm,
-      slug: createForm.slug.trim() || slugFromName(createForm.name),
+      slug: createForm.slug.trim(),
       name: createForm.name.trim(),
       description: createForm.description.trim(),
       priceCurrency: createForm.priceCurrency.trim().toLowerCase(),
       priceAmount: Math.round(createForm.priceAmount)
     });
     addProduct(product);
-    setCreateForm(defaultCreateForm());
+    setCreateForm(settings.templates.createProduct);
   }
 
   function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -309,7 +267,7 @@ export function BillingSettings({
           onAddFreeEntitlement={() =>
             update("freeEntitlements", [
               ...form.freeEntitlements,
-              emptyBillingEntitlement()
+              settings.templates.entitlement
             ])
           }
           onAddStarterCreditGrant={() =>
@@ -330,6 +288,7 @@ export function BillingSettings({
       ) : (
         <ProductsView
           products={form.products}
+          settings={settings}
           selectedProduct={selectedProduct}
           workspace={workspace}
           createForm={createForm}
@@ -425,10 +384,7 @@ function SetupView({
             onChange={(value) =>
               onUpdate("environment", value as BillingSettings["environment"])
             }
-            options={[
-              ["sandbox", "Sandbox"],
-              ["production", "Production"]
-            ]}
+            options={settings.catalog.environments}
           />
           <SettingsInput
             id="polar-access-token"
@@ -525,6 +481,8 @@ function SetupView({
           addLabel="Add grant"
           emptyMessage="No automatic grants configured. Access will come from checkout products only."
           keyOptions={benefitKeys}
+          grantTypeOptions={settings.catalog.grantTypes}
+          resetPeriodOptions={settings.catalog.resetPeriods}
           onAdd={onAddFreeEntitlement}
           onUpdate={onUpdateFreeEntitlement}
           onRemove={onRemoveFreeEntitlement}
@@ -536,6 +494,7 @@ function SetupView({
 
 function ProductsView({
   products,
+  settings,
   selectedProduct,
   workspace,
   createForm,
@@ -554,6 +513,7 @@ function ProductsView({
   onRemoveProduct
 }: {
   products: BillingProductMapping[];
+  settings: BillingSettings;
   selectedProduct: BillingProductMapping | null;
   workspace: ProductWorkspace;
   createForm: CreatePolarProductInput;
@@ -622,7 +582,7 @@ function ProductsView({
                   <div className="mt-1 flex flex-wrap gap-2 text-[11.5px] text-muted">
                     <code className="font-mono">{product.slug || "no-slug"}</code>
                     <span>·</span>
-                    <span>{productTypeLabels[product.type]}</span>
+                    <span>{catalogLabel(settings.catalog.productTypes, product.type)}</span>
                   </div>
                 </button>
               ))}
@@ -689,6 +649,7 @@ function ProductsView({
         {workspace.mode === "create" ? (
           <CreateProductEditor
             createForm={createForm}
+            settings={settings}
             disabled={disabled}
             pending={polarProductCreatePending}
             onCreateFormChange={onCreateFormChange}
@@ -698,6 +659,7 @@ function ProductsView({
         ) : selectedProduct ? (
           <ProductEditor
             product={selectedProduct}
+            settings={settings}
             productIndex={workspace.index}
             disabled={disabled}
             onUpdateProduct={onUpdateProduct}
@@ -716,6 +678,7 @@ function ProductsView({
 
 function CreateProductEditor({
   createForm,
+  settings,
   disabled,
   pending,
   onCreateFormChange,
@@ -723,6 +686,7 @@ function CreateProductEditor({
   onAddManual
 }: {
   createForm: CreatePolarProductInput;
+  settings: BillingSettings;
   disabled: boolean;
   pending: boolean;
   onCreateFormChange: React.Dispatch<React.SetStateAction<CreatePolarProductInput>>;
@@ -762,8 +726,7 @@ function CreateProductEditor({
           onChange={(value) =>
             onCreateFormChange((current) => ({
               ...current,
-              name: value,
-              slug: current.slug || slugFromName(value)
+              name: value
             }))
           }
         />
@@ -786,12 +749,9 @@ function CreateProductEditor({
               type: value as CreatePolarProductInput["type"]
             }))
           }
-          options={[
-            ["subscription", "Subscription"],
-            ["one_time", "One-time"],
-            ["credit_pack", "Credit pack"],
-            ["lifetime", "Lifetime"]
-          ]}
+          options={settings.catalog.productTypes.filter(
+            (option) => option.value !== "metered"
+          )}
         />
         <SelectField
           label="Billing interval"
@@ -803,10 +763,7 @@ function CreateProductEditor({
               recurringInterval: value as CreatePolarProductInput["recurringInterval"]
             }))
           }
-          options={[
-            ["month", "Monthly"],
-            ["year", "Yearly"]
-          ]}
+          options={settings.catalog.recurringIntervals}
         />
         <SettingsInput
           id="polar-create-price"
@@ -862,6 +819,7 @@ function CreateProductEditor({
 
 function ProductEditor({
   product,
+  settings,
   productIndex,
   disabled,
   onUpdateProduct,
@@ -869,6 +827,7 @@ function ProductEditor({
   onRemoveProduct
 }: {
   product: BillingProductMapping;
+  settings: BillingSettings;
   productIndex: number;
   disabled: boolean;
   onUpdateProduct: (index: number, patch: Partial<BillingProductMapping>) => void;
@@ -930,7 +889,7 @@ function ProductEditor({
               type: value as BillingProductMapping["type"]
             })
           }
-          options={productTypes.map((type) => [type, productTypeLabels[type]])}
+          options={settings.catalog.productTypes}
         />
       </div>
 
@@ -947,6 +906,7 @@ function ProductEditor({
 
       <BenefitsEditor
         product={product}
+        settings={settings}
         productIndex={productIndex}
         disabled={disabled}
         onUpdateProduct={onUpdateProduct}
@@ -970,12 +930,14 @@ function ProductEditor({
 
 function BenefitsEditor({
   product,
+  settings,
   productIndex,
   disabled,
   onUpdateProduct,
   onUpdateEntitlement
 }: {
   product: BillingProductMapping;
+  settings: BillingSettings;
   productIndex: number;
   disabled: boolean;
   onUpdateProduct: (index: number, patch: Partial<BillingProductMapping>) => void;
@@ -995,9 +957,11 @@ function BenefitsEditor({
         disabled={disabled}
         onAdd={() =>
           onUpdateProduct(productIndex, {
-            entitlements: [...product.entitlements, emptyBillingEntitlement()]
+            entitlements: [...product.entitlements, settings.templates.entitlement]
           })
         }
+        grantTypeOptions={settings.catalog.grantTypes}
+        resetPeriodOptions={settings.catalog.resetPeriods}
         onUpdate={(entitlementIndex, patch) =>
           onUpdateEntitlement(productIndex, entitlementIndex, patch)
         }
@@ -1022,6 +986,8 @@ function EntitlementsEditor({
   addLabel = "Add benefit",
   emptyMessage = "No benefits configured yet.",
   keyOptions = [],
+  grantTypeOptions,
+  resetPeriodOptions,
   onAdd,
   onUpdate,
   onRemove
@@ -1034,6 +1000,8 @@ function EntitlementsEditor({
   addLabel?: string;
   emptyMessage?: string;
   keyOptions?: string[];
+  grantTypeOptions: BillingSettings["catalog"]["grantTypes"];
+  resetPeriodOptions: BillingSettings["catalog"]["resetPeriods"];
   onAdd: () => void;
   onUpdate: (entitlementIndex: number, patch: Partial<BillingEntitlement>) => void;
   onRemove: (entitlementIndex: number) => void;
@@ -1084,7 +1052,7 @@ function EntitlementsEditor({
                     grantType: value as BillingEntitlement["grantType"]
                   })
                 }
-                options={grantTypes.map((type) => [type, grantLabels[type]])}
+                options={grantTypeOptions}
               />
               <SelectField
                 label="Reset"
@@ -1095,7 +1063,7 @@ function EntitlementsEditor({
                     resetPeriod: value as BillingEntitlement["resetPeriod"]
                   })
                 }
-                options={resetPeriods.map((period) => [period, resetLabels[period]])}
+                options={resetPeriodOptions}
               />
               <SettingsInput
                 id={`${idPrefix}-amount-${entitlementIndex}`}
@@ -1302,7 +1270,7 @@ function SelectField({
   label: string;
   value: string;
   disabled: boolean;
-  options: Array<readonly [string, string]>;
+  options: Array<{ value: string; label: string }>;
   onChange: (value: string) => void;
 }) {
   return (
@@ -1314,7 +1282,7 @@ function SelectField({
         onChange={(event) => onChange(event.currentTarget.value)}
         className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {options.map(([optionValue, label]) => (
+        {options.map(({ value: optionValue, label }) => (
           <option key={optionValue} value={optionValue}>
             {label}
           </option>
@@ -1354,63 +1322,13 @@ function settingsToForm(settings: BillingSettings) {
   };
 }
 
-function defaultProduct(): BillingProductMapping {
-  return {
-    slug: "",
-    name: "",
-    description: "",
-    productId: "",
-    type: "subscription",
-    active: true,
-    entitlements: []
-  };
-}
-
-function emptyBillingEntitlement(): BillingEntitlement {
-  return {
-    key: "",
-    grantType: "one_time_credits",
-    amount: null,
-    resetPeriod: "never",
-    priority: 100
-  };
-}
-
 function uniqueStrings(values: string[]) {
   return Array.from(new Set(values));
 }
 
-function productFromPolar(product: PolarProductSummary): BillingProductMapping {
-  return {
-    slug: slugFromName(product.name),
-    name: product.name,
-    description: product.description,
-    productId: product.id,
-    type: product.isRecurring ? "subscription" : "one_time",
-    active: true,
-    entitlements: []
-  };
-}
-
-function defaultCreateForm(): CreatePolarProductInput {
-  return {
-    slug: "",
-    name: "",
-    description: "",
-    type: "credit_pack",
-    priceAmount: 1000,
-    priceCurrency: "eur",
-    recurringInterval: "month"
-  };
-}
-
-function slugFromName(value: string): string {
-  const slug = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-");
-
-  return slug || "product";
+function catalogLabel<T extends string>(
+  options: Array<{ value: T; label: string }>,
+  value: T
+) {
+  return options.find((option) => option.value === value)?.label ?? value;
 }

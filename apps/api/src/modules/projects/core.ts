@@ -10,6 +10,7 @@ import {
   SOCIAL_PROVIDER_CATALOG,
   type SocialProviderId
 } from "../../config/social-providers";
+import { ErrorCode } from "../../runtime/error-codes";
 import { prepareProjectSchema } from "../../db/bootstrap";
 import type { AdminDatabase } from "../../db/admin-pool";
 import { cloneDefaultBilling, loadProjectBillingSettings } from "../billing/store";
@@ -92,7 +93,7 @@ export class ProjectService {
 
     if (project.slug === this.options.adminProject.slug) {
       throw new ProjectServiceError(
-        "system_project_locked",
+        ErrorCode.SystemProjectLocked,
         409,
         "System project is locked"
       );
@@ -180,7 +181,7 @@ export class ProjectService {
       });
 
       if (!updated) {
-        throw new ProjectServiceError("unknown_project", 404, "Unknown project");
+        throw new ProjectServiceError(ErrorCode.UnknownProject, 404, "Unknown project");
       }
 
       const socialProviders = await loadProjectSocialProviders({

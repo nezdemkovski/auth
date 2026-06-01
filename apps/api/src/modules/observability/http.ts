@@ -5,6 +5,7 @@ import {
   requireAdmin,
   type AdminRouteRegistration
 } from "../../http/admin/shared";
+import { ErrorCode } from "../../runtime/error-codes";
 import {
   ObservabilityServiceError
 } from "./core";
@@ -24,7 +25,7 @@ export const registerObservabilityRoutes: AdminRouteRegistration = ({
   app.get("/observability-settings", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     return c.json({
@@ -35,12 +36,12 @@ export const registerObservabilityRoutes: AdminRouteRegistration = ({
   app.patch("/observability-settings", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const patch = parseObservabilitySettingsPatch(await parseJson(c.req));
     if (!patch) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     try {
@@ -58,7 +59,7 @@ export const registerObservabilityRoutes: AdminRouteRegistration = ({
   app.post("/observability-settings/test", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     try {

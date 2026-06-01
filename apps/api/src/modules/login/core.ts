@@ -8,6 +8,7 @@ import {
   LOGIN_CODE_TTL_SECONDS,
   type LoginCodeStore
 } from "./store";
+import { ErrorCode } from "../../runtime/error-codes";
 
 export type LoginFlowOptions = {
   registry: LoginProjectRegistry;
@@ -40,6 +41,35 @@ export class LoginFlowError extends Error {
 export class LoginFlowService {
   constructor(private readonly options: LoginFlowOptions) {}
 
+  async nextAction(input: {
+    project: string;
+    headers: Headers;
+  }) {
+    const registered = this.options.registry.get(input.project);
+    if (!registered) {
+      throw new LoginFlowError(ErrorCode.UnknownProject, 404);
+    }
+
+    const session = await readLoginSession({
+      registered,
+      headers: input.headers,
+      trustProxyHeaders: this.options.trustProxyHeaders === true
+    });
+    if (!session) {
+      throw new LoginFlowError(ErrorCode.Unauthorized, 401);
+    }
+
+    return {
+      registered,
+      user: session.user,
+      hasPasskeys: await readHasPasskeys({
+        registered,
+        headers: input.headers,
+        trustProxyHeaders: this.options.trustProxyHeaders === true
+      })
+    };
+  }
+
   async createSessionCode(input: {
     project: string;
     redirectUri: string;
@@ -49,13 +79,13 @@ export class LoginFlowService {
   }) {
     const registered = this.options.registry.get(input.project);
     if (!registered) {
-      throw new LoginFlowError("unknown_project", 404);
+      throw new LoginFlowError(ErrorCode.UnknownProject, 404);
     }
     if (!redirectUriAllowed(this.options.registry, input.project, input.redirectUri)) {
-      throw new LoginFlowError("invalid_redirect_uri");
+      throw new LoginFlowError(ErrorCode.InvalidRedirectUri);
     }
     if (!validPkceChallenge(input.codeChallenge)) {
-      throw new LoginFlowError("invalid_pkce_challenge");
+      throw new LoginFlowError(ErrorCode.InvalidPkceChallenge);
     }
 
     const issued = await issueLoginCodeFromSession({
@@ -69,7 +99,7 @@ export class LoginFlowService {
     });
 
     if (!issued) {
-      throw new LoginFlowError("unauthorized", 401);
+      throw new LoginFlowError(ErrorCode.Unauthorized, 401);
     }
 
     return issued;
@@ -83,10 +113,10 @@ export class LoginFlowService {
   }) {
     const registered = this.options.registry.get(input.project);
     if (!registered) {
-      throw new LoginFlowError("unknown_project", 404);
+      throw new LoginFlowError(ErrorCode.UnknownProject, 404);
     }
     if (!redirectUriAllowed(this.options.registry, input.project, input.redirectUri)) {
-      throw new LoginFlowError("invalid_redirect_uri");
+      throw new LoginFlowError(ErrorCode.InvalidRedirectUri);
     }
 
     const codeChallenge = pkceChallenge(input.codeVerifier);
@@ -96,7 +126,7 @@ export class LoginFlowService {
       codeChallenge
     });
     if (!payload) {
-      throw new LoginFlowError("invalid_code");
+      throw new LoginFlowError(ErrorCode.InvalidCode);
     }
 
     return {
@@ -163,21 +193,8 @@ const issueLoginCodeFromSession = async (options: {
   trustProxyHeaders: boolean;
   codeStore: LoginCodeStore;
 }) => {
-  const authPath = `/api/${options.registered.project.slug}/auth`;
-  const sessionRes = await options.registered.auth.handler(
-    new Request(`http://auth.local${authPath}/get-session`, {
-      headers: internalAuthHeaders(options.headers, {
-        Cookie: options.headers.get("cookie") ?? ""
-      }, options)
-    })
-  );
-
-  if (!sessionRes.ok) {
-    return null;
-  }
-
-  const session = await sessionRes.json().catch(() => null);
-  const email = typeof session?.user?.email === "string" ? session.user.email : "";
+  const session = await readLoginSession(options);
+  const email = typeof session?.user.email === "string" ? session.user.email : "";
 
   if (!email) {
     return null;
@@ -203,4 +220,64 @@ const issueLoginCodeFromSession = async (options: {
     redirectTo: callback.toString(),
     email
   };
+};
+
+const readLoginSession = async (options: {
+  registered: LoginRegisteredProject;
+  headers: Headers;
+  trustProxyHeaders: boolean;
+}) => {
+  const response = await options.registered.auth.handler(
+    internalAuthRequest(options, "/get-session")
+  );
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const session = await response.json().catch(() => null);
+  if (!session?.user || typeof session.user !== "object") {
+    return null;
+  }
+
+  return {
+    user: {
+      email: typeof session.user.email === "string" ? session.user.email : "",
+      role: typeof session.user.role === "string" ? session.user.role : null,
+      twoFactorEnabled: session.user.twoFactorEnabled === true
+    }
+  };
+};
+
+const readHasPasskeys = async (options: {
+  registered: LoginRegisteredProject;
+  headers: Headers;
+  trustProxyHeaders: boolean;
+}) => {
+  const response = await options.registered.auth.handler(
+    internalAuthRequest(options, "/passkey/list-user-passkeys")
+  );
+  const payload = await response.json().catch(() => null);
+
+  return response.ok && Array.isArray(payload) && payload.length > 0;
+};
+
+const internalAuthRequest = (
+  options: {
+    registered: LoginRegisteredProject;
+    headers: Headers;
+    trustProxyHeaders: boolean;
+  },
+  path: string
+) => {
+  const authPath = `/api/${options.registered.project.slug}/auth${path}`;
+  return new Request(`http://auth.local${authPath}`, {
+    headers: internalAuthHeaders(
+      options.headers,
+      {
+        Cookie: options.headers.get("cookie") ?? ""
+      },
+      options
+    )
+  });
 };

@@ -63,6 +63,11 @@ export enum ProjectAgentAuthMode {
   ScopedWrite = "scoped-write"
 }
 
+export enum AuthUserRole {
+  Admin = "admin",
+  User = "user"
+}
+
 export enum BillingProvider {
   None = "none",
   Polar = "polar"
@@ -216,6 +221,7 @@ export const DEFAULT_PROJECT_SOCIAL_PROVIDERS: ProjectSocialProviders = {
 };
 
 export const ADMIN_PROJECT_SLUG = "admin";
+export const DEFAULT_BILLING_PRODUCT_SLUG = "product";
 
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/;
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;

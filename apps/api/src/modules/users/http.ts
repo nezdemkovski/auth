@@ -6,6 +6,7 @@ import {
   requireRegisteredProject,
   type AdminRouteRegistration
 } from "../../http/admin/shared";
+import { ErrorCode } from "../../runtime/error-codes";
 import { UsersServiceError } from "./core";
 import { parseResendVerificationEmail } from "./validator";
 
@@ -17,7 +18,7 @@ export const registerUserRoutes: AdminRouteRegistration = ({
   app.get("/projects/:project/users", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const project = requireRegisteredProject(options, c.req.param("project"));
@@ -31,7 +32,7 @@ export const registerUserRoutes: AdminRouteRegistration = ({
   app.post("/projects/:project/users/:userId/terminate-sessions", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const project = requireRegisteredProject(options, c.req.param("project"));
@@ -55,7 +56,7 @@ export const registerUserRoutes: AdminRouteRegistration = ({
   app.post("/projects/:project/users/resend-verification", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const project = requireRegisteredProject(options, c.req.param("project"));
@@ -65,7 +66,7 @@ export const registerUserRoutes: AdminRouteRegistration = ({
 
     const email = parseResendVerificationEmail(await parseJson(c.req));
     if (!email) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     try {

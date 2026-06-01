@@ -21,6 +21,7 @@ import { toRuntimeEmailConfig } from "../modules/delivery/translator";
 import { readDeliverySettings } from "../modules/delivery/store";
 import { loadEffectiveProjects } from "../modules/projects/store";
 import { createEmailSender } from "../email/sender";
+import { ErrorCode } from "../runtime/error-codes";
 import { createAdminApi } from "./admin";
 import { createRateLimiter, rateLimit, securityHeaders } from "./security";
 
@@ -158,7 +159,7 @@ export const createApp = async (env: Env) => {
   app.notFound((c) => {
     return c.json(
       {
-        error: "not_found"
+        error: ErrorCode.NotFound
       },
       404
     );
@@ -168,7 +169,7 @@ export const createApp = async (env: Env) => {
     observabilityReporter.captureException(error, inferObservabilityContext(c.req.raw));
     return c.json(
       {
-        error: "internal_server_error"
+        error: ErrorCode.InternalServerError
       },
       500
     );

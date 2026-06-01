@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import { mediaUploadError } from "../../http/admin/shared";
+import { ErrorCode } from "../../runtime/error-codes";
 import { StorageService } from "./core";
 import {
   mediaUploadBodyError,
@@ -40,12 +41,12 @@ export const registerPublicStorageRoutes = (app: Hono<{ Variables: PublicStorage
   app.post("/api/:project/upload", async (c) => {
     const registered = options.registry.get(c.req.param("project"));
     if (!registered) {
-      return c.json({ error: "unknown_project" }, 404);
+      return c.json({ error: ErrorCode.UnknownProject }, 404);
     }
 
     const session = await getProjectSession(registered.auth, c.req.raw.headers);
     if (!session) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
     const bodyError = mediaUploadBodyError(c.req.raw.headers.get("content-length"));
     if (bodyError) {
@@ -60,7 +61,7 @@ export const registerPublicStorageRoutes = (app: Hono<{ Variables: PublicStorage
       MediaUploadPurpose.UserAvatar
     );
     if (!uploadRequest) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     try {

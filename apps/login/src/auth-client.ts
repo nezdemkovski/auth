@@ -11,14 +11,15 @@ export function createLoginAuthClient(project: string) {
   });
 }
 
-export type LoginSession = {
-  user?: {
-    id?: string;
-    email?: string;
-    role?: string | null;
-    twoFactorEnabled?: boolean;
-  };
-} | null;
+export enum LoginNextAction {
+  Redirect = "redirect",
+  EnrollTwoFactor = "enroll_2fa",
+  OfferPasskey = "offer_passkey"
+}
+
+export enum PkceChallengeMethod {
+  S256 = "S256"
+}
 
 export async function signInWithEmail(options: {
   project: string;
@@ -118,18 +119,6 @@ export async function verifyTwoFactorCode(options: {
   });
 }
 
-export async function getLoginSession(project: string): Promise<LoginSession> {
-  const response = await fetch(`/api/${project}/auth/get-session`, {
-    credentials: "include"
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  return (await response.json().catch(() => null)) as LoginSession;
-}
-
 export async function requestLoginPasswordReset(options: {
   project: string;
   email: string;
@@ -170,13 +159,15 @@ export async function resetLoginPassword(options: {
   return response.ok;
 }
 
-export async function hasPasskeys(project: string): Promise<boolean> {
-  const response = await fetch(`/api/${project}/auth/passkey/list-user-passkeys`, {
+export async function getLoginNextAction(project: string): Promise<LoginNextAction> {
+  const response = await fetch(`/api/${project}/login/next-action`, {
     credentials: "include"
   });
-  const payload = await response.json().catch(() => null);
+  const payload = (await response.json().catch(() => null)) as {
+    action?: LoginNextAction;
+  } | null;
 
-  return response.ok && Array.isArray(payload) && payload.length > 0;
+  return response.ok && payload?.action ? payload.action : LoginNextAction.Redirect;
 }
 
 export async function createLoginSessionRedirect(options: {

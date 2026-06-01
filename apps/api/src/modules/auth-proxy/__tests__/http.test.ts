@@ -13,6 +13,7 @@ import {
   ProjectTwoFactorRequirement,
   type AuthProject
 } from "../../../config/projects";
+import { ErrorCode } from "../../../runtime/error-codes";
 import {
   registerAuthProxyRoutes,
   type AuthProxyRegisteredProject,
@@ -199,6 +200,6 @@ describe("auth proxy HTTP boundary", () => {
     });
 
     expect(response.status).toBe(404);
-    await expect(response.json()).resolves.toEqual({ error: "unknown_project" });
+    await expect(response.json()).resolves.toEqual({ error: ErrorCode.UnknownProject });
   });
 });

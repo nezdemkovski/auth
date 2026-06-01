@@ -5,6 +5,7 @@ import {
   requireAdmin,
   type AdminRouteRegistration
 } from "../../http/admin/shared";
+import { ErrorCode } from "../../runtime/error-codes";
 import { DeliveryServiceError } from "./core";
 import { parseDeliverySettingsPatch } from "./validator";
 
@@ -16,7 +17,7 @@ export const registerDeliveryRoutes: AdminRouteRegistration = ({
   app.get("/delivery-settings", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     return c.json({
@@ -27,13 +28,13 @@ export const registerDeliveryRoutes: AdminRouteRegistration = ({
   app.patch("/delivery-settings", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const body = await parseJson(c.req);
     const patch = parseDeliverySettingsPatch(body);
     if (!patch) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     try {
@@ -57,7 +58,7 @@ export const registerDeliveryRoutes: AdminRouteRegistration = ({
   app.post("/delivery-settings/verify", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     try {

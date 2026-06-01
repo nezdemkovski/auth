@@ -146,6 +146,11 @@ export type BillingEntitlement = {
   priority: number;
 };
 
+export type CatalogOption<T extends string> = {
+  value: T;
+  label: string;
+};
+
 export type BillingProductMapping = {
   slug: string;
   name: string;
@@ -168,6 +173,18 @@ export type BillingSettings = {
   webhookUrl: string;
   benefitPresets: BillingEntitlement[];
   grantTemplate: BillingEntitlement;
+  catalog: {
+    environments: Array<CatalogOption<BillingEnvironment>>;
+    productTypes: Array<CatalogOption<BillingProductType>>;
+    grantTypes: Array<CatalogOption<EntitlementGrantType>>;
+    resetPeriods: Array<CatalogOption<EntitlementResetPeriod>>;
+    recurringIntervals: Array<CatalogOption<"month" | "year">>;
+  };
+  templates: {
+    createProduct: CreatePolarProductInput;
+    product: BillingProductMapping;
+    entitlement: BillingEntitlement;
+  };
 };
 
 export type BillingSettingsPatch = {
@@ -246,6 +263,7 @@ export type PolarProductSummary = {
   isRecurring: boolean;
   isArchived: boolean;
   organizationId: string;
+  suggestedMapping: BillingProductMapping;
 };
 
 export type PolarProductsResponse = {

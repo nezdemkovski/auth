@@ -12,6 +12,7 @@ import {
   requireRegisteredProject,
   type AdminRouteRegistration
 } from "../../http/admin/shared";
+import { ErrorCode } from "../../runtime/error-codes";
 
 export const registerBillingRoutes: AdminRouteRegistration = ({
   app,
@@ -21,7 +22,7 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
   app.get("/projects/:project/billing", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const project = requireRegisteredProject(options, c.req.param("project"));
@@ -37,7 +38,7 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
   app.patch("/projects/:project/billing", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const project = requireMutableProject(options, c.req.param("project"));
@@ -47,7 +48,7 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
 
     const patch = parseBillingSettingsPatch(await parseJson(c.req));
     if (!patch) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     try {
@@ -74,7 +75,7 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
   app.post("/projects/:project/billing/verify", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const project = requireRegisteredProject(options, c.req.param("project"));
@@ -96,7 +97,7 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
   app.get("/projects/:project/billing/polar-products", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const project = requireRegisteredProject(options, c.req.param("project"));
@@ -116,7 +117,7 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
   app.post("/projects/:project/billing/polar-products", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const project = requireMutableProject(options, c.req.param("project"));
@@ -126,7 +127,7 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
 
     const input = parseCreatePolarProduct(await parseJson(c.req));
     if (!input) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     try {

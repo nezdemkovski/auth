@@ -5,6 +5,8 @@ import {
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   DEFAULT_PROJECT_STORAGE,
+  AuthUserRole,
+  ProjectTwoFactorRequirement,
   type AuthProject
 } from "../../../config/projects";
 import {
@@ -55,6 +57,21 @@ const createRegisteredProject = (sessionResponse: Response): LoginRegisteredProj
     project,
     auth: {
       handler: async () => sessionResponse
+    }
+  };
+};
+
+const createRegisteredProjectWithHandler = (
+  handler: LoginRegisteredProject["auth"]["handler"],
+  projectPatch: Partial<AuthProject> = {}
+): LoginRegisteredProject => {
+  return {
+    project: {
+      ...project,
+      ...projectPatch
+    },
+    auth: {
+      handler
     }
   };
 };
@@ -304,5 +321,53 @@ describe("login auth security helpers", () => {
       email: "user@example.com"
     });
     expect(consumedCodes).toEqual(["login-code"]);
+  });
+
+  test("computes the post-login next action on the server", async () => {
+    const service = new LoginFlowService({
+      registry: createRegistry(
+        createRegisteredProjectWithHandler(
+          async (request) => {
+            if (request.url.endsWith("/get-session")) {
+              return Response.json({
+                user: {
+                  email: "admin@example.com",
+                  role: AuthUserRole.Admin,
+                  twoFactorEnabled: false
+                }
+              });
+            }
+
+            return Response.json([]);
+          },
+          {
+            features: {
+              ...DEFAULT_PROJECT_FEATURES,
+              passkey: { enabled: true },
+              twoFactor: {
+                enabled: true,
+                required: ProjectTwoFactorRequirement.Admins
+              }
+            }
+          }
+        )
+      ),
+      codeStore: createMemoryStore().store
+    });
+
+    await expect(
+      service.nextAction({
+        project: "demo",
+        headers: new Headers({
+          cookie: "auth.session=value"
+        })
+      })
+    ).resolves.toMatchObject({
+      user: {
+        role: AuthUserRole.Admin,
+        twoFactorEnabled: false
+      },
+      hasPasskeys: false
+    });
   });
 });

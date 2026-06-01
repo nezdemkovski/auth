@@ -3,7 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
-import type { AuthProject } from "../config/projects";
+import { AuthUserRole, type AuthProject } from "../config/projects";
 import type { EmailConfig } from "../email/sender";
 import { randomBase64Url } from "../runtime/crypto";
 import { logError } from "../runtime/logger";
@@ -149,10 +149,10 @@ const bootstrapInitialAdmin = async (options: BootstrapOptions) => {
 
     if (existing) {
       const user = existing;
-      if (user.role !== "admin") {
+      if (user.role !== AuthUserRole.Admin) {
         await db
           .update(authUsers)
-          .set({ role: "admin" })
+          .set({ role: AuthUserRole.Admin })
           .where(eq(authUsers.id, user.id));
       }
 
@@ -174,7 +174,7 @@ const bootstrapInitialAdmin = async (options: BootstrapOptions) => {
         email: options.adminEmail,
         name: "Initial Admin",
         password: temporaryPassword,
-        role: "admin"
+        role: AuthUserRole.Admin
       }
     });
 

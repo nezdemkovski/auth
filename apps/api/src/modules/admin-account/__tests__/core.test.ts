@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Pool } from "pg";
 
+import { AuthUserRole } from "../../../config/projects";
 import { EmailProvider } from "../../../email/sender";
 import {
   AdminAccountService,
@@ -12,7 +13,7 @@ const session = {
     id: "admin-user",
     email: "admin@example.com",
     name: "Admin",
-    role: "admin"
+    role: AuthUserRole.Admin
   },
   session: {
     id: "admin-session"

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
 import type { EmailConfig } from "../email/sender";
+import { ErrorCode } from "../runtime/error-codes";
 import { AdminAccountService } from "../modules/admin-account/core";
 import { registerAdminAccountRoutes } from "../modules/admin-account/http";
 import { BillingService } from "../modules/billing/core";
@@ -98,7 +99,7 @@ export const createAdminApi = (options: AdminApiOptions) => {
     }
 
     if (!isTrustedAdminRequest(c.req.raw.headers, adminOrigin)) {
-      return c.json({ error: "forbidden_origin" }, 403);
+      return c.json({ error: ErrorCode.ForbiddenOrigin }, 403);
     }
 
     await next();

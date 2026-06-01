@@ -7,6 +7,7 @@ import {
   DEFAULT_PROJECT_STORAGE,
   type AuthProject
 } from "../../../config/projects";
+import { ErrorCode } from "../../../runtime/error-codes";
 import { pkceChallenge } from "../core";
 import {
   createLoginSessionCode,
@@ -14,6 +15,7 @@ import {
   getLoginConfig,
   type LoginOptions
 } from "../http";
+import { PkceChallengeMethod } from "../translator";
 
 const project: AuthProject = {
   slug: "demo",
@@ -86,7 +88,7 @@ describe("login HTTP handlers", () => {
     url.searchParams.set("redirect_uri", "https://demo.example.com/auth/callback");
     url.searchParams.set("state", "client-state");
     url.searchParams.set("code_challenge", pkceChallenge(verifier));
-    url.searchParams.set("code_challenge_method", "S256");
+    url.searchParams.set("code_challenge_method", PkceChallengeMethod.S256);
 
     const response = await getLoginConfig(
       new Request(url),
@@ -109,7 +111,7 @@ describe("login HTTP handlers", () => {
     const url = new URL("http://auth.local/api/demo/login/config/login");
     url.searchParams.set("redirect_uri", "https://evil.example/auth/callback");
     url.searchParams.set("code_challenge", pkceChallenge(verifier));
-    url.searchParams.set("code_challenge_method", "S256");
+    url.searchParams.set("code_challenge_method", PkceChallengeMethod.S256);
 
     const response = await getLoginConfig(
       new Request(url),
@@ -119,7 +121,7 @@ describe("login HTTP handlers", () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: "invalid_redirect_uri"
+      error: ErrorCode.InvalidRedirectUri
     });
   });
 
@@ -134,7 +136,7 @@ describe("login HTTP handlers", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "invalid_body" });
+    expect(await response.json()).toEqual({ error: ErrorCode.InvalidBody });
   });
 
   test("returns invalid_body for malformed token exchange requests", async () => {
@@ -148,6 +150,6 @@ describe("login HTTP handlers", () => {
     );
 
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: "invalid_body" });
+    expect(await response.json()).toEqual({ error: ErrorCode.InvalidBody });
   });
 });

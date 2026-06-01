@@ -1,5 +1,5 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
-import { ADMIN_PROJECT_SLUG } from "../../config/projects";
+import { ADMIN_PROJECT_SLUG, AuthUserRole } from "../../config/projects";
 
 export type AdminSession = {
   user: {
@@ -20,7 +20,7 @@ export const requireAdmin = async (registry: AuthRegistry, headers: Headers) => 
   }
 
   const session = await getSession(registered.auth, headers);
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user.role !== AuthUserRole.Admin) {
     return null;
   }
 

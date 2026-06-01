@@ -1,4 +1,5 @@
 import { projectResponse } from "../projects/translator";
+import { ErrorCode } from "../../runtime/error-codes";
 import {
   mediaUploadBodyError,
   MediaUploadBodyError,
@@ -26,7 +27,7 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
   app.get("/projects/:project/storage", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const project = requireRegisteredProject(options, c.req.param("project"));
@@ -42,7 +43,7 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
   app.get("/projects/:project/storage/objects", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const project = requireRegisteredProject(options, c.req.param("project"));
@@ -58,7 +59,7 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
   app.patch("/projects/:project/storage", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const project = requireMutableProject(options, c.req.param("project"));
@@ -69,7 +70,7 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
     const body = await parseJson(c.req);
     const patch = parseStorageSettingsPatch(body);
     if (!patch) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     try {
@@ -85,7 +86,7 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
     } catch (error) {
       return c.json(
         {
-          error: "invalid_storage_settings",
+          error: ErrorCode.InvalidStorageSettings,
           message: error instanceof Error ? error.message : "Invalid storage settings"
         },
         400
@@ -96,7 +97,7 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
   app.post("/projects/:project/upload", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
-      return c.json({ error: "unauthorized" }, 401);
+      return c.json({ error: ErrorCode.Unauthorized }, 401);
     }
 
     const project = requireMutableProject(options, c.req.param("project"));
@@ -116,7 +117,7 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
       MediaUploadPurpose.ProjectIcon
     );
     if (!uploadRequest) {
-      return c.json({ error: "invalid_body" }, 400);
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     try {
