@@ -21,7 +21,10 @@
     "build:api": "turbo run build --filter=@nezdemkovski/auth-api",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test --filter=@nezdemkovski/auth-api"
+    "test": "turbo run test --filter=@nezdemkovski/auth-api",
+    "test:integration": "cd apps/api && bun run test:integration",
+    "test:integration:up": "docker compose -f dev/docker-compose.integration.yml up -d --wait",
+    "test:integration:down": "docker compose -f dev/docker-compose.integration.yml down -v"
   },
   "devDependencies": {
     "@react-email/ui": "6.3.0",
