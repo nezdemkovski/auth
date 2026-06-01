@@ -14,6 +14,7 @@ import type { EmailSender } from "../email/sender";
 import { createProjectEmailHandlers } from "../email/templates";
 import { sha256Hex } from "../runtime/crypto";
 import { logInfo } from "../runtime/logger";
+import type { PolarWebhookHandlers } from "../modules/billing/webhooks";
 
 type ProjectAuthOptions = {
   project: AuthProject;
@@ -22,6 +23,7 @@ type ProjectAuthOptions = {
   secret: string;
   emailSender: EmailSender | null;
   trustProxyHeaders: boolean;
+  polarWebhookHandlers?: (project: AuthProject) => PolarWebhookHandlers;
 };
 
 type ProjectMigrationOptions = {
@@ -40,7 +42,8 @@ export const createProjectAuth = (options: ProjectAuthOptions) => {
       publicBaseUrl,
       secret,
       emailSender: options.emailSender,
-      trustProxyHeaders: options.trustProxyHeaders
+      trustProxyHeaders: options.trustProxyHeaders,
+      polarWebhookHandlers: options.polarWebhookHandlers
     }),
     database: projectDb.pool
   });
@@ -65,6 +68,7 @@ export const createBaseProjectAuthOptions = (options: {
   secret: string;
   emailSender: EmailSender | null;
   trustProxyHeaders: boolean;
+  polarWebhookHandlers?: (project: AuthProject) => PolarWebhookHandlers;
 }) => {
   const { project, publicBaseUrl, secret } = options;
   const realmSecret = projectAuthSecret(secret, project.slug);
@@ -156,7 +160,7 @@ export const createBaseProjectAuthOptions = (options: {
           return null;
         }
       }),
-      ...buildPolarPlugins(project),
+      ...buildPolarPlugins(project, options.polarWebhookHandlers?.(project)),
       bearer(),
       jwt({
         jwks: {
@@ -204,7 +208,10 @@ export const projectAuthSecret = (rootSecret: string, projectSlug: string) => {
   return sha256Hex(`better-auth-session:v1:${projectSlug}:${rootSecret}`);
 };
 
-const buildPolarPlugins = (project: AuthProject) => {
+const buildPolarPlugins = (
+  project: AuthProject,
+  polarWebhookHandlers: PolarWebhookHandlers | undefined
+) => {
   const settings = project.billing;
   const products = settings.products
     .filter((product) => product.active && product.productId.trim())
@@ -243,12 +250,14 @@ const buildPolarPlugins = (project: AuthProject) => {
       ? [
           webhooks({
             secret: settings.webhookSecret,
-            onPayload: async (payload) => {
-              logInfo("polar_webhook_received", {
-                projectSlug: project.slug,
-                type: payload.type
-              });
-            }
+            ...(polarWebhookHandlers ?? {
+              onPayload: async (payload) => {
+                logInfo("polar_webhook_received", {
+                  projectSlug: project.slug,
+                  type: payload.type
+                });
+              }
+            })
           })
         ]
       : [])

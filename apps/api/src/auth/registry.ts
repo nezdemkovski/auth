@@ -1,6 +1,11 @@
 import type { AuthProject } from "../config/projects";
 import { createProjectDatabase, type ProjectDatabase } from "../db/project-db";
 import type { EmailSender } from "../email/sender";
+import {
+  createPolarWebhookHandlers,
+  type PolarWebhookHandlers
+} from "../modules/billing/webhooks";
+import type { PolarWebhookStore } from "../modules/billing/webhook-store";
 import { createProjectAuth } from "./project-auth";
 
 type ProjectAuth = ReturnType<typeof createProjectAuth>;
@@ -18,6 +23,7 @@ type RegistryOptions = {
   emailSender: EmailSender | null;
   trustProxyHeaders: boolean;
   projects: AuthProject[];
+  polarWebhookStore?: PolarWebhookStore;
 };
 
 export class AuthRegistry {
@@ -95,7 +101,8 @@ export class AuthRegistry {
       publicBaseUrl: this.options.publicBaseUrl,
       secret: this.options.secret,
       emailSender: this.options.emailSender,
-      trustProxyHeaders: this.options.trustProxyHeaders
+      trustProxyHeaders: this.options.trustProxyHeaders,
+      polarWebhookHandlers: this.createPolarWebhookHandlers()
     });
 
     return {
@@ -103,5 +110,18 @@ export class AuthRegistry {
       auth,
       projectDb
     };
+  }
+
+  private createPolarWebhookHandlers() {
+    const store = this.options.polarWebhookStore;
+    if (!store) {
+      return undefined;
+    }
+
+    return (project: AuthProject): PolarWebhookHandlers =>
+      createPolarWebhookHandlers({
+        project,
+        store
+      });
   }
 }

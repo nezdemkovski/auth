@@ -14,6 +14,7 @@ import type { AuthProject } from "../config/projects";
 import { AuthRegistry } from "../auth/registry";
 import { bootstrapProjects, prepareProjectSchema } from "../db/bootstrap";
 import { createAdminDatabase } from "../db/admin-pool";
+import { createPolarWebhookStore } from "../modules/billing/webhook-store";
 import { toRuntimeEmailConfig } from "../modules/delivery/translator";
 import { readDeliverySettings } from "../modules/delivery/store";
 import { loadEffectiveProjects } from "../modules/projects/store";
@@ -87,7 +88,12 @@ export const createApp = async (env: Env) => {
     secret: env.betterAuthSecret,
     emailSender,
     trustProxyHeaders: env.trustProxyHeaders,
-    projects: [adminProject, ...projects]
+    projects: [adminProject, ...projects],
+    polarWebhookStore: createPolarWebhookStore({
+      databaseUrl: env.databaseUrl,
+      adminProject,
+      adminDb
+    })
   });
   const storageService = new StorageService({
     registry,
