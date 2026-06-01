@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { and, asc, desc, eq, or, sql } from "drizzle-orm";
 
 import {
   validateProjectSchema,
@@ -20,18 +20,7 @@ import {
   validateProjectSettingsPatch,
   type ProjectSettingsPatch
 } from "./validator";
-
-type ProjectSettingsRow = {
-  slug: string;
-  name: string;
-  schema: string;
-  description: string | null;
-  iconUrl: string | null;
-  appUrl: string | null;
-  trustedOrigins: unknown;
-  features: unknown;
-  system: boolean;
-};
+import { projectSettings } from "./tables";
 
 export const ensureProjectSettingsTable = async (options: AdminDatabaseOptions) => {
   await withAdminDb(options, async ({ db }) => {
@@ -68,42 +57,34 @@ export const ensureProjectSettingsTable = async (options: AdminDatabaseOptions) 
 export const seedAdminProjectSettings = async (options: AdminDatabaseOptions) => {
   await withAdminDb(options, async ({ db }) => {
     const project = options.adminProject;
-    await db.execute(sql`
-      INSERT INTO auth_project_settings (
-        slug,
-        name,
-        schema,
-        description,
-        icon_url,
-        app_url,
-        trusted_origins,
-        features,
-        system,
-        enabled
-      )
-      VALUES (
-        ${project.slug},
-        ${project.name},
-        ${project.schema},
-        ${project.description},
-        ${project.iconUrl},
-        ${project.appUrl},
-        ${JSON.stringify(project.trustedOrigins)}::jsonb,
-        ${JSON.stringify(project.features)}::jsonb,
-        true,
-        true
-      )
-      ON CONFLICT (slug) DO UPDATE
-      SET name = EXCLUDED.name,
-          schema = EXCLUDED.schema,
-          description = EXCLUDED.description,
-          icon_url = EXCLUDED.icon_url,
-          app_url = EXCLUDED.app_url,
-          trusted_origins = EXCLUDED.trusted_origins,
-          features = COALESCE(NULLIF(auth_project_settings.features, '{}'::jsonb), EXCLUDED.features),
-          system = true,
-          enabled = true
-    `);
+    await db
+      .insert(projectSettings)
+      .values({
+        slug: project.slug,
+        name: project.name,
+        schema: project.schema,
+        description: project.description,
+        iconUrl: project.iconUrl,
+        appUrl: project.appUrl,
+        trustedOrigins: project.trustedOrigins,
+        features: project.features,
+        system: true,
+        enabled: true
+      })
+      .onConflictDoUpdate({
+        target: projectSettings.slug,
+        set: {
+          name: project.name,
+          schema: project.schema,
+          description: project.description,
+          iconUrl: project.iconUrl,
+          appUrl: project.appUrl,
+          trustedOrigins: project.trustedOrigins,
+          features: sql`COALESCE(NULLIF(${projectSettings.features}, '{}'::jsonb), EXCLUDED.features)`,
+          system: true,
+          enabled: true
+        }
+      });
   });
 };
 
@@ -139,15 +120,18 @@ export const projectSettingsExists = async (options: AdminDatabaseOptions & {
   validateProjectSchema(options.schema);
 
   return withAdminDb(options, async ({ db }) => {
-    const result = await db.execute<{ exists: boolean }>(sql`
-      SELECT EXISTS (
-        SELECT 1
-        FROM auth_project_settings
-        WHERE slug = ${options.slug}
-           OR schema = ${options.schema}
-      ) AS "exists"
-    `);
-    return result.rows[0]?.exists ?? false;
+    const rows = await db
+      .select({ slug: projectSettings.slug })
+      .from(projectSettings)
+      .where(
+        or(
+          eq(projectSettings.slug, options.slug),
+          eq(projectSettings.schema, options.schema)
+        )
+      )
+      .limit(1);
+
+    return rows.length > 0;
   });
 };
 
@@ -157,38 +141,23 @@ export const createProjectSettings = async (options: AdminDatabaseOptions & {
   validateProjectSettingsPatch(options.project);
 
   return withAdminDb(options, async ({ db }) => {
-    const created = await db.execute<ProjectSettingsRow>(sql`
-      INSERT INTO auth_project_settings (
-        slug,
-        name,
-        schema,
-        description,
-        icon_url,
-        app_url,
-        trusted_origins,
-        features,
-        system,
-        enabled
-      )
-      VALUES (
-        ${options.project.slug},
-        ${options.project.name},
-        ${options.project.schema},
-        ${options.project.description},
-        ${options.project.iconUrl},
-        ${options.project.appUrl},
-        ${JSON.stringify(options.project.trustedOrigins)}::jsonb,
-        ${JSON.stringify(options.project.features)}::jsonb,
-        false,
-        true
-      )
-      RETURNING slug, name, schema, description, icon_url AS "iconUrl",
-                app_url AS "appUrl", trusted_origins AS "trustedOrigins",
-                features,
-                system
-    `);
+    const created = await db
+      .insert(projectSettings)
+      .values({
+        slug: options.project.slug,
+        name: options.project.name,
+        schema: options.project.schema,
+        description: options.project.description,
+        iconUrl: options.project.iconUrl,
+        appUrl: options.project.appUrl,
+        trustedOrigins: options.project.trustedOrigins,
+        features: options.project.features,
+        system: false,
+        enabled: true
+      })
+      .returning();
 
-    return rowToProject(created.rows[0]);
+    return rowToProject(created[0]);
   });
 };
 
@@ -208,11 +177,14 @@ export const deleteProjectSettings = async (options: AdminDatabaseOptions & {
   validateProjectSlug(options.slug);
 
   await withAdminDb(options, async ({ db }) => {
-    await db.execute(sql`
-      DELETE FROM auth_project_settings
-      WHERE slug = ${options.slug}
-        AND system = false
-    `);
+    await db
+      .delete(projectSettings)
+      .where(
+        and(
+          eq(projectSettings.slug, options.slug),
+          eq(projectSettings.system, false)
+        )
+      );
   });
 };
 
@@ -223,37 +195,31 @@ export const updateProjectSettings = async (options: AdminDatabaseOptions & {
   validateProjectSettingsPatch(options.patch);
 
   return withAdminDb(options, async ({ db }) => {
-    const existing = await db.execute<ProjectSettingsRow>(sql`
-      SELECT slug, name, schema, description, icon_url AS "iconUrl",
-             app_url AS "appUrl", trusted_origins AS "trustedOrigins",
-             features,
-             system
-      FROM auth_project_settings
-      WHERE slug = ${options.slug}
-      LIMIT 1
-    `);
+    const existing = await db
+      .select({ slug: projectSettings.slug })
+      .from(projectSettings)
+      .where(eq(projectSettings.slug, options.slug))
+      .limit(1);
 
-    if (existing.rows.length === 0) {
+    if (existing.length === 0) {
       return null;
     }
 
-    const updated = await db.execute<ProjectSettingsRow>(sql`
-      UPDATE auth_project_settings
-      SET name = ${options.patch.name},
-          description = ${options.patch.description},
-          icon_url = ${options.patch.iconUrl},
-          app_url = ${options.patch.appUrl},
-          trusted_origins = ${JSON.stringify(options.patch.trustedOrigins)}::jsonb,
-          features = ${JSON.stringify(options.patch.features)}::jsonb,
-          updated_at = now()
-      WHERE slug = ${options.slug}
-      RETURNING slug, name, schema, description, icon_url AS "iconUrl",
-                app_url AS "appUrl", trusted_origins AS "trustedOrigins",
-                features,
-                system
-    `);
+    const updated = await db
+      .update(projectSettings)
+      .set({
+        name: options.patch.name,
+        description: options.patch.description,
+        iconUrl: options.patch.iconUrl,
+        appUrl: options.patch.appUrl,
+        trustedOrigins: options.patch.trustedOrigins,
+        features: options.patch.features,
+        updatedAt: sql`now()`
+      })
+      .where(eq(projectSettings.slug, options.slug))
+      .returning();
 
-    return rowToProject(updated.rows[0]);
+    return rowToProject(updated[0]);
   });
 };
 
@@ -264,34 +230,28 @@ export const updateProjectIconUrl = async (options: AdminDatabaseOptions & {
   validateOptionalUrl(options.iconUrl, "iconUrl");
 
   return withAdminDb(options, async ({ db }) => {
-    const updated = await db.execute<ProjectSettingsRow>(sql`
-      UPDATE auth_project_settings
-      SET icon_url = ${options.iconUrl},
-          updated_at = now()
-      WHERE slug = ${options.slug}
-      RETURNING slug, name, schema, description, icon_url AS "iconUrl",
-                app_url AS "appUrl", trusted_origins AS "trustedOrigins",
-                features,
-                system
-    `);
+    const updated = await db
+      .update(projectSettings)
+      .set({
+        iconUrl: options.iconUrl,
+        updatedAt: sql`now()`
+      })
+      .where(eq(projectSettings.slug, options.slug))
+      .returning();
 
-    return updated.rows[0] ? rowToProject(updated.rows[0]) : null;
+    return updated[0] ? rowToProject(updated[0]) : null;
   });
 };
 
 const readProjectSettings = async (options: AdminDatabaseOptions) => {
   return withAdminDb(options, async ({ db }) => {
-    const rows = await db.execute<ProjectSettingsRow>(sql`
-      SELECT slug, name, schema, description, icon_url AS "iconUrl",
-             app_url AS "appUrl", trusted_origins AS "trustedOrigins",
-             features,
-             system
-      FROM auth_project_settings
-      WHERE enabled = true
-      ORDER BY system DESC, slug ASC
-    `);
+    const rows = await db
+      .select()
+      .from(projectSettings)
+      .where(eq(projectSettings.enabled, true))
+      .orderBy(desc(projectSettings.system), asc(projectSettings.slug));
 
-    return rows.rows.map(rowToProject);
+    return rows.map(rowToProject);
   });
 };
 
@@ -310,7 +270,7 @@ const validateOptionalUrl = (value: string, field: string) => {
   }
 };
 
-const rowToProject = (row: ProjectSettingsRow) => {
+const rowToProject = (row: typeof projectSettings.$inferSelect) => {
   return {
     slug: row.slug,
     name: row.name,

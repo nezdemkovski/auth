@@ -1,5 +1,5 @@
 import { getMigrations } from "better-auth/db/migration";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
@@ -7,6 +7,7 @@ import type { AuthProject } from "../config/projects";
 import type { EmailConfig } from "../email/sender";
 import { randomBase64Url } from "../runtime/crypto";
 import { logError } from "../runtime/logger";
+import { authBootstrapState, authUsers } from "./auth-tables";
 import {
   createProjectAuth,
   createProjectMigrationAuthOptions
@@ -136,28 +137,33 @@ const bootstrapInitialAdmin = async (options: BootstrapOptions) => {
       )
     `);
 
-    const existing = await db.execute<{ id: string; email: string; role: string | null }>(sql`
-      SELECT id, email, role
-      FROM "user"
-      WHERE lower(email) = lower(${options.adminEmail})
-      LIMIT 1
-    `);
+    const [existing] = await db
+      .select({
+        id: authUsers.id,
+        email: authUsers.email,
+        role: authUsers.role
+      })
+      .from(authUsers)
+      .where(sql`lower(${authUsers.email}) = lower(${options.adminEmail})`)
+      .limit(1);
 
-    if (existing.rows.length > 0) {
-      const user = existing.rows[0];
+    if (existing) {
+      const user = existing;
       if (user.role !== "admin") {
-        await db.execute(sql`
-          UPDATE "user"
-          SET role = 'admin'
-          WHERE id = ${user.id}
-        `);
+        await db
+          .update(authUsers)
+          .set({ role: "admin" })
+          .where(eq(authUsers.id, user.id));
       }
 
-      await db.execute(sql`
-        INSERT INTO auth_bootstrap_state (key, user_id, must_change_password)
-        VALUES ('initial_admin', ${user.id}, false)
-        ON CONFLICT (key) DO NOTHING
-      `);
+      await db
+        .insert(authBootstrapState)
+        .values({
+          key: "initial_admin",
+          userId: user.id,
+          mustChangePassword: false
+        })
+        .onConflictDoNothing();
       console.info(`[bootstrap] ${project.slug}: initial admin already exists`);
       return;
     }
@@ -172,15 +178,22 @@ const bootstrapInitialAdmin = async (options: BootstrapOptions) => {
       }
     });
 
-    await db.execute(sql`
-      INSERT INTO auth_bootstrap_state (key, user_id, must_change_password)
-      VALUES ('initial_admin', ${created.user.id}, true)
-      ON CONFLICT (key) DO UPDATE
-      SET user_id = EXCLUDED.user_id,
-          must_change_password = true,
-          generated_at = now(),
-          changed_at = NULL
-    `);
+    await db
+      .insert(authBootstrapState)
+      .values({
+        key: "initial_admin",
+        userId: created.user.id,
+        mustChangePassword: true
+      })
+      .onConflictDoUpdate({
+        target: authBootstrapState.key,
+        set: {
+          userId: created.user.id,
+          mustChangePassword: true,
+          generatedAt: sql`now()`,
+          changedAt: null
+        }
+      });
 
     console.info(`[bootstrap] ${project.slug}: created initial admin ${options.adminEmail}`);
     console.info(`[bootstrap] ${project.slug}: temporary admin password: ${temporaryPassword}`);

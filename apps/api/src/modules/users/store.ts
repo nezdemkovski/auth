@@ -1,6 +1,8 @@
-import { sql } from "drizzle-orm";
+import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import type { Pool } from "pg";
+
+import { authSessions, authUsers } from "../../db/auth-tables";
 
 export type ProjectUserRow = {
   id: string;
@@ -16,60 +18,82 @@ export type ProjectUserRow = {
 
 export const readProjectCounts = async (pool: Pool) => {
   const db = drizzle({ client: pool });
-  const result = await db.execute<{
-    userCount: string;
-    activeSessionCount: string;
-  }>(sql`
-    SELECT (SELECT COUNT(*)::int FROM "user") AS "userCount",
-           (SELECT COUNT(*)::int FROM "session" WHERE "expiresAt" > now()) AS "activeSessionCount"
-  `);
+  const userRows = await db
+    .select({
+      count: sql<number>`COUNT(*)::int`
+    })
+    .from(authUsers);
+  const sessionRows = await db
+    .select({
+      count: sql<number>`COUNT(*)::int`
+    })
+    .from(authSessions)
+    .where(gt(authSessions.expiresAt, sql`now()`));
 
   return {
-    userCount: Number(result.rows[0]?.userCount ?? 0),
-    activeSessionCount: Number(result.rows[0]?.activeSessionCount ?? 0)
+    userCount: Number(userRows[0]?.count ?? 0),
+    activeSessionCount: Number(sessionRows[0]?.count ?? 0)
   };
 };
 
 export const readProjectUsers = async (pool: Pool) => {
   const db = drizzle({ client: pool });
-  const result = await db.execute<ProjectUserRow>(sql`
-    SELECT u.id,
-           u.email,
-           u.name,
-           u.role,
-           u.banned,
-           u."emailVerified",
-           u."createdAt",
-           u."updatedAt",
-           COUNT(s.id)::int AS "sessionCount"
-    FROM "user" u
-    LEFT JOIN "session" s ON s."userId" = u.id AND s."expiresAt" > now()
-    GROUP BY u.id
-    ORDER BY u."createdAt" DESC
-    LIMIT 100
-  `);
-
-  return result.rows;
+  return db
+    .select({
+      id: authUsers.id,
+      email: authUsers.email,
+      name: authUsers.name,
+      role: authUsers.role,
+      banned: authUsers.banned,
+      emailVerified: authUsers.emailVerified,
+      createdAt: authUsers.createdAt,
+      updatedAt: authUsers.updatedAt,
+      sessionCount: sql<number>`COUNT(${authSessions.id})::int`
+    })
+    .from(authUsers)
+    .leftJoin(
+      authSessions,
+      and(
+        eq(authSessions.userId, authUsers.id),
+        gt(authSessions.expiresAt, sql`now()`)
+      )
+    )
+    .groupBy(
+      authUsers.id,
+      authUsers.email,
+      authUsers.name,
+      authUsers.role,
+      authUsers.banned,
+      authUsers.emailVerified,
+      authUsers.createdAt,
+      authUsers.updatedAt
+    )
+    .orderBy(desc(authUsers.createdAt))
+    .limit(100);
 };
 
 export const terminateUserSessions = async (pool: Pool, userId: string) => {
   const db = drizzle({ client: pool });
-  const result = await db.execute<{ id: string }>(sql`
-    DELETE FROM "session"
-    WHERE "userId" = ${userId}
-      AND "expiresAt" > now()
-    RETURNING id
-  `);
+  const rows = await db
+    .delete(authSessions)
+    .where(
+      and(
+        eq(authSessions.userId, userId),
+        gt(authSessions.expiresAt, sql`now()`)
+      )
+    )
+    .returning({ id: authSessions.id });
 
-  return result.rows.length;
+  return rows.length;
 };
 
 export const updateUserImage = async (pool: Pool, userId: string, image: string) => {
   const db = drizzle({ client: pool });
-  await db.execute(sql`
-    UPDATE "user"
-    SET image = ${image},
-        "updatedAt" = now()
-    WHERE id = ${userId}
-  `);
+  await db
+    .update(authUsers)
+    .set({
+      image,
+      updatedAt: sql`now()`
+    })
+    .where(eq(authUsers.id, userId));
 };

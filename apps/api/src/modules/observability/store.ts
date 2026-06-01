@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import {
   DEFAULT_PLATFORM_OBSERVABILITY,
@@ -8,6 +8,7 @@ import {
 import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 import { isEnumValue } from "../../runtime/enums";
+import { observabilitySettings } from "./tables";
 import {
   validateObservabilitySettingsPatch,
   type ObservabilitySettingsPatch
@@ -19,15 +20,6 @@ export type ObservabilitySettingsState = Omit<
 > & {
   dsnConfigured: boolean;
   updatedAt: string | null;
-};
-
-type ObservabilitySettingsRow = {
-  key: string;
-  provider: string;
-  enabled: boolean;
-  dsnCipher: string;
-  environment: string;
-  updatedAt: Date | string;
 };
 
 const SETTINGS_KEY = "default";
@@ -88,59 +80,45 @@ export const updateObservabilitySettings = async (
       : current?.dsnCipher ?? "";
 
   return withAdminDb(options, async ({ db }) => {
-    const result = await db.execute<ObservabilitySettingsRow>(sql`
-      INSERT INTO auth_observability_settings (
-        key,
-        provider,
-        enabled,
-        dsn_cipher,
-        environment
-      )
-      VALUES (
-        ${SETTINGS_KEY},
-        ${options.patch.provider},
-        ${options.patch.enabled},
-        ${dsnCipher},
-        ${options.patch.environment}
-      )
-      ON CONFLICT (key) DO UPDATE
-      SET provider = EXCLUDED.provider,
-          enabled = EXCLUDED.enabled,
-          dsn_cipher = EXCLUDED.dsn_cipher,
-          environment = EXCLUDED.environment,
-          updated_at = now()
-      RETURNING key,
-                provider,
-                enabled,
-                dsn_cipher AS "dsnCipher",
-                environment,
-                updated_at AS "updatedAt"
-    `);
+    const [row] = await db
+      .insert(observabilitySettings)
+      .values({
+        key: SETTINGS_KEY,
+        provider: options.patch.provider,
+        enabled: options.patch.enabled,
+        dsnCipher,
+        environment: options.patch.environment
+      })
+      .onConflictDoUpdate({
+        target: observabilitySettings.key,
+        set: {
+          provider: options.patch.provider,
+          enabled: options.patch.enabled,
+          dsnCipher,
+          environment: options.patch.environment,
+          updatedAt: sql`now()`
+        }
+      })
+      .returning();
 
-    return rowToSettings(result.rows[0], options.encryptionSecret);
+    return rowToSettings(row, options.encryptionSecret);
   });
 };
 
 const readObservabilitySettingsRow = async (options: AdminDatabaseOptions) => {
   return withAdminDb(options, async ({ db }) => {
-    const result = await db.execute<ObservabilitySettingsRow>(sql`
-      SELECT key,
-             provider,
-             enabled,
-             dsn_cipher AS "dsnCipher",
-             environment,
-             updated_at AS "updatedAt"
-      FROM auth_observability_settings
-      WHERE key = ${SETTINGS_KEY}
-      LIMIT 1
-    `);
+    const [row] = await db
+      .select()
+      .from(observabilitySettings)
+      .where(eq(observabilitySettings.key, SETTINGS_KEY))
+      .limit(1);
 
-    return result.rows[0] ?? null;
+    return row ?? null;
   });
 };
 
 const rowToSettings = async (
-  row: ObservabilitySettingsRow | null,
+  row: typeof observabilitySettings.$inferSelect | null,
   encryptionSecret: string
 ) => {
   if (!row) {
@@ -160,7 +138,7 @@ const rowToSettings = async (
   };
 };
 
-const rowToState = (row: ObservabilitySettingsRow | null) => {
+const rowToState = (row: typeof observabilitySettings.$inferSelect | null) => {
   if (!row) {
     return {
       provider: DEFAULT_PLATFORM_OBSERVABILITY.provider,

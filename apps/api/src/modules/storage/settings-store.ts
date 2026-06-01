@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import {
   DEFAULT_PROJECT_STORAGE,
@@ -9,6 +9,7 @@ import {
 import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 import { isEnumValue } from "../../runtime/enums";
+import { storageSettings } from "./tables";
 
 export type StorageSettingsState = Omit<
   ProjectStorageSettings,
@@ -30,18 +31,6 @@ export type StorageSettingsPatch = {
   publicBaseUrl?: string;
   accessKeyId?: string;
   secretAccessKey?: string;
-};
-
-type StorageSettingsRow = {
-  projectSlug: string;
-  provider: string;
-  enabled: boolean;
-  endpoint: string;
-  region: string;
-  bucket: string;
-  publicBaseUrl: string;
-  accessKeyIdCipher: string;
-  secretAccessKeyCipher: string;
 };
 
 export const ensureStorageSettingsTable = async (options: AdminDatabaseOptions) => {
@@ -69,21 +58,10 @@ export const loadStorageSettings = async (options: AdminDatabaseOptions & {
   managedStorage: ProjectStorageSettings;
 }) => {
   return withAdminDb(options, async ({ db }) => {
-    const result = await db.execute<StorageSettingsRow>(sql`
-      SELECT project_slug AS "projectSlug",
-             provider,
-             enabled,
-             endpoint,
-             region,
-             bucket,
-             public_base_url AS "publicBaseUrl",
-             access_key_id_cipher AS "accessKeyIdCipher",
-             secret_access_key_cipher AS "secretAccessKeyCipher"
-      FROM auth_storage_settings
-    `);
+    const rows = await db.select().from(storageSettings);
 
     const byProject = new Map<string, ProjectStorageSettings>();
-    for (const row of result.rows) {
+    for (const row of rows) {
       byProject.set(
         row.projectSlug,
         await rowToStorage(row, options.encryptionSecret, options.managedStorage)
@@ -142,51 +120,36 @@ export const updateStorageSettings = async (options: AdminDatabaseOptions & {
       : current?.secretAccessKeyCipher ?? "";
 
   return withAdminDb(options, async ({ db }) => {
-    const result = await db.execute<StorageSettingsRow>(sql`
-      INSERT INTO auth_storage_settings (
-        project_slug,
-        provider,
-        enabled,
-        endpoint,
-        region,
-        bucket,
-        public_base_url,
-        access_key_id_cipher,
-        secret_access_key_cipher
-      )
-      VALUES (
-        ${options.project.slug},
-        ${patch.provider},
-        ${patch.enabled},
-        ${(patch.endpoint ?? "").trim()},
-        ${(patch.region ?? "").trim() || "auto"},
-        ${(patch.bucket ?? "").trim()},
-        ${trimTrailingSlash(patch.publicBaseUrl ?? "")},
-        ${accessKeyIdCipher},
-        ${secretAccessKeyCipher}
-      )
-      ON CONFLICT (project_slug) DO UPDATE
-      SET provider = EXCLUDED.provider,
-          enabled = EXCLUDED.enabled,
-          endpoint = EXCLUDED.endpoint,
-          region = EXCLUDED.region,
-          bucket = EXCLUDED.bucket,
-          public_base_url = EXCLUDED.public_base_url,
-          access_key_id_cipher = EXCLUDED.access_key_id_cipher,
-          secret_access_key_cipher = EXCLUDED.secret_access_key_cipher,
-          updated_at = now()
-      RETURNING project_slug AS "projectSlug",
-                provider,
-                enabled,
-                endpoint,
-                region,
-                bucket,
-                public_base_url AS "publicBaseUrl",
-                access_key_id_cipher AS "accessKeyIdCipher",
-                secret_access_key_cipher AS "secretAccessKeyCipher"
-    `);
+    const [row] = await db
+      .insert(storageSettings)
+      .values({
+        projectSlug: options.project.slug,
+        provider: patch.provider,
+        enabled: patch.enabled,
+        endpoint: (patch.endpoint ?? "").trim(),
+        region: (patch.region ?? "").trim() || "auto",
+        bucket: (patch.bucket ?? "").trim(),
+        publicBaseUrl: trimTrailingSlash(patch.publicBaseUrl ?? ""),
+        accessKeyIdCipher,
+        secretAccessKeyCipher
+      })
+      .onConflictDoUpdate({
+        target: storageSettings.projectSlug,
+        set: {
+          provider: patch.provider,
+          enabled: patch.enabled,
+          endpoint: (patch.endpoint ?? "").trim(),
+          region: (patch.region ?? "").trim() || "auto",
+          bucket: (patch.bucket ?? "").trim(),
+          publicBaseUrl: trimTrailingSlash(patch.publicBaseUrl ?? ""),
+          accessKeyIdCipher,
+          secretAccessKeyCipher,
+          updatedAt: sql`now()`
+        }
+      })
+      .returning();
 
-    return rowToStorage(result.rows[0], options.encryptionSecret, options.managedStorage);
+    return rowToStorage(row, options.encryptionSecret, options.managedStorage);
   });
 };
 
@@ -204,7 +167,7 @@ export const cloneDefaultStorage = (managedStorage: ProjectStorageSettings = DEF
 };
 
 const rowToStorage = async (
-  row: StorageSettingsRow,
+  row: typeof storageSettings.$inferSelect,
   encryptionSecret: string,
   managedStorage: ProjectStorageSettings
 ) => {
@@ -240,7 +203,10 @@ const rowToStorage = async (
   };
 };
 
-const rowToState = (row: StorageSettingsRow | null, managedStorage: ProjectStorageSettings) => {
+const rowToState = (
+  row: typeof storageSettings.$inferSelect | null,
+  managedStorage: ProjectStorageSettings
+) => {
   if (managedStorage.managed) {
     const enabled = row?.enabled ?? false;
     return {
@@ -286,22 +252,13 @@ const readStorageSettingsRow = async (options: AdminDatabaseOptions & {
   project: AuthProject;
 }) => {
   return withAdminDb(options, async ({ db }) => {
-    const result = await db.execute<StorageSettingsRow>(sql`
-      SELECT project_slug AS "projectSlug",
-             provider,
-             enabled,
-             endpoint,
-             region,
-             bucket,
-             public_base_url AS "publicBaseUrl",
-             access_key_id_cipher AS "accessKeyIdCipher",
-             secret_access_key_cipher AS "secretAccessKeyCipher"
-      FROM auth_storage_settings
-      WHERE project_slug = ${options.project.slug}
-      LIMIT 1
-    `);
+    const [row] = await db
+      .select()
+      .from(storageSettings)
+      .where(eq(storageSettings.projectSlug, options.project.slug))
+      .limit(1);
 
-    return result.rows[0] ?? null;
+    return row ?? null;
   });
 };
 

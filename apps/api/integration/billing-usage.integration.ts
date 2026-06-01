@@ -21,7 +21,8 @@ import { seedIntegrationRealm } from "./seed";
 import {
   integrationAdminDbOptions,
   createIntegrationApp,
-  resetAndBootstrapIntegrationDatabase
+  resetAndBootstrapIntegrationDatabase,
+  signUpIntegrationUser
 } from "./setup";
 import { DIRECT_CLIENT_IP_HEADER } from "../src/http/security";
 import { isRecord } from "../src/runtime/type-guards";
@@ -174,7 +175,7 @@ describe("billing usage integration", () => {
     const { app, close } = await createIntegrationApp();
 
     try {
-      const cookie = await signUpAndReadCookie({
+      const { cookie } = await signUpIntegrationUser({
         app,
         projectSlug: project.slug,
         origin: project.appUrl,
@@ -479,36 +480,6 @@ const expectSummary = async (
     unlimited: false,
     ...expected
   });
-};
-
-const signUpAndReadCookie = async (options: {
-  app: Awaited<ReturnType<typeof createIntegrationApp>>["app"];
-  projectSlug: string;
-  origin: string;
-  email: string;
-  password: string;
-}) => {
-  const response = await options.app.request(
-    `/api/${options.projectSlug}/auth/sign-up/email`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Origin: options.origin,
-        [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
-      },
-      body: JSON.stringify({
-        name: "Billing User",
-        email: options.email,
-        password: options.password
-      })
-    }
-  );
-
-  expect(response.status).toBe(200);
-  const cookie = response.headers.get("set-cookie")?.split(";")[0] ?? "";
-  expect(cookie).toContain("auth_integration-billing");
-  return cookie;
 };
 
 const billingApi = (

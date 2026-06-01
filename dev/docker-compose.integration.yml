@@ -24,3 +24,36 @@ services:
       interval: 2s
       timeout: 5s
       retries: 20
+
+  rustfs:
+    image: rustfs/rustfs:1.0.0-beta.6
+    command: ["--address", ":9000", "--console-enable", "/data"]
+    environment:
+      RUSTFS_ACCESS_KEY: auth-integration-access-key
+      RUSTFS_SECRET_KEY: auth-integration-secret-key
+      RUSTFS_CONSOLE_ENABLE: "true"
+    ports:
+      - "9002:9000"
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget -q -O- http://127.0.0.1:9000/ >/dev/null 2>&1 || exit 0"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  rustfs-init:
+    image: amazon/aws-cli:2.34.53@sha256:cf53765c0de54ad3a8ea21818f1c4c845a8cf7ca87831c078a00fef244031493
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        until aws --endpoint-url=http://rustfs:9000 s3api list-buckets >/dev/null 2>&1;
+        do sleep 1; done;
+        aws --endpoint-url=http://rustfs:9000 s3api create-bucket --bucket auth-integration-public >/dev/null 2>&1 || true;
+        aws --endpoint-url=http://rustfs:9000 s3api put-bucket-policy --bucket auth-integration-public --policy
+        '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::auth-integration-public/*"]}]}'
+    environment:
+      AWS_ACCESS_KEY_ID: auth-integration-access-key
+      AWS_SECRET_ACCESS_KEY: auth-integration-secret-key
+      AWS_DEFAULT_REGION: us-east-1
+    depends_on:
+      rustfs:
+        condition: service_started

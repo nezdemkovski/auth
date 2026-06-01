@@ -111,7 +111,7 @@ services:
       - "63790:6379"
 
   rustfs:
-    image: rustfs/rustfs@sha256:f7cb98ef492fa3c3ed0dbd65df3ce2dd205c666e24e7d7234d9402c9ed1001f9
+    image: rustfs/rustfs:1.0.0-beta.6
     command: ["--address", ":9000", "--console-enable", "/data"]
     environment:
       RUSTFS_ACCESS_KEY: auth-dev-access-key

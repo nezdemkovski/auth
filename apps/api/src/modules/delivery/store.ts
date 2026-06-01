@@ -1,9 +1,10 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
 import { EmailProvider, type EmailConfig } from "../../email/sender";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 import { isEnumValue } from "../../runtime/enums";
+import { deliverySettings } from "./tables";
 import type { DeliverySettingsPatch } from "./validator";
 
 export type DeliverySettings = {
@@ -15,15 +16,6 @@ export type DeliverySettings = {
   cloudflareApiTokenConfigured: boolean;
   resendApiKeyConfigured: boolean;
   updatedAt: string | null;
-};
-
-type DeliverySettingsRow = {
-  provider: string;
-  fromAddress: string;
-  cloudflareAccountId: string;
-  cloudflareApiTokenCipher: string;
-  resendApiKeyCipher: string;
-  updatedAt: Date | string;
 };
 
 const SETTINGS_KEY = "default";
@@ -110,57 +102,42 @@ export const updateDeliverySettings = async (options: AdminDatabaseOptions & {
       : current?.cloudflareApiTokenCipher ?? "";
 
   return withAdminDb(options, async ({ db }) => {
-    const result = await db.execute<DeliverySettingsRow>(sql`
-      INSERT INTO auth_delivery_settings (
-        key,
-        provider,
-        from_address,
-        cloudflare_account_id,
-        cloudflare_api_token_cipher,
-        resend_api_key_cipher
-      )
-      VALUES (
-        ${SETTINGS_KEY},
-        ${options.patch.provider},
-        ${options.patch.from.trim()},
-        ${options.patch.cloudflareAccountId.trim()},
-        ${cloudflareApiTokenCipher},
-        ${resendApiKeyCipher}
-      )
-      ON CONFLICT (key) DO UPDATE
-      SET provider = EXCLUDED.provider,
-          from_address = EXCLUDED.from_address,
-          cloudflare_account_id = EXCLUDED.cloudflare_account_id,
-          cloudflare_api_token_cipher = EXCLUDED.cloudflare_api_token_cipher,
-          resend_api_key_cipher = EXCLUDED.resend_api_key_cipher,
-          updated_at = now()
-      RETURNING provider,
-                from_address AS "fromAddress",
-                cloudflare_account_id AS "cloudflareAccountId",
-                cloudflare_api_token_cipher AS "cloudflareApiTokenCipher",
-                resend_api_key_cipher AS "resendApiKeyCipher",
-                updated_at AS "updatedAt"
-    `);
+    const [row] = await db
+      .insert(deliverySettings)
+      .values({
+        key: SETTINGS_KEY,
+        provider: options.patch.provider,
+        fromAddress: options.patch.from.trim(),
+        cloudflareAccountId: options.patch.cloudflareAccountId.trim(),
+        cloudflareApiTokenCipher,
+        resendApiKeyCipher
+      })
+      .onConflictDoUpdate({
+        target: deliverySettings.key,
+        set: {
+          provider: options.patch.provider,
+          fromAddress: options.patch.from.trim(),
+          cloudflareAccountId: options.patch.cloudflareAccountId.trim(),
+          cloudflareApiTokenCipher,
+          resendApiKeyCipher,
+          updatedAt: sql`now()`
+        }
+      })
+      .returning();
 
-    return rowToDeliverySettings(result.rows[0], options.encryptionSecret);
+    return rowToDeliverySettings(row, options.encryptionSecret);
   });
 };
 
 const readDeliverySettingsRow = async (options: AdminDatabaseOptions) => {
   return withAdminDb(options, async ({ db }) => {
-    const result = await db.execute<DeliverySettingsRow>(sql`
-      SELECT provider,
-             from_address AS "fromAddress",
-             cloudflare_account_id AS "cloudflareAccountId",
-             cloudflare_api_token_cipher AS "cloudflareApiTokenCipher",
-             resend_api_key_cipher AS "resendApiKeyCipher",
-             updated_at AS "updatedAt"
-      FROM auth_delivery_settings
-      WHERE key = ${SETTINGS_KEY}
-      LIMIT 1
-    `);
+    const [row] = await db
+      .select()
+      .from(deliverySettings)
+      .where(eq(deliverySettings.key, SETTINGS_KEY))
+      .limit(1);
 
-    return result.rows[0] ?? null;
+    return row ?? null;
   });
 };
 
@@ -181,7 +158,7 @@ const encryptionContext = (key: string) => {
 };
 
 const rowToDeliverySettings = async (
-  row: DeliverySettingsRow | null | undefined,
+  row: typeof deliverySettings.$inferSelect | null | undefined,
   encryptionSecret: string
 ) => {
   if (!row) {

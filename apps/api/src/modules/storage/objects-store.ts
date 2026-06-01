@@ -1,8 +1,9 @@
-import { sql } from "drizzle-orm";
+import { desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import type { Pool } from "pg";
 
 import { MediaUploadPurpose } from "./media";
+import { storageObjects } from "./tables";
 
 export type StorageObjectPurpose = MediaUploadPurpose;
 
@@ -62,82 +63,44 @@ export const ensureStorageObjectsTable = async (pool: Pool) => {
 export const listStorageObjects = async (pool: Pool) => {
   const db = drizzle({ client: pool });
 
-  const result = await db.execute<{
-    id: string;
-    purpose: StorageObjectPurpose;
-    bucket: string;
-    object_key: string;
-    public_url: string;
-    original_file_name: string;
-    mime_type: string;
-    size_bytes: number;
-    checksum_sha256: string;
-    owner_user_id: string | null;
-    created_at: Date | string;
-  }>(sql`
-    SELECT
-      id,
-      purpose,
-      bucket,
-      object_key,
-      public_url,
-      original_file_name,
-      mime_type,
-      size_bytes,
-      checksum_sha256,
-      owner_user_id,
-      created_at
-    FROM auth_storage_objects
-    ORDER BY created_at DESC
-    LIMIT 200
-  `);
+  const rows = await db
+    .select()
+    .from(storageObjects)
+    .orderBy(desc(storageObjects.createdAt))
+    .limit(200);
 
-  return result.rows.map((row) => ({
+  return rows.map((row) => ({
     id: row.id,
     purpose: row.purpose,
-    folder: folderFromObjectKey(row.object_key),
+    folder: folderFromObjectKey(row.objectKey),
     bucket: row.bucket,
-    objectKey: row.object_key,
-    publicUrl: row.public_url,
-    originalFileName: row.original_file_name,
-    mimeType: row.mime_type,
-    sizeBytes: row.size_bytes,
-    checksumSha256: row.checksum_sha256,
-    ownerUserId: row.owner_user_id,
+    objectKey: row.objectKey,
+    publicUrl: row.publicUrl,
+    originalFileName: row.originalFileName,
+    mimeType: row.mimeType,
+    sizeBytes: row.sizeBytes,
+    checksumSha256: row.checksumSha256,
+    ownerUserId: row.ownerUserId,
     createdAt:
-      row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
+      row.createdAt instanceof Date ? row.createdAt.toISOString() : row.createdAt
   }));
 };
 
 export const insertStorageObject = async (pool: Pool, input: StorageObjectInput) => {
   const db = drizzle({ client: pool });
 
-  await db.execute(sql`
-    INSERT INTO auth_storage_objects (
-      id,
-      purpose,
-      bucket,
-      object_key,
-      public_url,
-      original_file_name,
-      mime_type,
-      size_bytes,
-      checksum_sha256,
-      owner_user_id
-    )
-    VALUES (
-      ${crypto.randomUUID()},
-      ${input.purpose},
-      ${input.bucket},
-      ${input.objectKey},
-      ${input.publicUrl},
-      ${input.originalFileName},
-      ${input.mimeType},
-      ${input.sizeBytes},
-      ${input.checksumSha256},
-      ${input.ownerUserId}
-    )
-  `);
+  await db.insert(storageObjects).values({
+    id: crypto.randomUUID(),
+    purpose: input.purpose,
+    bucket: input.bucket,
+    objectKey: input.objectKey,
+    publicUrl: input.publicUrl,
+    originalFileName: input.originalFileName,
+    mimeType: input.mimeType,
+    sizeBytes: input.sizeBytes,
+    checksumSha256: input.checksumSha256,
+    ownerUserId: input.ownerUserId
+  });
 };
 
 const folderFromObjectKey = (objectKey: string) => {

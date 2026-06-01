@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import {
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
@@ -12,6 +12,7 @@ import {
 } from "../../config/social-providers";
 import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
+import { socialProviderSettings } from "./social-provider-tables";
 
 export type PublicSocialProviderSettings = {
   provider: SocialProviderId;
@@ -26,14 +27,6 @@ export type SocialProviderPatch = {
   enabled: boolean;
   clientId: string;
   clientSecret?: string;
-};
-
-type SocialProviderRow = {
-  provider: string;
-  enabled: boolean;
-  clientId: string;
-  clientSecretCipher: string;
-  verifiedAt: Date | string | null;
 };
 
 export const ensureSocialProviderSettingsTable = async (options: AdminDatabaseOptions) => {
@@ -58,20 +51,10 @@ export const loadSocialProviderSettings = async (options: AdminDatabaseOptions &
   encryptionSecret: string;
 }) => {
   return withAdminDb(options, async ({ db }) => {
-    const result = await db.execute<
-      SocialProviderRow & { projectSlug: string }
-    >(sql`
-      SELECT project_slug AS "projectSlug",
-             provider,
-             enabled,
-             client_id AS "clientId",
-             client_secret_cipher AS "clientSecretCipher",
-             verified_at AS "verifiedAt"
-      FROM auth_social_provider_settings
-    `);
+    const rows = await db.select().from(socialProviderSettings);
 
     const byProject = new Map<string, ProjectSocialProviders>();
-    for (const row of result.rows) {
+    for (const row of rows) {
       if (!isSocialProviderId(row.provider)) {
         continue;
       }
@@ -100,16 +83,11 @@ export const readProjectSocialProviders = async (options: AdminDatabaseOptions &
   publicBaseUrl: string;
 }) => {
   return withAdminDb(options, async ({ db }) => {
-    const result = await db.execute<SocialProviderRow>(sql`
-      SELECT provider,
-             enabled,
-             client_id AS "clientId",
-             client_secret_cipher AS "clientSecretCipher",
-             verified_at AS "verifiedAt"
-      FROM auth_social_provider_settings
-      WHERE project_slug = ${options.project.slug}
-    `);
-    const rows = new Map(result.rows.map((row) => [row.provider, row]));
+    const result = await db
+      .select()
+      .from(socialProviderSettings)
+      .where(eq(socialProviderSettings.projectSlug, options.project.slug));
+    const rows = new Map(result.map((row) => [row.provider, row]));
 
     return SOCIAL_PROVIDER_IDS.map((provider) => {
       const row = rows.get(provider);
@@ -145,54 +123,61 @@ export const updateProjectSocialProvider = async (options: AdminDatabaseOptions 
 
   await withAdminDb(options, async ({ db }) => {
     if (secretCipher === null) {
-      await db.execute(sql`
-        INSERT INTO auth_social_provider_settings (
-          project_slug,
-          provider,
-          enabled,
-          client_id,
-          client_secret_cipher
-        )
-        VALUES (${options.project.slug}, ${options.provider}, ${options.patch.enabled}, ${clientId}, '')
-        ON CONFLICT (project_slug, provider) DO UPDATE
-        SET enabled = EXCLUDED.enabled,
-            client_id = EXCLUDED.client_id,
-            verified_at = CASE
-              WHEN EXCLUDED.enabled = true
-                   AND (
-                     auth_social_provider_settings.enabled = false
-                     OR auth_social_provider_settings.client_id <> EXCLUDED.client_id
-                   )
-              THEN NULL
-              ELSE auth_social_provider_settings.verified_at
-            END,
-            updated_at = now()
-      `);
+      await db
+        .insert(socialProviderSettings)
+        .values({
+          projectSlug: options.project.slug,
+          provider: options.provider,
+          enabled: options.patch.enabled,
+          clientId,
+          clientSecretCipher: ""
+        })
+        .onConflictDoUpdate({
+          target: [
+            socialProviderSettings.projectSlug,
+            socialProviderSettings.provider
+          ],
+          set: {
+            enabled: options.patch.enabled,
+            clientId,
+            verifiedAt: sql`
+              CASE
+                WHEN EXCLUDED.enabled = true
+                     AND (
+                       ${socialProviderSettings.enabled} = false
+                       OR ${socialProviderSettings.clientId} <> EXCLUDED.client_id
+                     )
+                THEN NULL
+                ELSE ${socialProviderSettings.verifiedAt}
+              END
+            `,
+            updatedAt: sql`now()`
+          }
+        });
     } else {
-      await db.execute(sql`
-        INSERT INTO auth_social_provider_settings (
-          project_slug,
-          provider,
-          enabled,
-          client_id,
-          client_secret_cipher,
-          verified_at
-        )
-        VALUES (
-          ${options.project.slug},
-          ${options.provider},
-          ${options.patch.enabled},
-          ${clientId},
-          ${secretCipher},
-          NULL
-        )
-        ON CONFLICT (project_slug, provider) DO UPDATE
-        SET enabled = EXCLUDED.enabled,
-            client_id = EXCLUDED.client_id,
-            client_secret_cipher = EXCLUDED.client_secret_cipher,
-            verified_at = NULL,
-            updated_at = now()
-      `);
+      await db
+        .insert(socialProviderSettings)
+        .values({
+          projectSlug: options.project.slug,
+          provider: options.provider,
+          enabled: options.patch.enabled,
+          clientId,
+          clientSecretCipher: secretCipher,
+          verifiedAt: null
+        })
+        .onConflictDoUpdate({
+          target: [
+            socialProviderSettings.projectSlug,
+            socialProviderSettings.provider
+          ],
+          set: {
+            enabled: options.patch.enabled,
+            clientId,
+            clientSecretCipher: secretCipher,
+            verifiedAt: null,
+            updatedAt: sql`now()`
+          }
+        });
     }
   });
 
@@ -210,13 +195,18 @@ export const markSocialProviderVerified = async (options: AdminDatabaseOptions &
   provider: SocialProviderId;
 }) => {
   await withAdminDb(options, async ({ db }) => {
-    await db.execute(sql`
-      UPDATE auth_social_provider_settings
-      SET verified_at = now(),
-          updated_at = now()
-      WHERE project_slug = ${options.project.slug}
-        AND provider = ${options.provider}
-    `);
+    await db
+      .update(socialProviderSettings)
+      .set({
+        verifiedAt: sql`now()`,
+        updatedAt: sql`now()`
+      })
+      .where(
+        and(
+          eq(socialProviderSettings.projectSlug, options.project.slug),
+          eq(socialProviderSettings.provider, options.provider)
+        )
+      );
   });
 };
 

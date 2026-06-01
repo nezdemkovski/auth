@@ -108,6 +108,11 @@
   assumptions, Cloudflare Tunnel assumptions, and secret rotation procedure.
 - Add key rotation support for encrypted settings if this becomes more than a
   personal homelab service.
+- Rename database tables away from the temporary `auth_` prefix once the final
+  product/service name is decided. Prefer neutral names in the dedicated auth DB
+  and realm schemas, for example `projects`, `billing_settings`,
+  `storage_settings`, and `storage_objects`, instead of baking the current
+  working name into long-lived schema names.
 
 ## UX Polish
 

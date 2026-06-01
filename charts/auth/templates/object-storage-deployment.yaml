@@ -21,7 +21,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: rustfs
-          image: "{{ .Values.objectStorage.image.repository }}@{{ .Values.objectStorage.image.digest }}"
+          image: "{{ .Values.objectStorage.image.repository }}:{{ .Values.objectStorage.image.tag }}"
           imagePullPolicy: {{ .Values.objectStorage.image.pullPolicy }}
           args:
             - --address
