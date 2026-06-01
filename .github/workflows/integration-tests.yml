@@ -54,6 +54,14 @@ jobs:
           --health-interval 2s
           --health-timeout 5s
           --health-retries 20
+      rustfs:
+        image: rustfs/rustfs:1.0.0-beta.6
+        env:
+          RUSTFS_ACCESS_KEY: auth-integration-access-key
+          RUSTFS_SECRET_KEY: auth-integration-secret-key
+          RUSTFS_CONSOLE_ENABLE: "true"
+        ports:
+          - 9002:9000
     steps:
       - uses: actions/checkout@v4
 
@@ -63,6 +71,43 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Prepare RustFS bucket
+        env:
+          AWS_ACCESS_KEY_ID: auth-integration-access-key
+          AWS_SECRET_ACCESS_KEY: auth-integration-secret-key
+          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          aws_cli() {
+            docker run --rm --network host \
+              -e AWS_ACCESS_KEY_ID \
+              -e AWS_SECRET_ACCESS_KEY \
+              -e AWS_DEFAULT_REGION \
+              amazon/aws-cli:2.34.53 "$@"
+          }
+
+          rustfs_ready=false
+          for attempt in {1..30}; do
+            if aws_cli --endpoint-url=http://127.0.0.1:9002 s3api list-buckets >/dev/null 2>&1; then
+              rustfs_ready=true
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$rustfs_ready" != "true" ]; then
+            echo "RustFS did not become ready"
+            exit 1
+          fi
+
+          aws_cli \
+            --endpoint-url=http://127.0.0.1:9002 s3api create-bucket \
+            --bucket auth-integration-public >/dev/null 2>&1 || true
+
+          aws_cli \
+            --endpoint-url=http://127.0.0.1:9002 s3api put-bucket-policy \
+            --bucket auth-integration-public \
+            --policy '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::auth-integration-public/*"]}]}'
 
       - name: Run integration tests
         env:
