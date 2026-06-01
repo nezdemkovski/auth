@@ -8,6 +8,8 @@ import {
   UNSTABLE_ToastRegion as ToastRegion
 } from "react-aria-components";
 
+import { cn } from "@nezdemkovski/auth-ui";
+
 export type ToastTone = "success" | "info" | "danger";
 
 export type ToastPayload = {
@@ -44,17 +46,22 @@ export function Toaster() {
         return (
           <Toast
             toast={toast}
-            className={`pointer-events-auto group relative flex w-full items-start gap-3 overflow-hidden rounded-xl border bg-surface px-3.5 py-3 outline-none data-[entering]:animate-[toast-in_220ms_cubic-bezier(0.22,1,0.36,1)] data-[exiting]:animate-[toast-out_180ms_cubic-bezier(0.4,0,1,1)] ${palette.border}`}
-            style={{ boxShadow: "var(--shadow-elevated)" }}
+            className={cn(
+              "shadow-elevated pointer-events-auto group relative flex w-full items-start gap-3 overflow-hidden rounded-xl border bg-surface px-3.5 py-3 outline-none data-[entering]:animate-[toast-in_220ms_cubic-bezier(0.22,1,0.36,1)] data-[exiting]:animate-[toast-out_180ms_cubic-bezier(0.4,0,1,1)]",
+              palette.border
+            )}
           >
             <span
               aria-hidden="true"
-              className={`mt-[3px] grid h-5 w-5 shrink-0 place-items-center rounded-full ${palette.iconBg}`}
+              className={cn(
+                "mt-[3px] grid h-5 w-5 shrink-0 place-items-center rounded-full",
+                palette.iconBg
+              )}
             >
               {tone === "success" ? (
                 <Check size={12} strokeWidth={2} className={palette.iconColor} />
               ) : (
-                <span className={`h-1.5 w-1.5 rounded-full ${palette.dot}`} />
+                <span className={cn("h-1.5 w-1.5 rounded-full", palette.dot)} />
               )}
             </span>
             <ToastContent className="flex min-w-0 flex-1 flex-col gap-0.5">

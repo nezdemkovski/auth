@@ -225,6 +225,26 @@ p {
   font-variant-numeric: tabular-nums;
 }
 
+.shadow-card {
+  box-shadow: var(--shadow-card);
+}
+
+.shadow-elevated {
+  box-shadow: var(--shadow-elevated);
+}
+
+.shadow-button {
+  box-shadow: var(--shadow-button);
+}
+
+.backdrop-saturate {
+  backdrop-filter: saturate(180%);
+}
+
+.backdrop-header {
+  backdrop-filter: saturate(180%) blur(8px);
+}
+
 @keyframes pop-in {
   from {
     opacity: 0;

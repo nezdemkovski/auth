@@ -14,10 +14,7 @@ export function StatCard({
   hint: string;
 }) {
   return (
-    <div
-      className="rounded-xl border border-border bg-surface px-5 py-5"
-      style={{ boxShadow: "var(--shadow-card)" }}
-    >
+    <div className="shadow-card rounded-xl border border-border bg-surface px-5 py-5">
       <div className="flex items-baseline justify-between">
         <div className="eyebrow">{label}</div>
         <span className="eyebrow text-muted-soft">{pad2(index)}</span>

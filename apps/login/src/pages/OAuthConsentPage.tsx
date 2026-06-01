@@ -6,8 +6,9 @@ import {
   submitOAuthConsent,
   type OAuthPublicClient
 } from "../auth-client";
+import { LoginHeader } from "../components/LoginHeader";
 import { LoginFooter } from "../components/LoginFooter";
-import { ActionButton, ErrorAlert, ThemeToggle } from "../components/shared";
+import { ActionButton, ErrorAlert } from "../components/shared";
 import { fallbackScopeDescription } from "../copy";
 import { useLoginTheme } from "../hooks/useLoginTheme";
 import type { LoginOAuthConsentConfig } from "../types";
@@ -16,7 +17,6 @@ export function OAuthConsentPage({ config }: { config: LoginOAuthConsentConfig }
   const [client, setClient] = useState<OAuthPublicClient | null>(null);
   const [pending, setPending] = useState<"approve" | "deny" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const projectInitial = config.projectName.trim().charAt(0).toUpperCase() || "·";
   const clientName = client?.client_name?.trim() || config.clientId;
   const clientUri = client?.client_uri?.trim() || null;
   const { theme, toggleTheme } = useLoginTheme(
@@ -62,21 +62,11 @@ export function OAuthConsentPage({ config }: { config: LoginOAuthConsentConfig }
         className="pointer-events-none absolute inset-0"
       />
 
-      <header className="relative z-10 flex h-14 items-center justify-between px-6 lg:px-10">
-        <div className="flex items-center gap-2 text-ink">
-          <span
-            aria-hidden="true"
-            className="grid h-7 w-7 place-items-center rounded-md bg-accent text-[13px] font-semibold tracking-[-0.02em] text-accent-ink"
-            style={{ boxShadow: "var(--shadow-button)" }}
-          >
-            {projectInitial}
-          </span>
-          <span className="text-[13.5px] font-medium tracking-[-0.005em]">
-            {config.projectName}
-          </span>
-        </div>
-        <ThemeToggle theme={theme} onToggle={toggleTheme} />
-      </header>
+      <LoginHeader
+        projectName={config.projectName}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
 
       <section className="relative z-10 grid min-h-[calc(100vh-3.5rem)] place-items-center px-5 py-8">
         <div className="w-full max-w-[520px]">
@@ -96,10 +86,7 @@ export function OAuthConsentPage({ config }: { config: LoginOAuthConsentConfig }
 
           {error ? <ErrorAlert>{error}</ErrorAlert> : null}
 
-          <div
-            className="enter enter-1 mt-8 rounded-xl border border-border bg-surface p-4"
-            style={{ boxShadow: "var(--shadow-card)" }}
-          >
+          <div className="shadow-card enter enter-1 mt-8 rounded-xl border border-border bg-surface p-4">
             <div className="flex items-start gap-3">
               {client?.logo_uri ? (
                 <img

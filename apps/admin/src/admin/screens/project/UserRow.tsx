@@ -1,8 +1,7 @@
 import { Mail } from "lucide-react";
 import type { ProjectUser } from "../../types";
 import { formatDate } from "../../utils/format";
-import { Avatar, Pill, StatusBadge } from "@nezdemkovski/auth-ui";
-import { Td } from "@nezdemkovski/auth-ui";
+import { Avatar, Button, Pill, StatusBadge, Td } from "@nezdemkovski/auth-ui";
 
 export function UserRow({
   user,
@@ -65,41 +64,39 @@ export function UserRow({
       <Td align="right">
         <div className="flex flex-col items-end gap-1">
           {!user.emailVerified && !user.banned ? (
-            <button
-              type="button"
-              data-press
+            <Button
+              size="sm"
               disabled={!emailServiceEnabled || resendPending}
               onClick={() => onResendVerification(user.email)}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-[12px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-7 px-2 text-[12px]"
+              leading={<Mail size={12} strokeWidth={1.8} />}
               title={
                 !emailServiceEnabled
                   ? "Email service is disabled"
                   : "Resend verification email"
               }
             >
-              <Mail size={12} strokeWidth={1.8} />
               {resendPending ? "Sending…" : "Resend"}
-            </button>
+            </Button>
           ) : null}
           {user.sessionCount > 0 ? (
-            <button
-              type="button"
-              data-press
+            <Button
+              size="sm"
               disabled={terminatePending}
               onClick={() => onTerminateSessions(user.id)}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md border border-border bg-surface px-2 text-[12px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-7 px-2 text-[12px]"
               title="Terminate all active sessions for this user"
             >
               {terminatePending ? "Terminating…" : "Terminate sessions"}
-            </button>
+            </Button>
           ) : null}
           {resendError || terminateError ? (
-            <span className="text-[11px]" style={{ color: "var(--danger)" }}>
+            <span className="text-[11px] text-danger">
               Failed
             </span>
           ) : null}
           {resentVerification || terminatedSessions ? (
-            <span className="text-[11px]" style={{ color: "var(--success)" }}>
+            <span className="text-[11px] text-success">
               {terminatedSessions ? "Terminated" : "Sent"}
             </span>
           ) : null}

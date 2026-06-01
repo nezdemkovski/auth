@@ -55,10 +55,7 @@ export function Topbar({
   const workspace = useMemo(getWorkspaceName, []);
 
   return (
-    <header
-      className="sticky top-0 z-20 flex h-14 items-center justify-between gap-4 border-b border-border bg-bg/85 px-6 lg:px-10"
-      style={{ backdropFilter: "saturate(180%) blur(8px)" }}
-    >
+    <header className="backdrop-header sticky top-0 z-20 flex h-14 items-center justify-between gap-4 border-b border-border bg-bg/85 px-6 lg:px-10">
       <BreadcrumbSwitcher
         workspace={workspace}
         selected={selected}
@@ -83,8 +80,7 @@ export function Topbar({
           <Tooltip
             placement="bottom"
             offset={6}
-            className="mono rounded-md border border-border bg-surface px-2 py-1 text-[10.5px] uppercase tracking-[0.06em] text-muted outline-none data-[entering]:animate-[toast-in_140ms_ease-out]"
-            style={{ boxShadow: "var(--shadow-card)" }}
+            className="mono shadow-card rounded-md border border-border bg-surface px-2 py-1 text-[10.5px] uppercase tracking-[0.06em] text-muted outline-none data-[entering]:animate-[toast-in_140ms_ease-out]"
           >
             Signed in as {me.user.email}
           </Tooltip>
@@ -138,8 +134,7 @@ function BreadcrumbSwitcher({
       <MenuTrigger>
         <AriaButton
           aria-label="Switch project"
-          className="group ml-1 inline-flex min-w-0 items-center gap-2 rounded-md border border-border bg-surface px-2 py-1 text-ink outline-none transition-colors hover:bg-surface-hover data-[pressed]:scale-[0.98] data-[focus-visible]:ring-2 data-[focus-visible]:ring-[var(--focus-ring)]"
-          style={{ boxShadow: "var(--shadow-card)" }}
+          className="shadow-card group ml-1 inline-flex min-w-0 items-center gap-2 rounded-md border border-border bg-surface px-2 py-1 text-ink outline-none transition-colors hover:bg-surface-hover data-[pressed]:scale-[0.98] data-[focus-visible]:ring-2 data-[focus-visible]:ring-[var(--focus-ring)]"
         >
           <span className="truncate">{label}</span>
           <ChevronDown
@@ -151,8 +146,7 @@ function BreadcrumbSwitcher({
         <Popover
           placement="bottom start"
           offset={8}
-          className="enter w-[320px] overflow-hidden rounded-xl border border-border bg-surface outline-none"
-          style={{ boxShadow: "var(--shadow-elevated)" }}
+          className="shadow-elevated enter w-[320px] overflow-hidden rounded-xl border border-border bg-surface outline-none"
         >
           <Menu
             aria-label="Switch project"

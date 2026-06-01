@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { StorageSettings, StorageSettingsPatch } from "../../types";
-import { Button, FormAlert, SettingsInput } from "@nezdemkovski/auth-ui";
+import { Button, FormAlert, SettingsInput, Switch } from "@nezdemkovski/auth-ui";
 
 export function StorageSettingsForm({
   settings,
@@ -49,12 +49,10 @@ export function StorageSettingsForm({
       {error ? <FormAlert>{error}</FormAlert> : null}
 
       <label className="flex items-start gap-3 rounded-lg border border-border bg-surface-muted p-3">
-        <input
-          type="checkbox"
+        <Switch
           checked={form.enabled}
           disabled={disabled}
-          onChange={(event) => update("enabled", event.currentTarget.checked)}
-          className="mt-1 h-4 w-4 rounded border-border bg-surface"
+          onChange={(checked) => update("enabled", checked)}
         />
         <span>
           <span className="block text-[13px] font-semibold text-ink">

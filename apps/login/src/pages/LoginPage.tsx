@@ -1,17 +1,17 @@
 import { AuthHeading } from "../components/AuthHeading";
 import { CredentialsStep } from "../components/CredentialsStep";
+import { LoginHeader } from "../components/LoginHeader";
 import { LoginFooter } from "../components/LoginFooter";
 import { PasskeyEnrollStep } from "../components/PasskeyEnrollStep";
 import { RedirectingPanel } from "../components/RedirectingPanel";
 import { ForgotPasswordStep } from "../components/RecoverySteps";
 import { TwoFactorEnrollStep, TwoFactorStep } from "../components/TwoFactorSteps";
-import { ErrorAlert, InfoPanel, ThemeToggle } from "../components/shared";
+import { ErrorAlert, InfoPanel } from "../components/shared";
 import { useLoginFlow } from "../hooks/useLoginFlow";
 import type { LoginConfig } from "../types";
 
 export function LoginPage({ config }: { config: LoginConfig }) {
   const { actions, state } = useLoginFlow(config);
-  const projectInitial = config.projectName.trim().charAt(0).toUpperCase() || "·";
 
   return (
     <div className="relative min-h-screen">
@@ -21,21 +21,11 @@ export function LoginPage({ config }: { config: LoginConfig }) {
         className="pointer-events-none absolute inset-0"
       />
 
-      <header className="relative z-10 flex h-14 items-center justify-between px-6 lg:px-10">
-        <div className="flex items-center gap-2 text-ink">
-          <span
-            aria-hidden="true"
-            className="grid h-7 w-7 place-items-center rounded-md bg-accent text-[13px] font-semibold tracking-[-0.02em] text-accent-ink"
-            style={{ boxShadow: "var(--shadow-button)" }}
-          >
-            {projectInitial}
-          </span>
-          <span className="text-[13.5px] font-medium tracking-[-0.005em]">
-            {config.projectName}
-          </span>
-        </div>
-        <ThemeToggle theme={state.theme} onToggle={actions.toggleTheme} />
-      </header>
+      <LoginHeader
+        projectName={config.projectName}
+        theme={state.theme}
+        onToggleTheme={actions.toggleTheme}
+      />
 
       <section className="relative z-10 grid min-h-[calc(100vh-3.5rem)] place-items-center px-5 py-8">
         <div className="w-full max-w-[440px]">

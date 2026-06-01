@@ -1,13 +1,25 @@
 import type { BillingEntitlement, BillingSettings } from "../../../types";
 import {
   Button,
+  cn,
   SelectField as UiSelectField,
   SettingsInput,
-  Switch
+  TogglePill
 } from "@nezdemkovski/auth-ui";
 
 import type { BillingView } from "./types";
 import { uniqueStrings } from "./utils";
+
+const SEGMENTED_OPTION_STATES = {
+  active: "bg-surface text-ink shadow-sm",
+  idle: "text-muted hover:text-ink"
+};
+
+const STATUS_TILE_TONES = {
+  success: "border-success-border bg-success-bg text-success",
+  warning: "border-warning-border bg-warning-bg text-warning",
+  neutral: "border-border bg-surface-muted text-muted"
+};
 
 export function EntitlementsEditor({
   title,
@@ -141,11 +153,12 @@ export function SegmentedControl({
           key={optionValue}
           type="button"
           onClick={() => onChange(optionValue)}
-          className={`h-8 rounded-lg px-3 text-[12.5px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] ${
-            value === optionValue
-              ? "bg-surface text-ink shadow-sm"
-              : "text-muted hover:text-ink"
-          }`}
+          className={cn(
+            "h-8 rounded-lg px-3 text-[12.5px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+            SEGMENTED_OPTION_STATES[
+              value === optionValue ? "active" : "idle"
+            ]
+          )}
         >
           {label}
         </button>
@@ -163,20 +176,16 @@ export function StatusTile({
   value: string;
   tone: "success" | "warning" | "neutral";
 }) {
-  const toneClass =
-    tone === "success"
-      ? "border-success-border bg-success-bg text-success"
-      : tone === "warning"
-        ? "border-warning-border bg-warning-bg text-warning"
-        : "border-border bg-surface-muted text-muted";
-
   return (
     <div className="rounded-xl border border-border bg-surface px-3 py-3">
       <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
         {label}
       </div>
       <div
-        className={`mt-2 inline-flex rounded-full border px-2 py-1 text-[12px] font-semibold ${toneClass}`}
+        className={cn(
+          "mt-2 inline-flex rounded-full border px-2 py-1 text-[12px] font-semibold",
+          STATUS_TILE_TONES[tone]
+        )}
       >
         {value}
       </div>
@@ -210,18 +219,6 @@ export function ToggleRow({
   );
 }
 
-export function TogglePill({
-  checked,
-  disabled,
-  onChange
-}: {
-  checked: boolean;
-  disabled: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return <Switch checked={checked} disabled={disabled} onChange={onChange} />;
-}
-
 function BenefitKeyField({
   id,
   value,
@@ -236,6 +233,7 @@ function BenefitKeyField({
   onChange: (value: string) => void;
 }) {
   const values = uniqueStrings([value, ...options].filter(Boolean));
+  const selectOptions = benefitKeyOptions(value, values);
 
   if (values.length === 0) {
     return (
@@ -250,25 +248,26 @@ function BenefitKeyField({
   }
 
   return (
-    <label className="grid gap-1.5">
-      <span className="text-[12px] font-medium text-ink-soft">Key</span>
-      <select
-        id={id}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(event.currentTarget.value)}
-        className="h-10 w-full rounded-lg border border-border bg-surface px-3 font-mono text-[13px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {value.trim() ? null : <option value="">Select benefit key</option>}
-        {values.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </label>
+    <UiSelectField
+      label="Key"
+      value={value}
+      disabled={disabled}
+      options={selectOptions}
+      onChange={onChange}
+    />
   );
 }
+
+const benefitKeyOptions = (value: string, values: string[]) => {
+  const placeholder = value.trim()
+    ? []
+    : [{ value: "", label: "Select benefit key" }];
+
+  return [
+    ...placeholder,
+    ...values.map((option) => ({ value: option, label: option }))
+  ];
+};
 
 export function SelectField({
   label,

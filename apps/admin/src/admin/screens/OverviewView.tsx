@@ -1,8 +1,7 @@
 import { ChevronRight } from "lucide-react";
+import { Button, Card, EmptyState, StatCard, SysTag } from "@nezdemkovski/auth-ui";
 import type { ProjectSummary } from "../types";
 import { pad2 } from "../utils/format";
-import { Card, EmptyState, SysTag } from "@nezdemkovski/auth-ui";
-import { StatCard } from "@nezdemkovski/auth-ui";
 
 export function OverviewView({
   loading,
@@ -30,15 +29,14 @@ export function OverviewView({
         <p className="mt-3 max-w-[36rem] text-[14.5px] leading-[1.55] text-muted">
           Manage auth realms, users, and active sessions.
         </p>
-        <button
-          type="button"
-          data-press
+        <Button
+          variant="primary"
+          size="sm"
           onClick={onCreateProject}
-          className="mt-5 inline-flex h-9 items-center justify-center rounded-lg bg-accent px-4 text-[13px] font-medium text-accent-ink outline-none transition-colors hover:bg-accent-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-          style={{ boxShadow: "var(--shadow-button)" }}
+          className="mt-5 px-4"
         >
           New realm
-        </button>
+        </Button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -120,8 +118,7 @@ function ProjectCard({
       type="button"
       onClick={onOpen}
       data-press
-      className="group flex items-start gap-4 rounded-xl border border-border bg-surface p-5 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
-      style={{ boxShadow: "var(--shadow-card)" }}
+      className="shadow-card group flex items-start gap-4 rounded-xl border border-border bg-surface p-5 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
     >
       <span className="eyebrow mt-1 shrink-0 tabular text-muted-soft">
         {pad2(index)}

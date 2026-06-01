@@ -10,7 +10,7 @@ import type {
   SocialProviderId,
   SocialProviderPatch
 } from "../../types";
-import { Button, FormAlert, SettingsInput, Switch } from "@nezdemkovski/auth-ui";
+import { Button, FormAlert, SettingsInput, TogglePill } from "@nezdemkovski/auth-ui";
 
 const providerIcons: Record<SocialProviderId, React.ComponentType<{ size?: number }>> = {
   github: Github,
@@ -268,21 +268,5 @@ function SocialProviderEditor({
         </Button>
       </div>
     </form>
-  );
-}
-
-function TogglePill({
-  checked,
-  disabled,
-  onChange
-}: {
-  checked: boolean;
-  disabled: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <label>
-      <Switch checked={checked} disabled={disabled} onChange={onChange} />
-    </label>
   );
 }

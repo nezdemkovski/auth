@@ -1,6 +1,11 @@
 import type React from "react";
 
-import { Button, SettingsInput, SettingsTextarea } from "@nezdemkovski/auth-ui";
+import {
+  Button,
+  SettingsInput,
+  SettingsTextarea,
+  TogglePill
+} from "@nezdemkovski/auth-ui";
 
 import type {
   BillingEntitlement,
@@ -8,7 +13,7 @@ import type {
   BillingSettings,
   CreatePolarProductInput
 } from "../../../types";
-import { EntitlementsEditor, SelectField, TogglePill } from "./components";
+import { EntitlementsEditor, SelectField } from "./components";
 
 export function CreateProductEditor({
   createForm,

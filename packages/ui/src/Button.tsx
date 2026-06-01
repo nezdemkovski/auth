@@ -4,6 +4,7 @@ import { cn } from "./cn";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "link" | "danger";
 type ButtonSize = "sm" | "md";
+type ButtonWidth = "auto" | "full";
 
 type ButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "disabled"> & {
   variant?: ButtonVariant;
@@ -30,6 +31,24 @@ const SIZES: Record<ButtonSize, string> = {
   md: "h-10 rounded-lg px-3 text-[14px]"
 };
 
+const INTERACTIONS: Record<ButtonVariant, string> = {
+  primary: "shadow-button active:scale-[0.98]",
+  secondary: "active:scale-[0.98]",
+  ghost: "active:scale-[0.98]",
+  link: "",
+  danger: ""
+};
+
+const WIDTHS: Record<ButtonWidth, string> = {
+  auto: "",
+  full: "w-full"
+};
+
+const LABEL_WIDTHS: Record<ButtonWidth, string> = {
+  auto: "",
+  full: "flex-1 text-center"
+};
+
 export function Button({
   variant = "secondary",
   size = "md",
@@ -44,26 +63,27 @@ export function Button({
   ...props
 }: ButtonProps) {
   const isDisabled = disabled || loading;
+  const width = fullWidth ? "full" : "auto";
+  const buttonClassName = cn(
+    "inline-flex items-center justify-center gap-2 font-medium outline-none transition-[background-color,color,border-color,transform,opacity] duration-150 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60",
+    SIZES[size],
+    VARIANTS[variant],
+    INTERACTIONS[variant],
+    WIDTHS[width],
+    className
+  );
+  const labelClassName = cn("min-w-0", LABEL_WIDTHS[width]);
+
   return (
     <button
       {...props}
       type={type}
       data-press
       disabled={isDisabled}
-      className={cn(
-        "inline-flex items-center justify-center gap-2 font-medium outline-none transition-[background-color,color,border-color,transform,opacity] duration-150 focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60",
-        SIZES[size],
-        VARIANTS[variant],
-        fullWidth && "w-full",
-        variant === "link" || variant === "danger" ? "" : "active:scale-[0.98]",
-        className
-      )}
-      style={variant === "primary" ? { boxShadow: "var(--shadow-button)" } : undefined}
+      className={buttonClassName}
     >
       {leading}
-      <span className={cn("min-w-0", fullWidth && "flex-1 text-center")}>
-        {children}
-      </span>
+      <span className={labelClassName}>{children}</span>
       {badge}
     </button>
   );

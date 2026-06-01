@@ -2,13 +2,13 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 
 import { resetLoginPassword } from "../auth-client";
+import { LoginHeader } from "../components/LoginHeader";
 import { LoginFooter } from "../components/LoginFooter";
 import {
   ActionButton,
   ErrorAlert,
   FormField,
-  InfoPanel,
-  ThemeToggle
+  InfoPanel
 } from "../components/shared";
 import { useLoginTheme } from "../hooks/useLoginTheme";
 import type { LoginPasswordResetConfig } from "../types";
@@ -22,7 +22,6 @@ export function PasswordResetPage({ config }: { config: LoginPasswordResetConfig
   const [error, setError] = useState<string | null>(
     config.error ? "This reset link is invalid or expired." : null
   );
-  const projectInitial = config.projectName.trim().charAt(0).toUpperCase() || "·";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -68,21 +67,11 @@ export function PasswordResetPage({ config }: { config: LoginPasswordResetConfig
         className="pointer-events-none absolute inset-0"
       />
 
-      <header className="relative z-10 flex h-14 items-center justify-between px-6 lg:px-10">
-        <div className="flex items-center gap-2 text-ink">
-          <span
-            aria-hidden="true"
-            className="grid h-7 w-7 place-items-center rounded-md bg-accent text-[13px] font-semibold tracking-[-0.02em] text-accent-ink"
-            style={{ boxShadow: "var(--shadow-button)" }}
-          >
-            {projectInitial}
-          </span>
-          <span className="text-[13.5px] font-medium tracking-[-0.005em]">
-            {config.projectName}
-          </span>
-        </div>
-        <ThemeToggle theme={theme} onToggle={toggleTheme} />
-      </header>
+      <LoginHeader
+        projectName={config.projectName}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
 
       <section className="relative z-10 grid min-h-[calc(100vh-3.5rem)] place-items-center px-5 py-8">
         <div className="w-full max-w-[440px]">
@@ -105,8 +94,7 @@ export function PasswordResetPage({ config }: { config: LoginPasswordResetConfig
               <InfoPanel>Your password has been reset.</InfoPanel>
               <a
                 href={returnUrl}
-                className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-accent px-3 text-[14px] font-medium text-accent-ink"
-                style={{ boxShadow: "var(--shadow-button)" }}
+                className="shadow-button inline-flex h-11 w-full items-center justify-center rounded-lg bg-accent px-3 text-[14px] font-medium text-accent-ink"
               >
                 Continue ↗
               </a>

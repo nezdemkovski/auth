@@ -84,12 +84,9 @@ export function TwoFactorEnrollStep({
           Add this setup key in your authenticator app, then enter the code it
           generates.
         </p>
-        <textarea
-          readOnly
-          value={totpUri}
-          rows={4}
-          className="mt-3 w-full resize-none rounded-lg border border-border bg-surface p-2 font-mono text-[11px] leading-5 text-ink outline-none"
-        />
+        <pre className="mt-3 max-h-28 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-border bg-surface p-2 font-mono text-[11px] leading-5 text-ink">
+          {totpUri}
+        </pre>
       </div>
 
       {backupCodes.length > 0 ? (

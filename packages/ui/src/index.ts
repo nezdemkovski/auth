@@ -1,6 +1,7 @@
 export { Avatar } from "./Avatar";
 export { Button } from "./Button";
 export { Card } from "./Card";
+export { cn } from "./cn";
 export { EmptyState } from "./EmptyState";
 export { FormAlert } from "./FormAlert";
 export { FormField } from "./FormField";
@@ -19,4 +20,5 @@ export { Switch } from "./Switch";
 export { SysTag } from "./SysTag";
 export { Td, Th } from "./Table";
 export { ThemeToggle } from "./ThemeToggle";
+export { TogglePill } from "./TogglePill";
 export { UsersSkeleton } from "./Skeletons";
