@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@sentry/react": "10.53.1",
-    "react": "19.2.1"
+    "@sentry/react": "10.55.0",
+    "react": "19.2.6"
   }
 }

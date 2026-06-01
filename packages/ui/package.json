@@ -14,8 +14,8 @@
   },
   "dependencies": {
     "@nezdemkovski/auth-client-shared": "workspace:*",
-    "lucide-react": "1.16.0",
-    "react": "19.2.1",
-    "react-aria-components": "1.17.0"
+    "lucide-react": "1.17.0",
+    "react": "19.2.6",
+    "react-aria-components": "1.18.0"
   }
 }
