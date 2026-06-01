@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
 import { createProject } from "../api";
+import { adminQueryKeys } from "../queryKeys";
 import { NewProjectView } from "../screens/NewProjectView";
 import { notifyError, notifySuccess } from "../toast";
 import type { CreateProjectInput } from "../types";
@@ -12,7 +13,7 @@ export function NewProjectRoute() {
   const mutation = useMutation({
     mutationFn: (input: CreateProjectInput) => createProject(input),
     onSuccess: async (project) => {
-      await queryClient.invalidateQueries({ queryKey: ["admin", "projects"] });
+      await queryClient.invalidateQueries({ queryKey: adminQueryKeys.projects() });
       notifySuccess("Realm created", `${project.name} is ready.`);
       await navigate({
         to: "/projects/$projectSlug",

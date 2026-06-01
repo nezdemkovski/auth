@@ -9,42 +9,43 @@ import {
   fetchStorageObjects,
   fetchStorageSettings
 } from "../api";
+import { adminQueryKeys } from "../queryKeys";
 
 export const useProjectRouteQueries = (projectSlug?: string) => {
   const projectsQuery = useQuery({
-    queryKey: ["admin", "projects"],
+    queryKey: adminQueryKeys.projects(),
     queryFn: fetchProjects
   });
   const selected = projectsQuery.data?.projects.find(
     (project) => project.slug === projectSlug
   );
   const usersQuery = useQuery({
-    queryKey: ["admin", "project-users", selected?.slug],
+    queryKey: adminQueryKeys.projectUsers(selected?.slug),
     queryFn: () => fetchProjectUsers(selected!.slug),
     enabled: Boolean(selected?.slug)
   });
   const socialProvidersQuery = useQuery({
-    queryKey: ["admin", "social-providers", selected?.slug],
+    queryKey: adminQueryKeys.socialProviders(selected?.slug),
     queryFn: () => fetchSocialProviders(selected!.slug),
     enabled: Boolean(selected?.slug)
   });
   const billingQuery = useQuery({
-    queryKey: ["admin", "billing", selected?.slug],
+    queryKey: adminQueryKeys.billing(selected?.slug),
     queryFn: () => fetchBillingSettings(selected!.slug),
     enabled: Boolean(selected?.slug)
   });
   const storageQuery = useQuery({
-    queryKey: ["admin", "storage", selected?.slug],
+    queryKey: adminQueryKeys.storage(selected?.slug),
     queryFn: () => fetchStorageSettings(selected!.slug),
     enabled: Boolean(selected?.slug)
   });
   const storageObjectsQuery = useQuery({
-    queryKey: ["admin", "storage-objects", selected?.slug],
+    queryKey: adminQueryKeys.storageObjects(selected?.slug),
     queryFn: () => fetchStorageObjects(selected!.slug),
     enabled: Boolean(selected?.slug && selected.iconUrl)
   });
   const polarProductsQuery = useQuery({
-    queryKey: ["admin", "polar-products", selected?.slug],
+    queryKey: adminQueryKeys.polarProducts(selected?.slug),
     queryFn: () => fetchPolarProducts(selected!.slug),
     enabled: Boolean(
       selected?.slug &&

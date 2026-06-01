@@ -3,11 +3,12 @@ import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 
 import { fetchProjects } from "../api";
+import { adminQueryKeys } from "../queryKeys";
 import { OverviewView } from "../screens/OverviewView";
 
 export function OverviewRoute() {
   const projectsQuery = useQuery({
-    queryKey: ["admin", "projects"],
+    queryKey: adminQueryKeys.projects(),
     queryFn: fetchProjects
   });
   const navigate = useNavigate();

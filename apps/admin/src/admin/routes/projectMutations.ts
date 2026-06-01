@@ -13,6 +13,7 @@ import {
   verifyBillingSettings,
   verifySocialProvider
 } from "../api";
+import { adminQueryKeys } from "../queryKeys";
 import { notifyError, notifySuccess } from "../toast";
 import type {
   BillingSettingsPatch,
@@ -39,10 +40,10 @@ export const useProjectRouteMutations = () => {
       setResentVerificationEmail(variables.email);
       notifySuccess("Verification email sent", variables.email);
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "project-users", variables.project]
+        queryKey: adminQueryKeys.projectUsers(variables.project)
       });
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "storage-objects", variables.project]
+        queryKey: adminQueryKeys.storageObjects(variables.project)
       });
     },
     onError: (caught, variables) => {
@@ -59,10 +60,10 @@ export const useProjectRouteMutations = () => {
       setTerminatedSessionsUserId(variables.userId);
       notifySuccess("Sessions terminated");
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "project-users", variables.project]
+        queryKey: adminQueryKeys.projectUsers(variables.project)
       });
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "projects"]
+        queryKey: adminQueryKeys.projects()
       });
     },
     onError: (caught) => {
@@ -78,10 +79,10 @@ export const useProjectRouteMutations = () => {
     onSuccess: async (_data, variables) => {
       notifySuccess("Realm settings saved");
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "projects"]
+        queryKey: adminQueryKeys.projects()
       });
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "project-users", variables.project]
+        queryKey: adminQueryKeys.projectUsers(variables.project)
       });
     },
     onError: (caught) => {
@@ -100,10 +101,10 @@ export const useProjectRouteMutations = () => {
     onSuccess: async (_data, variables) => {
       notifySuccess("Social provider saved");
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "social-providers", variables.project]
+        queryKey: adminQueryKeys.socialProviders(variables.project)
       });
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "projects"]
+        queryKey: adminQueryKeys.projects()
       });
     },
     onError: (caught) => {
@@ -119,10 +120,10 @@ export const useProjectRouteMutations = () => {
     onSuccess: async (_data, variables) => {
       notifySuccess("Provider check passed");
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "social-providers", variables.project]
+        queryKey: adminQueryKeys.socialProviders(variables.project)
       });
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "projects"]
+        queryKey: adminQueryKeys.projects()
       });
     },
     onError: (caught) => {
@@ -138,10 +139,10 @@ export const useProjectRouteMutations = () => {
     onSuccess: async (_data, variables) => {
       notifySuccess("Billing settings saved");
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "billing", variables.project]
+        queryKey: adminQueryKeys.billing(variables.project)
       });
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "projects"]
+        queryKey: adminQueryKeys.projects()
       });
     },
     onError: (caught) => {
@@ -173,10 +174,10 @@ export const useProjectRouteMutations = () => {
     onSuccess: async (_data, variables) => {
       notifySuccess("Storage settings saved");
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "storage", variables.project]
+        queryKey: adminQueryKeys.storage(variables.project)
       });
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "projects"]
+        queryKey: adminQueryKeys.projects()
       });
     },
     onError: (caught) => {
@@ -191,13 +192,13 @@ export const useProjectRouteMutations = () => {
     onSuccess: async (_data, variables) => {
       notifySuccess("App icon uploaded");
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "projects"]
+        queryKey: adminQueryKeys.projects()
       });
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "project-users", variables.project]
+        queryKey: adminQueryKeys.projectUsers(variables.project)
       });
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "storage-objects", variables.project]
+        queryKey: adminQueryKeys.storageObjects(variables.project)
       });
     },
     onError: (caught) => {
@@ -213,10 +214,10 @@ export const useProjectRouteMutations = () => {
     onSuccess: async (_data, variables) => {
       notifySuccess("Polar product created");
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "billing", variables.project]
+        queryKey: adminQueryKeys.billing(variables.project)
       });
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "polar-products", variables.project]
+        queryKey: adminQueryKeys.polarProducts(variables.project)
       });
     },
     onError: (caught) => {

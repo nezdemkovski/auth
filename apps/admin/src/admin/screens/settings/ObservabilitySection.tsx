@@ -14,6 +14,7 @@ import {
   sendObservabilityTestEvent,
   updateObservabilitySettings
 } from "../../api";
+import { adminQueryKeys } from "../../queryKeys";
 import { notifyError, notifySuccess } from "../../toast";
 import type {
   ObservabilityProvider,
@@ -28,7 +29,7 @@ import {
 export function ObservabilitySection() {
   const queryClient = useQueryClient();
   const query = useQuery({
-    queryKey: ["admin", "observability-settings"],
+    queryKey: adminQueryKeys.observabilitySettings(),
     queryFn: fetchObservabilitySettings
   });
   const settings = query.data;
@@ -37,10 +38,10 @@ export function ObservabilitySection() {
     onSuccess: async () => {
       notifySuccess("Observability settings saved");
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "observability-settings"]
+        queryKey: adminQueryKeys.observabilitySettings()
       });
       await queryClient.invalidateQueries({
-        queryKey: ["admin", "observability-config"]
+        queryKey: adminQueryKeys.observabilityConfig()
       });
     },
     onError: (error) => {

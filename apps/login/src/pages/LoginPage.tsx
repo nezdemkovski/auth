@@ -1,16 +1,11 @@
-import {
-  AuthHeading,
-  CredentialsStep,
-  ErrorAlert,
-  ForgotPasswordStep,
-  InfoPanel,
-  LoginFooter,
-  PasskeyEnrollStep,
-  RedirectingPanel,
-  ThemeToggle,
-  TwoFactorEnrollStep,
-  TwoFactorStep
-} from "../components";
+import { AuthHeading } from "../components/AuthHeading";
+import { CredentialsStep } from "../components/CredentialsStep";
+import { LoginFooter } from "../components/LoginFooter";
+import { PasskeyEnrollStep } from "../components/PasskeyEnrollStep";
+import { RedirectingPanel } from "../components/RedirectingPanel";
+import { ForgotPasswordStep } from "../components/RecoverySteps";
+import { TwoFactorEnrollStep, TwoFactorStep } from "../components/TwoFactorSteps";
+import { ErrorAlert, InfoPanel, ThemeToggle } from "../components/shared";
 import { useLoginFlow } from "../hooks/useLoginFlow";
 import type { LoginConfig } from "../types";
 

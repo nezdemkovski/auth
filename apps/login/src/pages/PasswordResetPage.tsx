@@ -1,26 +1,20 @@
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
-import {
-  applyTheme,
-  resolveTheme,
-  setTheme,
-  watchSystemTheme,
-  type Theme
-} from "@nezdemkovski/auth-client-shared/theme";
+import { useState } from "react";
 
 import { resetLoginPassword } from "../auth-client";
+import { LoginFooter } from "../components/LoginFooter";
 import {
   ActionButton,
   ErrorAlert,
   FormField,
   InfoPanel,
-  LoginFooter,
   ThemeToggle
-} from "../components";
+} from "../components/shared";
+import { useLoginTheme } from "../hooks/useLoginTheme";
 import type { LoginPasswordResetConfig } from "../types";
 
 export function PasswordResetPage({ config }: { config: LoginPasswordResetConfig }) {
-  const [theme, setThemeState] = useState<Theme>(() => resolveTheme());
+  const { theme, toggleTheme } = useLoginTheme("Reset password", config.projectName);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [done, setDone] = useState(false);
@@ -29,21 +23,6 @@ export function PasswordResetPage({ config }: { config: LoginPasswordResetConfig
     config.error ? "This reset link is invalid or expired." : null
   );
   const projectInitial = config.projectName.trim().charAt(0).toUpperCase() || "·";
-
-  useEffect(() => {
-    document.title = `Reset password · ${config.projectName}`;
-    applyTheme(theme);
-  }, [theme, config.projectName]);
-
-  useEffect(() => {
-    return watchSystemTheme((next) => setThemeState(next));
-  }, []);
-
-  function toggleTheme() {
-    const next: Theme = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    setThemeState(next);
-  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -8,7 +8,8 @@ import {
   type Theme
 } from "@nezdemkovski/auth-client-shared/theme";
 
-import { AuthHeading, ErrorAlert, ThemeToggle } from "./components";
+import { AuthHeading } from "./components/AuthHeading";
+import { ErrorAlert, ThemeToggle } from "./components/shared";
 import type { LoginAuthConfig } from "./types";
 
 export function LoginConfigLoader({

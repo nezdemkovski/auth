@@ -13,6 +13,7 @@ import {
   updateDeliverySettings,
   verifyDeliverySettings
 } from "../../api";
+import { adminQueryKeys } from "../../queryKeys";
 import { notifyError, notifySuccess } from "../../toast";
 import type {
   DeliveryProvider,
@@ -24,7 +25,7 @@ import { DELIVERY_PROVIDER_OPTIONS, parseDeliveryProvider } from "./options";
 export function DeliverySection() {
   const queryClient = useQueryClient();
   const query = useQuery({
-    queryKey: ["admin", "delivery-settings"],
+    queryKey: adminQueryKeys.deliverySettings(),
     queryFn: fetchDeliverySettings
   });
   const settings = query.data;
@@ -32,8 +33,10 @@ export function DeliverySection() {
     mutationFn: updateDeliverySettings,
     onSuccess: async () => {
       notifySuccess("Delivery settings saved");
-      await queryClient.invalidateQueries({ queryKey: ["admin", "delivery-settings"] });
-      await queryClient.invalidateQueries({ queryKey: ["admin", "me"] });
+      await queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.deliverySettings()
+      });
+      await queryClient.invalidateQueries({ queryKey: adminQueryKeys.me() });
     },
     onError: (error) => {
       notifyError(

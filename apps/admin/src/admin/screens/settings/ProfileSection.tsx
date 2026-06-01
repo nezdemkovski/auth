@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { PrimaryButton, SettingsInput } from "@nezdemkovski/auth-ui";
 
 import { updateAdminProfile } from "../../api";
+import { adminQueryKeys } from "../../queryKeys";
 import { notifyError, notifySuccess } from "../../toast";
 import type { MeResponse } from "../../types";
 
@@ -24,7 +25,7 @@ export function ProfileSection({ me }: { me: MeResponse }) {
   const mutation = useMutation({
     mutationFn: updateAdminProfile,
     onSuccess: (_data, variables) => {
-      void queryClient.invalidateQueries({ queryKey: ["admin", "me"] });
+      void queryClient.invalidateQueries({ queryKey: adminQueryKeys.me() });
       const changed = [
         variables.name !== undefined ? "name" : null,
         variables.email !== undefined ? "email change request" : null

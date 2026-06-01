@@ -7,6 +7,7 @@ import { FormAlert } from "@nezdemkovski/auth-ui";
 
 import { fetchProjects } from "../api";
 import { Topbar } from "../components/Topbar";
+import { adminQueryKeys } from "../queryKeys";
 import { rootRoute } from "./router";
 
 const OVERVIEW_SLUG = "__overview__";
@@ -16,7 +17,7 @@ const NEW_PROJECT_SLUG = "__new_project__";
 export function DashboardLayout() {
   const { me, theme, onToggleTheme, onSignOut } = rootRoute.useRouteContext();
   const projectsQuery = useQuery({
-    queryKey: ["admin", "projects"],
+    queryKey: adminQueryKeys.projects(),
     queryFn: fetchProjects
   });
   const navigate = useNavigate();

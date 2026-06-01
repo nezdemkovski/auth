@@ -1,11 +1,4 @@
 import { useEffect, useState } from "react";
-import {
-  applyTheme,
-  resolveTheme,
-  setTheme,
-  watchSystemTheme,
-  type Theme
-} from "@nezdemkovski/auth-client-shared/theme";
 import { Button } from "@nezdemkovski/auth-ui";
 
 import {
@@ -13,32 +6,23 @@ import {
   submitOAuthConsent,
   type OAuthPublicClient
 } from "../auth-client";
-import {
-  ActionButton,
-  ErrorAlert,
-  LoginFooter,
-  ThemeToggle
-} from "../components";
+import { LoginFooter } from "../components/LoginFooter";
+import { ActionButton, ErrorAlert, ThemeToggle } from "../components/shared";
 import { fallbackScopeDescription } from "../copy";
+import { useLoginTheme } from "../hooks/useLoginTheme";
 import type { LoginOAuthConsentConfig } from "../types";
 
 export function OAuthConsentPage({ config }: { config: LoginOAuthConsentConfig }) {
-  const [theme, setThemeState] = useState<Theme>(() => resolveTheme());
   const [client, setClient] = useState<OAuthPublicClient | null>(null);
   const [pending, setPending] = useState<"approve" | "deny" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const projectInitial = config.projectName.trim().charAt(0).toUpperCase() || "·";
   const clientName = client?.client_name?.trim() || config.clientId;
   const clientUri = client?.client_uri?.trim() || null;
-
-  useEffect(() => {
-    document.title = `Authorize ${clientName} · ${config.projectName}`;
-    applyTheme(theme);
-  }, [theme, clientName, config.projectName]);
-
-  useEffect(() => {
-    return watchSystemTheme((next) => setThemeState(next));
-  }, []);
+  const { theme, toggleTheme } = useLoginTheme(
+    `Authorize ${clientName}`,
+    config.projectName
+  );
 
   useEffect(() => {
     void getOAuthPublicClient({
@@ -46,12 +30,6 @@ export function OAuthConsentPage({ config }: { config: LoginOAuthConsentConfig }
       clientId: config.clientId
     }).then(setClient);
   }, [config.project, config.clientId]);
-
-  function toggleTheme() {
-    const next: Theme = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    setThemeState(next);
-  }
 
   async function decideConsent(accept: boolean) {
     setPending(accept ? "approve" : "deny");
