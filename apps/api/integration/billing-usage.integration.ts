@@ -15,12 +15,14 @@ import {
   releaseBillingUsageReservation,
   reserveBillingUsage
 } from "../src/modules/billing/usage-store";
+import { updateBillingSettings } from "../src/modules/billing/store";
 import { createPolarWebhookStore } from "../src/modules/billing/webhook-store";
 import { processPolarWebhook } from "../src/modules/billing/webhooks";
 import { seedIntegrationRealm } from "./seed";
 import {
   integrationAdminDbOptions,
   createIntegrationApp,
+  integrationEncryptionSecret,
   resetAndBootstrapIntegrationDatabase,
   signUpIntegrationUser
 } from "./setup";
@@ -104,6 +106,260 @@ describe("billing usage integration", () => {
       reservationId: secondReservation.reservationId ?? ""
     });
     expect(releaseCommitted).toBeNull();
+
+    await expectSummary(project, {
+      used: 2,
+      limit: 5,
+      remaining: 3
+    });
+  });
+
+  test("grants signup credits lazily and stacks paid credit packs on the same key", async () => {
+    const productId = "prod_integration_signup_stack";
+    const project = await seedIntegrationRealm({
+      slug: "integration-billing",
+      schema: "integration_billing_auth",
+      name: "Integration Billing",
+      freeEntitlements: [credits(5)],
+      products: [
+        creditProduct({
+          productId,
+          entitlements: [credits(50)]
+        })
+      ]
+    });
+    const context = {
+      project,
+      store: createPolarWebhookStore(integrationAdminDbOptions),
+      entitlements: createPolarEntitlementGrantStore(integrationAdminDbOptions)
+    };
+
+    await expectSummary(project, {
+      used: 0,
+      limit: 5,
+      remaining: 5
+    });
+
+    await processPolarWebhook(
+      context,
+      polarOrderPaidPayload({
+        orderId: "order_integration_signup_stack",
+        productId,
+        userId
+      })
+    );
+
+    await expectSummary(project, {
+      used: 0,
+      limit: 55,
+      remaining: 55
+    });
+
+    const reservation = await reserveBillingUsage({
+      ...integrationAdminDbOptions,
+      project,
+      userId,
+      key: benefitKey,
+      amount: 7
+    });
+    expect(reservation.allowed).toBe(true);
+    const committed = await commitBillingUsageReservation({
+      ...integrationAdminDbOptions,
+      project,
+      userId,
+      reservationId: reservation.reservationId ?? ""
+    });
+
+    expect(committed?.summary).toMatchObject({
+      used: 7,
+      limit: 55,
+      remaining: 48
+    });
+  });
+
+  test("reconciles changed signup grants without refunding spent credits", async () => {
+    const project = await prepareBillingProject(credits(5));
+    const reservation = await reserveBillingUsage({
+      ...integrationAdminDbOptions,
+      project,
+      userId,
+      key: benefitKey,
+      amount: 2
+    });
+    expect(reservation.allowed).toBe(true);
+    await commitBillingUsageReservation({
+      ...integrationAdminDbOptions,
+      project,
+      userId,
+      reservationId: reservation.reservationId ?? ""
+    });
+
+    const increased = await updateProjectBilling(project, [credits(10)]);
+    await expectSummary(increased, {
+      used: 2,
+      limit: 10,
+      remaining: 8
+    });
+
+    const decreased = await updateProjectBilling(project, [credits(1)]);
+    await expectSummary(decreased, {
+      used: 1,
+      limit: 1,
+      remaining: 0
+    });
+  });
+
+  test("keeps separate signup benefit keys isolated for the same user", async () => {
+    const exportsKey = "integration_exports";
+    const project = await seedIntegrationRealm({
+      slug: "integration-billing",
+      schema: "integration_billing_auth",
+      name: "Integration Billing",
+      freeEntitlements: [credits(5), creditsFor(exportsKey, 2)]
+    });
+
+    const reservation = await reserveBillingUsage({
+      ...integrationAdminDbOptions,
+      project,
+      userId,
+      key: benefitKey,
+      amount: 3
+    });
+    expect(reservation.allowed).toBe(true);
+    await commitBillingUsageReservation({
+      ...integrationAdminDbOptions,
+      project,
+      userId,
+      reservationId: reservation.reservationId ?? ""
+    });
+
+    await expectSummary(project, {
+      used: 3,
+      limit: 5,
+      remaining: 2
+    });
+    await expectSummary(project, {
+      key: exportsKey,
+      used: 0,
+      limit: 2,
+      remaining: 2
+    });
+  });
+
+  test("prevents another user from releasing or committing a reservation", async () => {
+    const project = await prepareBillingProject(credits(5));
+    const reservation = await reserveBillingUsage({
+      ...integrationAdminDbOptions,
+      project,
+      userId,
+      key: benefitKey,
+      amount: 1
+    });
+    expect(reservation.allowed).toBe(true);
+
+    const reservationIdValue = reservation.reservationId ?? "";
+    await expect(
+      releaseBillingUsageReservation({
+        ...integrationAdminDbOptions,
+        project,
+        userId: "different_user",
+        reservationId: reservationIdValue
+      })
+    ).resolves.toBeNull();
+    await expect(
+      commitBillingUsageReservation({
+        ...integrationAdminDbOptions,
+        project,
+        userId: "different_user",
+        reservationId: reservationIdValue
+      })
+    ).resolves.toBeNull();
+
+    await expectSummary(project, {
+      used: 1,
+      limit: 5,
+      remaining: 4
+    });
+
+    const released = await releaseBillingUsageReservation({
+      ...integrationAdminDbOptions,
+      project,
+      userId,
+      reservationId: reservationIdValue
+    });
+    expect(released?.summary).toMatchObject({
+      used: 0,
+      limit: 5,
+      remaining: 5
+    });
+  });
+
+  test("allows unlimited signup benefits without reducing balance", async () => {
+    const project = await prepareBillingProject({
+      key: benefitKey,
+      grantType: EntitlementGrantType.Lifetime,
+      amount: null,
+      resetPeriod: EntitlementResetPeriod.Never,
+      priority: 100
+    });
+
+    await expectUnlimitedSummary(project);
+
+    const reservation = await reserveBillingUsage({
+      ...integrationAdminDbOptions,
+      project,
+      userId,
+      key: benefitKey,
+      amount: 100
+    });
+    expect(reservation.allowed).toBe(true);
+    await commitBillingUsageReservation({
+      ...integrationAdminDbOptions,
+      project,
+      userId,
+      reservationId: reservation.reservationId ?? ""
+    });
+
+    await expectUnlimitedSummary(project);
+  });
+
+  test.each([
+    EntitlementGrantType.OneTimeCredits,
+    EntitlementGrantType.RecurringQuota,
+    EntitlementGrantType.Metered
+  ])("applies numeric %s signup grants from Postgres", async (grantType) => {
+    const project = await prepareBillingProject({
+      key: benefitKey,
+      grantType,
+      amount: 5,
+      resetPeriod:
+        grantType === EntitlementGrantType.RecurringQuota
+          ? EntitlementResetPeriod.Monthly
+          : EntitlementResetPeriod.Never,
+      priority: 100
+    });
+
+    await expectSummary(project, {
+      used: 0,
+      limit: 5,
+      remaining: 5
+    });
+
+    const reservation = await reserveBillingUsage({
+      ...integrationAdminDbOptions,
+      project,
+      userId,
+      key: benefitKey,
+      amount: 2
+    });
+    expect(reservation.allowed).toBe(true);
+
+    await commitBillingUsageReservation({
+      ...integrationAdminDbOptions,
+      project,
+      userId,
+      reservationId: reservation.reservationId ?? ""
+    });
 
     await expectSummary(project, {
       used: 2,
@@ -322,6 +578,78 @@ describe("billing usage integration", () => {
     });
   });
 
+  test("does not grant entitlements for inactive product mappings", async () => {
+    const productId = "prod_integration_inactive";
+    const project = await seedIntegrationRealm({
+      slug: "integration-billing",
+      schema: "integration_billing_auth",
+      name: "Integration Billing",
+      products: [
+        {
+          ...creditProduct({
+            productId,
+            entitlements: [credits(50)]
+          }),
+          active: false
+        }
+      ]
+    });
+    const context = {
+      project,
+      store: createPolarWebhookStore(integrationAdminDbOptions),
+      entitlements: createPolarEntitlementGrantStore(integrationAdminDbOptions)
+    };
+
+    await processPolarWebhook(
+      context,
+      polarOrderPaidPayload({
+        orderId: "order_integration_inactive",
+        productId,
+        userId
+      })
+    );
+
+    await expectSummary(project, {
+      used: 0,
+      limit: 0,
+      remaining: 0
+    });
+  });
+
+  test("keeps duplicate paid webhook deliveries idempotent in Postgres", async () => {
+    const productId = "prod_integration_duplicate";
+    const project = await seedIntegrationRealm({
+      slug: "integration-billing",
+      schema: "integration_billing_auth",
+      name: "Integration Billing",
+      products: [
+        creditProduct({
+          productId,
+          entitlements: [credits(50)]
+        })
+      ]
+    });
+    const context = {
+      project,
+      store: createPolarWebhookStore(integrationAdminDbOptions),
+      entitlements: createPolarEntitlementGrantStore(integrationAdminDbOptions)
+    };
+    const payload = polarOrderPaidPayload({
+      orderId: "order_integration_duplicate",
+      productId,
+      userId
+    });
+
+    await processPolarWebhook(context, payload);
+    await processPolarWebhook(context, payload);
+
+    await expectSummary(project, {
+      used: 0,
+      limit: 50,
+      remaining: 50
+    });
+  });
+
   test("removes subscription-backed entitlements when Polar cancels the subscription", async () => {
     const productId = "prod_integration_subscription";
     const orderId = "order_integration_subscription";
@@ -436,8 +764,12 @@ const prepareBillingProject = async (freeEntitlement: BillingEntitlement) => {
 };
 
 const credits = (amount: number): BillingEntitlement => {
+  return creditsFor(benefitKey, amount);
+};
+
+const creditsFor = (key: string, amount: number): BillingEntitlement => {
   return {
-    key: benefitKey,
+    key,
     grantType: EntitlementGrantType.OneTimeCredits,
     amount,
     resetPeriod: EntitlementResetPeriod.Never,
@@ -460,14 +792,51 @@ const creditProduct = (input: {
   };
 };
 
+const updateProjectBilling = async (
+  project: AuthProject,
+  freeEntitlements: BillingEntitlement[]
+) => {
+  const billing = await updateBillingSettings({
+    ...integrationAdminDbOptions,
+    project,
+    encryptionSecret: integrationEncryptionSecret,
+    patch: {
+      ...project.billing,
+      freeEntitlements
+    }
+  });
+
+  return {
+    ...project,
+    billing
+  };
+};
+
 const expectSummary = async (
   project: AuthProject,
   expected: {
+    key?: string;
     used: number;
     limit: number;
     remaining: number;
   }
 ) => {
+  const key = expected.key ?? benefitKey;
+  const summary = await readBillingUsageSummary({
+    ...integrationAdminDbOptions,
+    project,
+    userId,
+    key
+  });
+
+  expect(summary).toMatchObject({
+    key,
+    unlimited: false,
+    ...expected
+  });
+};
+
+const expectUnlimitedSummary = async (project: AuthProject) => {
   const summary = await readBillingUsageSummary({
     ...integrationAdminDbOptions,
     project,
@@ -477,8 +846,10 @@ const expectSummary = async (
 
   expect(summary).toMatchObject({
     key: benefitKey,
-    unlimited: false,
-    ...expected
+    used: 0,
+    limit: -1,
+    remaining: -1,
+    unlimited: true
   });
 };
 

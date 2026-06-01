@@ -122,7 +122,6 @@ export function BillingSettings({
       ),
     [form.products]
   );
-
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((current) => ({ ...current, [key]: value }));
   }
@@ -296,6 +295,7 @@ export function BillingSettings({
           disabled={disabled}
           pending={pending}
           verifyPending={verifyPending}
+          benefitPresets={settings.benefitPresets}
           onUpdate={update}
           onVerify={onVerify}
           onUpdateFreeEntitlement={(entitlementIndex, patch) =>
@@ -309,7 +309,13 @@ export function BillingSettings({
           onAddFreeEntitlement={() =>
             update("freeEntitlements", [
               ...form.freeEntitlements,
-              defaultEntitlement()
+              emptyBillingEntitlement()
+            ])
+          }
+          onAddStarterCreditGrant={() =>
+            update("freeEntitlements", [
+              ...form.freeEntitlements,
+              { ...settings.starterGrantSuggestion }
             ])
           }
           onRemoveFreeEntitlement={(entitlementIndex) =>
@@ -352,6 +358,7 @@ function SetupView({
   disabled,
   pending,
   verifyPending,
+  benefitPresets,
   onUpdate,
   onVerify,
   onUpdateFreeEntitlement,
@@ -363,6 +370,7 @@ function SetupView({
   disabled: boolean;
   pending: boolean;
   verifyPending: boolean;
+  benefitPresets: BillingEntitlement[];
   onUpdate: <K extends keyof ReturnType<typeof settingsToForm>>(
     key: K,
     value: ReturnType<typeof settingsToForm>[K]
@@ -376,8 +384,11 @@ function SetupView({
     patch: Partial<BillingEntitlement>
   ) => void;
   onAddFreeEntitlement: () => void;
+  onAddStarterCreditGrant: () => void;
   onRemoveFreeEntitlement: (entitlementIndex: number) => void;
 }) {
+  const benefitKeys = benefitPresets.map((benefit) => benefit.key);
+
   return (
     <div className="mt-5 grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
       <div className="rounded-xl border border-border bg-surface-muted p-4">
@@ -463,13 +474,59 @@ function SetupView({
       </div>
 
       <div className="lg:col-span-2">
+        <div className="mb-3 rounded-xl border border-border bg-surface p-4">
+          <div className="eyebrow">Included on signup</div>
+          <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-[18px] font-semibold tracking-[-0.02em] text-ink">
+                Give every new user a starter balance.
+              </h3>
+              <p className="mt-1 max-w-[44rem] text-[12.5px] leading-5 text-muted">
+                Signup grants are separate from products. Use them for free credits,
+                trial quotas, or baseline access that every user in this realm should
+                receive automatically. Paid products can grant the same key later and
+                the balances are added together.
+              </p>
+              {benefitKeys.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {benefitKeys.map((key) => (
+                    <span
+                      key={key}
+                      className="rounded-full border border-border bg-surface-muted px-2 py-1 font-mono text-[11px] text-ink-soft"
+                    >
+                      {key}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-[12px] leading-5 text-muted-soft">
+                  Add product benefits first and signup grants will offer those keys
+                  automatically.
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              data-press
+              disabled={disabled || pending}
+              onClick={onAddStarterCreditGrant}
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+            >
+              {benefitKeys.length > 0
+                ? `Add 5 ${benefitKeys[0]}`
+                : "Add 5-credit starter grant"}
+            </button>
+          </div>
+        </div>
         <EntitlementsEditor
-          title="Default entitlements"
-          description="Granted once to each user in this realm. Leave empty when access should come only from checkout."
+          title="Signup grants"
+          description="Granted once per user before any purchase. Set the same key your app checks, for example ai_requests, exports, or storage_gb."
           entitlements={form.freeEntitlements}
           idPrefix="billing-default-entitlement"
           disabled={disabled || pending}
-          addLabel="Add default grant"
+          addLabel="Add signup grant"
+          emptyMessage="No signup grants yet. Users will only receive access from checkout products."
+          keyOptions={benefitKeys}
           onAdd={onAddFreeEntitlement}
           onUpdate={onUpdateFreeEntitlement}
           onRemove={onRemoveFreeEntitlement}
@@ -940,7 +997,7 @@ function BenefitsEditor({
         disabled={disabled}
         onAdd={() =>
           onUpdateProduct(productIndex, {
-            entitlements: [...product.entitlements, defaultEntitlement()]
+            entitlements: [...product.entitlements, emptyBillingEntitlement()]
           })
         }
         onUpdate={(entitlementIndex, patch) =>
@@ -965,6 +1022,8 @@ function EntitlementsEditor({
   idPrefix,
   disabled,
   addLabel = "Add benefit",
+  emptyMessage = "No benefits configured yet.",
+  keyOptions = [],
   onAdd,
   onUpdate,
   onRemove
@@ -975,6 +1034,8 @@ function EntitlementsEditor({
   idPrefix: string;
   disabled: boolean;
   addLabel?: string;
+  emptyMessage?: string;
+  keyOptions?: string[];
   onAdd: () => void;
   onUpdate: (entitlementIndex: number, patch: Partial<BillingEntitlement>) => void;
   onRemove: (entitlementIndex: number) => void;
@@ -998,16 +1059,21 @@ function EntitlementsEditor({
       </div>
 
       <div className="mt-4 grid gap-3">
+        {entitlements.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border bg-surface px-3 py-4 text-[12.5px] leading-5 text-muted">
+            {emptyMessage}
+          </div>
+        ) : null}
         {entitlements.map((entitlement, entitlementIndex) => (
           <div
             key={`${entitlement.key}-${entitlementIndex}`}
             className="rounded-lg border border-border bg-surface p-3"
           >
             <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_0.7fr_auto]">
-              <SettingsInput
+              <BenefitKeyField
                 id={`${idPrefix}-key-${entitlementIndex}`}
-                label="Key"
                 value={entitlement.key}
+                options={keyOptions}
                 disabled={disabled}
                 onChange={(value) => onUpdate(entitlementIndex, { key: value })}
               />
@@ -1180,6 +1246,54 @@ function TogglePill({
   );
 }
 
+function BenefitKeyField({
+  id,
+  value,
+  options,
+  disabled,
+  onChange
+}: {
+  id: string;
+  value: string;
+  options: string[];
+  disabled: boolean;
+  onChange: (value: string) => void;
+}) {
+  const values = uniqueStrings([value, ...options].filter(Boolean));
+
+  if (values.length === 0) {
+    return (
+      <SettingsInput
+        id={id}
+        label="Key"
+        value={value}
+        disabled={disabled}
+        onChange={onChange}
+      />
+    );
+  }
+
+  return (
+    <label className="grid gap-1.5">
+      <span className="text-[12px] font-medium text-ink-soft">Key</span>
+      <select
+        id={id}
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange(event.currentTarget.value)}
+        className="h-10 w-full rounded-lg border border-border bg-surface px-3 font-mono text-[13px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {value.trim() ? null : <option value="">Select benefit key</option>}
+        {values.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function SelectField({
   label,
   value,
@@ -1254,7 +1368,7 @@ function defaultProduct(): BillingProductMapping {
   };
 }
 
-function defaultEntitlement(): BillingEntitlement {
+function emptyBillingEntitlement(): BillingEntitlement {
   return {
     key: "",
     grantType: "one_time_credits",
@@ -1262,6 +1376,10 @@ function defaultEntitlement(): BillingEntitlement {
     resetPeriod: "never",
     priority: 100
   };
+}
+
+function uniqueStrings(values: string[]) {
+  return Array.from(new Set(values));
 }
 
 function productFromPolar(product: PolarProductSummary): BillingProductMapping {
