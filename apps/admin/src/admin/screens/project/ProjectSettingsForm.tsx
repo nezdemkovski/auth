@@ -13,34 +13,16 @@ import {
   FormAlert,
   SelectField,
   SettingsInput,
-  SettingsTextarea,
-  Switch
+  SettingsTextarea
 } from "@nezdemkovski/auth-ui";
-
-const TWO_FACTOR_REQUIREMENT_OPTIONS = [
-  { value: "optional", label: "Optional" },
-  { value: "admins", label: "Required for admins" },
-  { value: "everyone", label: "Required for everyone" }
-];
-
-const AGENT_ACCESS_MODE_OPTIONS = [
-  { value: "read-only", label: "Read-only" },
-  { value: "scoped-write", label: "Scoped write" }
-];
-
-const parseTwoFactorRequirement = (value: string) => {
-  if (value === "admins" || value === "everyone") {
-    return value;
-  }
-  return "optional";
-};
-
-const parseAgentAccessMode = (value: string) => {
-  if (value === "scoped-write") {
-    return value;
-  }
-  return "read-only";
-};
+import { FeatureToggle } from "./FeatureToggle";
+import { ProjectIconField } from "./ProjectIconField";
+import {
+  AGENT_ACCESS_MODE_OPTIONS,
+  TWO_FACTOR_REQUIREMENT_OPTIONS,
+  parseAgentAccessMode,
+  parseTwoFactorRequirement
+} from "./project-settings-options";
 
 export function ProjectSettingsForm({
   project,
@@ -282,123 +264,5 @@ export function ProjectSettingsForm({
         </Button>
       </div>
     </form>
-  );
-}
-
-function ProjectIconField({
-  value,
-  storageConfigured,
-  disabled,
-  uploadPending,
-  uploadedIcon,
-  onUrlChange,
-  onUpload
-}: {
-  value: string;
-  storageConfigured: boolean;
-  disabled: boolean;
-  uploadPending: boolean;
-  uploadedIcon: StorageObject | null;
-  onUrlChange: (value: string) => void;
-  onUpload: (file: File) => void;
-}) {
-  const [resolution, setResolution] = useState<string | null>(null);
-
-  useEffect(() => {
-    setResolution(null);
-  }, [value]);
-
-  if (!storageConfigured) {
-    return (
-      <SettingsInput
-        id="project-icon"
-        label="Icon URL"
-        value={value}
-        disabled={disabled}
-        placeholder="https://app.domain.com/icon.png"
-        onChange={onUrlChange}
-      />
-    );
-  }
-
-  return (
-    <div className="grid gap-1.5">
-      <span className="text-[12px] font-medium text-ink-soft">Icon</span>
-      <div className="flex min-h-10 items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2">
-        {value ? (
-          <img
-            src={value}
-            alt=""
-            onLoad={(event) => {
-              const image = event.currentTarget;
-              if (image.naturalWidth && image.naturalHeight) {
-                setResolution(`${image.naturalWidth}x${image.naturalHeight}`);
-              }
-            }}
-            className="h-7 w-7 rounded-md border border-border object-cover"
-          />
-        ) : (
-          <span className="h-7 w-7 rounded-md border border-border bg-surface-muted" />
-        )}
-        <span className="min-w-0 flex-1 truncate text-[12px] text-muted">
-          {value ? (
-            <>
-              {uploadedIcon?.originalFileName ? (
-                <span className="text-ink-soft">{uploadedIcon.originalFileName}</span>
-              ) : null}
-              {resolution ? <span className="ml-2 text-muted">{resolution}</span> : null}
-            </>
-          ) : (
-            "No icon uploaded"
-          )}
-        </span>
-        <label className="inline-flex h-8 shrink-0 cursor-pointer items-center justify-center rounded-md border border-border bg-surface-muted px-2.5 text-[12px] font-semibold text-ink-soft transition-colors hover:bg-surface-hover has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
-          {uploadPending ? "Uploading..." : "Upload"}
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-            disabled={disabled || uploadPending}
-            className="sr-only"
-            onChange={(event) => {
-              const file = event.currentTarget.files?.[0];
-              event.currentTarget.value = "";
-              if (file) {
-                onUpload(file);
-              }
-            }}
-          />
-        </label>
-      </div>
-    </div>
-  );
-}
-
-function FeatureToggle({
-  label,
-  description,
-  checked,
-  disabled,
-  inset = false,
-  onChange
-}: {
-  label: string;
-  description: string;
-  checked: boolean;
-  disabled: boolean;
-  inset?: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <label
-      className={`flex items-start gap-3 rounded-lg border border-border bg-surface px-3 py-3 ${
-        inset ? "ml-8" : ""
-      }`}
-    >
-      <Switch checked={checked} disabled={disabled} onChange={onChange} />
-      <span className="min-w-0">
-        <span className="block text-[13px] font-medium text-ink">{label}</span>
-        <span className="mt-0.5 block text-[12px] leading-5 text-muted">{description}</span>
-      </span>
-    </label>
   );
 }
