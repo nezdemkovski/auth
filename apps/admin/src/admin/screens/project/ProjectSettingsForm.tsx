@@ -8,7 +8,39 @@ import type {
   StorageSettings
 } from "../../types";
 import { projectToSettingsForm } from "../../utils/format";
-import { FormAlert, SettingsInput, SettingsTextarea } from "@nezdemkovski/auth-ui";
+import {
+  Button,
+  FormAlert,
+  SelectField,
+  SettingsInput,
+  SettingsTextarea,
+  Switch
+} from "@nezdemkovski/auth-ui";
+
+const TWO_FACTOR_REQUIREMENT_OPTIONS = [
+  { value: "optional", label: "Optional" },
+  { value: "admins", label: "Required for admins" },
+  { value: "everyone", label: "Required for everyone" }
+];
+
+const AGENT_ACCESS_MODE_OPTIONS = [
+  { value: "read-only", label: "Read-only" },
+  { value: "scoped-write", label: "Scoped write" }
+];
+
+const parseTwoFactorRequirement = (value: string) => {
+  if (value === "admins" || value === "everyone") {
+    return value;
+  }
+  return "optional";
+};
+
+const parseAgentAccessMode = (value: string) => {
+  if (value === "scoped-write") {
+    return value;
+  }
+  return "read-only";
+};
 
 export function ProjectSettingsForm({
   project,
@@ -190,26 +222,16 @@ export function ProjectSettingsForm({
             onChange={(checked) => update("twoFactorEnabled", checked)}
           />
 
-          <label className="grid gap-1.5 pl-8">
-            <span className="text-[12.5px] font-medium text-ink-soft">
-              Two-factor requirement
-            </span>
-            <select
-              value={form.twoFactorRequired}
-              disabled={project.system || !form.twoFactorEnabled}
-              onChange={(event) =>
-                update(
-                  "twoFactorRequired",
-                  event.currentTarget.value as typeof form.twoFactorRequired
-                )
-              }
-              className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60 md:max-w-[18rem]"
-            >
-              <option value="optional">Optional</option>
-              <option value="admins">Required for admins</option>
-              <option value="everyone">Required for everyone</option>
-            </select>
-          </label>
+          <SelectField
+            label="Two-factor requirement"
+            value={form.twoFactorRequired}
+            disabled={project.system || !form.twoFactorEnabled}
+            options={TWO_FACTOR_REQUIREMENT_OPTIONS}
+            className="pl-8 md:max-w-[20rem]"
+            onChange={(value) =>
+              update("twoFactorRequired", parseTwoFactorRequirement(value))
+            }
+          />
 
           <FeatureToggle
             label="Agent Auth"
@@ -219,22 +241,14 @@ export function ProjectSettingsForm({
             onChange={(checked) => update("agentAuthEnabled", checked)}
           />
 
-          <label className="grid gap-1.5 pl-8">
-            <span className="text-[12.5px] font-medium text-ink-soft">
-              Agent access mode
-            </span>
-            <select
-              value={form.agentAuthMode}
-              disabled={project.system || !form.agentAuthEnabled}
-              onChange={(event) =>
-                update("agentAuthMode", event.currentTarget.value as typeof form.agentAuthMode)
-              }
-              className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60 md:max-w-[18rem]"
-            >
-              <option value="read-only">Read-only</option>
-              <option value="scoped-write">Scoped write</option>
-            </select>
-          </label>
+          <SelectField
+            label="Agent access mode"
+            value={form.agentAuthMode}
+            disabled={project.system || !form.agentAuthEnabled}
+            options={AGENT_ACCESS_MODE_OPTIONS}
+            className="pl-8 md:max-w-[20rem]"
+            onChange={(value) => update("agentAuthMode", parseAgentAccessMode(value))}
+          />
 
           <FeatureToggle
             label="OAuth provider"
@@ -256,15 +270,16 @@ export function ProjectSettingsForm({
       </section>
 
       <div className="flex justify-end">
-        <button
+        <Button
           type="submit"
-          data-press
           disabled={project.system || pending}
-          className="inline-flex h-9 items-center justify-center rounded-lg bg-accent px-4 text-[13px] font-medium text-accent-ink outline-none transition-colors hover:bg-accent-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
-          style={{ boxShadow: "var(--shadow-button)" }}
+          loading={pending}
+          variant="primary"
+          size="sm"
+          className="px-4"
         >
           {pending ? "Saving…" : "Save settings"}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -379,13 +394,7 @@ function FeatureToggle({
         inset ? "ml-8" : ""
       }`}
     >
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(event) => onChange(event.currentTarget.checked)}
-        className="mt-0.5 h-4 w-4 rounded border-border bg-surface text-accent focus:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
-      />
+      <Switch checked={checked} disabled={disabled} onChange={onChange} />
       <span className="min-w-0">
         <span className="block text-[13px] font-medium text-ink">{label}</span>
         <span className="mt-0.5 block text-[12px] leading-5 text-muted">{description}</span>

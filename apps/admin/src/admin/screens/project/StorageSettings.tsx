@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { StorageSettings, StorageSettingsPatch } from "../../types";
-import { FormAlert, SettingsInput } from "@nezdemkovski/auth-ui";
+import { Button, FormAlert, SettingsInput } from "@nezdemkovski/auth-ui";
 
 export function StorageSettingsForm({
   settings,
@@ -134,9 +134,13 @@ export function StorageSettingsForm({
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <button
+        <Button
           type="button"
           disabled={disabled || pending}
+          loading={pending}
+          variant="primary"
+          size="sm"
+          className="px-4"
           onClick={() =>
             onSave({
               provider: form.enabled ? "s3" : "none",
@@ -154,14 +158,12 @@ export function StorageSettingsForm({
                     ...(form.secretAccessKey.trim()
                       ? { secretAccessKey: form.secretAccessKey.trim() }
                       : {}),
-                  }),
+              }),
             })
           }
-          className="inline-flex h-9 items-center justify-center rounded-lg bg-accent px-4 text-[13px] font-medium text-accent-ink outline-none transition-colors hover:bg-accent-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
-          style={{ boxShadow: "var(--shadow-button)" }}
         >
           {pending ? "Saving..." : "Save storage"}
-        </button>
+        </Button>
       </div>
     </div>
   );

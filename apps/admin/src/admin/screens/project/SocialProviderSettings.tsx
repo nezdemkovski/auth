@@ -10,7 +10,7 @@ import type {
   SocialProviderId,
   SocialProviderPatch
 } from "../../types";
-import { FormAlert, SettingsInput } from "@nezdemkovski/auth-ui";
+import { Button, FormAlert, SettingsInput, Switch } from "@nezdemkovski/auth-ui";
 
 const providerIcons: Record<SocialProviderId, React.ComponentType<{ size?: number }>> = {
   github: Github,
@@ -248,24 +248,24 @@ function SocialProviderEditor({
       </div>
 
       <div className="flex flex-wrap justify-end gap-2">
-        <button
+        <Button
           type="button"
-          data-press
           disabled={disabled || verifyPending || !provider.configured || !enabled}
           onClick={() => onVerify(item.id)}
-          className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+          loading={verifyPending}
+          size="sm"
         >
           {verifyPending ? "Checking…" : "Check"}
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
-          data-press
           disabled={disabled || pending}
-          className="inline-flex h-9 items-center justify-center rounded-lg bg-accent px-3 text-[12.5px] font-medium text-accent-ink outline-none transition-colors hover:bg-accent-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
-          style={{ boxShadow: "var(--shadow-button)" }}
+          loading={pending}
+          variant="primary"
+          size="sm"
         >
           {pending ? "Saving…" : "Save"}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -281,26 +281,8 @@ function TogglePill({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="inline-flex items-center gap-2 text-[12.5px] font-medium text-ink-soft">
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(event) => onChange(event.currentTarget.checked)}
-        className="sr-only"
-      />
-      <span
-        className={`relative h-6 w-10 rounded-full border border-border transition-colors ${
-          checked ? "bg-accent" : "bg-surface-muted"
-        } ${disabled ? "cursor-not-allowed opacity-55" : ""}`}
-      >
-        <span
-          className={`absolute left-1 top-1 h-4 w-4 rounded-full transition-transform ${
-            checked ? "translate-x-4 bg-accent-ink" : "bg-muted-soft"
-          }`}
-        />
-      </span>
-      {checked ? "On" : "Off"}
+    <label>
+      <Switch checked={checked} disabled={disabled} onChange={onChange} />
     </label>
   );
 }

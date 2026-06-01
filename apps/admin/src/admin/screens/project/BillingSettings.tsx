@@ -9,7 +9,14 @@ import type {
   CreatePolarProductInput,
   PolarProductSummary
 } from "../../types";
-import { FormAlert, SettingsInput, SettingsTextarea } from "@nezdemkovski/auth-ui";
+import {
+  Button,
+  FormAlert,
+  SelectField as UiSelectField,
+  SettingsInput,
+  SettingsTextarea,
+  Switch
+} from "@nezdemkovski/auth-ui";
 
 type BillingView = "setup" | "products";
 type ProductWorkspace =
@@ -197,15 +204,15 @@ export function BillingSettings({
             Connect Polar, then publish product contracts your apps can use.
           </p>
         </div>
-        <button
+        <Button
           type="submit"
-          data-press
+          variant="primary"
+          size="sm"
           disabled={disabled || pending}
-          className="inline-flex h-9 items-center justify-center rounded-lg bg-accent px-4 text-[13px] font-medium text-accent-ink outline-none transition-colors hover:bg-accent-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
-          style={{ boxShadow: "var(--shadow-button)" }}
+          className="h-9 px-4 text-[13px]"
         >
           {pending ? "Saving…" : "Save billing"}
-        </button>
+        </Button>
       </div>
 
       {localError || error ? (
@@ -407,9 +414,8 @@ function SetupView({
             onChange={(value) => onUpdate("webhookSecret", value)}
           />
           <div className="flex items-end">
-            <button
+            <Button
               type="button"
-              data-press
               disabled={
                 disabled ||
                 verifyPending ||
@@ -422,10 +428,11 @@ function SetupView({
                   environment: form.environment
                 })
               }
-              className="inline-flex h-10 w-full items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+              loading={verifyPending}
+              fullWidth
             >
               {verifyPending ? "Checking…" : "Check connection"}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -459,17 +466,16 @@ function SetupView({
                 </p>
               )}
             </div>
-            <button
+            <Button
               type="button"
-              data-press
               disabled={disabled || pending}
               onClick={onAddStarterCreditGrant}
-              className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+              size="sm"
             >
               {benefitKeys.length > 0
                 ? `Add ${benefitKeys[0]} grant`
                 : "Add grant"}
-            </button>
+            </Button>
           </div>
         </div>
         <EntitlementsEditor
@@ -541,15 +547,15 @@ function ProductsView({
         <div className="rounded-xl border border-border bg-surface p-3">
           <div className="mb-3 flex items-center justify-between gap-3">
             <span className="text-[13px] font-semibold text-ink">Products</span>
-            <button
+            <Button
               type="button"
-              data-press
               disabled={disabled}
               onClick={() => onWorkspaceChange({ mode: "create" })}
-              className="inline-flex h-8 items-center justify-center rounded-md bg-accent px-2.5 text-[12px] font-medium text-accent-ink outline-none transition-colors hover:bg-accent-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+              variant="primary"
+              size="sm"
             >
               New
-            </button>
+            </Button>
           </div>
 
           {products.length === 0 ? (
@@ -706,15 +712,14 @@ function CreateProductEditor({
             cases where the Polar product already exists but cannot be loaded.
           </p>
         </div>
-        <button
+        <Button
           type="button"
-          data-press
           disabled={disabled}
           onClick={onAddManual}
-          className="inline-flex h-9 items-center justify-center rounded-lg border border-border bg-surface-muted px-3 text-[12.5px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+          size="sm"
         >
           Add manual mapping
-        </button>
+        </Button>
       </div>
 
       <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -802,16 +807,17 @@ function CreateProductEditor({
       </div>
 
       <div className="mt-5 flex justify-end">
-        <button
+        <Button
           type="button"
-          data-press
           disabled={disabled || pending}
           onClick={onCreateInPolar}
-          className="inline-flex h-9 items-center justify-center rounded-lg bg-accent px-4 text-[13px] font-medium text-accent-ink outline-none transition-colors hover:bg-accent-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
-          style={{ boxShadow: "var(--shadow-button)" }}
+          loading={pending}
+          variant="primary"
+          size="sm"
+          className="px-4"
         >
           {pending ? "Creating…" : "Create and map"}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -914,15 +920,15 @@ function ProductEditor({
       />
 
       <div className="mt-5 flex justify-between">
-        <button
+        <Button
           type="button"
-          data-press
           disabled={disabled}
           onClick={() => onRemoveProduct(productIndex)}
-          className="text-[12.5px] font-medium text-muted underline-offset-[3px] hover:text-danger hover:underline disabled:cursor-not-allowed disabled:opacity-55"
+          variant="danger"
+          size="sm"
         >
           Remove product
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -1013,15 +1019,14 @@ function EntitlementsEditor({
           <h4 className="text-[13.5px] font-semibold text-ink">{title}</h4>
           <p className="mt-1 text-[12px] leading-5 text-muted">{description}</p>
         </div>
-        <button
+        <Button
           type="button"
-          data-press
           disabled={disabled}
           onClick={onAdd}
-          className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-surface px-2.5 text-[12px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
+          size="sm"
         >
           {addLabel}
-        </button>
+        </Button>
       </div>
 
       <div className="mt-4 grid gap-3">
@@ -1076,15 +1081,16 @@ function EntitlementsEditor({
                   })
                 }
               />
-              <button
+              <Button
                 type="button"
-                data-press
                 disabled={disabled}
                 onClick={() => onRemove(entitlementIndex)}
-                className="self-end text-[12.5px] font-medium text-muted underline-offset-[3px] hover:text-ink hover:underline disabled:cursor-not-allowed disabled:opacity-55"
+                variant="link"
+                size="sm"
+                className="self-end"
               >
                 Remove
-              </button>
+              </Button>
             </div>
           </div>
         ))}
@@ -1187,29 +1193,7 @@ function TogglePill({
   disabled: boolean;
   onChange: (checked: boolean) => void;
 }) {
-  return (
-    <label className="inline-flex items-center gap-2 text-[12.5px] font-medium text-ink-soft">
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(event) => onChange(event.currentTarget.checked)}
-        className="sr-only"
-      />
-      <span
-        className={`relative h-6 w-10 rounded-full border border-border transition-colors ${
-          checked ? "bg-accent" : "bg-surface-muted"
-        } ${disabled ? "cursor-not-allowed opacity-55" : ""}`}
-      >
-        <span
-          className={`absolute left-1 top-1 h-4 w-4 rounded-full transition-transform ${
-            checked ? "translate-x-4 bg-accent-ink" : "bg-muted-soft"
-          }`}
-        />
-      </span>
-      {checked ? "On" : "Off"}
-    </label>
-  );
+  return <Switch checked={checked} disabled={disabled} onChange={onChange} />;
 }
 
 function BenefitKeyField({
@@ -1274,21 +1258,13 @@ function SelectField({
   onChange: (value: string) => void;
 }) {
   return (
-    <label className="grid gap-1.5">
-      <span className="text-[12.5px] font-medium text-ink-soft">{label}</span>
-      <select
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(event.currentTarget.value)}
-        className="h-10 w-full rounded-lg border border-border bg-surface px-3 text-[14px] text-ink outline-none transition-[border-color,box-shadow,background-color] focus:border-border-strong focus:shadow-[0_0_0_3px_var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {options.map(({ value: optionValue, label }) => (
-          <option key={optionValue} value={optionValue}>
-            {label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <UiSelectField
+      label={label}
+      value={value}
+      disabled={disabled}
+      options={options}
+      onChange={onChange}
+    />
   );
 }
 

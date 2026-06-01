@@ -11,7 +11,13 @@ import {
   updateObservabilitySettings,
   verifyDeliverySettings
 } from "../api";
-import { PrimaryButton, SettingsInput } from "@nezdemkovski/auth-ui";
+import {
+  Button,
+  PrimaryButton,
+  SelectField,
+  SettingsInput,
+  Switch
+} from "@nezdemkovski/auth-ui";
 import { notifyError, notifySuccess } from "../toast";
 import type {
   DeliveryProvider,
@@ -22,6 +28,31 @@ import type {
   ObservabilitySettings,
   ObservabilitySettingsPatch
 } from "../types";
+
+const DELIVERY_PROVIDER_OPTIONS = [
+  { value: "none", label: "Disabled" },
+  { value: "resend", label: "Resend" },
+  { value: "cloudflare", label: "Cloudflare Email Routing" }
+];
+
+const OBSERVABILITY_PROVIDER_OPTIONS = [
+  { value: "none", label: "Disabled" },
+  { value: "sentry", label: "Sentry" }
+];
+
+const parseDeliveryProvider = (value: string) => {
+  if (value === "resend" || value === "cloudflare") {
+    return value;
+  }
+  return "none";
+};
+
+const parseObservabilityProvider = (value: string) => {
+  if (value === "sentry") {
+    return value;
+  }
+  return "none";
+};
 
 export function SettingsView({ me }: { me: MeResponse }) {
   return (
@@ -266,20 +297,12 @@ function DeliveryForm({
 
   return (
     <form onSubmit={submit} className="max-w-[560px] space-y-4">
-      <label className="block space-y-2">
-        <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted">
-          Provider
-        </span>
-        <select
-          className="h-11 w-full rounded-[14px] border border-border bg-surface px-3 text-[14px] text-ink outline-none transition focus:border-accent"
-          value={provider}
-          onChange={(event) => setProvider(event.target.value as DeliveryProvider)}
-        >
-          <option value="none">Disabled</option>
-          <option value="resend">Resend</option>
-          <option value="cloudflare">Cloudflare Email Routing</option>
-        </select>
-      </label>
+      <SelectField
+        label="Provider"
+        value={provider}
+        options={DELIVERY_PROVIDER_OPTIONS}
+        onChange={(value) => setProvider(parseDeliveryProvider(value))}
+      />
 
       {provider !== "none" ? (
         <SettingsInput
@@ -339,14 +362,15 @@ function DeliveryForm({
         <PrimaryButton type="submit" loading={saving} disabled={!dirty || !ready}>
           {saving ? "Saving…" : "Save delivery →"}
         </PrimaryButton>
-        <button
+        <Button
           type="button"
           onClick={onVerify}
           disabled={!settings.configured || verifying}
-          className="h-11 rounded-full border border-border px-5 text-[13px] font-semibold text-ink transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+          loading={verifying}
+          className="rounded-full px-5"
         >
           {verifying ? "Sending…" : "Send test email"}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -555,33 +579,21 @@ function ObservabilityForm({
 
   return (
     <form onSubmit={submit} className="max-w-[560px] space-y-4">
-      <label className="block space-y-2">
-        <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-muted">
-          Provider
-        </span>
-        <select
-          className="h-11 w-full rounded-[14px] border border-border bg-surface px-3 text-[14px] text-ink outline-none transition focus:border-accent"
-          value={provider}
-          onChange={(event) => {
-            const next = event.target.value as ObservabilityProvider;
-            setProvider(next);
-            setEnabled(next === "sentry");
-          }}
-        >
-          <option value="none">Disabled</option>
-          <option value="sentry">Sentry</option>
-        </select>
-      </label>
+      <SelectField
+        label="Provider"
+        value={provider}
+        options={OBSERVABILITY_PROVIDER_OPTIONS}
+        onChange={(value) => {
+          const next = parseObservabilityProvider(value);
+          setProvider(next);
+          setEnabled(next === "sentry");
+        }}
+      />
 
       {provider === "sentry" ? (
         <>
           <label className="flex items-start gap-3 rounded-lg border border-border bg-surface-muted p-3">
-            <input
-              type="checkbox"
-              checked={enabled}
-              onChange={(event) => setEnabled(event.currentTarget.checked)}
-              className="mt-1 h-4 w-4 rounded border-border bg-surface"
-            />
+            <Switch checked={enabled} onChange={setEnabled} />
             <span>
               <span className="block text-[13px] font-semibold text-ink">
                 Capture platform errors
@@ -616,14 +628,15 @@ function ObservabilityForm({
         <PrimaryButton type="submit" loading={saving} disabled={!dirty || !ready}>
           {saving ? "Saving…" : "Save observability →"}
         </PrimaryButton>
-        <button
+        <Button
           type="button"
           onClick={onTest}
           disabled={!settings.configured || testing}
-          className="h-11 rounded-full border border-border px-5 text-[13px] font-semibold text-ink transition hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
+          loading={testing}
+          className="rounded-full px-5"
         >
           {testing ? "Sending…" : "Send test event"}
-        </button>
+        </Button>
       </div>
     </form>
   );

@@ -8,7 +8,9 @@ export function FormField({
   type,
   autoComplete,
   placeholder,
-  hint
+  value,
+  hint,
+  onChange
 }: {
   id: string;
   name: string;
@@ -16,7 +18,9 @@ export function FormField({
   type: string;
   autoComplete: string;
   placeholder?: string;
+  value?: string;
   hint?: ReactNode;
+  onChange?: (value: string) => void;
 }) {
   return (
     <TextField
@@ -24,6 +28,8 @@ export function FormField({
       name={name}
       type={type}
       autoComplete={autoComplete}
+      value={value}
+      onChange={onChange}
       isRequired
       className="flex flex-col"
     >

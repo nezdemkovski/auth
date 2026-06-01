@@ -12,6 +12,7 @@
     "@icons-pack/react-simple-icons": "13.13.0",
     "@lobehub/icons": "5.10.0",
     "@nezdemkovski/auth-client-shared": "workspace:*",
+    "@nezdemkovski/auth-ui": "workspace:*",
     "@tanstack/react-router": "1.170.10",
     "better-auth": "1.6.13",
     "lucide-react": "1.17.0",
