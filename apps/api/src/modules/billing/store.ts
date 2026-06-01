@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import {
   BillingEnvironment,
@@ -14,6 +14,7 @@ import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 import { isEnumValue } from "../../runtime/enums";
 import { isRecord } from "../../runtime/type-guards";
+import { billingSettings } from "./tables";
 import type { BillingSettingsPatch } from "./validator";
 
 export type BillingSettingsState = Omit<
@@ -32,6 +33,7 @@ type BillingSettingsRow = {
   organizationId: string;
   accessTokenCipher: string;
   webhookSecretCipher: string;
+  freeEntitlements: unknown;
   products: unknown;
 };
 
@@ -46,6 +48,7 @@ export const ensureBillingSettingsTable = async (options: AdminDatabaseOptions) 
         organization_id text NOT NULL DEFAULT '',
         access_token_cipher text NOT NULL DEFAULT '',
         webhook_secret_cipher text NOT NULL DEFAULT '',
+        free_entitlements jsonb NOT NULL DEFAULT '[]'::jsonb,
         products jsonb NOT NULL DEFAULT '[]'::jsonb,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
@@ -55,6 +58,10 @@ export const ensureBillingSettingsTable = async (options: AdminDatabaseOptions) 
       ALTER TABLE auth_billing_settings
       ADD COLUMN IF NOT EXISTS organization_id text NOT NULL DEFAULT ''
     `);
+    await db.execute(sql`
+      ALTER TABLE auth_billing_settings
+      ADD COLUMN IF NOT EXISTS free_entitlements jsonb NOT NULL DEFAULT '[]'::jsonb
+    `);
   });
 };
 
@@ -62,20 +69,10 @@ export const loadBillingSettings = async (options: AdminDatabaseOptions & {
   encryptionSecret: string;
 }) => {
   return withAdminDb(options, async ({ db }) => {
-    const result = await db.execute<BillingSettingsRow>(sql`
-      SELECT project_slug AS "projectSlug",
-             provider,
-             enabled,
-             environment,
-             organization_id AS "organizationId",
-             access_token_cipher AS "accessTokenCipher",
-             webhook_secret_cipher AS "webhookSecretCipher",
-             products
-      FROM auth_billing_settings
-    `);
+    const rows = await db.select().from(billingSettings);
 
     const byProject = new Map<string, ProjectBillingSettings>();
-    for (const row of result.rows) {
+    for (const row of rows) {
       byProject.set(
         row.projectSlug,
         await rowToBilling(row, options.encryptionSecret)
@@ -97,21 +94,13 @@ export const readBillingSettingsState = async (options: AdminDatabaseOptions & {
   project: AuthProject;
 }) => {
   return withAdminDb(options, async ({ db }) => {
-    const result = await db.execute<BillingSettingsRow>(sql`
-      SELECT project_slug AS "projectSlug",
-             provider,
-             enabled,
-             environment,
-             organization_id AS "organizationId",
-             access_token_cipher AS "accessTokenCipher",
-             webhook_secret_cipher AS "webhookSecretCipher",
-             products
-      FROM auth_billing_settings
-      WHERE project_slug = ${options.project.slug}
-      LIMIT 1
-    `);
+    const rows = await db
+      .select()
+      .from(billingSettings)
+      .where(eq(billingSettings.projectSlug, options.project.slug))
+      .limit(1);
 
-    return rowToState(result.rows[0]);
+    return rowToState(rows[0]);
   });
 };
 
@@ -141,53 +130,43 @@ export const updateBillingSettings = async (options: AdminDatabaseOptions & {
       : current?.webhookSecretCipher ?? "";
 
   return withAdminDb(options, async ({ db }) => {
-    const result = await db.execute<BillingSettingsRow>(sql`
-      INSERT INTO auth_billing_settings (
-        project_slug,
-        provider,
-        enabled,
-        environment,
-        organization_id,
-        access_token_cipher,
-        webhook_secret_cipher,
-        products
-      )
-      VALUES (
-        ${options.project.slug},
-        ${options.patch.provider},
-        ${options.patch.enabled},
-        ${options.patch.environment},
-        ${options.patch.organizationId?.trim() ?? ""},
-        ${accessTokenCipher},
-        ${webhookSecretCipher},
-        ${JSON.stringify(options.patch.products)}::jsonb
-      )
-      ON CONFLICT (project_slug) DO UPDATE
-      SET provider = EXCLUDED.provider,
-          enabled = EXCLUDED.enabled,
-          environment = EXCLUDED.environment,
-          organization_id = EXCLUDED.organization_id,
-          access_token_cipher = EXCLUDED.access_token_cipher,
-          webhook_secret_cipher = EXCLUDED.webhook_secret_cipher,
-          products = EXCLUDED.products,
-          updated_at = now()
-      RETURNING project_slug AS "projectSlug",
-                provider,
-                enabled,
-                environment,
-                organization_id AS "organizationId",
-                access_token_cipher AS "accessTokenCipher",
-                webhook_secret_cipher AS "webhookSecretCipher",
-                products
-    `);
+    const rows = await db
+      .insert(billingSettings)
+      .values({
+        projectSlug: options.project.slug,
+        provider: options.patch.provider,
+        enabled: options.patch.enabled,
+        environment: options.patch.environment,
+        organizationId: options.patch.organizationId?.trim() ?? "",
+        accessTokenCipher,
+        webhookSecretCipher,
+        freeEntitlements: options.patch.freeEntitlements,
+        products: options.patch.products
+      })
+      .onConflictDoUpdate({
+        target: billingSettings.projectSlug,
+        set: {
+          provider: options.patch.provider,
+          enabled: options.patch.enabled,
+          environment: options.patch.environment,
+          organizationId: options.patch.organizationId?.trim() ?? "",
+          accessTokenCipher,
+          webhookSecretCipher,
+          freeEntitlements: options.patch.freeEntitlements,
+          products: options.patch.products,
+          updatedAt: sql`now()`
+        }
+      })
+      .returning();
 
-    return rowToBilling(result.rows[0], options.encryptionSecret);
+    return rowToBilling(rows[0], options.encryptionSecret);
   });
 };
 
 export const cloneDefaultBilling = () => {
   return {
     ...DEFAULT_PROJECT_BILLING,
+    freeEntitlements: [],
     products: []
   };
 };
@@ -216,12 +195,14 @@ const rowToBilling = async (row: BillingSettingsRow, encryptionSecret: string) =
       row.projectSlug,
       "webhook-secret"
     ),
+    freeEntitlements: normalizeEntitlements(row.freeEntitlements),
     products: normalizeBillingProducts(row.products)
   };
 };
 
 const rowToState = (row: BillingSettingsRow | undefined) => {
   const products = normalizeBillingProducts(row?.products ?? []);
+  const freeEntitlements = normalizeEntitlements(row?.freeEntitlements ?? []);
   const provider =
     row?.provider === BillingProvider.Polar ? BillingProvider.Polar : BillingProvider.None;
   const environment =
@@ -235,6 +216,7 @@ const rowToState = (row: BillingSettingsRow | undefined) => {
     organizationId: row?.organizationId ?? "",
     accessTokenConfigured: Boolean(row?.accessTokenCipher),
     webhookSecretConfigured: Boolean(row?.webhookSecretCipher),
+    freeEntitlements,
     products
   };
 };
@@ -243,21 +225,13 @@ const readBillingSettingsRow = async (options: AdminDatabaseOptions & {
   project: AuthProject;
 }) => {
   return withAdminDb(options, async ({ db }) => {
-    const result = await db.execute<BillingSettingsRow>(sql`
-      SELECT project_slug AS "projectSlug",
-             provider,
-             enabled,
-             environment,
-             organization_id AS "organizationId",
-             access_token_cipher AS "accessTokenCipher",
-             webhook_secret_cipher AS "webhookSecretCipher",
-             products
-      FROM auth_billing_settings
-      WHERE project_slug = ${options.project.slug}
-      LIMIT 1
-    `);
+    const rows = await db
+      .select()
+      .from(billingSettings)
+      .where(eq(billingSettings.projectSlug, options.project.slug))
+      .limit(1);
 
-    return result.rows[0] ?? null;
+    return rows[0] ?? null;
   });
 };
 

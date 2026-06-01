@@ -39,7 +39,8 @@ describe("project translator", () => {
           accessToken: "",
           organizationId: "",
           webhookSecret: "",
-          products: []
+          products: [],
+          freeEntitlements: []
         },
         storage: DEFAULT_PROJECT_STORAGE
       },

@@ -2,7 +2,6 @@ import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import type { AdminDatabase } from "../../db/admin-pool";
 import { BillingEnvironment } from "../../config/projects";
-import { defaultEntitlementsForBillingProduct } from "./entitlements";
 import {
   createPolarClientFromProject,
   createPolarProduct,
@@ -175,11 +174,7 @@ export class BillingService {
 
     try {
       const product = await this.polar.createProduct(client, input);
-      return createdBillingProductResponse(
-        product,
-        input,
-        defaultEntitlementsForBillingProduct(input.type)
-      );
+      return createdBillingProductResponse(product, input, []);
     } catch (error) {
       throw new BillingServiceError(
         "polar_product_create_failed",

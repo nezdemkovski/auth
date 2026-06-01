@@ -13,6 +13,7 @@ import {
 } from "../auth/project-auth";
 import { createProjectDatabase } from "./project-db";
 import { ensureBillingSettingsTable } from "../modules/billing/store";
+import { ensureBillingUsageTables } from "../modules/billing/usage-store";
 import { ensureBillingWebhookTables } from "../modules/billing/webhook-store";
 import {
   ensureDeliverySettingsTable,
@@ -70,6 +71,10 @@ export const bootstrapProjects = async (options: BootstrapOptions) => {
       adminProject: options.adminProject
     });
     await ensureBillingWebhookTables({
+      databaseUrl: options.databaseUrl,
+      adminProject: options.adminProject
+    });
+    await ensureBillingUsageTables({
       databaseUrl: options.databaseUrl,
       adminProject: options.adminProject
     });

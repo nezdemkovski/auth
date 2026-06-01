@@ -10,7 +10,8 @@ import {
 } from "../../../config/projects";
 import {
   parseBillingSettingsPatch,
-  parseCreatePolarProduct
+  parseCreatePolarProduct,
+  validateBillingSettingsPatch
 } from "../validator";
 
 describe("billing validators", () => {
@@ -31,7 +32,7 @@ describe("billing validators", () => {
             active: true,
             entitlements: [
               {
-                key: "ai_request_credits",
+                key: "credit_units",
                 grantType: EntitlementGrantType.OneTimeCredits,
                 amount: 50,
                 resetPeriod: EntitlementResetPeriod.Never,
@@ -50,7 +51,7 @@ describe("billing validators", () => {
           slug: "ai-pack",
           entitlements: [
             {
-              key: "ai_request_credits",
+              key: "credit_units",
               amount: 50
             }
           ]
@@ -96,7 +97,7 @@ describe("billing validators", () => {
           active: true,
           entitlements: [
             {
-              key: "ai_request_credits",
+              key: "credit_units",
               grantType: EntitlementGrantType.OneTimeCredits,
               amount: 50,
               resetPeriod: EntitlementResetPeriod.Never,
@@ -147,5 +148,28 @@ describe("billing validators", () => {
         ]
       })
     ).toBeNull();
+  });
+
+  test("rejects active checkout products without entitlements", () => {
+    const patch = parseBillingSettingsPatch({
+      provider: BillingProvider.Polar,
+      enabled: true,
+      environment: BillingEnvironment.Sandbox,
+      products: [
+        {
+          slug: "credit-pack",
+          name: "Credit Pack",
+          description: "",
+          productId: "prod_123",
+          type: BillingProductType.CreditPack,
+          active: true,
+          entitlements: []
+        }
+      ]
+    });
+
+    expect(() => patch && validateBillingSettingsPatch(patch)).toThrow(
+      "At least one entitlement is required: credit-pack"
+    );
   });
 });

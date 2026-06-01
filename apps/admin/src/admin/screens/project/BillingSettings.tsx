@@ -212,6 +212,7 @@ export function BillingSettings({
       provider: form.enabled ? "polar" : "none",
       enabled: form.enabled,
       environment: form.environment,
+      freeEntitlements: form.freeEntitlements,
       products: form.products.map((product) => ({
         ...product,
         slug: product.slug.trim(),
@@ -297,6 +298,28 @@ export function BillingSettings({
           verifyPending={verifyPending}
           onUpdate={update}
           onVerify={onVerify}
+          onUpdateFreeEntitlement={(entitlementIndex, patch) =>
+            update(
+              "freeEntitlements",
+              form.freeEntitlements.map((entitlement, currentIndex) =>
+                currentIndex === entitlementIndex ? { ...entitlement, ...patch } : entitlement
+              )
+            )
+          }
+          onAddFreeEntitlement={() =>
+            update("freeEntitlements", [
+              ...form.freeEntitlements,
+              defaultEntitlement()
+            ])
+          }
+          onRemoveFreeEntitlement={(entitlementIndex) =>
+            update(
+              "freeEntitlements",
+              form.freeEntitlements.filter(
+                (_item, currentIndex) => currentIndex !== entitlementIndex
+              )
+            )
+          }
         />
       ) : (
         <ProductsView
@@ -330,7 +353,10 @@ function SetupView({
   pending,
   verifyPending,
   onUpdate,
-  onVerify
+  onVerify,
+  onUpdateFreeEntitlement,
+  onAddFreeEntitlement,
+  onRemoveFreeEntitlement
 }: {
   settings: BillingSettings;
   form: ReturnType<typeof settingsToForm>;
@@ -345,6 +371,12 @@ function SetupView({
     accessToken?: string;
     environment?: BillingSettings["environment"];
   }) => void;
+  onUpdateFreeEntitlement: (
+    entitlementIndex: number,
+    patch: Partial<BillingEntitlement>
+  ) => void;
+  onAddFreeEntitlement: () => void;
+  onRemoveFreeEntitlement: (entitlementIndex: number) => void;
 }) {
   return (
     <div className="mt-5 grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
@@ -428,6 +460,20 @@ function SetupView({
             </button>
           </div>
         </div>
+      </div>
+
+      <div className="lg:col-span-2">
+        <EntitlementsEditor
+          title="Default entitlements"
+          description="Granted once to each user in this realm. Leave empty when access should come only from checkout."
+          entitlements={form.freeEntitlements}
+          idPrefix="billing-default-entitlement"
+          disabled={disabled || pending}
+          addLabel="Add default grant"
+          onAdd={onAddFreeEntitlement}
+          onUpdate={onUpdateFreeEntitlement}
+          onRemove={onRemoveFreeEntitlement}
+        />
       </div>
     </div>
   );
@@ -885,60 +931,92 @@ function BenefitsEditor({
   ) => void;
 }) {
   return (
-    <section className="mt-5 rounded-xl border border-border bg-surface-muted p-4">
+    <div className="mt-5">
+      <EntitlementsEditor
+        title="Benefits"
+        description="Benefits are what your app checks after checkout succeeds."
+        entitlements={product.entitlements}
+        idPrefix={`billing-entitlement-${productIndex}`}
+        disabled={disabled}
+        onAdd={() =>
+          onUpdateProduct(productIndex, {
+            entitlements: [...product.entitlements, defaultEntitlement()]
+          })
+        }
+        onUpdate={(entitlementIndex, patch) =>
+          onUpdateEntitlement(productIndex, entitlementIndex, patch)
+        }
+        onRemove={(entitlementIndex) =>
+          onUpdateProduct(productIndex, {
+            entitlements: product.entitlements.filter(
+              (_item, currentIndex) => currentIndex !== entitlementIndex
+            )
+          })
+        }
+      />
+    </div>
+  );
+}
+
+function EntitlementsEditor({
+  title,
+  description,
+  entitlements,
+  idPrefix,
+  disabled,
+  addLabel = "Add benefit",
+  onAdd,
+  onUpdate,
+  onRemove
+}: {
+  title: string;
+  description: string;
+  entitlements: BillingEntitlement[];
+  idPrefix: string;
+  disabled: boolean;
+  addLabel?: string;
+  onAdd: () => void;
+  onUpdate: (entitlementIndex: number, patch: Partial<BillingEntitlement>) => void;
+  onRemove: (entitlementIndex: number) => void;
+}) {
+  return (
+    <section className="rounded-xl border border-border bg-surface-muted p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h4 className="text-[13.5px] font-semibold text-ink">Benefits</h4>
-          <p className="mt-1 text-[12px] leading-5 text-muted">
-            Benefits are what your app checks after checkout succeeds.
-          </p>
+          <h4 className="text-[13.5px] font-semibold text-ink">{title}</h4>
+          <p className="mt-1 text-[12px] leading-5 text-muted">{description}</p>
         </div>
         <button
           type="button"
           data-press
           disabled={disabled}
-          onClick={() =>
-            onUpdateProduct(productIndex, {
-              entitlements: [
-                ...product.entitlements,
-                {
-                  key: "feature_access",
-                  grantType: "boolean",
-                  amount: null,
-                  resetPeriod: "never",
-                  priority: 100
-                }
-              ]
-            })
-          }
+          onClick={onAdd}
           className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-surface px-2.5 text-[12px] font-medium text-ink-soft outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-55"
         >
-          Add benefit
+          {addLabel}
         </button>
       </div>
 
       <div className="mt-4 grid gap-3">
-        {product.entitlements.map((entitlement, entitlementIndex) => (
+        {entitlements.map((entitlement, entitlementIndex) => (
           <div
             key={`${entitlement.key}-${entitlementIndex}`}
             className="rounded-lg border border-border bg-surface p-3"
           >
             <div className="grid gap-3 md:grid-cols-[1fr_1fr_1fr_0.7fr_auto]">
               <SettingsInput
-                id={`billing-entitlement-key-${productIndex}-${entitlementIndex}`}
+                id={`${idPrefix}-key-${entitlementIndex}`}
                 label="Key"
                 value={entitlement.key}
                 disabled={disabled}
-                onChange={(value) =>
-                  onUpdateEntitlement(productIndex, entitlementIndex, { key: value })
-                }
+                onChange={(value) => onUpdate(entitlementIndex, { key: value })}
               />
               <SelectField
                 label="Grant"
                 value={entitlement.grantType}
                 disabled={disabled}
                 onChange={(value) =>
-                  onUpdateEntitlement(productIndex, entitlementIndex, {
+                  onUpdate(entitlementIndex, {
                     grantType: value as BillingEntitlement["grantType"]
                   })
                 }
@@ -949,19 +1027,19 @@ function BenefitsEditor({
                 value={entitlement.resetPeriod}
                 disabled={disabled}
                 onChange={(value) =>
-                  onUpdateEntitlement(productIndex, entitlementIndex, {
+                  onUpdate(entitlementIndex, {
                     resetPeriod: value as BillingEntitlement["resetPeriod"]
                   })
                 }
                 options={resetPeriods.map((period) => [period, resetLabels[period]])}
               />
               <SettingsInput
-                id={`billing-entitlement-amount-${productIndex}-${entitlementIndex}`}
+                id={`${idPrefix}-amount-${entitlementIndex}`}
                 label="Amount"
                 value={entitlement.amount === null ? "" : String(entitlement.amount)}
                 disabled={disabled}
                 onChange={(value) =>
-                  onUpdateEntitlement(productIndex, entitlementIndex, {
+                  onUpdate(entitlementIndex, {
                     amount: value.trim() ? Number(value) : null
                   })
                 }
@@ -970,13 +1048,7 @@ function BenefitsEditor({
                 type="button"
                 data-press
                 disabled={disabled}
-                onClick={() =>
-                  onUpdateProduct(productIndex, {
-                    entitlements: product.entitlements.filter(
-                      (_item, currentIndex) => currentIndex !== entitlementIndex
-                    )
-                  })
-                }
+                onClick={() => onRemove(entitlementIndex)}
                 className="self-end text-[12.5px] font-medium text-muted underline-offset-[3px] hover:text-ink hover:underline disabled:cursor-not-allowed disabled:opacity-55"
               >
                 Remove
@@ -1160,6 +1232,9 @@ function settingsToForm(settings: BillingSettings) {
     accessToken: "",
     webhookSecret: "",
     accessTokenConfigured: settings.accessTokenConfigured,
+    freeEntitlements: (settings.freeEntitlements ?? []).map((entitlement) => ({
+      ...entitlement
+    })),
     products: settings.products.map((product) => ({
       ...product,
       entitlements: product.entitlements.map((entitlement) => ({ ...entitlement }))
@@ -1169,21 +1244,23 @@ function settingsToForm(settings: BillingSettings) {
 
 function defaultProduct(): BillingProductMapping {
   return {
-    slug: "starter",
-    name: "Starter",
+    slug: "",
+    name: "",
     description: "",
     productId: "",
     type: "subscription",
     active: true,
-    entitlements: [
-      {
-        key: "ai_requests",
-        grantType: "recurring_quota",
-        amount: 100,
-        resetPeriod: "monthly",
-        priority: 100
-      }
-    ]
+    entitlements: []
+  };
+}
+
+function defaultEntitlement(): BillingEntitlement {
+  return {
+    key: "",
+    grantType: "one_time_credits",
+    amount: null,
+    resetPeriod: "never",
+    priority: 100
   };
 }
 
@@ -1195,25 +1272,7 @@ function productFromPolar(product: PolarProductSummary): BillingProductMapping {
     productId: product.id,
     type: product.isRecurring ? "subscription" : "one_time",
     active: true,
-    entitlements: product.isRecurring
-      ? [
-          {
-            key: "ai_requests",
-            grantType: "recurring_quota",
-            amount: 100,
-            resetPeriod: "monthly",
-            priority: 100
-          }
-        ]
-      : [
-          {
-            key: "access",
-            grantType: "boolean",
-            amount: null,
-            resetPeriod: "never",
-            priority: 100
-          }
-        ]
+    entitlements: []
   };
 }
 

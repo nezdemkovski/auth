@@ -131,7 +131,8 @@ describe("auth route feature gates", () => {
         organizationId: "",
         accessToken: "polar-token",
         webhookSecret: "",
-        products: []
+        products: [],
+        freeEntitlements: []
       }
     };
 

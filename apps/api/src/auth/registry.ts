@@ -5,6 +5,7 @@ import {
   createPolarWebhookHandlers,
   type PolarWebhookHandlers
 } from "../modules/billing/webhooks";
+import type { PolarEntitlementGrantStore } from "../modules/billing/usage-store";
 import type { PolarWebhookStore } from "../modules/billing/webhook-store";
 import { createProjectAuth } from "./project-auth";
 
@@ -23,6 +24,7 @@ type RegistryOptions = {
   emailSender: EmailSender | null;
   trustProxyHeaders: boolean;
   projects: AuthProject[];
+  polarEntitlementGrantStore?: PolarEntitlementGrantStore;
   polarWebhookStore?: PolarWebhookStore;
 };
 
@@ -114,13 +116,15 @@ export class AuthRegistry {
 
   private createPolarWebhookHandlers() {
     const store = this.options.polarWebhookStore;
-    if (!store) {
+    const entitlements = this.options.polarEntitlementGrantStore;
+    if (!store || !entitlements) {
       return undefined;
     }
 
     return (project: AuthProject): PolarWebhookHandlers =>
       createPolarWebhookHandlers({
         project,
+        entitlements,
         store
       });
   }

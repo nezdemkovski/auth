@@ -2,6 +2,13 @@ import { sql } from "drizzle-orm";
 
 import type { AdminDatabaseOptions } from "../../db/admin-pool";
 import { withAdminDb } from "../../db/admin-pool";
+import {
+  billingBenefitGrants,
+  billingCustomerStates,
+  billingOrders,
+  billingSubscriptions,
+  billingWebhookEvents
+} from "./tables";
 
 export type PolarWebhookEventInput = {
   projectSlug: string;
@@ -161,28 +168,22 @@ const recordPolarWebhookEvent = async (
   input: PolarWebhookEventInput
 ) => {
   return withAdminDb(options, async ({ db }) => {
-    const result = await db.execute<{ eventKey: string }>(sql`
-      INSERT INTO auth_billing_webhook_events (
-        project_slug,
-        event_key,
-        event_type,
-        resource_id,
-        occurred_at,
-        payload
-      )
-      VALUES (
-        ${input.projectSlug},
-        ${input.eventKey},
-        ${input.eventType},
-        ${input.resourceId},
-        ${input.occurredAt},
-        ${JSON.stringify(input.payload)}::jsonb
-      )
-      ON CONFLICT (project_slug, event_key) DO NOTHING
-      RETURNING event_key AS "eventKey"
-    `);
+    const result = await db
+      .insert(billingWebhookEvents)
+      .values({
+        projectSlug: input.projectSlug,
+        eventKey: input.eventKey,
+        eventType: input.eventType,
+        resourceId: input.resourceId,
+        occurredAt: input.occurredAt,
+        payload: input.payload
+      })
+      .onConflictDoNothing({
+        target: [billingWebhookEvents.projectSlug, billingWebhookEvents.eventKey]
+      })
+      .returning({ eventKey: billingWebhookEvents.eventKey });
 
-    return result.rows.length > 0;
+    return result.length > 0;
   });
 };
 
@@ -191,45 +192,36 @@ const upsertPolarOrder = async (
   input: PolarOrderSnapshotInput
 ) => {
   await withAdminDb(options, async ({ db }) => {
-    await db.execute(sql`
-      INSERT INTO auth_billing_orders (
-        project_slug,
-        order_id,
-        customer_id,
-        product_id,
-        subscription_id,
-        status,
-        paid,
-        total_amount,
-        refunded_amount,
-        currency,
-        payload
-      )
-      VALUES (
-        ${input.projectSlug},
-        ${input.orderId},
-        ${input.customerId},
-        ${input.productId},
-        ${input.subscriptionId},
-        ${input.status},
-        ${input.paid},
-        ${input.totalAmount},
-        ${input.refundedAmount},
-        ${input.currency},
-        ${JSON.stringify(input.payload)}::jsonb
-      )
-      ON CONFLICT (project_slug, order_id) DO UPDATE
-      SET customer_id = EXCLUDED.customer_id,
-          product_id = EXCLUDED.product_id,
-          subscription_id = EXCLUDED.subscription_id,
-          status = EXCLUDED.status,
-          paid = EXCLUDED.paid,
-          total_amount = EXCLUDED.total_amount,
-          refunded_amount = EXCLUDED.refunded_amount,
-          currency = EXCLUDED.currency,
-          payload = EXCLUDED.payload,
-          updated_at = now()
-    `);
+    await db
+      .insert(billingOrders)
+      .values({
+        projectSlug: input.projectSlug,
+        orderId: input.orderId,
+        customerId: input.customerId,
+        productId: input.productId,
+        subscriptionId: input.subscriptionId,
+        status: input.status,
+        paid: input.paid,
+        totalAmount: input.totalAmount,
+        refundedAmount: input.refundedAmount,
+        currency: input.currency,
+        payload: input.payload
+      })
+      .onConflictDoUpdate({
+        target: [billingOrders.projectSlug, billingOrders.orderId],
+        set: {
+          customerId: input.customerId,
+          productId: input.productId,
+          subscriptionId: input.subscriptionId,
+          status: input.status,
+          paid: input.paid,
+          totalAmount: input.totalAmount,
+          refundedAmount: input.refundedAmount,
+          currency: input.currency,
+          payload: input.payload,
+          updatedAt: sql`now()`
+        }
+      });
   });
 };
 
@@ -238,24 +230,22 @@ const upsertPolarCustomerState = async (
   input: PolarCustomerStateSnapshotInput
 ) => {
   await withAdminDb(options, async ({ db }) => {
-    await db.execute(sql`
-      INSERT INTO auth_billing_customer_states (
-        project_slug,
-        customer_id,
-        external_id,
-        payload
-      )
-      VALUES (
-        ${input.projectSlug},
-        ${input.customerId},
-        ${input.externalId ?? null},
-        ${JSON.stringify(input.payload)}::jsonb
-      )
-      ON CONFLICT (project_slug, customer_id) DO UPDATE
-      SET external_id = EXCLUDED.external_id,
-          payload = EXCLUDED.payload,
-          updated_at = now()
-    `);
+    await db
+      .insert(billingCustomerStates)
+      .values({
+        projectSlug: input.projectSlug,
+        customerId: input.customerId,
+        externalId: input.externalId ?? null,
+        payload: input.payload
+      })
+      .onConflictDoUpdate({
+        target: [billingCustomerStates.projectSlug, billingCustomerStates.customerId],
+        set: {
+          externalId: input.externalId ?? null,
+          payload: input.payload,
+          updatedAt: sql`now()`
+        }
+      });
   });
 };
 
@@ -264,36 +254,30 @@ const upsertPolarBenefitGrant = async (
   input: PolarBenefitGrantSnapshotInput
 ) => {
   await withAdminDb(options, async ({ db }) => {
-    await db.execute(sql`
-      INSERT INTO auth_billing_benefit_grants (
-        project_slug,
-        grant_id,
-        customer_id,
-        benefit_id,
-        subscription_id,
-        order_id,
-        revoked,
-        payload
-      )
-      VALUES (
-        ${input.projectSlug},
-        ${input.grantId},
-        ${input.customerId},
-        ${input.benefitId},
-        ${input.subscriptionId},
-        ${input.orderId},
-        ${input.revoked},
-        ${JSON.stringify(input.payload)}::jsonb
-      )
-      ON CONFLICT (project_slug, grant_id) DO UPDATE
-      SET customer_id = EXCLUDED.customer_id,
-          benefit_id = EXCLUDED.benefit_id,
-          subscription_id = EXCLUDED.subscription_id,
-          order_id = EXCLUDED.order_id,
-          revoked = EXCLUDED.revoked,
-          payload = EXCLUDED.payload,
-          updated_at = now()
-    `);
+    await db
+      .insert(billingBenefitGrants)
+      .values({
+        projectSlug: input.projectSlug,
+        grantId: input.grantId,
+        customerId: input.customerId,
+        benefitId: input.benefitId,
+        subscriptionId: input.subscriptionId,
+        orderId: input.orderId,
+        revoked: input.revoked,
+        payload: input.payload
+      })
+      .onConflictDoUpdate({
+        target: [billingBenefitGrants.projectSlug, billingBenefitGrants.grantId],
+        set: {
+          customerId: input.customerId,
+          benefitId: input.benefitId,
+          subscriptionId: input.subscriptionId,
+          orderId: input.orderId,
+          revoked: input.revoked,
+          payload: input.payload,
+          updatedAt: sql`now()`
+        }
+      });
   });
 };
 
@@ -302,41 +286,33 @@ const upsertPolarSubscription = async (
   input: PolarSubscriptionSnapshotInput
 ) => {
   await withAdminDb(options, async ({ db }) => {
-    await db.execute(sql`
-      INSERT INTO auth_billing_subscriptions (
-        project_slug,
-        subscription_id,
-        customer_id,
-        product_id,
-        status,
-        cancel_at_period_end,
-        current_period_start,
-        current_period_end,
-        ended_at,
-        payload
-      )
-      VALUES (
-        ${input.projectSlug},
-        ${input.subscriptionId},
-        ${input.customerId},
-        ${input.productId},
-        ${input.status},
-        ${input.cancelAtPeriodEnd},
-        ${input.currentPeriodStart},
-        ${input.currentPeriodEnd},
-        ${input.endedAt},
-        ${JSON.stringify(input.payload)}::jsonb
-      )
-      ON CONFLICT (project_slug, subscription_id) DO UPDATE
-      SET customer_id = EXCLUDED.customer_id,
-          product_id = EXCLUDED.product_id,
-          status = EXCLUDED.status,
-          cancel_at_period_end = EXCLUDED.cancel_at_period_end,
-          current_period_start = EXCLUDED.current_period_start,
-          current_period_end = EXCLUDED.current_period_end,
-          ended_at = EXCLUDED.ended_at,
-          payload = EXCLUDED.payload,
-          updated_at = now()
-    `);
+    await db
+      .insert(billingSubscriptions)
+      .values({
+        projectSlug: input.projectSlug,
+        subscriptionId: input.subscriptionId,
+        customerId: input.customerId,
+        productId: input.productId,
+        status: input.status,
+        cancelAtPeriodEnd: input.cancelAtPeriodEnd,
+        currentPeriodStart: input.currentPeriodStart,
+        currentPeriodEnd: input.currentPeriodEnd,
+        endedAt: input.endedAt,
+        payload: input.payload
+      })
+      .onConflictDoUpdate({
+        target: [billingSubscriptions.projectSlug, billingSubscriptions.subscriptionId],
+        set: {
+          customerId: input.customerId,
+          productId: input.productId,
+          status: input.status,
+          cancelAtPeriodEnd: input.cancelAtPeriodEnd,
+          currentPeriodStart: input.currentPeriodStart,
+          currentPeriodEnd: input.currentPeriodEnd,
+          endedAt: input.endedAt,
+          payload: input.payload,
+          updatedAt: sql`now()`
+        }
+      });
   });
 };

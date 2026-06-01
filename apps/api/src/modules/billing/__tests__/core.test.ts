@@ -33,7 +33,8 @@ const project: AuthProject = {
     organizationId: "",
     accessToken: "polar-token",
     webhookSecret: "",
-    products: []
+    products: [],
+    freeEntitlements: []
   },
   storage: DEFAULT_PROJECT_STORAGE
 };
@@ -115,7 +116,7 @@ describe("billing service", () => {
     });
   });
 
-  test("creates a local product mapping with default benefits from the Polar product", async () => {
+  test("creates a local product mapping without platform-specific benefits", async () => {
     const { gateway, createdProducts } = createPolarGateway();
     const service = createService(gateway);
 
@@ -134,12 +135,7 @@ describe("billing service", () => {
       productId: "prod_created",
       name: "50 AI requests",
       active: true,
-      entitlements: [
-        {
-          key: "ai_request_credits",
-          amount: 100
-        }
-      ]
+      entitlements: []
     });
     expect(createdProducts).toEqual(["50 AI requests"]);
   });

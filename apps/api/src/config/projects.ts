@@ -125,6 +125,7 @@ export type ProjectBillingSettings = {
   organizationId: string;
   accessToken: string;
   webhookSecret: string;
+  freeEntitlements: BillingEntitlement[];
   products: BillingProductMapping[];
 };
 
@@ -157,6 +158,7 @@ export const DEFAULT_PROJECT_BILLING: ProjectBillingSettings = {
   organizationId: "",
   accessToken: "",
   webhookSecret: "",
+  freeEntitlements: [],
   products: []
 };
 

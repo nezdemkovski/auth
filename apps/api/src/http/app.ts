@@ -14,6 +14,8 @@ import type { AuthProject } from "../config/projects";
 import { AuthRegistry } from "../auth/registry";
 import { bootstrapProjects, prepareProjectSchema } from "../db/bootstrap";
 import { createAdminDatabase } from "../db/admin-pool";
+import { registerBillingUsageRoutes } from "../modules/billing/usage-http";
+import { createPolarEntitlementGrantStore } from "../modules/billing/usage-store";
 import { createPolarWebhookStore } from "../modules/billing/webhook-store";
 import { toRuntimeEmailConfig } from "../modules/delivery/translator";
 import { readDeliverySettings } from "../modules/delivery/store";
@@ -82,6 +84,11 @@ export const createApp = async (env: Env) => {
     }
   }
 
+  const billingStoreOptions = {
+    databaseUrl: env.databaseUrl,
+    adminProject,
+    adminDb
+  };
   const registry = new AuthRegistry({
     databaseUrl: env.databaseUrl,
     publicBaseUrl: env.publicBaseUrl,
@@ -89,11 +96,8 @@ export const createApp = async (env: Env) => {
     emailSender,
     trustProxyHeaders: env.trustProxyHeaders,
     projects: [adminProject, ...projects],
-    polarWebhookStore: createPolarWebhookStore({
-      databaseUrl: env.databaseUrl,
-      adminProject,
-      adminDb
-    })
+    polarEntitlementGrantStore: createPolarEntitlementGrantStore(billingStoreOptions),
+    polarWebhookStore: createPolarWebhookStore(billingStoreOptions)
   });
   const storageService = new StorageService({
     registry,
@@ -143,6 +147,10 @@ export const createApp = async (env: Env) => {
     trustProxyHeaders: env.trustProxyHeaders,
     codeStore: loginCodeStore,
     observabilityReporter
+  });
+  registerBillingUsageRoutes(app, {
+    registry,
+    ...billingStoreOptions
   });
   registerPublicStorageRoutes(app, { registry, storageService });
   registerAuthProxyRoutes(app, { registry });

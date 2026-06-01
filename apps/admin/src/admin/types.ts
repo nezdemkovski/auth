@@ -163,6 +163,7 @@ export type BillingSettings = {
   organizationId: string;
   accessTokenConfigured: boolean;
   webhookSecretConfigured: boolean;
+  freeEntitlements?: BillingEntitlement[];
   products: BillingProductMapping[];
   webhookUrl: string;
 };
@@ -174,6 +175,7 @@ export type BillingSettingsPatch = {
   organizationId?: string;
   accessToken?: string;
   webhookSecret?: string;
+  freeEntitlements?: BillingEntitlement[];
   products: BillingProductMapping[];
 };
 

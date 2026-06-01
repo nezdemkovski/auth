@@ -23,6 +23,7 @@ export type BillingSettingsPatch = {
   organizationId?: string;
   accessToken?: string;
   webhookSecret?: string;
+  freeEntitlements: BillingEntitlement[];
   products: BillingProductMapping[];
 };
 
@@ -77,42 +78,10 @@ export const parseBillingSettingsPatch = (body: BillingSettingsBody) => {
         return null;
       }
 
-      const entitlements = product.entitlements
-        .filter(isRecord)
-        .map((entitlement) => {
-          if (
-            typeof entitlement.key !== "string" ||
-            typeof entitlement.grantType !== "string" ||
-            typeof entitlement.resetPeriod !== "string" ||
-            typeof entitlement.priority !== "number"
-          ) {
-            return null;
-          }
-
-          const grantType = parseBillingGrantType(entitlement.grantType);
-          const resetPeriod = parseBillingResetPeriod(entitlement.resetPeriod);
-          if (!grantType || !resetPeriod) {
-            return null;
-          }
-
-          return {
-            key: entitlement.key.trim(),
-            grantType,
-            amount:
-              typeof entitlement.amount === "number" && Number.isFinite(entitlement.amount)
-                ? entitlement.amount
-                : null,
-            resetPeriod,
-            priority: entitlement.priority
-          };
-        });
-
-      if (entitlements.some((entitlement) => entitlement === null)) {
+      const entitlements = parseEntitlements(product.entitlements);
+      if (!entitlements) {
         return null;
       }
-      const validEntitlements = entitlements.filter(
-        (entitlement): entitlement is BillingEntitlement => entitlement !== null
-      );
 
       return {
         slug: product.slug.trim(),
@@ -121,7 +90,7 @@ export const parseBillingSettingsPatch = (body: BillingSettingsBody) => {
         productId: product.productId.trim(),
         type: productType,
         active: product.active,
-        entitlements: validEntitlements
+        entitlements
       };
     });
 
@@ -143,6 +112,7 @@ export const parseBillingSettingsPatch = (body: BillingSettingsBody) => {
     enabled: body.enabled,
     environment,
     organizationId: typeof body.organizationId === "string" ? body.organizationId.trim() : "",
+    freeEntitlements: parseEntitlements(body.freeEntitlements) ?? [],
     products: validProducts
   };
 
@@ -210,6 +180,9 @@ export const validateBillingSettingsPatch = (patch: BillingSettingsPatch) => {
   if (!Array.isArray(patch.products)) {
     throw new Error("Products must be an array");
   }
+  if (!Array.isArray(patch.freeEntitlements)) {
+    throw new Error("Free entitlements must be an array");
+  }
   if (patch.organizationId !== undefined && typeof patch.organizationId !== "string") {
     throw new Error("Invalid organization ID");
   }
@@ -229,10 +202,59 @@ export const validateBillingSettingsPatch = (patch: BillingSettingsPatch) => {
     if (product.active && !product.productId.trim()) {
       throw new Error(`Polar product ID is required: ${product.slug}`);
     }
+    if (product.active && product.entitlements.length === 0) {
+      throw new Error(`At least one entitlement is required: ${product.slug}`);
+    }
     for (const entitlement of product.entitlements) {
       validateEntitlement(entitlement);
     }
   }
+  for (const entitlement of patch.freeEntitlements) {
+    validateEntitlement(entitlement);
+  }
+};
+
+const parseEntitlements = (value: unknown) => {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+
+  const entitlements = value.filter(isRecord).map(parseEntitlement);
+  if (entitlements.some((entitlement) => entitlement === null)) {
+    return null;
+  }
+
+  return entitlements.filter(
+    (entitlement): entitlement is BillingEntitlement => entitlement !== null
+  );
+};
+
+const parseEntitlement = (entitlement: Record<string, unknown>) => {
+  if (
+    typeof entitlement.key !== "string" ||
+    typeof entitlement.grantType !== "string" ||
+    typeof entitlement.resetPeriod !== "string" ||
+    typeof entitlement.priority !== "number"
+  ) {
+    return null;
+  }
+
+  const grantType = parseBillingGrantType(entitlement.grantType);
+  const resetPeriod = parseBillingResetPeriod(entitlement.resetPeriod);
+  if (!grantType || !resetPeriod) {
+    return null;
+  }
+
+  return {
+    key: entitlement.key.trim(),
+    grantType,
+    amount:
+      typeof entitlement.amount === "number" && Number.isFinite(entitlement.amount)
+        ? entitlement.amount
+        : null,
+    resetPeriod,
+    priority: entitlement.priority
+  };
 };
 
 const validateEntitlement = (entitlement: BillingEntitlement) => {

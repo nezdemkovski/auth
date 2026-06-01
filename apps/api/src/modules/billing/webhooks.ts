@@ -1,7 +1,9 @@
 import type { WebhooksOptions } from "@polar-sh/better-auth";
+import { SubscriptionStatus } from "@polar-sh/sdk/models/components/subscriptionstatus";
 
 import type { AuthProject } from "../../config/projects";
 import { logInfo, logWarn } from "../../runtime/logger";
+import type { PolarEntitlementGrantStore } from "./usage-store";
 import type { PolarWebhookStore } from "./webhook-store";
 
 export enum PolarWebhookEventGroup {
@@ -19,6 +21,7 @@ type PolarWebhookPayload = Parameters<NonNullable<WebhooksOptions["onPayload"]>>
 type PolarWebhookContext = {
   project: AuthProject;
   store: PolarWebhookStore;
+  entitlements: PolarEntitlementGrantStore;
 };
 
 export const createPolarWebhookHandlers = (context: PolarWebhookContext): PolarWebhookHandlers => {
@@ -32,27 +35,32 @@ export const processPolarWebhook = async (
   payload: PolarWebhookPayload
 ) => {
   const resourceId = polarWebhookResourceId(payload);
-  const processed = await context.store.recordEvent({
-    projectSlug: context.project.slug,
-    eventKey: polarWebhookEventKey(payload, resourceId),
-    eventType: payload.type,
-    resourceId,
-    occurredAt: payload.timestamp,
-    payload
-  });
+  const eventKey = polarWebhookEventKey(payload, resourceId);
 
   logInfo("polar_webhook_received", {
     projectSlug: context.project.slug,
     type: payload.type,
     resourceId,
-    duplicate: !processed
+    eventKey
   });
 
-  if (!processed) {
-    return;
-  }
-
   await syncPolarProjection(context, payload);
+
+  const processed = await context.store.recordEvent({
+    projectSlug: context.project.slug,
+    eventKey,
+    eventType: payload.type,
+    resourceId,
+    occurredAt: payload.timestamp,
+    payload
+  });
+  if (!processed) {
+    logInfo("polar_webhook_duplicate", {
+      projectSlug: context.project.slug,
+      type: payload.type,
+      resourceId
+    });
+  }
 };
 
 const syncPolarProjection = async (
@@ -104,6 +112,43 @@ const syncOrder = async (
     currency: payload.data.currency,
     payload
   });
+
+  if (payload.type !== "order.paid" || !payload.data.productId) {
+    if (payload.type === "order.refunded") {
+      await context.entitlements.deactivateSource({
+        project: context.project,
+        sourceType: "polar_order",
+        sourceId: payload.data.id,
+        metadata: payload
+      });
+    }
+    return;
+  }
+
+  const userId = payload.data.customer.externalId;
+  if (!userId) {
+    logWarn("polar_order_paid_without_external_customer_id", {
+      projectSlug: context.project.slug,
+      orderId: payload.data.id
+    });
+    return;
+  }
+
+  const granted = await context.entitlements.grantProductEntitlements({
+    project: context.project,
+    userId,
+    productId: payload.data.productId,
+    sourceId: payload.data.id,
+    metadata: payload
+  });
+
+  logInfo("polar_order_entitlements_granted", {
+    projectSlug: context.project.slug,
+    orderId: payload.data.id,
+    userId,
+    productId: payload.data.productId,
+    granted
+  });
 };
 
 const syncCustomerState = async (
@@ -132,6 +177,15 @@ const syncBenefitGrant = async (
     revoked: payload.type === "benefit_grant.revoked",
     payload
   });
+
+  if (payload.type === "benefit_grant.revoked" && payload.data.orderId) {
+    await context.entitlements.deactivateSource({
+      project: context.project,
+      sourceType: "polar_order",
+      sourceId: payload.data.orderId,
+      metadata: payload
+    });
+  }
 };
 
 const syncSubscription = async (
@@ -150,6 +204,23 @@ const syncSubscription = async (
     endedAt: payload.data.endedAt,
     payload
   });
+
+  if (subscriptionInactive(payload.data.status)) {
+    await context.entitlements.deactivateSubscription({
+      project: context.project,
+      subscriptionId: payload.data.id,
+      metadata: payload
+    });
+  }
+};
+
+const subscriptionInactive = (status: string) => {
+  return (
+    status === SubscriptionStatus.Canceled ||
+    status === SubscriptionStatus.IncompleteExpired ||
+    status === SubscriptionStatus.PastDue ||
+    status === SubscriptionStatus.Unpaid
+  );
 };
 
 export const polarWebhookEventGroup = (eventType: string) => {
