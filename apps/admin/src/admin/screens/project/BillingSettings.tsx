@@ -363,6 +363,7 @@ function SetupView({
   onVerify,
   onUpdateFreeEntitlement,
   onAddFreeEntitlement,
+  onAddStarterCreditGrant,
   onRemoveFreeEntitlement
 }: {
   settings: BillingSettings;
