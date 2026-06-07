@@ -102,7 +102,6 @@ postgres:
     destinationPath: ""
     endpointURL: ""
     secretName: cnpg-backup-s3
-    onepasswordItem: synology-rustfs
     retentionPolicy: "30d"
     schedule: "0 0 3 * * *"
 
