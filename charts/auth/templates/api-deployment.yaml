@@ -87,13 +87,13 @@ spec:
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: auth-postgres-owner
-                  key: username
+                  name: {{ .Values.postgres.credentialsSecret.name }}
+                  key: {{ .Values.postgres.credentialsSecret.usernameKey }}
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: auth-postgres-owner
-                  key: password
+                  name: {{ .Values.postgres.credentialsSecret.name }}
+                  key: {{ .Values.postgres.credentialsSecret.passwordKey }}
           envFrom:
             - secretRef:
                 name: auth-env

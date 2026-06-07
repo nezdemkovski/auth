@@ -90,20 +90,10 @@ env:
   postgresDb: auth
 
 postgres:
-  clusterName: auth-postgres
-  database: auth
-  owner: auth
-  imageName: ghcr.io/cloudnative-pg/postgresql:17.10-system-trixie
-  storage:
-    storageClass: local-path
-    size: 2Gi
-  backup:
-    enabled: false
-    destinationPath: ""
-    endpointURL: ""
-    secretName: cnpg-backup-s3
-    retentionPolicy: "30d"
-    schedule: "0 0 3 * * *"
+  credentialsSecret:
+    name: auth-postgres-owner
+    usernameKey: username
+    passwordKey: password
 
 redis:
   enabled: true
