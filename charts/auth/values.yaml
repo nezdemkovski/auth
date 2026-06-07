@@ -97,6 +97,14 @@ postgres:
   storage:
     storageClass: local-path
     size: 2Gi
+  backup:
+    enabled: false
+    destinationPath: ""
+    endpointURL: ""
+    secretName: cnpg-backup-s3
+    onepasswordItem: synology-rustfs
+    retentionPolicy: "30d"
+    schedule: "0 0 3 * * *"
 
 redis:
   enabled: true
