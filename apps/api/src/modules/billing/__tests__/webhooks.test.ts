@@ -264,6 +264,7 @@ const orderData = (status: "paid" | "refunded", refundedAmount: number): Order =
     billingAddress: null,
     invoiceNumber: "INV-1",
     isInvoiceGenerated: true,
+    receiptNumber: "REC-1",
     seats: null,
     customerId: "customer_123",
     productId: "prod_123",
@@ -279,7 +280,9 @@ const orderData = (status: "paid" | "refunded", refundedAmount: number): Order =
     discount: null,
     subscription: null,
     items: [],
-    description: "Credit pack"
+    description: "Credit pack",
+    refundableAmount: Math.max(0, 1000 - refundedAmount),
+    refundableTaxAmount: 0
   };
 };
 
