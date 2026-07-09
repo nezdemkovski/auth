@@ -45,6 +45,14 @@ describe("repository security controls", () => {
       }
     }
 
+    for (const path of dockerfilePaths.slice(1)) {
+      const dockerfile = await read(path);
+      expect(dockerfile).toContain(
+        'CMD ["/usr/bin/caddy-unprivileged", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]'
+      );
+      expect(dockerfile).not.toContain("ENTRYPOINT");
+    }
+
     expect(await read(".github/workflows/publish-image.yml")).toContain(
       "Refuse mutable release tags"
     );
@@ -70,7 +78,7 @@ describe("repository security controls", () => {
     expect(rendered).toContain("path: /livez");
     expect(rendered).toContain("path: /readyz");
     expect(rendered).toContain("@health path /healthz /livez /readyz");
-    expect(rendered).toContain("ghcr.io/nezdemkovski/auth-router:v0.1.79");
+    expect(rendered).toContain("ghcr.io/nezdemkovski/auth-router:v0.1.80");
     expect(rendered).not.toContain("cp /usr/bin/caddy /runtime/caddy");
     expect(rendered).toContain('reloader.stakater.com/auto: "true"');
     expect(rendered).toContain("kind: NetworkPolicy");
