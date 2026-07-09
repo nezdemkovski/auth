@@ -52,6 +52,8 @@ export function PasswordResetPage({ config }: { config: LoginPasswordResetConfig
         return;
       }
       setDone(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not reset password.");
     } finally {
       setPending(false);
     }

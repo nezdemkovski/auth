@@ -12,7 +12,7 @@ import { registerPublicStorageRoutes } from "../modules/storage/public-http";
 import type { Env } from "../config/env";
 import type { AuthProject } from "../config/projects";
 import { AuthRegistry } from "../auth/registry";
-import { bootstrapProjects, prepareProjectSchema } from "../db/bootstrap";
+import { migrateDatabase } from "../db/migrate";
 import { createAdminDatabase } from "../db/admin-pool";
 import { registerBillingUsageRoutes } from "../modules/billing/usage-http";
 import { createPolarEntitlementGrantStore } from "../modules/billing/usage-store";
@@ -38,15 +38,7 @@ export const createApp = async (env: Env) => {
   let projects: AuthProject[] = [];
 
   if (env.autoMigrate) {
-    await bootstrapProjects({
-      databaseUrl: env.databaseUrl,
-      publicBaseUrl: env.publicBaseUrl,
-      secret: env.betterAuthSecret,
-      adminProject,
-      adminEmail: env.adminEmail,
-      encryptionSecret: env.secretEncryptionKey,
-      initialDeliveryConfig: env.email
-    });
+    await migrateDatabase(env);
   }
 
   const adminDb = createAdminDatabase(env.databaseUrl, adminProject);
@@ -73,23 +65,12 @@ export const createApp = async (env: Env) => {
     managedStorage: env.storage
   }));
 
-  if (env.autoMigrate) {
-    for (const project of projects) {
-      await prepareProjectSchema({
-        databaseUrl: env.databaseUrl,
-        publicBaseUrl: env.publicBaseUrl,
-        secret: env.betterAuthSecret,
-        adminProject,
-        project
-      });
-    }
-  }
-
   const billingStoreOptions = {
     databaseUrl: env.databaseUrl,
     adminProject,
     adminDb
   };
+  const polarWebhookStore = createPolarWebhookStore(billingStoreOptions);
   const registry = new AuthRegistry({
     databaseUrl: env.databaseUrl,
     publicBaseUrl: env.publicBaseUrl,
@@ -98,7 +79,7 @@ export const createApp = async (env: Env) => {
     trustProxyHeaders: env.trustProxyHeaders,
     projects: [adminProject, ...projects],
     polarEntitlementGrantStore: createPolarEntitlementGrantStore(billingStoreOptions),
-    polarWebhookStore: createPolarWebhookStore(billingStoreOptions)
+    polarWebhookStore
   });
   const storageService = new StorageService({
     registry,
@@ -120,11 +101,25 @@ export const createApp = async (env: Env) => {
   app.use("*", securityHeaders(env.publicBaseUrl));
   app.use("*", rateLimit(rateLimiter, { trustProxyHeaders: env.trustProxyHeaders }));
 
-  app.get("/healthz", (c) => {
+  app.get("/livez", (c) => {
     return c.json({
       ok: true
     });
   });
+
+  app.get("/readyz", async (c) => {
+    try {
+      await Promise.all([
+        adminDb.pool.query("SELECT 1"),
+        rateLimiter.healthcheck()
+      ]);
+      return c.json({ ok: true });
+    } catch {
+      return c.json({ ok: false }, 503);
+    }
+  });
+
+  app.get("/healthz", (c) => c.redirect("/readyz", 307));
 
   app.route(
     "/admin/api",
@@ -183,6 +178,7 @@ export const createApp = async (env: Env) => {
         registry.close(),
         rateLimiter.close(),
         loginCodeStore.close(),
+        polarWebhookStore.close(),
         adminDb.pool.end()
       ]);
     }

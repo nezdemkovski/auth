@@ -4,9 +4,12 @@ import {
   type SocialProviderId
 } from "../../config/social-providers";
 import {
-  AuthUserRole,
   ProjectTwoFactorRequirement
 } from "../../config/projects";
+import {
+  mustEnrollTwoFactor,
+  socialSignInAllowed
+} from "../../auth/policy";
 
 export enum LoginPage {
   Login = "login",
@@ -128,24 +131,13 @@ export const loginNextActionResponse = (input: {
 };
 
 export const enabledSocialProviders = (registered: Pick<NonNullable<ReturnType<AuthRegistry["get"]>>, "project">) => {
+  if (!socialSignInAllowed(registered.project)) {
+    return [];
+  }
+
   return Object.entries(registered.project.socialProviders)
     .filter(([, provider]) => provider.enabled && provider.clientId && provider.clientSecret)
     .map(([provider]) => provider as SocialProviderId);
-};
-
-const mustEnrollTwoFactor = (
-  policy: RegisteredProject["project"]["features"]["twoFactor"],
-  user: { role?: string | null; twoFactorEnabled?: boolean } | null
-) => {
-  if (!policy.enabled || policy.required === ProjectTwoFactorRequirement.Optional || user?.twoFactorEnabled) {
-    return false;
-  }
-
-  if (policy.required === ProjectTwoFactorRequirement.Everyone) {
-    return true;
-  }
-
-  return policy.required === ProjectTwoFactorRequirement.Admins && user?.role === AuthUserRole.Admin;
 };
 
 const describeOAuthScope = (scope: string) => {

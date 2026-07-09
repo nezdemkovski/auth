@@ -114,6 +114,7 @@ export const signUpIntegrationUser = async (options: {
   email: string;
   password: string;
   name?: string;
+  expectSession?: boolean;
 }) => {
   const response = await options.app.request(
     `/api/${options.projectSlug}/auth/sign-up/email`,
@@ -137,7 +138,7 @@ export const signUpIntegrationUser = async (options: {
   }
 
   const cookie = response.headers.get("set-cookie")?.split(";")[0] ?? "";
-  if (!cookie) {
+  if (!cookie && options.expectSession !== false) {
     throw new Error("Expected sign-up to set a session cookie");
   }
 

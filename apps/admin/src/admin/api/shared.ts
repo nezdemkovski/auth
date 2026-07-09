@@ -9,6 +9,49 @@ export class UnauthorizedError extends Error {
   }
 }
 
+export enum AdminSessionState {
+  Authenticated = "authenticated",
+  Unauthorized = "unauthorized"
+}
+
+const sessionListeners = new Set<(state: AdminSessionState) => void>();
+
+export const subscribeAdminSession = (
+  listener: (state: AdminSessionState) => void
+) => {
+  sessionListeners.add(listener);
+  return () => {
+    sessionListeners.delete(listener);
+  };
+};
+
+export const notifyAdminAuthenticated = () => {
+  notifyAdminSession(AdminSessionState.Authenticated);
+};
+
+export const notifyAdminUnauthorized = () => {
+  notifyAdminSession(AdminSessionState.Unauthorized);
+};
+
+const notifyAdminSession = (state: AdminSessionState) => {
+  for (const listener of sessionListeners) {
+    listener(state);
+  }
+};
+
+export const adminFetch = async (
+  input: RequestInfo | URL,
+  init?: RequestInit
+) => {
+  const response = await fetch(input, init);
+  if (response.status === 401) {
+    notifyAdminUnauthorized();
+    throw new UnauthorizedError();
+  }
+
+  return response;
+};
+
 type ErrorBody = {
   error?: string;
   message?: string;

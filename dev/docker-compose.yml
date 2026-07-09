@@ -1,7 +1,7 @@
 name: auth
 
 x-bun-dev: &bun-dev
-  image: oven/bun:1.3.14-alpine
+  image: oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0
 
 services:
   deps:
@@ -14,7 +14,7 @@ services:
       - node_modules:/app/node_modules
 
   router:
-    image: caddy:2.11.3-alpine
+    image: caddy:2.11.3-alpine@sha256:86deaf5e3d3408a6ccec08fbb79989783dd26e206ae10bcf78a801dc8c9ab794
     ports:
       - "3000:3000"
     volumes:
@@ -90,7 +90,7 @@ services:
         condition: service_completed_successfully
 
   postgres:
-    image: postgres:17.10-alpine
+    image: postgres:17.10-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
     environment:
       POSTGRES_DB: auth
       POSTGRES_USER: auth
@@ -106,12 +106,12 @@ services:
       retries: 20
 
   redis:
-    image: redis:8.4.0-alpine
+    image: redis:8.4.0-alpine@sha256:4eec4565e45aa0b3966554c866bc73211e281b0b3d89fe9a33c982e6faca809d
     ports:
       - "63790:6379"
 
   rustfs:
-    image: rustfs/rustfs:1.0.0-beta.6
+    image: rustfs/rustfs:1.0.0-beta.6@sha256:e620d37756fff072b10bf648c7bb9d370d7e91a928b7e6a5e1ac85bdfb4e4dab
     command: ["--address", ":9000", "--console-enable", "/data"]
     environment:
       RUSTFS_ACCESS_KEY: auth-dev-access-key

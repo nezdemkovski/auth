@@ -5,16 +5,17 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 5174",
     "build": "vite build",
+    "test": "bun test",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@better-auth/passkey": "1.6.23",
+    "@better-auth/passkey": "1.7.0-rc.1",
     "@icons-pack/react-simple-icons": "13.13.0",
     "@lobehub/icons": "5.10.1",
     "@nezdemkovski/auth-client-shared": "workspace:*",
     "@nezdemkovski/auth-ui": "workspace:*",
     "@tanstack/react-router": "1.170.17",
-    "better-auth": "1.6.23",
+    "better-auth": "1.7.0-rc.1",
     "lucide-react": "1.23.0",
     "react": "19.2.7",
     "react-dom": "19.2.7"

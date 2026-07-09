@@ -99,6 +99,28 @@ describe("storage upload integration", () => {
         }
       });
 
+      const replacementIcon = await app.request(
+        `/admin/api/projects/${project.slug}/upload`,
+        {
+          method: "POST",
+          headers: uploadHeaders({
+            cookie: admin.cookie,
+            origin: "http://127.0.0.1:3000"
+          }),
+          body: uploadForm("project_icon", "replacement-icon.png")
+        }
+      );
+      const replacementAvatar = await app.request(`/api/${project.slug}/upload`, {
+        method: "POST",
+        headers: uploadHeaders({
+          cookie: user.cookie,
+          origin: project.appUrl
+        }),
+        body: uploadForm("user_avatar", "replacement-avatar.png")
+      });
+      expect(replacementIcon.status).toBe(200);
+      expect(replacementAvatar.status).toBe(200);
+
       const objects = await app.request(
         `/admin/api/projects/${project.slug}/storage/objects`,
         {
@@ -109,19 +131,22 @@ describe("storage upload integration", () => {
         }
       );
       expect(objects.status).toBe(200);
-      expect(await readIntegrationJson(objects)).toMatchObject({
+      const objectsBody = await readIntegrationJson(objects);
+      expect(objectsBody).toMatchObject({
         objects: expect.arrayContaining([
           expect.objectContaining({
-            originalFileName: "realm-icon.png",
+            originalFileName: "replacement-icon.png",
             mimeType: "image/png"
           }),
           expect.objectContaining({
-            originalFileName: "avatar.png",
+            originalFileName: "replacement-avatar.png",
             ownerUserId: user.userId,
             mimeType: "image/png"
           })
         ])
       });
+      expect(JSON.stringify(objectsBody)).not.toContain("realm-icon.png");
+      expect(JSON.stringify(objectsBody)).not.toContain('"avatar.png"');
     } finally {
       await close();
     }

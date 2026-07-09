@@ -27,5 +27,8 @@ export const storageObjects = pgTable("auth_storage_objects", {
   sizeBytes: integer("size_bytes").notNull(),
   checksumSha256: text("checksum_sha256").notNull(),
   ownerUserId: text("owner_user_id"),
+  status: text("status").notNull().default("active"),
+  supersededAt: timestamp("superseded_at", { withTimezone: true }),
+  deleteAttempts: integer("delete_attempts").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 });

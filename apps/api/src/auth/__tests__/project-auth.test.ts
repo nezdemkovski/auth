@@ -14,6 +14,7 @@ import {
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   type AuthProject
 } from "../../config/projects";
+import type { EmailSender } from "../../email/sender";
 
 const baseProject: AuthProject = {
   slug: "demo",
@@ -48,7 +49,21 @@ function createMigrationOptions(project: AuthProject) {
   });
 }
 
+const emailSender: EmailSender = {
+  send: async () => {}
+};
+
 describe("project auth options", () => {
+  test("pins the OAuth provider to the first release candidate containing audience binding", async () => {
+    const manifest = await Bun.file(
+      new URL("../../../package.json", import.meta.url)
+    ).json();
+
+    expect(manifest.dependencies["@better-auth/oauth-provider"]).toBe(
+      "1.7.0-rc.1"
+    );
+  });
+
   test("builds isolated Better Auth settings per realm", () => {
     const options = createOptions(baseProject);
 
@@ -58,6 +73,19 @@ describe("project auth options", () => {
     expect(options.advanced?.cookiePrefix).toBe("auth_demo");
     expect(options.secret).toBe(projectAuthSecret("x".repeat(32), "demo"));
     expect(options.secret).not.toBe("x".repeat(32));
+  });
+
+  test("requires email verification when delivery is configured", () => {
+    const options = createBaseProjectAuthOptions({
+      project: baseProject,
+      publicBaseUrl: "https://auth.example.com",
+      secret: "x".repeat(32),
+      emailSender,
+      trustProxyHeaders: false
+    });
+
+    expect(options.emailAndPassword?.requireEmailVerification).toBe(true);
+    expect(createOptions(baseProject).emailAndPassword?.requireEmailVerification).toBeUndefined();
   });
 
   test("derives different Better Auth secrets per realm", () => {

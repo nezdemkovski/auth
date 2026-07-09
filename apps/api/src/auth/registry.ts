@@ -47,32 +47,46 @@ export class AuthRegistry {
     return [...this.projects.values()].map(({ project }) => project);
   }
 
-  async updateProject(project: AuthProject) {
+  updateProject(project: AuthProject) {
     const current = this.projects.get(project.slug);
-    const next = this.createRegisteredProject(project);
+    if (current && current.project.schema !== project.schema) {
+      throw new Error("Project schema cannot change at runtime");
+    }
+    const next = this.createRegisteredProject(project, current?.projectDb);
 
     this.projects.set(project.slug, next);
-    await current?.projectDb.pool.end();
   }
 
-  async updateEmailSender(emailSender: EmailSender | null) {
+  patchProject(
+    slug: string,
+    patch: Partial<Omit<AuthProject, "slug" | "schema">>
+  ) {
+    const current = this.projects.get(slug);
+    if (!current) {
+      throw new Error(`Unknown project: ${slug}`);
+    }
+
+    this.updateProject({
+      ...current.project,
+      ...patch
+    });
+  }
+
+  updateEmailSender(emailSender: EmailSender | null) {
     this.options = {
       ...this.options,
       emailSender
     };
-    const projects = this.list();
-    const currentProjects = [...this.projects.values()];
     const nextProjects = new Map<string, RegisteredProject>();
 
-    for (const project of projects) {
-      nextProjects.set(project.slug, this.createRegisteredProject(project));
+    for (const current of this.projects.values()) {
+      nextProjects.set(
+        current.project.slug,
+        this.createRegisteredProject(current.project, current.projectDb)
+      );
     }
 
     this.projects = nextProjects;
-
-    await Promise.all(
-      currentProjects.map(({ projectDb }) => projectDb.pool.end())
-    );
   }
 
   isTrustedOrigin(slug: string, origin: string | undefined) {
@@ -95,8 +109,11 @@ export class AuthRegistry {
     );
   }
 
-  private createRegisteredProject(project: AuthProject) {
-    const projectDb = createProjectDatabase(this.options.databaseUrl, project);
+  private createRegisteredProject(
+    project: AuthProject,
+    existingProjectDb?: ProjectDatabase
+  ) {
+    const projectDb = existingProjectDb ?? createProjectDatabase(this.options.databaseUrl, project);
     const auth = createProjectAuth({
       project,
       projectDb,

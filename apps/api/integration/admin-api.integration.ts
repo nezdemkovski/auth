@@ -1,10 +1,13 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 
 import {
+  bootstrapIntegrationDatabase,
   createIntegrationAdminSession,
   createIntegrationApp,
+  integrationPublicBaseUrl,
   readIntegrationJson,
-  resetAndBootstrapIntegrationDatabase
+  resetAndBootstrapIntegrationDatabase,
+  resetIntegrationDatabase
 } from "./setup";
 import { DIRECT_CLIENT_IP_HEADER } from "../src/http/security";
 import {
@@ -17,6 +20,33 @@ import { EmailProvider } from "../src/email/sender";
 describe("admin API integration", () => {
   beforeEach(async () => {
     await resetAndBootstrapIntegrationDatabase();
+  });
+
+  test("prints a temporary admin credential only during first bootstrap", async () => {
+    await resetIntegrationDatabase();
+    const info = spyOn(console, "info").mockImplementation(() => {});
+
+    try {
+      await bootstrapIntegrationDatabase();
+      const firstBootstrapCredentials = info.mock.calls
+        .map(([message]) => String(message))
+        .filter((message) => message.includes("temporary admin password:"));
+
+      expect(firstBootstrapCredentials).toHaveLength(1);
+      expect(firstBootstrapCredentials[0]).toMatch(
+        /^\[bootstrap\] admin: temporary admin password: [A-Za-z0-9_-]{32}$/
+      );
+
+      info.mockClear();
+      await bootstrapIntegrationDatabase();
+      expect(
+        info.mock.calls
+          .map(([message]) => String(message))
+          .filter((message) => message.includes("temporary admin password:"))
+      ).toHaveLength(0);
+    } finally {
+      info.mockRestore();
+    }
   });
 
   test("requires admin auth and same-origin state-changing requests", async () => {
@@ -132,6 +162,41 @@ describe("admin API integration", () => {
           }
         }
       });
+    } finally {
+      await close();
+    }
+  });
+
+  test("keeps the winning realm schema when duplicate creates race", async () => {
+    const { app, registry, close } = await createIntegrationApp();
+
+    try {
+      const { cookie } = await createIntegrationAdminSession({
+        app,
+        registry,
+        email: "race-admin@integration.test"
+      });
+      const create = () =>
+        app.request("/admin/api/projects", {
+          method: "POST",
+          headers: adminHeaders(cookie),
+          body: JSON.stringify(projectCreateBody("concurrent-project"))
+        });
+
+      const responses = await Promise.all([create(), create()]);
+      expect(responses.map((response) => response.status).sort()).toEqual([
+        201,
+        409
+      ]);
+
+      const registered = registry.get("concurrent-project");
+      expect(registered).not.toBeNull();
+      const sessionResponse = await registered?.auth.handler(
+        new Request(
+          `${integrationPublicBaseUrl}/api/concurrent-project/auth/get-session`
+        )
+      );
+      expect(sessionResponse?.status).toBe(200);
     } finally {
       await close();
     }

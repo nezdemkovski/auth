@@ -9,8 +9,18 @@ import { useProjectRouteQueries } from "./projectQueries";
 import { rootRoute } from "./router";
 
 export function ProjectRoute() {
-  const { me } = rootRoute.useRouteContext();
   const params = useParams({ strict: false });
+
+  return (
+    <ProjectRouteContent
+      key={params.projectSlug ?? "missing-project"}
+      projectSlug={params.projectSlug}
+    />
+  );
+}
+
+function ProjectRouteContent({ projectSlug }: { projectSlug?: string }) {
+  const { me } = rootRoute.useRouteContext();
   const {
     projectsQuery,
     selected,
@@ -20,7 +30,7 @@ export function ProjectRoute() {
     storageQuery,
     storageObjectsQuery,
     polarProductsQuery
-  } = useProjectRouteQueries(params.projectSlug);
+  } = useProjectRouteQueries(projectSlug);
   const mutations = useProjectRouteMutations();
 
   if (projectsQuery.isLoading) {

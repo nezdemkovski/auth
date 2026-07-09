@@ -18,7 +18,10 @@ spec:
       labels:
         {{- include "auth.labels" . | nindent 8 }}
         app.kubernetes.io/component: redis
+      annotations:
+        reloader.stakater.com/auto: "true"
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 999
@@ -27,7 +30,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: redis
-          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}@{{ .Values.redis.image.digest }}"
           imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
           command:
             - sh
@@ -68,6 +71,7 @@ spec:
             {{- toYaml .Values.redis.resources | nindent 12 }}
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL

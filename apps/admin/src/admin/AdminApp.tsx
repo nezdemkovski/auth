@@ -8,18 +8,23 @@ import { CenteredShell } from "./components/CenteredShell";
 import { LoadingPanel } from "@nezdemkovski/auth-ui";
 import { ChangePasswordPanel } from "./screens/ChangePasswordPanel";
 import { SignInPanel } from "./screens/SignInPanel";
-import { DashboardShell } from "./routes/router";
+import { DashboardShell, queryClient } from "./routes/router";
+import {
+  AdminSessionState,
+  subscribeAdminSession
+} from "./api/shared";
 import { Toaster } from "./toast";
 
 export function AdminApp() {
   const [theme, setThemeState] = useState<Theme>(() => resolveTheme());
+  const [sessionInvalidated, setSessionInvalidated] = useState(false);
 
   const meQuery = useQuery({
     queryKey: ["admin", "me"],
     queryFn: fetchMe,
     retry: false,
     staleTime: 30_000,
-    refetchOnWindowFocus: false
+    refetchOnWindowFocus: true
   });
   const observabilityQuery = useQuery({
     queryKey: ["admin", "observability-config"],
@@ -35,6 +40,18 @@ export function AdminApp() {
 
   useEffect(() => {
     return watchSystemTheme((next) => setThemeState(next));
+  }, []);
+
+  useEffect(() => {
+    return subscribeAdminSession((state) => {
+      const unauthorized = state === AdminSessionState.Unauthorized;
+      setSessionInvalidated(unauthorized);
+      if (unauthorized) {
+        queryClient.removeQueries({
+          predicate: (query) => query.queryKey[0] === "admin"
+        });
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -62,7 +79,7 @@ export function AdminApp() {
   );
 
   function renderContent() {
-    if (meQuery.isLoading) {
+    if (meQuery.isLoading && !sessionInvalidated) {
       return (
         <CenteredShell theme={theme} onToggleTheme={toggleTheme}>
           <LoadingPanel />
@@ -70,7 +87,7 @@ export function AdminApp() {
       );
     }
 
-    if (meQuery.isError || !meQuery.data) {
+    if (sessionInvalidated || meQuery.isError || !meQuery.data) {
       const isUnauthorized = meQuery.error instanceof UnauthorizedError;
       return (
         <CenteredShell theme={theme} onToggleTheme={toggleTheme}>

@@ -2,7 +2,7 @@ name: auth-integration
 
 services:
   postgres:
-    image: postgres:17.10-alpine
+    image: postgres:17.10-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
     environment:
       POSTGRES_DB: auth_test
       POSTGRES_USER: auth
@@ -16,7 +16,7 @@ services:
       retries: 20
 
   redis:
-    image: redis:8.4.0-alpine
+    image: redis:8.4.0-alpine@sha256:4eec4565e45aa0b3966554c866bc73211e281b0b3d89fe9a33c982e6faca809d
     ports:
       - "63800:6379"
     healthcheck:
@@ -26,7 +26,7 @@ services:
       retries: 20
 
   rustfs:
-    image: rustfs/rustfs:1.0.0-beta.6
+    image: rustfs/rustfs:1.0.0-beta.6@sha256:e620d37756fff072b10bf648c7bb9d370d7e91a928b7e6a5e1ac85bdfb4e4dab
     command: ["--address", ":9000", "--console-enable", "/data"]
     environment:
       RUSTFS_ACCESS_KEY: auth-integration-access-key
@@ -35,7 +35,7 @@ services:
     ports:
       - "9002:9000"
     healthcheck:
-      test: ["CMD", "sh", "-c", "wget -q -O- http://127.0.0.1:9000/ >/dev/null 2>&1 || exit 0"]
+      test: ["CMD", "sh", "-c", "wget -q -O- http://127.0.0.1:9000/health >/dev/null 2>&1"]
       interval: 2s
       timeout: 5s
       retries: 20

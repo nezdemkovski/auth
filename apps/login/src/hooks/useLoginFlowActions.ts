@@ -70,6 +70,11 @@ export const useLoginFlowActions = ({
     }) => {
       const nextAction = await getLoginNextAction(config.project);
 
+      if (!nextAction) {
+        dispatch({ type: "set-error", error: "Could not verify sign-in requirements" });
+        return;
+      }
+
       if (nextAction === LoginNextAction.EnrollTwoFactor) {
         dispatch({ type: "set-verified-password", password });
         dispatch({ type: "set-step", step: "two-factor-enroll" });
@@ -125,6 +130,8 @@ export const useLoginFlowActions = ({
         offerPasskey: passkeysEnabled,
         password: flow.password
       });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not finish sign-in");
     } finally {
       setPending(false);
     }
@@ -189,6 +196,8 @@ export const useLoginFlowActions = ({
         offerPasskey: passkeysEnabled,
         password: flow.password
       });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not verify two-factor code");
     } finally {
       setPending(false);
     }
@@ -211,6 +220,8 @@ export const useLoginFlowActions = ({
       }
 
       setStep("reset-sent");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not send reset email");
     } finally {
       setPending(false);
     }
@@ -246,7 +257,7 @@ export const useLoginFlowActions = ({
         ...(flow.verifiedPassword ? { password: flow.verifiedPassword } : {}),
         issuer: config.projectName
       });
-      if (result.error || !result.data?.totpURI) {
+      if (result.error || result.data?.method !== "totp" || !result.data.totpURI) {
         setError(result.error?.message || "Could not start two-factor setup");
         return;
       }

@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { configureBrowserObservability } from "@nezdemkovski/auth-client-shared/observability";
+import {
+  configureBrowserObservability,
+  scrubSensitiveBrowserUrl
+} from "@nezdemkovski/auth-client-shared/observability";
 import {
   applyTheme,
   resolveTheme,
@@ -26,25 +29,33 @@ export function LoginConfigLoader({
 
   useEffect(() => {
     let cancelled = false;
+    const search = window.location.search;
+    scrubSensitiveBrowserUrl();
 
-    void loadLoginAuthConfig(project, configPath).then((loadedConfig) => {
-      if (cancelled) {
-        return;
-      }
+    void loadLoginAuthConfig(project, configPath, search)
+      .then((loadedConfig) => {
+        if (cancelled) {
+          return;
+        }
 
-      if (!loadedConfig) {
-        setFailed(true);
-        return;
-      }
+        if (!loadedConfig) {
+          setFailed(true);
+          return;
+        }
 
-      configureBrowserObservability({
-        ...loadedConfig.observability,
-        component: "login",
-        projectSlug: loadedConfig.project
+        configureBrowserObservability({
+          ...loadedConfig.observability,
+          component: "login",
+          projectSlug: loadedConfig.project
+        });
+        setConfig(loadedConfig);
+        setFailed(false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFailed(true);
+        }
       });
-      setConfig(loadedConfig);
-      setFailed(false);
-    });
 
     return () => {
       cancelled = true;
@@ -64,13 +75,14 @@ export function LoginConfigLoader({
 
 async function loadLoginAuthConfig(
   project: string,
-  configPath: "login" | "reset-password" | "oauth-consent"
+  configPath: "login" | "reset-password" | "oauth-consent",
+  search = window.location.search
 ) {
   const url = new URL(
     `/api/${project}/login/config/${configPath}`,
     window.location.origin
   );
-  url.search = window.location.search;
+  url.search = search;
 
   const response = await fetch(url, {
     credentials: "include"

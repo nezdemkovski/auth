@@ -1,5 +1,11 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
-import { ADMIN_PROJECT_SLUG, AuthUserRole } from "../../config/projects";
+import { projectSessionSatisfiesPolicy } from "../../auth/policy";
+import {
+  ADMIN_PROJECT_SLUG,
+  AuthUserRole,
+  type AuthProject
+} from "../../config/projects";
+import { mustChangePassword } from "../../modules/admin-account/store";
 
 export type AdminSession = {
   user: {
@@ -7,6 +13,7 @@ export type AdminSession = {
     email: string;
     name: string;
     role?: string | null;
+    twoFactorEnabled?: boolean;
   };
   session: {
     id: string;
@@ -20,7 +27,15 @@ export const requireAdmin = async (registry: AuthRegistry, headers: Headers) => 
   }
 
   const session = await getSession(registered.auth, headers);
-  if (!session || session.user.role !== AuthUserRole.Admin) {
+  if (!session) {
+    return null;
+  }
+
+  const passwordRotationRequired = await mustChangePassword(
+    registered.projectDb.pool,
+    session.user.id
+  );
+  if (!adminSessionAllowed(registered.project, session.user, passwordRotationRequired)) {
     return null;
   }
 
@@ -28,6 +43,18 @@ export const requireAdmin = async (registry: AuthRegistry, headers: Headers) => 
     registered,
     session
   };
+};
+
+export const adminSessionAllowed = (
+  project: Pick<AuthProject, "features">,
+  user: AdminSession["user"],
+  passwordRotationRequired: boolean
+) => {
+  return (
+    user.role === AuthUserRole.Admin &&
+    !passwordRotationRequired &&
+    projectSessionSatisfiesPolicy(project, user)
+  );
 };
 
 export const getSession = async (auth: RegisteredProject["auth"], headers: Headers) => {

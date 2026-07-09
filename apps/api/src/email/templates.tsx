@@ -80,6 +80,7 @@ export const createProjectEmailHandlers = (options: {
       }
     },
     emailAndPassword: {
+      requireEmailVerification: true,
       resetPasswordTokenExpiresIn: RESET_EXPIRY_HOURS * 60 * 60,
       sendResetPassword: async (input: {
         user: BetterAuthUser;

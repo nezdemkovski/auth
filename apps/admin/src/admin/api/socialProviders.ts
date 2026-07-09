@@ -3,12 +3,12 @@ import type {
   SocialProviderPatch,
   SocialProvidersResponse
 } from "../types";
-import { jsonHeaders, readJson } from "./shared";
+import { adminFetch, jsonHeaders, readJson } from "./shared";
 
 export async function fetchSocialProviders(
   project: string
 ): Promise<SocialProvidersResponse> {
-  const response = await fetch(`/admin/api/projects/${project}/social-providers`, {
+  const response = await adminFetch(`/admin/api/projects/${project}/social-providers`, {
     credentials: "include"
   });
   if (!response.ok) throw new Error("Could not load social providers");
@@ -20,7 +20,7 @@ export async function updateSocialProvider(input: {
   provider: SocialProviderId;
   patch: SocialProviderPatch;
 }): Promise<SocialProvidersResponse> {
-  const response = await fetch(
+  const response = await adminFetch(
     `/admin/api/projects/${input.project}/social-providers/${input.provider}`,
     {
       method: "PATCH",
@@ -37,7 +37,7 @@ export async function verifySocialProvider(input: {
   project: string;
   provider: SocialProviderId;
 }): Promise<SocialProvidersResponse> {
-  const response = await fetch(
+  const response = await adminFetch(
     `/admin/api/projects/${input.project}/social-providers/${input.provider}/verify`,
     {
       method: "POST",

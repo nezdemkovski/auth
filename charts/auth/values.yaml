@@ -3,6 +3,7 @@ api:
   image:
     repository: ghcr.io/nezdemkovski/auth-api
     tag: ""
+    digest: ""
     pullPolicy: IfNotPresent
   service:
     name: auth-api
@@ -26,6 +27,7 @@ admin:
   image:
     repository: ghcr.io/nezdemkovski/auth-admin
     tag: ""
+    digest: ""
     pullPolicy: IfNotPresent
   service:
     name: auth-admin
@@ -43,6 +45,7 @@ login:
   image:
     repository: ghcr.io/nezdemkovski/auth-login
     tag: ""
+    digest: ""
     pullPolicy: IfNotPresent
   service:
     name: auth-login
@@ -60,6 +63,7 @@ router:
   image:
     repository: caddy
     tag: "2.11.3-alpine"
+    digest: "sha256:86deaf5e3d3408a6ccec08fbb79989783dd26e206ae10bcf78a801dc8c9ab794"
     pullPolicy: IfNotPresent
   service:
     port: 80
@@ -72,7 +76,7 @@ router:
       memory: 128Mi
 
 env:
-  autoMigrate: "true"
+  autoMigrate: "false"
   trustProxyHeaders: "true"
   publicBaseUrl: https://auth.nezdemkovski.cloud
   adminEmail: yuri@nezdemkovski.com
@@ -101,6 +105,7 @@ redis:
   image:
     repository: redis
     tag: "8.6.2-trixie"
+    digest: "sha256:832d7785830f3f4b559300e6191fc914b15642c1935252338825cf4332200148"
     pullPolicy: IfNotPresent
   service:
     port: 6379
@@ -122,6 +127,7 @@ objectStorage:
   image:
     repository: rustfs/rustfs
     tag: 1.0.0-beta.6
+    digest: "sha256:e620d37756fff072b10bf648c7bb9d370d7e91a928b7e6a5e1ac85bdfb4e4dab"
     pullPolicy: IfNotPresent
   initImage:
     repository: amazon/aws-cli
@@ -152,3 +158,7 @@ onepassword:
   postgresItem: auth-postgres
   redisItem: auth-redis
   redisPasswordProperty: password
+
+networkPolicy:
+  enabled: true
+  additionalApiEgress: []

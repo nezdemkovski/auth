@@ -4,10 +4,10 @@ import type {
   StorageSettingsPatch,
   UploadResponse
 } from "../types";
-import { jsonHeaders, readErrorBody, readErrorMessage, readJson } from "./shared";
+import { adminFetch, jsonHeaders, readErrorBody, readErrorMessage, readJson } from "./shared";
 
 export async function fetchStorageSettings(project: string): Promise<StorageSettings> {
-  const response = await fetch(`/admin/api/projects/${project}/storage`, {
+  const response = await adminFetch(`/admin/api/projects/${project}/storage`, {
     credentials: "include"
   });
   if (!response.ok) throw new Error("Could not load storage settings");
@@ -17,7 +17,7 @@ export async function fetchStorageSettings(project: string): Promise<StorageSett
 export async function fetchStorageObjects(
   project: string
 ): Promise<StorageObjectsResponse> {
-  const response = await fetch(`/admin/api/projects/${project}/storage/objects`, {
+  const response = await adminFetch(`/admin/api/projects/${project}/storage/objects`, {
     credentials: "include"
   });
   if (!response.ok) throw new Error("Could not load storage objects");
@@ -28,7 +28,7 @@ export async function updateStorageSettings(input: {
   project: string;
   patch: StorageSettingsPatch;
 }): Promise<StorageSettings> {
-  const response = await fetch(`/admin/api/projects/${input.project}/storage`, {
+  const response = await adminFetch(`/admin/api/projects/${input.project}/storage`, {
     method: "PATCH",
     credentials: "include",
     headers: jsonHeaders,
@@ -50,7 +50,7 @@ export async function uploadProjectIcon(input: {
   form.set("purpose", "project_icon");
   form.set("file", input.file);
 
-  const response = await fetch(`/admin/api/projects/${input.project}/upload`, {
+  const response = await adminFetch(`/admin/api/projects/${input.project}/upload`, {
     method: "POST",
     credentials: "include",
     body: form

@@ -97,3 +97,14 @@ export const updateUserImage = async (pool: Pool, userId: string, image: string)
     })
     .where(eq(authUsers.id, userId));
 };
+
+export const readUserImage = async (pool: Pool, userId: string) => {
+  const db = drizzle({ client: pool });
+  const rows = await db
+    .select({ image: authUsers.image })
+    .from(authUsers)
+    .where(eq(authUsers.id, userId))
+    .limit(1);
+
+  return rows[0]?.image ?? "";
+};

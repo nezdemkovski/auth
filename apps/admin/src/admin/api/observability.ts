@@ -3,10 +3,10 @@ import type {
   ObservabilitySettingsPatch,
   PublicObservabilityConfig
 } from "../types";
-import { jsonHeaders, readErrorMessage, readJson } from "./shared";
+import { adminFetch, jsonHeaders, readErrorMessage, readJson } from "./shared";
 
 export async function fetchObservabilityConfig(): Promise<PublicObservabilityConfig> {
-  const response = await fetch("/admin/api/observability-config", {
+  const response = await adminFetch("/admin/api/observability-config", {
     credentials: "include"
   });
   if (!response.ok) throw new Error("Could not load observability config");
@@ -15,7 +15,7 @@ export async function fetchObservabilityConfig(): Promise<PublicObservabilityCon
 }
 
 export async function fetchObservabilitySettings(): Promise<ObservabilitySettings> {
-  const response = await fetch("/admin/api/observability-settings", {
+  const response = await adminFetch("/admin/api/observability-settings", {
     credentials: "include"
   });
   if (!response.ok) throw new Error("Could not load observability settings");
@@ -25,7 +25,7 @@ export async function fetchObservabilitySettings(): Promise<ObservabilitySetting
 export async function updateObservabilitySettings(
   patch: ObservabilitySettingsPatch
 ): Promise<ObservabilitySettings> {
-  const response = await fetch("/admin/api/observability-settings", {
+  const response = await adminFetch("/admin/api/observability-settings", {
     method: "PATCH",
     credentials: "include",
     headers: jsonHeaders,
@@ -42,7 +42,7 @@ export async function updateObservabilitySettings(
 }
 
 export async function sendObservabilityTestEvent(): Promise<void> {
-  const response = await fetch("/admin/api/observability-settings/test", {
+  const response = await adminFetch("/admin/api/observability-settings/test", {
     method: "POST",
     credentials: "include"
   });

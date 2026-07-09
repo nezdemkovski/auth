@@ -1,7 +1,7 @@
 import { getMigrations } from "better-auth/db/migration";
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 
 import { AuthUserRole, type AuthProject } from "../config/projects";
 import type { EmailConfig } from "../email/sender";
@@ -39,21 +39,21 @@ type BootstrapOptions = {
   initialDeliveryConfig?: EmailConfig;
 };
 
+type ProjectSchemaOptions = Pick<
+  BootstrapOptions,
+  "databaseUrl" | "publicBaseUrl" | "secret"
+> & {
+  project: AuthProject;
+};
+
 const BOOTSTRAP_LOCK_KEY = "nezdemkovski-auth-bootstrap";
 
 export const bootstrapProjects = async (options: BootstrapOptions) => {
-  const adminPool = new Pool({
-    connectionString: options.databaseUrl
-  });
-  const db = drizzle({
-    client: adminPool
-  });
-
-  try {
-    await db.execute(sql`SELECT pg_advisory_lock(hashtext(${BOOTSTRAP_LOCK_KEY}))`);
-
+  await withPostgresAdvisoryLock(options.databaseUrl, BOOTSTRAP_LOCK_KEY, async () => {
     await prepareProjectSchema({
-      ...options,
+      databaseUrl: options.databaseUrl,
+      publicBaseUrl: options.publicBaseUrl,
+      secret: options.secret,
       project: options.adminProject
     });
 
@@ -99,16 +99,7 @@ export const bootstrapProjects = async (options: BootstrapOptions) => {
         email: options.initialDeliveryConfig
       });
     }
-  } finally {
-    await db
-      .execute(sql`SELECT pg_advisory_unlock(hashtext(${BOOTSTRAP_LOCK_KEY}))`)
-      .catch((error) => {
-        logError("bootstrap_advisory_unlock_failed", {
-          error: error instanceof Error ? error.message : String(error)
-        });
-      });
-    await adminPool.end();
-  }
+  });
 };
 
 const bootstrapInitialAdmin = async (options: BootstrapOptions) => {
@@ -168,7 +159,7 @@ const bootstrapInitialAdmin = async (options: BootstrapOptions) => {
       return;
     }
 
-    const temporaryPassword = generateTemporaryPassword();
+    const temporaryPassword = generateTemporaryAdminPassword();
     const created = await auth.api.createUser({
       body: {
         email: options.adminEmail,
@@ -203,13 +194,17 @@ const bootstrapInitialAdmin = async (options: BootstrapOptions) => {
   }
 };
 
-const generateTemporaryPassword = () => {
-  return randomBase64Url(24);
+export const generateTemporaryAdminPassword = () => randomBase64Url(24);
+
+export const prepareProjectSchema = async (options: ProjectSchemaOptions) => {
+  await withPostgresAdvisoryLock(
+    options.databaseUrl,
+    `nezdemkovski-auth-schema:${options.project.schema}`,
+    () => prepareProjectSchemaUnlocked(options)
+  );
 };
 
-export const prepareProjectSchema = async (options: Omit<BootstrapOptions, "adminEmail" | "initialDeliveryConfig" | "encryptionSecret"> & {
-  project: AuthProject;
-}) => {
+const prepareProjectSchemaUnlocked = async (options: ProjectSchemaOptions) => {
   const adminPool = new Pool({
     connectionString: options.databaseUrl
   });
@@ -249,6 +244,39 @@ export const prepareProjectSchema = async (options: Omit<BootstrapOptions, "admi
     );
     return;
   } finally {
+    await pool.end();
+  }
+};
+
+export const withPostgresAdvisoryLock = async <T>(
+  databaseUrl: string,
+  key: string,
+  operation: () => Promise<T>
+) => {
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    max: 1
+  });
+  let client: PoolClient | null = null;
+  let locked = false;
+
+  try {
+    client = await pool.connect();
+    await client.query("SELECT pg_advisory_lock(hashtext($1))", [key]);
+    locked = true;
+    return await operation();
+  } finally {
+    if (client && locked) {
+      await client
+        .query("SELECT pg_advisory_unlock(hashtext($1))", [key])
+        .catch((error) => {
+          logError("postgres_advisory_unlock_failed", {
+            key,
+            error: error instanceof Error ? error.message : String(error)
+          });
+        });
+    }
+    client?.release();
     await pool.end();
   }
 };

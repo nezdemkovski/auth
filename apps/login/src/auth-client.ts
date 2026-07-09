@@ -159,7 +159,7 @@ export async function resetLoginPassword(options: {
   return response.ok;
 }
 
-export async function getLoginNextAction(project: string): Promise<LoginNextAction> {
+export async function getLoginNextAction(project: string): Promise<LoginNextAction | null> {
   const response = await fetch(`/api/${project}/login/next-action`, {
     credentials: "include"
   });
@@ -167,7 +167,7 @@ export async function getLoginNextAction(project: string): Promise<LoginNextActi
     action?: LoginNextAction;
   } | null;
 
-  return response.ok && payload?.action ? payload.action : LoginNextAction.Redirect;
+  return response.ok && payload?.action ? payload.action : null;
 }
 
 export async function createLoginSessionRedirect(options: {

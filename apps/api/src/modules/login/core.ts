@@ -9,6 +9,7 @@ import {
   type LoginCodeStore
 } from "./store";
 import { ErrorCode } from "../../runtime/error-codes";
+import { mustEnrollTwoFactor } from "../../auth/policy";
 
 export type LoginFlowOptions = {
   registry: LoginProjectRegistry;
@@ -118,6 +119,9 @@ export class LoginFlowService {
     if (!redirectUriAllowed(this.options.registry, input.project, input.redirectUri)) {
       throw new LoginFlowError(ErrorCode.InvalidRedirectUri);
     }
+    if (!validPkceChallenge(input.codeVerifier)) {
+      throw new LoginFlowError(ErrorCode.InvalidPkceChallenge);
+    }
 
     const codeChallenge = pkceChallenge(input.codeVerifier);
     const payload = await this.options.codeStore.consume(input.code, {
@@ -194,16 +198,26 @@ const issueLoginCodeFromSession = async (options: {
   codeStore: LoginCodeStore;
 }) => {
   const session = await readLoginSession(options);
-  const email = typeof session?.user.email === "string" ? session.user.email : "";
+  if (!session || !session.user.email) {
+    return null;
+  }
+  const email = session.user.email;
+  if (mustEnrollTwoFactor(options.registered.project.features.twoFactor, session.user)) {
+    throw new LoginFlowError(ErrorCode.TwoFactorRequired, 403);
+  }
 
-  if (!email) {
+  const sessionCookie = realmSessionCookie(
+    options.headers.get("cookie"),
+    options.registered.project.slug
+  );
+  if (!sessionCookie) {
     return null;
   }
 
   const code = createCode();
   await options.codeStore.set(code, {
     project: options.registered.project.slug,
-    sessionCookie: options.headers.get("cookie") ?? "",
+    sessionCookie,
     email,
     redirectUri: options.redirectUri,
     codeChallenge: options.codeChallenge,
@@ -220,6 +234,35 @@ const issueLoginCodeFromSession = async (options: {
     redirectTo: callback.toString(),
     email
   };
+};
+
+export const realmSessionCookie = (cookieHeader: string | null, projectSlug: string) => {
+  if (!cookieHeader) {
+    return "";
+  }
+
+  const cookieName = `auth_${projectSlug}.session_token`;
+  const allowedNames = new Set([
+    cookieName,
+    `__Secure-${cookieName}`,
+    `__Host-${cookieName}`
+  ]);
+
+  for (const part of cookieHeader.split(";")) {
+    const cookie = part.trim();
+    const separator = cookie.indexOf("=");
+    if (separator <= 0) {
+      continue;
+    }
+
+    const name = cookie.slice(0, separator);
+    const value = cookie.slice(separator + 1);
+    if (allowedNames.has(name) && value) {
+      return `${name}=${value}`;
+    }
+  }
+
+  return "";
 };
 
 const readLoginSession = async (options: {

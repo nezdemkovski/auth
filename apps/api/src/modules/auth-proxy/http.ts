@@ -9,6 +9,12 @@ import { ADMIN_PROJECT_SLUG, type AuthProject } from "../../config/projects";
 import { BillingProvider } from "../../config/projects";
 import { ErrorCode } from "../../runtime/error-codes";
 import { auditLog } from "../../runtime/logger";
+import { isRecord } from "../../runtime/type-guards";
+import {
+  projectSessionSatisfiesPolicy,
+  socialSignInAllowed,
+  twoFactorRequiredForUser
+} from "../../auth/policy";
 
 export type AuthProxyRegistry = {
   get(slug: string): AuthProxyRegisteredProject | null;
@@ -20,6 +26,7 @@ export type AuthProxyRegisteredProject = {
   auth: {
     handler(request: Request): Promise<Response>;
     api: {
+      getSession(input: { headers: Headers }): Promise<unknown>;
       getAgentConfiguration(input: { headers: Headers }): Promise<unknown>;
       getOAuthServerConfig(input: unknown): unknown;
       getOpenIdConfig(input: unknown): unknown;
@@ -116,11 +123,32 @@ export const registerAuthProxyRoutes = <TEnv extends Env>(app: Hono<TEnv>, optio
       return c.notFound();
     }
 
+    const authPath = projectAuthPath(c.req.path, registered.project.slug);
+    if (
+      isPolicyProtectedAuthPath(authPath) ||
+      authPath === "/two-factor/disable"
+    ) {
+      const session = policyUserFromSession(await registered.auth.api.getSession({
+        headers: c.req.raw.headers
+      }));
+      if (
+        session &&
+        (!projectSessionSatisfiesPolicy(registered.project, session) ||
+          (authPath === "/two-factor/disable" &&
+            twoFactorRequiredForUser(
+              registered.project.features.twoFactor,
+              session
+            )))
+      ) {
+        return c.json({ error: ErrorCode.TwoFactorRequired }, 403);
+      }
+    }
+
     const response = await registered.auth.handler(c.req.raw);
     if (isSensitiveFailedAuthRequest(c.req.method, c.req.path, response.status)) {
       auditLog("auth.request.failed", {
         projectSlug: registered.project.slug,
-        path: normalizeAuthPath(c.req.path, registered.project.slug),
+        path: authAuditPath(authPath),
         status: response.status
       });
     }
@@ -128,10 +156,28 @@ export const registerAuthProxyRoutes = <TEnv extends Env>(app: Hono<TEnv>, optio
   });
 };
 
+const policyUserFromSession = (session: unknown) => {
+  if (!isRecord(session) || !isRecord(session.user)) {
+    return null;
+  }
+
+  return {
+    role: typeof session.user.role === "string" ? session.user.role : null,
+    twoFactorEnabled: session.user.twoFactorEnabled === true
+  };
+};
+
 export const isEnabledAuthFeaturePath = (project: AuthProject, path: string) => {
-  const authPath = path.replace(new RegExp(`^/api/${project.slug}/auth`), "") || "/";
+  const authPath = projectAuthPath(path, project.slug);
 
   if (project.slug === ADMIN_PROJECT_SLUG && authPath.startsWith("/sign-up/")) {
+    return false;
+  }
+
+  if (
+    (authPath === "/sign-in/social" || authPath.startsWith("/callback/")) &&
+    !socialSignInAllowed(project)
+  ) {
     return false;
   }
 
@@ -156,6 +202,35 @@ export const isEnabledAuthFeaturePath = (project: AuthProject, path: string) => 
   }
 
   return true;
+};
+
+const isPolicyProtectedAuthPath = (path: string) => {
+  return !(
+    path === "/get-session" ||
+    path === "/sign-out" ||
+    path.startsWith("/sign-in/") ||
+    path.startsWith("/sign-up/") ||
+    path.startsWith("/callback/") ||
+    isTwoFactorEnrollmentPath(path) ||
+    path === "/request-password-reset" ||
+    path === "/forget-password" ||
+    path === "/reset-password" ||
+    path === "/verify-email" ||
+    path === "/send-verification-email" ||
+    path === "/passkey/generate-authenticate-options" ||
+    path === "/passkey/verify-authentication"
+  );
+};
+
+const isTwoFactorEnrollmentPath = (path: string) => {
+  return (
+    path === "/two-factor/enable" ||
+    path === "/two-factor/get-totp-uri" ||
+    path === "/two-factor/send-otp" ||
+    path === "/two-factor/verify-backup-code" ||
+    path === "/two-factor/verify-otp" ||
+    path === "/two-factor/verify-totp"
+  );
 };
 
 const isAgentAuthPath = (path: string) => {
@@ -210,6 +285,15 @@ const isSensitiveFailedAuthRequest = (
   );
 };
 
-const normalizeAuthPath = (path: string, projectSlug: string) => {
-  return path.replace(new RegExp(`^/api/${projectSlug}/auth`), "/api/:project/auth");
+export const projectAuthPath = (path: string, projectSlug: string) => {
+  const prefix = `/api/${projectSlug}/auth`;
+  if (!path.startsWith(prefix)) {
+    return "/";
+  }
+
+  return path.slice(prefix.length) || "/";
+};
+
+const authAuditPath = (authPath: string) => {
+  return `/api/:project/auth${authPath === "/" ? "" : authPath}`;
 };

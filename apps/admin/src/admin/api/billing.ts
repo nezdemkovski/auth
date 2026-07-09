@@ -5,10 +5,10 @@ import type {
   CreatePolarProductInput,
   PolarProductsResponse
 } from "../types";
-import { jsonHeaders, readErrorMessage, readJson } from "./shared";
+import { adminFetch, jsonHeaders, readErrorMessage, readJson } from "./shared";
 
 export async function fetchBillingSettings(project: string): Promise<BillingSettings> {
-  const response = await fetch(`/admin/api/projects/${project}/billing`, {
+  const response = await adminFetch(`/admin/api/projects/${project}/billing`, {
     credentials: "include"
   });
   if (!response.ok) throw new Error("Could not load billing settings");
@@ -19,7 +19,7 @@ export async function updateBillingSettings(input: {
   project: string;
   patch: BillingSettingsPatch;
 }): Promise<BillingSettings> {
-  const response = await fetch(`/admin/api/projects/${input.project}/billing`, {
+  const response = await adminFetch(`/admin/api/projects/${input.project}/billing`, {
     method: "PATCH",
     credentials: "include",
     headers: jsonHeaders,
@@ -38,7 +38,7 @@ export async function verifyBillingSettings(input: {
   accessToken?: string;
   environment?: BillingSettings["environment"];
 }): Promise<void> {
-  const response = await fetch(`/admin/api/projects/${input.project}/billing/verify`, {
+  const response = await adminFetch(`/admin/api/projects/${input.project}/billing/verify`, {
     method: "POST",
     credentials: "include",
     headers: jsonHeaders,
@@ -53,7 +53,7 @@ export async function verifyBillingSettings(input: {
 }
 
 export async function fetchPolarProducts(project: string): Promise<PolarProductsResponse> {
-  const response = await fetch(`/admin/api/projects/${project}/billing/polar-products`, {
+  const response = await adminFetch(`/admin/api/projects/${project}/billing/polar-products`, {
     credentials: "include"
   });
   if (!response.ok) {
@@ -66,7 +66,7 @@ export async function createPolarProduct(input: {
   project: string;
   product: CreatePolarProductInput;
 }): Promise<BillingProductMapping> {
-  const response = await fetch(
+  const response = await adminFetch(
     `/admin/api/projects/${input.project}/billing/polar-products`,
     {
       method: "POST",

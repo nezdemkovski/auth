@@ -4,16 +4,16 @@ import type {
   ProjectSummary,
   ProjectsResponse
 } from "../types";
-import { jsonHeaders, readErrorBody, readErrorMessage, readJson } from "./shared";
+import { adminFetch, jsonHeaders, readErrorBody, readErrorMessage, readJson } from "./shared";
 
 export async function fetchProjects(): Promise<ProjectsResponse> {
-  const response = await fetch("/admin/api/projects", { credentials: "include" });
+  const response = await adminFetch("/admin/api/projects", { credentials: "include" });
   if (!response.ok) throw new Error("Could not load projects");
   return readJson<ProjectsResponse>(response);
 }
 
 export async function createProject(input: CreateProjectInput): Promise<ProjectSummary> {
-  const response = await fetch("/admin/api/projects", {
+  const response = await adminFetch("/admin/api/projects", {
     method: "POST",
     credentials: "include",
     headers: jsonHeaders,
@@ -35,7 +35,7 @@ export async function updateProjectSettings(
   project: string,
   patch: ProjectSettingsPatch
 ): Promise<ProjectSummary> {
-  const response = await fetch(`/admin/api/projects/${project}`, {
+  const response = await adminFetch(`/admin/api/projects/${project}`, {
     method: "PATCH",
     credentials: "include",
     headers: jsonHeaders,

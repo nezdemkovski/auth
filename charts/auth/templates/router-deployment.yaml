@@ -14,6 +14,7 @@ spec:
       labels:
         {{- include "auth.componentLabels" (dict "root" . "component" "router") | nindent 8 }}
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -22,7 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: router
-          image: "{{ .Values.router.image.repository }}:{{ .Values.router.image.tag }}"
+          image: "{{ .Values.router.image.repository }}:{{ .Values.router.image.tag }}@{{ .Values.router.image.digest }}"
           imagePullPolicy: {{ .Values.router.image.pullPolicy }}
           ports:
             - name: http
@@ -50,8 +51,11 @@ spec:
           resources:
             {{- toYaml .Values.router.resources | nindent 12 }}
           securityContext:
-            allowPrivilegeEscalation: true
+            allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
       volumes:
         - name: config
           configMap:

@@ -1,8 +1,8 @@
 import type { ProjectUsersResponse } from "../types";
-import { jsonHeaders, readJson } from "./shared";
+import { adminFetch, jsonHeaders, readJson } from "./shared";
 
 export async function fetchProjectUsers(project: string): Promise<ProjectUsersResponse> {
-  const response = await fetch(`/admin/api/projects/${project}/users`, {
+  const response = await adminFetch(`/admin/api/projects/${project}/users`, {
     credentials: "include"
   });
   if (!response.ok) throw new Error("Could not load users");
@@ -10,7 +10,7 @@ export async function fetchProjectUsers(project: string): Promise<ProjectUsersRe
 }
 
 export async function resendVerificationEmail(project: string, email: string): Promise<void> {
-  const response = await fetch(
+  const response = await adminFetch(
     `/admin/api/projects/${project}/users/resend-verification`,
     {
       method: "POST",
@@ -23,7 +23,7 @@ export async function resendVerificationEmail(project: string, email: string): P
 }
 
 export async function terminateUserSessions(project: string, userId: string): Promise<void> {
-  const response = await fetch(
+  const response = await adminFetch(
     `/admin/api/projects/${project}/users/${userId}/terminate-sessions`,
     {
       method: "POST",

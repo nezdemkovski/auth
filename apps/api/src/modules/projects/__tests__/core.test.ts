@@ -65,6 +65,7 @@ describe("projects", () => {
 
   test("rejects invalid slugs", () => {
     expect(() => validateProjectSlug("bad_slug")).toThrow("Invalid project slug");
+    expect(() => validateProjectSlug("a".repeat(59))).toThrow("Invalid project slug");
   });
 
   test("rejects invalid project settings patches", () => {

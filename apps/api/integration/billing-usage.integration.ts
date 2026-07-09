@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { and, eq, sql } from "drizzle-orm";
 
 import {
   EntitlementGrantType,
@@ -28,6 +29,8 @@ import {
 } from "./setup";
 import { DIRECT_CLIENT_IP_HEADER } from "../src/http/security";
 import { isRecord } from "../src/runtime/type-guards";
+import { withAdminDb } from "../src/db/admin-pool";
+import { billingEntitlementGrants } from "../src/modules/billing/tables";
 import {
   polarOrderPaidPayload,
   polarOrderRefundedPayload,
@@ -36,10 +39,16 @@ import {
 
 const benefitKey = "integration_credits";
 const userId = "user_integration";
+let webhookStore: ReturnType<typeof createPolarWebhookStore>;
 
 describe("billing usage integration", () => {
   beforeEach(async () => {
     await resetAndBootstrapIntegrationDatabase();
+    webhookStore = createPolarWebhookStore(integrationAdminDbOptions);
+  });
+
+  afterEach(async () => {
+    await webhookStore.close();
   });
 
   test("reserves, releases, and commits credits against Postgres", async () => {
@@ -114,6 +123,37 @@ describe("billing usage integration", () => {
     });
   });
 
+  test("replays reserve and commit results for the same idempotency key", async () => {
+    const project = await prepareBillingProject(credits(5));
+    const input = {
+      ...integrationAdminDbOptions,
+      project,
+      userId,
+      key: benefitKey,
+      amount: 2,
+      idempotencyKey: "billing-retry-request-0001"
+    };
+
+    const first = await reserveBillingUsage(input);
+    await commitBillingUsageReservation({
+      ...input,
+      reservationId: first.reservationId ?? ""
+    });
+    const replayed = await reserveBillingUsage(input);
+    const replayedCommit = await commitBillingUsageReservation({
+      ...input,
+      reservationId: replayed.reservationId ?? ""
+    });
+
+    expect(replayed.reservationId).toBe(first.reservationId);
+    expect(replayedCommit?.allowed).toBe(true);
+    await expectSummary(project, {
+      used: 2,
+      limit: 5,
+      remaining: 3
+    });
+  });
+
   test("grants signup credits lazily and stacks paid credit packs on the same key", async () => {
     const productId = "prod_integration_signup_stack";
     const project = await seedIntegrationRealm({
@@ -130,7 +170,7 @@ describe("billing usage integration", () => {
     });
     const context = {
       project,
-      store: createPolarWebhookStore(integrationAdminDbOptions),
+      store: webhookStore,
       entitlements: createPolarEntitlementGrantStore(integrationAdminDbOptions)
     };
 
@@ -174,6 +214,50 @@ describe("billing usage integration", () => {
       used: 7,
       limit: 55,
       remaining: 48
+    });
+  });
+
+  test("rolls back every grant deduction when aggregate credits are insufficient", async () => {
+    const productId = "prod_integration_partial_reservation";
+    const project = await seedIntegrationRealm({
+      slug: "integration-billing",
+      schema: "integration_billing_auth",
+      name: "Integration Billing",
+      freeEntitlements: [credits(2)],
+      products: [
+        creditProduct({
+          productId,
+          entitlements: [credits(3)]
+        })
+      ]
+    });
+    await processPolarWebhook(
+      {
+        project,
+        store: webhookStore,
+        entitlements: createPolarEntitlementGrantStore(integrationAdminDbOptions)
+      },
+      polarOrderPaidPayload({
+        orderId: "order_integration_partial_reservation",
+        productId,
+        userId
+      })
+    );
+
+    const reservation = await reserveBillingUsage({
+      ...integrationAdminDbOptions,
+      project,
+      userId,
+      key: benefitKey,
+      amount: 6
+    });
+
+    expect(reservation.allowed).toBe(false);
+    expect(reservation.reservationId).toBeNull();
+    await expectSummary(project, {
+      used: 0,
+      limit: 5,
+      remaining: 5
     });
   });
 
@@ -368,6 +452,64 @@ describe("billing usage integration", () => {
     });
   });
 
+  test("resets recurring quota after its persisted reset boundary", async () => {
+    const project = await prepareBillingProject({
+      key: benefitKey,
+      grantType: EntitlementGrantType.RecurringQuota,
+      amount: 5,
+      resetPeriod: EntitlementResetPeriod.Monthly,
+      priority: 100
+    });
+    const reservation = await reserveBillingUsage({
+      ...integrationAdminDbOptions,
+      project,
+      userId,
+      key: benefitKey,
+      amount: 2
+    });
+    await commitBillingUsageReservation({
+      ...integrationAdminDbOptions,
+      project,
+      userId,
+      reservationId: reservation.reservationId ?? ""
+    });
+    await withAdminDb(integrationAdminDbOptions, async ({ db }) => {
+      await db
+        .update(billingEntitlementGrants)
+        .set({ resetAt: sql`now() - interval '1 second'` })
+        .where(
+          and(
+            eq(billingEntitlementGrants.projectSlug, project.slug),
+            eq(billingEntitlementGrants.userId, userId),
+            eq(billingEntitlementGrants.benefitKey, benefitKey)
+          )
+        );
+    });
+
+    await expectSummary(project, {
+      used: 0,
+      limit: 5,
+      remaining: 5
+    });
+  });
+
+  test("deactivates free grants removed from billing settings", async () => {
+    const project = await prepareBillingProject(credits(5));
+    await expectSummary(project, {
+      used: 0,
+      limit: 5,
+      remaining: 5
+    });
+
+    const withoutFreeGrant = await updateProjectBilling(project, []);
+
+    await expectSummary(withoutFreeGrant, {
+      used: 0,
+      limit: 0,
+      remaining: 0
+    });
+  });
+
   test("does not over-reserve the same credit under concurrent requests", async () => {
     const project = await prepareBillingProject(credits(1));
 
@@ -523,7 +665,7 @@ describe("billing usage integration", () => {
     });
     const context = {
       project,
-      store: createPolarWebhookStore(integrationAdminDbOptions),
+      store: webhookStore,
       entitlements: createPolarEntitlementGrantStore(integrationAdminDbOptions)
     };
     const paidPayload = polarOrderPaidPayload({
@@ -578,6 +720,69 @@ describe("billing usage integration", () => {
     });
   });
 
+  test("serializes concurrent Polar events for the same resource", async () => {
+    const productId = "prod_integration_concurrent_webhook";
+    const orderId = "order_integration_concurrent_webhook";
+    const project = await seedIntegrationRealm({
+      slug: "integration-billing",
+      schema: "integration_billing_auth",
+      name: "Integration Billing",
+      products: [
+        creditProduct({
+          productId,
+          entitlements: [credits(50)]
+        })
+      ]
+    });
+    const persistedEntitlements = createPolarEntitlementGrantStore(
+      integrationAdminDbOptions
+    );
+    let signalGrantStarted = () => {};
+    const grantStarted = new Promise<void>((resolve) => {
+      signalGrantStarted = resolve;
+    });
+    const context = {
+      project,
+      store: webhookStore,
+      entitlements: {
+        ...persistedEntitlements,
+        grantProductEntitlements: async (
+          input: Parameters<
+            typeof persistedEntitlements.grantProductEntitlements
+          >[0]
+        ) => {
+          signalGrantStarted();
+          await Bun.sleep(100);
+          return persistedEntitlements.grantProductEntitlements(input);
+        }
+      }
+    };
+    const secondReplicaStore = createPolarWebhookStore(
+      integrationAdminDbOptions
+    );
+
+    try {
+      const paid = processPolarWebhook(
+        context,
+        polarOrderPaidPayload({ orderId, productId, userId })
+      );
+      await grantStarted;
+      const refunded = processPolarWebhook(
+        { ...context, store: secondReplicaStore },
+        polarOrderRefundedPayload({ orderId, productId, userId })
+      );
+      await Promise.all([paid, refunded]);
+    } finally {
+      await secondReplicaStore.close();
+    }
+
+    await expectSummary(project, {
+      used: 0,
+      limit: 0,
+      remaining: 0
+    });
+  });
+
   test("does not grant entitlements for inactive product mappings", async () => {
     const productId = "prod_integration_inactive";
     const project = await seedIntegrationRealm({
@@ -596,7 +801,7 @@ describe("billing usage integration", () => {
     });
     const context = {
       project,
-      store: createPolarWebhookStore(integrationAdminDbOptions),
+      store: webhookStore,
       entitlements: createPolarEntitlementGrantStore(integrationAdminDbOptions)
     };
 
@@ -631,7 +836,7 @@ describe("billing usage integration", () => {
     });
     const context = {
       project,
-      store: createPolarWebhookStore(integrationAdminDbOptions),
+      store: webhookStore,
       entitlements: createPolarEntitlementGrantStore(integrationAdminDbOptions)
     };
     const payload = polarOrderPaidPayload({
@@ -640,8 +845,50 @@ describe("billing usage integration", () => {
       userId
     });
 
+    await withAdminDb(integrationAdminDbOptions, async ({ db }) => {
+      await db.execute(sql`
+        INSERT INTO auth_billing_webhook_events (
+          project_slug,
+          event_key,
+          event_type,
+          resource_id,
+          occurred_at,
+          received_at,
+          payload
+        ) VALUES (
+          ${project.slug},
+          'expired-event',
+          'order.paid',
+          'expired-order',
+          now() - interval '31 days',
+          now() - interval '31 days',
+          '{"email":"expired@integration.test"}'::jsonb
+        )
+      `);
+    });
+
     await processPolarWebhook(context, payload);
     await processPolarWebhook(context, payload);
+
+    await withAdminDb(integrationAdminDbOptions, async ({ db }) => {
+      const events = await db.execute<{ payload: string }>(sql`
+        SELECT payload::text AS payload
+        FROM auth_billing_webhook_events
+        WHERE project_slug = ${project.slug}
+      `);
+      const orders = await db.execute<{ payload: string }>(sql`
+        SELECT payload::text AS payload
+        FROM auth_billing_orders
+        WHERE project_slug = ${project.slug}
+          AND order_id = 'order_integration_duplicate'
+      `);
+
+      expect(events.rows).toHaveLength(1);
+      expect(events.rows[0].payload).not.toContain("customer@integration.test");
+      expect(events.rows[0].payload).not.toContain("Integration Customer");
+      expect(orders.rows).toHaveLength(1);
+      expect(orders.rows[0].payload).not.toContain("customer@integration.test");
+    });
 
     await expectSummary(project, {
       used: 0,
@@ -666,7 +913,7 @@ describe("billing usage integration", () => {
     });
     const context = {
       project,
-      store: createPolarWebhookStore(integrationAdminDbOptions),
+      store: webhookStore,
       entitlements: createPolarEntitlementGrantStore(integrationAdminDbOptions)
     };
 
@@ -728,7 +975,7 @@ describe("billing usage integration", () => {
     });
     const firstContext = {
       project: firstProject,
-      store: createPolarWebhookStore(integrationAdminDbOptions),
+      store: webhookStore,
       entitlements: createPolarEntitlementGrantStore(integrationAdminDbOptions)
     };
 
@@ -866,6 +1113,7 @@ const billingApi = (
       "Content-Type": "application/json",
       Cookie: cookie,
       Origin: project.appUrl,
+      "Idempotency-Key": crypto.randomUUID(),
       [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
     },
     body: JSON.stringify(body)

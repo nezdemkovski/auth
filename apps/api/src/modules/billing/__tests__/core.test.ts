@@ -42,7 +42,7 @@ const project: AuthProject = {
 const createService = (polar: BillingPolarGateway = createPolarGateway().gateway) => {
   return new BillingService({
     registry: {
-      updateProject: async () => {}
+      patchProject: async () => {}
     },
     databaseUrl: "postgres://auth:auth@127.0.0.1:5432/auth",
     adminProject: project,

@@ -2,10 +2,8 @@
 
 ## Now
 
-- Add integration tests for the important flows against real Postgres and Redis:
-  signup, signin, session lookup, project isolation, hosted login code exchange,
-  password reset, email verification, passkey enrollment, 2FA enrollment, and
-  Polar checkout entrypoints.
+- Extend the existing Postgres/Redis/S3 and browser suites with real passkey,
+  2FA enrollment, email-delivery, and Polar checkout sandbox scenarios.
 - Add a small example client showing how a product app should integrate with:
   project-scoped auth endpoints, hosted login, JWT/session validation, OAuth MCP
   clients, and billing entitlement checks.
@@ -24,16 +22,6 @@
   - read current entitlements for the signed-in user.
   - consume quota or credits atomically.
   - expose stable benefit keys to apps without leaking Polar internals.
-- Persist and process Polar webhook events:
-  - checkout completed.
-  - subscription active/canceled/past due.
-  - one-time purchase completed/refunded.
-  - credit grants and recurring resets.
-- Add entitlement ledger tables:
-  - grants from products/prices.
-  - balance changes.
-  - idempotency keys for webhook and checkout processing.
-  - expiry/reset metadata.
 - Add an OpenMarkers integration example for the current 50 AI requests product:
   checkout button, checkout return handling, and request consumption.
 - Decide how apps report usage:
@@ -81,9 +69,8 @@
   - [x] Validate resend-verification email format and length.
   - [x] Port `secret-crypto.ts` from `node:crypto` to WebCrypto/Bun-native crypto.
   - [x] Add structured logging and audit events for sensitive actions.
-  - [ ] Add integration tests with real Postgres, Redis, and S3-compatible
+  - [x] Add integration tests with real Postgres, Redis, and S3-compatible
     storage.
-- Define backup and restore procedure before accepting real users.
 - Add S3-compatible object storage for media and future user files:
   - evaluate RustFS as the first homelab backend while keeping the auth service
     coupled only to the S3 API.
@@ -103,9 +90,8 @@
     instead of leaking the internal S3 endpoint.
 - Review secure cookie behavior behind Cloudflare Tunnel and Kubernetes service
   proxies after the split frontend/API deployment settles.
-- Add production readiness docs:
-  required Redis behavior for multi-replica deployments, proxy header trust
-  assumptions, Cloudflare Tunnel assumptions, and secret rotation procedure.
+- Perform and record the first quarterly backup/restore drill using
+  `docs/OPERATIONS.md`.
 - Add key rotation support for encrypted settings if this becomes more than a
   personal homelab service.
 - Rename database tables away from the temporary `auth_` prefix once the final

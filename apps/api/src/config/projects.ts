@@ -225,6 +225,8 @@ export const DEFAULT_BILLING_PRODUCT_SLUG = "product";
 
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/;
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
+export const MAX_PROJECT_SLUG_LENGTH = 58;
+const MAX_POSTGRES_IDENTIFIER_BYTES = 63;
 
 export const ADMIN_PROJECT: AuthProject = {
   slug: ADMIN_PROJECT_SLUG,
@@ -258,13 +260,16 @@ export const projectSchemaFromSlug = (slug: string) => {
 };
 
 export const validateProjectSlug = (slug: string) => {
-  if (!SLUG_PATTERN.test(slug)) {
+  if (!SLUG_PATTERN.test(slug) || Buffer.byteLength(slug, "utf8") > MAX_PROJECT_SLUG_LENGTH) {
     throw new Error(`Invalid project slug: ${slug}`);
   }
 };
 
 export const validateProjectSchema = (schema: string) => {
-  if (!IDENTIFIER_PATTERN.test(schema)) {
+  if (
+    !IDENTIFIER_PATTERN.test(schema) ||
+    Buffer.byteLength(schema, "utf8") > MAX_POSTGRES_IDENTIFIER_BYTES
+  ) {
     throw new Error(`Invalid Postgres schema name: ${schema}`);
   }
 };

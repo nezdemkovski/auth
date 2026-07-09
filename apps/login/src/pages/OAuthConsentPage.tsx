@@ -28,7 +28,9 @@ export function OAuthConsentPage({ config }: { config: LoginOAuthConsentConfig }
     void getOAuthPublicClient({
       project: config.project,
       clientId: config.clientId
-    }).then(setClient);
+    })
+      .then(setClient)
+      .catch(() => setError("Could not load OAuth client details"));
   }, [config.project, config.clientId]);
 
   async function decideConsent(accept: boolean) {
@@ -49,6 +51,8 @@ export function OAuthConsentPage({ config }: { config: LoginOAuthConsentConfig }
       }
 
       window.location.assign(redirectTo);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not finish authorization");
     } finally {
       setPending(null);
     }

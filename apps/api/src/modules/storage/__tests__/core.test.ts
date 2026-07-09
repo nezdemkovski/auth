@@ -35,8 +35,10 @@ describe("storage core", () => {
           calls.push("persist");
           return "ok";
         },
-        cleanup: async (object, error) => {
-          calls.push(`cleanup:${object.objectKey}:${error === failure}`);
+        cleanup: async (object, context) => {
+          calls.push(
+            `cleanup:${object.objectKey}:${context.originalError === failure}:${context.recorded}`
+          );
         }
       })
     ).rejects.toBe(failure);
@@ -44,7 +46,7 @@ describe("storage core", () => {
     expect(calls).toEqual([
       "upload",
       "record",
-      "cleanup:realms/testing/images/avatar.jpg:true"
+      "cleanup:realms/testing/images/avatar.jpg:true:false"
     ]);
   });
 
@@ -65,8 +67,10 @@ describe("storage core", () => {
           calls.push("persist");
           throw failure;
         },
-        cleanup: async (object, error) => {
-          calls.push(`cleanup:${object.objectKey}:${error === failure}`);
+        cleanup: async (object, context) => {
+          calls.push(
+            `cleanup:${object.objectKey}:${context.originalError === failure}:${context.recorded}`
+          );
         }
       })
     ).rejects.toBe(failure);
@@ -75,7 +79,7 @@ describe("storage core", () => {
       "upload",
       "record",
       "persist",
-      "cleanup:realms/testing/images/avatar.jpg:true"
+      "cleanup:realms/testing/images/avatar.jpg:true:true"
     ]);
   });
 
@@ -98,5 +102,22 @@ describe("storage core", () => {
         }
       })
     ).rejects.toBe(cleanupError);
+  });
+
+  test("does not run compensation after target persistence succeeds", async () => {
+    let cleaned = false;
+
+    await expect(
+      runUploadedMediaWorkflow({
+        upload: async () => uploaded,
+        record: async () => {},
+        persist: async () => "saved",
+        cleanup: async () => {
+          cleaned = true;
+        }
+      })
+    ).resolves.toEqual({ uploaded, result: "saved" });
+
+    expect(cleaned).toBe(false);
   });
 });

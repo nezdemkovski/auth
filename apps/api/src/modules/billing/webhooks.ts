@@ -3,7 +3,11 @@ import { SubscriptionStatus } from "@polar-sh/sdk/models/components/subscription
 
 import type { AuthProject } from "../../config/projects";
 import { logInfo, logWarn } from "../../runtime/logger";
-import type { PolarEntitlementGrantStore } from "./usage-store";
+import { isRecord } from "../../runtime/type-guards";
+import {
+  BillingEntitlementSourceType,
+  type PolarEntitlementGrantStore
+} from "./usage-store";
 import type { PolarWebhookStore } from "./webhook-store";
 
 export enum PolarWebhookEventGroup {
@@ -36,6 +40,7 @@ export const processPolarWebhook = async (
 ) => {
   const resourceId = polarWebhookResourceId(payload);
   const eventKey = polarWebhookEventKey(payload, resourceId);
+  const storedPayload = polarWebhookAuditPayload(payload);
 
   logInfo("polar_webhook_received", {
     projectSlug: context.project.slug,
@@ -44,48 +49,118 @@ export const processPolarWebhook = async (
     eventKey
   });
 
-  await syncPolarProjection(context, payload);
-
-  const processed = await context.store.recordEvent({
+  const claimed = await context.store.claimEvent({
     projectSlug: context.project.slug,
     eventKey,
     eventType: payload.type,
     resourceId,
     occurredAt: payload.timestamp,
-    payload
+    payload: storedPayload
   });
-  if (!processed) {
+  if (!claimed) {
     logInfo("polar_webhook_duplicate", {
       projectSlug: context.project.slug,
       type: payload.type,
       resourceId
     });
+    return;
   }
+
+  const resourceVersion = polarWebhookResourceVersion(
+    context.project.slug,
+    eventKey,
+    payload
+  );
+  await context.store.withResourceLock(resourceVersion, async () => {
+    if (!(await context.store.claimResourceVersion(resourceVersion))) {
+      await context.store.completeEvent(context.project.slug, eventKey);
+      logInfo("polar_webhook_stale", {
+        projectSlug: context.project.slug,
+        type: payload.type,
+        resourceId
+      });
+      return;
+    }
+
+    try {
+      await syncPolarProjection(context, payload, storedPayload);
+      await context.store.completeEvent(context.project.slug, eventKey);
+    } catch (error) {
+      await Promise.all([
+        context.store.failEvent(context.project.slug, eventKey),
+        context.store.releaseResourceVersion(resourceVersion)
+      ]);
+      throw error;
+    }
+  });
+};
+
+export const polarWebhookResourceVersion = (
+  projectSlug: string,
+  eventKey: string,
+  payload: PolarWebhookPayload
+) => {
+  const group = polarWebhookEventGroup(payload.type);
+  let resourceType = group;
+  let resourceId = polarWebhookResourceId(payload);
+
+  if (group === PolarWebhookEventGroup.BenefitGrant && isBenefitGrantPayload(payload)) {
+    if (payload.data.orderId) {
+      resourceType = PolarWebhookEventGroup.Order;
+      resourceId = payload.data.orderId;
+    } else if (payload.data.subscriptionId) {
+      resourceType = PolarWebhookEventGroup.Subscription;
+      resourceId = payload.data.subscriptionId;
+    }
+  }
+
+  return {
+    projectSlug,
+    resourceType,
+    resourceId,
+    versionKey: `${payload.timestamp.toISOString()}:${String(
+      polarWebhookEventPriority(payload)
+    ).padStart(3, "0")}`,
+    eventKey
+  };
+};
+
+const polarWebhookEventPriority = (payload: PolarWebhookPayload) => {
+  if (
+    payload.type === "order.refunded" ||
+    payload.type === "benefit_grant.revoked" ||
+    (isSubscriptionPayload(payload) && subscriptionInactive(payload.data.status))
+  ) {
+    return 100;
+  }
+
+  return 10;
 };
 
 const syncPolarProjection = async (
   context: PolarWebhookContext,
-  payload: PolarWebhookPayload
+  payload: PolarWebhookPayload,
+  storedPayload: unknown
 ) => {
   const group = polarWebhookEventGroup(payload.type);
 
   if (group === PolarWebhookEventGroup.Order && isOrderPayload(payload)) {
-    await syncOrder(context, payload);
+    await syncOrder(context, payload, storedPayload);
     return;
   }
 
   if (group === PolarWebhookEventGroup.Subscription && isSubscriptionPayload(payload)) {
-    await syncSubscription(context, payload);
+    await syncSubscription(context, payload, storedPayload);
     return;
   }
 
   if (group === PolarWebhookEventGroup.BenefitGrant && isBenefitGrantPayload(payload)) {
-    await syncBenefitGrant(context, payload);
+    await syncBenefitGrant(context, payload, storedPayload);
     return;
   }
 
   if (payload.type === "customer.state_changed") {
-    await syncCustomerState(context, payload);
+    await syncCustomerState(context, payload, storedPayload);
     return;
   }
 
@@ -97,7 +172,8 @@ const syncPolarProjection = async (
 
 const syncOrder = async (
   context: PolarWebhookContext,
-  payload: Extract<PolarWebhookPayload, { data: { paid: boolean; totalAmount: number } }>
+  payload: Extract<PolarWebhookPayload, { data: { paid: boolean; totalAmount: number } }>,
+  storedPayload: unknown
 ) => {
   await context.store.upsertOrder({
     projectSlug: context.project.slug,
@@ -110,16 +186,16 @@ const syncOrder = async (
     totalAmount: payload.data.totalAmount,
     refundedAmount: payload.data.refundedAmount,
     currency: payload.data.currency,
-    payload
+    payload: storedPayload
   });
 
   if (payload.type !== "order.paid" || !payload.data.productId) {
     if (payload.type === "order.refunded") {
       await context.entitlements.deactivateSource({
         project: context.project,
-        sourceType: "polar_order",
+        sourceType: BillingEntitlementSourceType.PolarOrder,
         sourceId: payload.data.id,
-        metadata: payload
+        metadata: storedPayload
       });
     }
     return;
@@ -139,7 +215,7 @@ const syncOrder = async (
     userId,
     productId: payload.data.productId,
     sourceId: payload.data.id,
-    metadata: payload
+    metadata: storedPayload
   });
 
   logInfo("polar_order_entitlements_granted", {
@@ -153,19 +229,21 @@ const syncOrder = async (
 
 const syncCustomerState = async (
   context: PolarWebhookContext,
-  payload: Extract<PolarWebhookPayload, { type: "customer.state_changed" }>
+  payload: Extract<PolarWebhookPayload, { type: "customer.state_changed" }>,
+  storedPayload: unknown
 ) => {
   await context.store.upsertCustomerState({
     projectSlug: context.project.slug,
     customerId: payload.data.id,
     externalId: payload.data.externalId,
-    payload
+    payload: storedPayload
   });
 };
 
 const syncBenefitGrant = async (
   context: PolarWebhookContext,
-  payload: Extract<PolarWebhookPayload, { data: { benefitId: string } }>
+  payload: Extract<PolarWebhookPayload, { data: { benefitId: string } }>,
+  storedPayload: unknown
 ) => {
   await context.store.upsertBenefitGrant({
     projectSlug: context.project.slug,
@@ -175,22 +253,23 @@ const syncBenefitGrant = async (
     subscriptionId: payload.data.subscriptionId,
     orderId: payload.data.orderId,
     revoked: payload.type === "benefit_grant.revoked",
-    payload
+    payload: storedPayload
   });
 
   if (payload.type === "benefit_grant.revoked" && payload.data.orderId) {
     await context.entitlements.deactivateSource({
       project: context.project,
-      sourceType: "polar_order",
+      sourceType: BillingEntitlementSourceType.PolarOrder,
       sourceId: payload.data.orderId,
-      metadata: payload
+      metadata: storedPayload
     });
   }
 };
 
 const syncSubscription = async (
   context: PolarWebhookContext,
-  payload: Extract<PolarWebhookPayload, { data: { cancelAtPeriodEnd: boolean } }>
+  payload: Extract<PolarWebhookPayload, { data: { cancelAtPeriodEnd: boolean } }>,
+  storedPayload: unknown
 ) => {
   await context.store.upsertSubscription({
     projectSlug: context.project.slug,
@@ -202,14 +281,14 @@ const syncSubscription = async (
     currentPeriodStart: payload.data.currentPeriodStart,
     currentPeriodEnd: payload.data.currentPeriodEnd,
     endedAt: payload.data.endedAt,
-    payload
+    payload: storedPayload
   });
 
   if (subscriptionInactive(payload.data.status)) {
     await context.entitlements.deactivateSubscription({
       project: context.project,
       subscriptionId: payload.data.id,
-      metadata: payload
+      metadata: storedPayload
     });
   }
 };
@@ -248,6 +327,53 @@ export const polarWebhookEventKey = (
 
 export const polarWebhookResourceId = (payload: Pick<PolarWebhookPayload, "data">) => {
   return payload.data.id;
+};
+
+const POLAR_AUDIT_DATA_FIELDS = [
+  "benefitId",
+  "cancelAtPeriodEnd",
+  "currency",
+  "currentPeriodEnd",
+  "currentPeriodStart",
+  "customerId",
+  "endedAt",
+  "id",
+  "orderId",
+  "paid",
+  "productId",
+  "refundedAmount",
+  "status",
+  "subscriptionId",
+  "totalAmount"
+];
+
+export const polarWebhookAuditPayload = (payload: PolarWebhookPayload) => {
+  const data: Record<string, unknown> = {};
+  const payloadData: unknown = payload.data;
+  if (isRecord(payloadData)) {
+    for (const field of POLAR_AUDIT_DATA_FIELDS) {
+      const value = payloadData[field];
+      if (isPolarAuditValue(value)) {
+        data[field] = value;
+      }
+    }
+  }
+
+  return {
+    type: payload.type,
+    timestamp: payload.timestamp,
+    data
+  };
+};
+
+const isPolarAuditValue = (value: unknown) => {
+  return (
+    value === null ||
+    value instanceof Date ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  );
 };
 
 const isOrderPayload = (

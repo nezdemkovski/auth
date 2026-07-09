@@ -23,7 +23,7 @@ https://auth.nezdemkovski.cloud/api/<project>/.well-known/jwks.json
 - Hono
 - Better Auth
 - Postgres
-- Drizzle ORM `1.0.0-rc.3`
+- Drizzle ORM `1.0.0-rc.4`
 - optional Redis for shared auth rate limiting
 - Caddy for static frontend images
 
@@ -50,22 +50,20 @@ bun install
 bun run dev
 ```
 
-Health check:
+Process liveness and dependency readiness:
 
 ```bash
-curl http://localhost:3000/healthz
+curl http://localhost:3000/livez
+curl http://localhost:3000/readyz
 ```
 
-List configured projects:
-
-```bash
-curl http://localhost:3000/api/projects
-```
+`/healthz` is a compatibility redirect to `/readyz`. Realm metadata is not
+publicly enumerable; inspect it through the authenticated admin UI/API.
 
 Example auth session endpoint:
 
 ```bash
-curl http://localhost:3000/api/demo/auth/session
+curl http://localhost:3000/api/demo/auth/get-session
 ```
 
 ### Frontends
@@ -109,6 +107,10 @@ Full repo build/test goes through Turbo:
 ```bash
 bun run build
 bun run test
+bun run test:browser
+bun run test:integration:up
+bun run test:integration
+bun run test:integration:down
 ```
 
 ## Helm Chart
@@ -120,7 +122,17 @@ oci://ghcr.io/nezdemkovski/charts/auth
 ```
 
 The chart deploys the API, admin UI, login UI, internal Caddy router, Redis,
-CloudNativePG Postgres, and External Secrets wiring.
+optional RustFS, and External Secrets wiring. Production defaults run database
+migrations in a dedicated Helm hook job; serving replicas use
+`AUTH_AUTO_MIGRATE=false`. NetworkPolicy is enabled by default and only the
+router accepts public ingress.
+
+Pin `api.image.digest`, `admin.image.digest`, and `login.image.digest` to the
+immutable references emitted by the image publish workflow. Version tags are
+protected against overwrite but digests are the deployment source of truth.
+
+Operational procedures for first install, migrations, secret rotation, backup,
+and restore are in [`docs/OPERATIONS.md`](docs/OPERATIONS.md).
 
 ## Realm Configuration
 
@@ -152,8 +164,9 @@ By default the service does not trust client-supplied `CF-Connecting-IP` or
 `X-Forwarded-*` headers for rate limiting or Better Auth IP metadata.
 
 Set `TRUST_PROXY_HEADERS=true` only when the service is reachable exclusively
-through a trusted reverse proxy, such as Cloudflare Tunnel or nginx, that strips
-incoming forwarding headers from clients before adding its own.
+through the chart router. Caddy trusts private upstream proxies, removes
+client-controlled alternate IP headers, and NetworkPolicy blocks direct API
+pod ingress.
 
 ## Media Storage
 
@@ -177,6 +190,7 @@ The login flow uses a short-lived authorization code plus PKCE S256. The
 client app sends `code_challenge` and `code_challenge_method=S256` to
 `/login/<project>`, stores the verifier in an HttpOnly app cookie, and sends
 `code_verifier` to `/api/<project>/login/token` during callback exchange.
+Only the realm session cookie is carried in the short-lived handoff record.
 
 ## OAuth Provider and MCP
 

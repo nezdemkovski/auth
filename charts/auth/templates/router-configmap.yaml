@@ -6,6 +6,20 @@ metadata:
     {{- include "auth.componentLabels" (dict "root" . "component" "router") | nindent 4 }}
 data:
   Caddyfile: |
+    {
+      servers {
+        trusted_proxies static private_ranges
+        trusted_proxies_strict
+        client_ip_headers X-Forwarded-For X-Real-IP
+      }
+    }
+
+    (api_proxy) {
+      header_up -CF-Connecting-IP
+      header_up -X-Real-IP
+      header_up -X-Client-IP
+    }
+
     :{{ .Values.router.service.targetPort }} {
       header {
         X-Content-Type-Options "nosniff"
@@ -15,11 +29,15 @@ data:
       }
 
       handle /admin/api/* {
-        reverse_proxy {{ .Values.api.service.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.api.service.port }}
+        reverse_proxy {{ .Values.api.service.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.api.service.port }} {
+          import api_proxy
+        }
       }
 
       handle /healthz {
-        reverse_proxy {{ .Values.api.service.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.api.service.port }}
+        reverse_proxy {{ .Values.api.service.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.api.service.port }} {
+          import api_proxy
+        }
       }
 
       {{- if .Values.objectStorage.enabled }}
@@ -40,7 +58,9 @@ data:
       }
 
       handle /api/* {
-        reverse_proxy {{ .Values.api.service.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.api.service.port }}
+        reverse_proxy {{ .Values.api.service.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.api.service.port }} {
+          import api_proxy
+        }
       }
 
       respond 404

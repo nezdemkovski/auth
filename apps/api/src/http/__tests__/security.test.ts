@@ -3,7 +3,8 @@ import { describe, expect, test } from "bun:test";
 import {
   clientKey,
   DIRECT_CLIENT_IP_HEADER,
-  normalizeRateLimitPath
+  normalizeRateLimitPath,
+  rateLimitRuleName
 } from "../security";
 
 describe("http security helpers", () => {
@@ -54,5 +55,12 @@ describe("http security helpers", () => {
       "/api/:project/auth/sign-in/email"
     );
     expect(normalizeRateLimitPath("/admin/login")).toBe("/admin/login");
+  });
+
+  test("matches realm sign-in, signup, reset, and verification routes", () => {
+    expect(rateLimitRuleName("POST", "/api/demo/auth/sign-in/email")).toBe("project-signin");
+    expect(rateLimitRuleName("POST", "/api/demo/auth/sign-up/email")).toBe("project-signup");
+    expect(rateLimitRuleName("POST", "/api/demo/auth/forget-password")).toBe("password-reset");
+    expect(rateLimitRuleName("POST", "/api/demo/auth/send-verification-email")).toBe("email-verification");
   });
 });

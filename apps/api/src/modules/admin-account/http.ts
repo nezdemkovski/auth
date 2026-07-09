@@ -40,6 +40,14 @@ export const registerAdminAccountRoutes: AdminRouteRegistration = ({
     if (admin.error) {
       return c.json({ error: admin.error }, admin.status);
     }
+    if (
+      await adminAccountService.passwordRotationRequired({
+        projectDb: admin.registered.projectDb,
+        session: admin.session
+      })
+    ) {
+      return c.json({ error: ErrorCode.PasswordChangeRequired }, 403);
+    }
 
     const body = await parseJson(c.req);
     const patch = parseAdminProfilePatch(body);

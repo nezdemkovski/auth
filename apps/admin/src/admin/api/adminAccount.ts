@@ -1,9 +1,15 @@
 import type { MeResponse } from "../types";
-import { jsonHeaders, readErrorBody, readJson, UnauthorizedError } from "./shared";
+import {
+  adminFetch,
+  jsonHeaders,
+  notifyAdminAuthenticated,
+  notifyAdminUnauthorized,
+  readErrorBody,
+  readJson
+} from "./shared";
 
 export async function fetchMe(): Promise<MeResponse> {
-  const response = await fetch("/admin/api/me", { credentials: "include" });
-  if (response.status === 401) throw new UnauthorizedError();
+  const response = await adminFetch("/admin/api/me", { credentials: "include" });
   if (!response.ok) throw new Error("Admin API is unavailable");
   return readJson<MeResponse>(response);
 }
@@ -21,6 +27,7 @@ export async function signInAdmin(input: {
   if (!response.ok) {
     throw new Error("Invalid email or password");
   }
+  notifyAdminAuthenticated();
 }
 
 export async function updateAdminProfile(patch: {
@@ -28,7 +35,7 @@ export async function updateAdminProfile(patch: {
   email?: string;
   currentPassword?: string;
 }): Promise<void> {
-  const response = await fetch("/admin/api/profile", {
+  const response = await adminFetch("/admin/api/profile", {
     method: "PATCH",
     credentials: "include",
     headers: jsonHeaders,
@@ -55,7 +62,7 @@ export async function changeAdminPassword(input: {
   currentPassword: string;
   newPassword: string;
 }): Promise<void> {
-  const response = await fetch("/admin/api/change-password", {
+  const response = await adminFetch("/admin/api/change-password", {
     method: "POST",
     credentials: "include",
     headers: jsonHeaders,
@@ -74,4 +81,5 @@ export async function signOut(): Promise<void> {
     method: "POST",
     credentials: "include"
   }).catch(() => {});
+  notifyAdminUnauthorized();
 }

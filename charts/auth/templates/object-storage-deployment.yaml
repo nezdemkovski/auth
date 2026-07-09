@@ -15,13 +15,16 @@ spec:
     metadata:
       labels:
         {{- include "auth.componentLabels" (dict "root" . "component" "object-storage") | nindent 8 }}
+      annotations:
+        reloader.stakater.com/auto: "true"
     spec:
+      automountServiceAccountToken: false
       securityContext:
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: rustfs
-          image: "{{ .Values.objectStorage.image.repository }}:{{ .Values.objectStorage.image.tag }}"
+          image: "{{ .Values.objectStorage.image.repository }}:{{ .Values.objectStorage.image.tag }}@{{ .Values.objectStorage.image.digest }}"
           imagePullPolicy: {{ .Values.objectStorage.image.pullPolicy }}
           args:
             - --address

@@ -15,6 +15,7 @@ import {
   LoginFlowService,
   type LoginRegisteredProject,
   pkceChallenge,
+  realmSessionCookie,
   redirectUriAllowed,
   validPkceChallenge,
   verifyPkce
@@ -124,6 +125,16 @@ describe("login auth security helpers", () => {
     expect(verifyPkce(challenge, verifier)).toBe(true);
     expect(verifyPkce(challenge, "B".repeat(43))).toBe(false);
     expect(validPkceChallenge("too-short")).toBe(false);
+  });
+
+  test("extracts only the current realm session cookie", () => {
+    expect(
+      realmSessionCookie(
+        "auth_admin.session_token=admin-secret; __Secure-auth_demo.session_token=demo-secret; auth_other.session_token=other-secret",
+        "demo"
+      )
+    ).toBe("__Secure-auth_demo.session_token=demo-secret");
+    expect(realmSessionCookie("auth_admin.session_token=admin-secret", "demo")).toBe("");
   });
 
   test("allows redirects by exact trusted origin only", () => {
@@ -266,7 +277,7 @@ describe("login auth security helpers", () => {
       state: "client-state",
       codeChallenge: pkceChallenge(verifier),
       headers: new Headers({
-        cookie: "auth.session=value"
+        cookie: "auth_admin.session_token=admin-secret; auth_demo.session_token=value"
       })
     });
     const callback = new URL(result.redirectTo);
@@ -277,10 +288,71 @@ describe("login auth security helpers", () => {
     expect(callback.searchParams.get("state")).toBe("client-state");
     expect(codes.get(code)).toMatchObject({
       project: "demo",
-      sessionCookie: "auth.session=value",
+      sessionCookie: "auth_demo.session_token=value",
       email: "user@example.com",
       redirectUri,
       codeChallenge: pkceChallenge(verifier)
+    });
+  });
+
+  test("rejects code exchange with a nonconforming PKCE verifier before consuming the code", async () => {
+    const { consumedCodes, store } = createMemoryStore();
+    const service = new LoginFlowService({
+      registry: createRegistry(createRegisteredProject(Response.json({}))),
+      codeStore: store
+    });
+
+    await expect(
+      service.exchangeCode({
+        project: "demo",
+        code: "login-code",
+        redirectUri,
+        codeVerifier: "short"
+      })
+    ).rejects.toMatchObject({
+      code: "invalid_pkce_challenge"
+    });
+    expect(consumedCodes).toEqual([]);
+  });
+
+  test("does not issue a login code until required two-factor enrollment is complete", async () => {
+    const service = new LoginFlowService({
+      registry: createRegistry(
+        createRegisteredProjectWithHandler(
+          async () => Response.json({
+            user: {
+              email: "user@example.com",
+              role: AuthUserRole.User,
+              twoFactorEnabled: false
+            }
+          }),
+          {
+            features: {
+              ...DEFAULT_PROJECT_FEATURES,
+              twoFactor: {
+                enabled: true,
+                required: ProjectTwoFactorRequirement.Everyone
+              }
+            }
+          }
+        )
+      ),
+      codeStore: createMemoryStore().store
+    });
+
+    await expect(
+      service.createSessionCode({
+        project: "demo",
+        redirectUri,
+        state: "client-state",
+        codeChallenge: pkceChallenge(verifier),
+        headers: new Headers({
+          cookie: "auth_demo.session_token=value"
+        })
+      })
+    ).rejects.toMatchObject({
+      code: "two_factor_required",
+      status: 403
     });
   });
 

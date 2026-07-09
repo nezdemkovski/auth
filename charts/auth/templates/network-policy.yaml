@@ -1,0 +1,236 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "auth.fullname" . }}-default-deny
+  labels:
+    {{- include "auth.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "auth.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "auth.fullname" . }}-router
+  labels:
+    {{- include "auth.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "auth.componentSelectorLabels" (dict "root" . "component" "router") | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.router.service.targetPort }}
+  egress:
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: [api, admin, login{{ if .Values.objectStorage.enabled }}, object-storage{{ end }}]
+      ports:
+        - protocol: TCP
+          port: {{ .Values.api.service.targetPort }}
+        - protocol: TCP
+          port: {{ .Values.admin.service.targetPort }}
+        - protocol: TCP
+          port: {{ .Values.login.service.targetPort }}
+        {{- if .Values.objectStorage.enabled }}
+        - protocol: TCP
+          port: {{ .Values.objectStorage.service.port }}
+        {{- end }}
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "auth.fullname" . }}-api
+  labels:
+    {{- include "auth.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "auth.componentSelectorLabels" (dict "root" . "component" "api") | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: router
+      ports:
+        - protocol: TCP
+          port: {{ .Values.api.service.targetPort }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "auth.fullname" . }}-api-egress
+  labels:
+    {{- include "auth.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [{{ include "auth.name" . }}]
+      - key: app.kubernetes.io/instance
+        operator: In
+        values: [{{ .Release.Name }}]
+      - key: app.kubernetes.io/component
+        operator: In
+        values: [api, api-migration]
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: {{ .Values.env.postgresPort }}
+        - protocol: TCP
+          port: 443
+    {{- if .Values.redis.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: redis
+      ports:
+        - protocol: TCP
+          port: {{ .Values.redis.service.port }}
+    {{- end }}
+    {{- if .Values.objectStorage.enabled }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: object-storage
+      ports:
+        - protocol: TCP
+          port: {{ .Values.objectStorage.service.port }}
+    {{- end }}
+    {{- with .Values.networkPolicy.additionalApiEgress }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "auth.fullname" . }}-frontend
+  labels:
+    {{- include "auth.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [{{ include "auth.name" . }}]
+      - key: app.kubernetes.io/instance
+        operator: In
+        values: [{{ .Release.Name }}]
+      - key: app.kubernetes.io/component
+        operator: In
+        values: [admin, login]
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: router
+      ports:
+        - protocol: TCP
+          port: 8080
+{{- if .Values.redis.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "auth.fullname" . }}-redis
+  labels:
+    {{- include "auth.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "auth.componentSelectorLabels" (dict "root" . "component" "redis") | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: api
+      ports:
+        - protocol: TCP
+          port: {{ .Values.redis.service.port }}
+{{- end }}
+{{- if .Values.objectStorage.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "auth.fullname" . }}-object-storage
+  labels:
+    {{- include "auth.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "auth.componentSelectorLabels" (dict "root" . "component" "object-storage") | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: [api, router, object-storage-init]
+      ports:
+        - protocol: TCP
+          port: {{ .Values.objectStorage.service.port }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "auth.fullname" . }}-object-storage-init
+  labels:
+    {{- include "auth.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "auth.componentSelectorLabels" (dict "root" . "component" "object-storage-init") | nindent 6 }}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: object-storage
+      ports:
+        - protocol: TCP
+          port: {{ .Values.objectStorage.service.port }}
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+{{- end }}
+{{- end }}

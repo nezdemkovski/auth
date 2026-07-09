@@ -36,8 +36,7 @@ const ALLOWED_IMAGE_TYPES = new Map([
   ["image/png", "png"],
   ["image/jpeg", "jpg"],
   ["image/webp", "webp"],
-  ["image/gif", "gif"],
-  ["image/svg+xml", "svg"]
+  ["image/gif", "gif"]
 ]);
 
 export const uploadMedia = async (input: MediaUploadInput) => {

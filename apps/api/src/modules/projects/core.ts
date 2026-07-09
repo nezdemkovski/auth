@@ -13,6 +13,7 @@ import {
 import { ErrorCode } from "../../runtime/error-codes";
 import { prepareProjectSchema } from "../../db/bootstrap";
 import type { AdminDatabase } from "../../db/admin-pool";
+import { isPostgresUniqueViolation } from "../../db/errors";
 import { cloneDefaultBilling, loadProjectBillingSettings } from "../billing/store";
 import { readProjectCounts } from "../users/store";
 import {
@@ -31,7 +32,10 @@ import {
   updateProjectSettings
 } from "./store";
 import { projectResponse } from "./translator";
-import { cloneDefaultStorage } from "../storage/settings-store";
+import {
+  cloneDefaultStorage,
+  loadProjectStorageSettings
+} from "../storage/settings-store";
 import {
   normalizeProjectFeatures,
   type ProjectSettingsCreate,
@@ -60,6 +64,7 @@ export class ProjectService {
       publicBaseUrl: string;
       secret: string;
       encryptionSecret: string;
+      managedStorage: AuthProject["storage"];
     }
   ) {}
 
@@ -111,18 +116,9 @@ export class ProjectService {
       throw new ProjectServiceError("project_exists", 409, "Project already exists");
     }
 
-    let schemaPrepared = false;
+    let schemaCreationStarted = false;
     let settingsCreated = false;
     try {
-      await prepareProjectSchema({
-        databaseUrl: this.options.databaseUrl,
-        publicBaseUrl: this.options.publicBaseUrl,
-        secret: this.options.secret,
-        adminProject: this.options.adminProject,
-        project
-      });
-      schemaPrepared = true;
-
       const created = await createProjectSettings({
         databaseUrl: this.options.databaseUrl,
         adminProject: this.options.adminProject,
@@ -130,6 +126,14 @@ export class ProjectService {
         project
       });
       settingsCreated = true;
+
+      schemaCreationStarted = true;
+      await prepareProjectSchema({
+        databaseUrl: this.options.databaseUrl,
+        publicBaseUrl: this.options.publicBaseUrl,
+        secret: this.options.secret,
+        project
+      });
       await this.options.registry.updateProject(created);
       return this.projectResponseWithCounts(created);
     } catch (error) {
@@ -147,7 +151,7 @@ export class ProjectService {
         });
       }
 
-      if (schemaPrepared) {
+      if (schemaCreationStarted) {
         await dropProjectSchema({
           databaseUrl: this.options.databaseUrl,
           adminProject: this.options.adminProject,
@@ -160,6 +164,10 @@ export class ProjectService {
             error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
           });
         });
+      }
+
+      if (isPostgresUniqueViolation(error)) {
+        throw new ProjectServiceError("project_exists", 409, "Project already exists");
       }
 
       throw new ProjectServiceError(
@@ -198,10 +206,19 @@ export class ProjectService {
         project: updated,
         encryptionSecret: this.options.encryptionSecret
       });
+      const storage = await loadProjectStorageSettings({
+        databaseUrl: this.options.databaseUrl,
+        adminProject: this.options.adminProject,
+        adminDb: this.options.adminDb,
+        project: updated,
+        encryptionSecret: this.options.encryptionSecret,
+        managedStorage: this.options.managedStorage
+      });
       const nextProject = {
         ...updated,
         socialProviders,
-        billing
+        billing,
+        storage
       };
       await this.options.registry.updateProject(nextProject);
 
@@ -245,8 +262,7 @@ export class ProjectService {
       patch,
       encryptionSecret: this.options.encryptionSecret
     });
-    await this.options.registry.updateProject({
-      ...registered.project,
+    await this.options.registry.patchProject(registered.project.slug, {
       socialProviders
     });
 
@@ -300,8 +316,7 @@ export class ProjectService {
       project: registered.project,
       encryptionSecret: this.options.encryptionSecret
     });
-    await this.options.registry.updateProject({
-      ...registered.project,
+    await this.options.registry.patchProject(registered.project.slug, {
       socialProviders
     });
 

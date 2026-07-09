@@ -121,6 +121,23 @@ describe("storage media upload", () => {
     });
   });
 
+  test("rejects active SVG content before touching object storage", async () => {
+    await expect(
+      uploadMedia({
+        storage: configuredStorage,
+        realmSlug: "demo",
+        purpose: MediaUploadPurpose.ProjectIcon,
+        file: new File(["<svg><script>alert(1)</script></svg>"], "avatar.svg", {
+          type: "image/svg+xml"
+        }),
+        ownerUserId: null
+      })
+    ).rejects.toMatchObject({
+      code: "unsupported_file_type"
+    });
+    expect(s3Writes).toEqual([]);
+  });
+
   test("requires an owner for user avatar object keys", async () => {
     await expect(
       uploadMedia({

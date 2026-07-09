@@ -30,6 +30,7 @@ type RateLimitResult =
 
 type RateLimiterStore = {
   connect(): Promise<void>;
+  healthcheck(): Promise<void>;
   hit(key: string, rule: RateLimitRule, now: number): Promise<RateLimitResult>;
   close(): Promise<void>;
 };
@@ -49,14 +50,14 @@ const RATE_LIMIT_RULES: RateLimitRule[] = [
     windowMs: 10 * 60 * 1000,
     max: 10,
     match: (method, path) =>
-      method === "POST" && /\/api\/auth\/sign-in\/email$/.test(path)
+      method === "POST" && /^\/api\/[^/]+\/auth\/sign-in\/email$/.test(path)
   },
   {
     name: "project-signup",
     windowMs: 10 * 60 * 1000,
     max: 5,
     match: (method, path) =>
-      method === "POST" && /\/api\/auth\/sign-up\/email$/.test(path)
+      method === "POST" && /^\/api\/[^/]+\/auth\/sign-up\/email$/.test(path)
   },
   {
     name: "login-session-code",
@@ -76,14 +77,14 @@ const RATE_LIMIT_RULES: RateLimitRule[] = [
     windowMs: 10 * 60 * 1000,
     max: 5,
     match: (method, path) =>
-      method === "POST" && /\/api\/auth\/.*password/i.test(path)
+      method === "POST" && /^\/api\/[^/]+\/auth\/.*password/i.test(path)
   },
   {
     name: "email-verification",
     windowMs: 10 * 60 * 1000,
     max: 10,
     match: (method, path) =>
-      method === "POST" && /\/api\/auth\/.*verify/i.test(path)
+      method === "POST" && /^\/api\/[^/]+\/auth\/.*verif(?:y|ication)/i.test(path)
   }
 ];
 
@@ -155,7 +156,7 @@ export const rateLimit = (store: RateLimiterStore, options: { trustProxyHeaders:
       );
     }
 
-    const key = `${rule.name}:${client}:${normalizeRateLimitPath(path)}`;
+    const key = `${rule.name}:${client}:${path}`;
     let result: RateLimitResult;
 
     try {
@@ -192,6 +193,8 @@ export const rateLimit = (store: RateLimiterStore, options: { trustProxyHeaders:
 
 class MemoryRateLimiterStore implements RateLimiterStore {
   async connect() {}
+
+  async healthcheck() {}
 
   async hit(key: string, rule: RateLimitRule, now: number) {
     const bucket = rateLimitBuckets.get(key);
@@ -238,6 +241,12 @@ class RedisRateLimiterStore implements RateLimiterStore {
 
   async connect() {
     await this.client.connect();
+  }
+
+  async healthcheck() {
+    await this.client.withClient(async (redis) => {
+      await redis.send("PING", []);
+    });
   }
 
   async hit(key: string, rule: RateLimitRule) {
@@ -304,4 +313,8 @@ export const clientKey = (headers: Headers, options: { trustProxyHeaders: boolea
 
 export const normalizeRateLimitPath = (path: string) => {
   return path.replace(/^\/api\/[^/]+\/auth\//, "/api/:project/auth/");
+};
+
+export const rateLimitRuleName = (method: string, path: string) => {
+  return RATE_LIMIT_RULES.find((rule) => rule.match(method.toUpperCase(), path))?.name ?? null;
 };

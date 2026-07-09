@@ -70,7 +70,8 @@ export const createAdminApi = (options: AdminApiOptions) => {
     adminDb: options.adminDb,
     publicBaseUrl: options.publicBaseUrl,
     secret: options.secret,
-    encryptionSecret: options.encryptionSecret
+    encryptionSecret: options.encryptionSecret,
+    managedStorage: options.managedStorage
   });
   const usersService = new UsersService({
     adminProject: options.adminProject,

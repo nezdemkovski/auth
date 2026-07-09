@@ -14,6 +14,7 @@ spec:
       labels:
         {{- include "auth.componentLabels" (dict "root" . "component" "login") | nindent 8 }}
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -22,7 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: login
-          image: "{{ .Values.login.image.repository }}:{{ .Values.login.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.login.image.repository }}{{ if .Values.login.image.digest }}@{{ .Values.login.image.digest }}{{ else }}:{{ .Values.login.image.tag | default .Chart.AppVersion }}{{ end }}"
           imagePullPolicy: {{ .Values.login.image.pullPolicy }}
           ports:
             - name: http
@@ -47,8 +48,11 @@ spec:
           resources:
             {{- toYaml .Values.login.resources | nindent 12 }}
           securityContext:
-            allowPrivilegeEscalation: true
+            allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
       volumes:
         - name: config
           emptyDir: {}

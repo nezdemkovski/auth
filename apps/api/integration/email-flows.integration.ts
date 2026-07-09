@@ -38,7 +38,8 @@ describe("email auth flows integration", () => {
         origin: project.appUrl,
         email: "verify-user@integration.test",
         password: "correct horse battery staple",
-        name: "Verify User"
+        name: "Verify User",
+        expectSession: false
       });
 
       expect(sent.emails).toHaveLength(1);
@@ -62,15 +63,11 @@ describe("email auth flows integration", () => {
           }
         }
       );
-      expect(await readIntegrationJson(beforeVerify)).toMatchObject({
-        user: {
-          emailVerified: false
-        }
-      });
+      expect(cookie).toBe("");
+      expect(await beforeVerify.json()).toBeNull();
 
       const verified = await app.request(toAppPath(verifyUrl), {
         headers: {
-          Cookie: cookie,
           Origin: project.appUrl,
           [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
         },
@@ -78,12 +75,20 @@ describe("email auth flows integration", () => {
       });
       expect(verified.status).toBe(302);
       expect(verified.headers.get("location")).toBe("/");
+      expect(verified.headers.get("set-cookie")).toBeNull();
+      const { cookie: verifiedCookie } = await signInIntegrationUser({
+        app,
+        projectSlug: project.slug,
+        origin: project.appUrl,
+        email: "verify-user@integration.test",
+        password: "correct horse battery staple"
+      });
 
       const afterVerify = await app.request(
         `/api/${project.slug}/auth/get-session`,
         {
           headers: {
-            Cookie: cookie,
+            Cookie: verifiedCookie,
             Origin: project.appUrl,
             [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
           }
@@ -122,8 +127,18 @@ describe("email auth flows integration", () => {
         origin: project.appUrl,
         email: "reset-user@integration.test",
         password: "old correct horse battery staple",
-        name: "Reset User"
+        name: "Reset User",
+        expectSession: false
       });
+      const verificationLink = extractUrl(sent.emails[0].text, "/verify-email");
+      const verified = await app.request(toAppPath(verificationLink), {
+        headers: {
+          Origin: project.appUrl,
+          [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+        },
+        redirect: "manual"
+      });
+      expect(verified.status).toBe(302);
       sent.emails.length = 0;
 
       const requested = await app.request(

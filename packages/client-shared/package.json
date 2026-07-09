@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "bun run typecheck && mkdir -p dist && touch dist/.build",
+    "test": "bun test",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

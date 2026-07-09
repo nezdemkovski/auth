@@ -1,0 +1,98 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Values.api.service.name }}-migrate
+  labels:
+    {{- include "auth.componentLabels" (dict "root" . "component" "api-migration") | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-upgrade,post-install
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        {{- include "auth.componentLabels" (dict "root" . "component" "api-migration") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: "{{ .Values.api.image.repository }}{{ if .Values.api.image.digest }}@{{ .Values.api.image.digest }}{{ else }}:{{ .Values.api.image.tag | default .Chart.AppVersion }}{{ end }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          command: ["bun", "src/migrate.ts"]
+          env:
+            - name: AUTH_PUBLIC_BASE_URL
+              value: {{ .Values.env.publicBaseUrl | quote }}
+            - name: AUTH_AUTO_MIGRATE
+              value: "false"
+            - name: TRUST_PROXY_HEADERS
+              value: "false"
+            - name: AUTH_ADMIN_EMAIL
+              value: {{ .Values.env.adminEmail | quote }}
+            - name: POSTGRES_HOST
+              value: {{ .Values.env.postgresHost | quote }}
+            - name: POSTGRES_PORT
+              value: {{ .Values.env.postgresPort | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.env.postgresDb | quote }}
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgres.credentialsSecret.name }}
+                  key: {{ .Values.postgres.credentialsSecret.usernameKey }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgres.credentialsSecret.name }}
+                  key: {{ .Values.postgres.credentialsSecret.passwordKey }}
+            {{- if .Values.objectStorage.enabled }}
+            - name: AUTH_STORAGE_PROVIDER
+              value: "s3"
+            - name: AUTH_STORAGE_ENDPOINT
+              value: "http://{{ .Values.objectStorage.fullname }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.objectStorage.service.port }}"
+            - name: AUTH_STORAGE_REGION
+              value: {{ .Values.objectStorage.region | quote }}
+            - name: AUTH_STORAGE_BUCKET
+              value: {{ .Values.objectStorage.bucket | quote }}
+            - name: AUTH_STORAGE_PUBLIC_BASE_URL
+              value: {{ .Values.objectStorage.publicBaseUrl | default (printf "%s/storage" (.Values.env.publicBaseUrl | trimSuffix "/")) | quote }}
+            {{- else }}
+            - name: AUTH_STORAGE_PROVIDER
+              value: {{ .Values.env.storage.provider | quote }}
+            {{- if eq .Values.env.storage.provider "s3" }}
+            - name: AUTH_STORAGE_ENDPOINT
+              value: {{ .Values.env.storage.endpoint | quote }}
+            - name: AUTH_STORAGE_REGION
+              value: {{ .Values.env.storage.region | quote }}
+            - name: AUTH_STORAGE_BUCKET
+              value: {{ .Values.env.storage.bucket | quote }}
+            - name: AUTH_STORAGE_PUBLIC_BASE_URL
+              value: {{ .Values.env.storage.publicBaseUrl | quote }}
+            {{- end }}
+            {{- end }}
+          envFrom:
+            - secretRef:
+                name: auth-env
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL

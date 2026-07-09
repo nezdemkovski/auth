@@ -20,6 +20,13 @@ spec:
         {{- include "auth.componentLabels" (dict "root" . "component" "object-storage-init") | nindent 8 }}
     spec:
       restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: init-bucket
           image: "{{ .Values.objectStorage.initImage.repository }}:{{ .Values.objectStorage.initImage.tag }}@{{ .Values.objectStorage.initImage.digest }}"
@@ -64,12 +71,18 @@ spec:
                 secretKeyRef:
                   name: auth-env
                   key: AUTH_STORAGE_SECRET_ACCESS_KEY
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             {{- toYaml .Values.objectStorage.initResources | nindent 12 }}
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
+      volumes:
+        - name: tmp
+          emptyDir: {}
 {{- end }}

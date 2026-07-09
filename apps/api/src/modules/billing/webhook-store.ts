@@ -1,13 +1,13 @@
 import { sql } from "drizzle-orm";
 
 import type { AdminDatabaseOptions } from "../../db/admin-pool";
-import { withAdminDb } from "../../db/admin-pool";
+import { createAdminPool, withAdminDb } from "../../db/admin-pool";
+import { logError } from "../../runtime/logger";
 import {
   billingBenefitGrants,
   billingCustomerStates,
   billingOrders,
-  billingSubscriptions,
-  billingWebhookEvents
+  billingSubscriptions
 } from "./tables";
 
 export type PolarWebhookEventInput = {
@@ -17,6 +17,20 @@ export type PolarWebhookEventInput = {
   resourceId: string;
   occurredAt: Date;
   payload: unknown;
+};
+
+export enum PolarWebhookEventStatus {
+  Failed = "failed",
+  Processed = "processed",
+  Processing = "processing"
+}
+
+export type PolarWebhookResourceVersionInput = {
+  projectSlug: string;
+  resourceType: string;
+  resourceId: string;
+  versionKey: string;
+  eventKey: string;
 };
 
 export type PolarOrderSnapshotInput = {
@@ -65,11 +79,23 @@ export type PolarSubscriptionSnapshotInput = {
 };
 
 export type PolarWebhookStore = {
-  recordEvent(input: PolarWebhookEventInput): Promise<boolean>;
+  withResourceLock<T>(
+    input: Pick<
+      PolarWebhookResourceVersionInput,
+      "projectSlug" | "resourceType" | "resourceId"
+    >,
+    operation: () => Promise<T>
+  ): Promise<T>;
+  claimEvent(input: PolarWebhookEventInput): Promise<boolean>;
+  claimResourceVersion(input: PolarWebhookResourceVersionInput): Promise<boolean>;
+  releaseResourceVersion(input: PolarWebhookResourceVersionInput): Promise<void>;
+  completeEvent(projectSlug: string, eventKey: string): Promise<void>;
+  failEvent(projectSlug: string, eventKey: string): Promise<void>;
   upsertOrder(input: PolarOrderSnapshotInput): Promise<void>;
   upsertCustomerState(input: PolarCustomerStateSnapshotInput): Promise<void>;
   upsertBenefitGrant(input: PolarBenefitGrantSnapshotInput): Promise<void>;
   upsertSubscription(input: PolarSubscriptionSnapshotInput): Promise<void>;
+  close(): Promise<void>;
 };
 
 export const ensureBillingWebhookTables = async (options: AdminDatabaseOptions) => {
@@ -90,6 +116,33 @@ export const ensureBillingWebhookTables = async (options: AdminDatabaseOptions) 
     await db.execute(sql`
       CREATE INDEX IF NOT EXISTS auth_billing_webhook_events_project_type_idx
       ON auth_billing_webhook_events (project_slug, event_type, occurred_at DESC)
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS auth_billing_webhook_events_received_at_idx
+      ON auth_billing_webhook_events (received_at)
+    `);
+    await db.execute(sql`
+      ALTER TABLE auth_billing_webhook_events
+      ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'processed'
+    `);
+    await db.execute(sql`
+      ALTER TABLE auth_billing_webhook_events
+      ADD COLUMN IF NOT EXISTS processing_started_at timestamptz NOT NULL DEFAULT now()
+    `);
+    await db.execute(sql`
+      ALTER TABLE auth_billing_webhook_events
+      ALTER COLUMN processed_at DROP NOT NULL
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS auth_billing_webhook_resource_versions (
+        project_slug text NOT NULL REFERENCES auth_project_settings(slug) ON DELETE CASCADE,
+        resource_type text NOT NULL,
+        resource_id text NOT NULL,
+        version_key text NOT NULL,
+        event_key text NOT NULL,
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (project_slug, resource_type, resource_id)
+      )
     `);
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS auth_billing_orders (
@@ -154,36 +207,191 @@ export const ensureBillingWebhookTables = async (options: AdminDatabaseOptions) 
 export const createPolarWebhookStore = (
   options: AdminDatabaseOptions
 ): PolarWebhookStore => {
+  const lockPool = createAdminPool(options.databaseUrl, options.adminProject);
+
   return {
-    recordEvent: (input) => recordPolarWebhookEvent(options, input),
+    withResourceLock: (input, operation) =>
+      withPolarWebhookResourceLock(lockPool, input, operation),
+    claimEvent: (input) => claimPolarWebhookEvent(options, input),
+    claimResourceVersion: (input) => claimPolarWebhookResourceVersion(options, input),
+    releaseResourceVersion: (input) => releasePolarWebhookResourceVersion(options, input),
+    completeEvent: (projectSlug, eventKey) =>
+      updatePolarWebhookEventStatus(
+        options,
+        projectSlug,
+        eventKey,
+        PolarWebhookEventStatus.Processed
+      ),
+    failEvent: (projectSlug, eventKey) =>
+      updatePolarWebhookEventStatus(
+        options,
+        projectSlug,
+        eventKey,
+        PolarWebhookEventStatus.Failed
+      ),
     upsertOrder: (input) => upsertPolarOrder(options, input),
     upsertCustomerState: (input) => upsertPolarCustomerState(options, input),
     upsertBenefitGrant: (input) => upsertPolarBenefitGrant(options, input),
-    upsertSubscription: (input) => upsertPolarSubscription(options, input)
+    upsertSubscription: (input) => upsertPolarSubscription(options, input),
+    close: () => lockPool.end()
   };
 };
 
-const recordPolarWebhookEvent = async (
+const withPolarWebhookResourceLock = async <T>(
+  pool: ReturnType<typeof createAdminPool>,
+  input: Pick<
+    PolarWebhookResourceVersionInput,
+    "projectSlug" | "resourceType" | "resourceId"
+  >,
+  operation: () => Promise<T>
+) => {
+  const client = await pool.connect();
+  const resourceKey = `${input.resourceType}:${input.resourceId}`;
+  let locked = false;
+
+  try {
+    await client.query(
+      "SELECT pg_advisory_lock(hashtext($1), hashtext($2))",
+      [input.projectSlug, resourceKey]
+    );
+    locked = true;
+    return await operation();
+  } finally {
+    if (locked) {
+      await client
+        .query("SELECT pg_advisory_unlock(hashtext($1), hashtext($2))", [
+          input.projectSlug,
+          resourceKey
+        ])
+        .catch((error) => {
+          logError("polar_webhook_advisory_unlock_failed", {
+            projectSlug: input.projectSlug,
+            resourceType: input.resourceType,
+            resourceId: input.resourceId,
+            error: error instanceof Error ? error.message : String(error)
+          });
+        });
+    }
+    client.release();
+  }
+};
+
+const claimPolarWebhookEvent = async (
   options: AdminDatabaseOptions,
   input: PolarWebhookEventInput
 ) => {
   return withAdminDb(options, async ({ db }) => {
-    const result = await db
-      .insert(billingWebhookEvents)
-      .values({
-        projectSlug: input.projectSlug,
-        eventKey: input.eventKey,
-        eventType: input.eventType,
-        resourceId: input.resourceId,
-        occurredAt: input.occurredAt,
-        payload: input.payload
-      })
-      .onConflictDoNothing({
-        target: [billingWebhookEvents.projectSlug, billingWebhookEvents.eventKey]
-      })
-      .returning({ eventKey: billingWebhookEvents.eventKey });
+    await db.execute(sql`
+      DELETE FROM auth_billing_webhook_events
+      WHERE ctid IN (
+        SELECT ctid
+        FROM auth_billing_webhook_events
+        WHERE received_at < now() - interval '30 days'
+        ORDER BY received_at
+        LIMIT 1000
+      )
+    `);
 
-    return result.length > 0;
+    const result = await db.execute<{ eventKey: string }>(sql`
+      INSERT INTO auth_billing_webhook_events (
+        project_slug,
+        event_key,
+        event_type,
+        resource_id,
+        occurred_at,
+        status,
+        processing_started_at,
+        processed_at,
+        payload
+      ) VALUES (
+        ${input.projectSlug},
+        ${input.eventKey},
+        ${input.eventType},
+        ${input.resourceId},
+        ${input.occurredAt},
+        ${PolarWebhookEventStatus.Processing},
+        now(),
+        NULL,
+        ${JSON.stringify(input.payload)}::jsonb
+      )
+      ON CONFLICT (project_slug, event_key) DO UPDATE SET
+        status = 'processing',
+        processing_started_at = now(),
+        processed_at = NULL,
+        payload = EXCLUDED.payload
+      WHERE auth_billing_webhook_events.status = ${PolarWebhookEventStatus.Failed}
+         OR (
+           auth_billing_webhook_events.status = ${PolarWebhookEventStatus.Processing}
+           AND auth_billing_webhook_events.processing_started_at < now() - interval '5 minutes'
+         )
+      RETURNING event_key AS "eventKey"
+    `);
+
+    return result.rows.length > 0;
+  });
+};
+
+const claimPolarWebhookResourceVersion = async (
+  options: AdminDatabaseOptions,
+  input: PolarWebhookResourceVersionInput
+) => {
+  return withAdminDb(options, async ({ db }) => {
+    const result = await db.execute<{ eventKey: string }>(sql`
+      INSERT INTO auth_billing_webhook_resource_versions (
+        project_slug,
+        resource_type,
+        resource_id,
+        version_key,
+        event_key
+      ) VALUES (
+        ${input.projectSlug},
+        ${input.resourceType},
+        ${input.resourceId},
+        ${input.versionKey},
+        ${input.eventKey}
+      )
+      ON CONFLICT (project_slug, resource_type, resource_id) DO UPDATE SET
+        version_key = EXCLUDED.version_key,
+        event_key = EXCLUDED.event_key,
+        updated_at = now()
+      WHERE EXCLUDED.version_key > auth_billing_webhook_resource_versions.version_key
+      RETURNING event_key AS "eventKey"
+    `);
+
+    return result.rows.length > 0;
+  });
+};
+
+const updatePolarWebhookEventStatus = async (
+  options: AdminDatabaseOptions,
+  projectSlug: string,
+  eventKey: string,
+  status: PolarWebhookEventStatus.Processed | PolarWebhookEventStatus.Failed
+) => {
+  await withAdminDb(options, async ({ db }) => {
+    await db.execute(sql`
+      UPDATE auth_billing_webhook_events
+      SET
+        status = ${status},
+        processed_at = CASE WHEN ${status} = 'processed' THEN now() ELSE NULL END
+      WHERE project_slug = ${projectSlug}
+        AND event_key = ${eventKey}
+    `);
+  });
+};
+
+const releasePolarWebhookResourceVersion = async (
+  options: AdminDatabaseOptions,
+  input: PolarWebhookResourceVersionInput
+) => {
+  await withAdminDb(options, async ({ db }) => {
+    await db.execute(sql`
+      DELETE FROM auth_billing_webhook_resource_versions
+      WHERE project_slug = ${input.projectSlug}
+        AND resource_type = ${input.resourceType}
+        AND resource_id = ${input.resourceId}
+        AND event_key = ${input.eventKey}
+    `);
   });
 };
 

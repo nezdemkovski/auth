@@ -95,6 +95,16 @@ export class AdminAccountService {
     };
   }
 
+  async passwordRotationRequired(input: {
+    projectDb: { pool: Parameters<typeof mustChangePassword>[0] };
+    session: AdminAccountSession;
+  }) {
+    return this.store.mustChangePassword(
+      input.projectDb.pool,
+      input.session.user.id
+    );
+  }
+
   async updateProfile(input: {
     auth: AdminAccountAuth;
     headers: Headers;

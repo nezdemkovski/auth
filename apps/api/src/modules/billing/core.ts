@@ -26,7 +26,7 @@ import {
 } from "./validator";
 
 export type BillingServiceOptions = {
-  registry: Pick<AuthRegistry, "updateProject">;
+  registry: Pick<AuthRegistry, "patchProject">;
   databaseUrl: string;
   adminProject: AuthProject;
   adminDb?: AdminDatabase;
@@ -98,10 +98,7 @@ export class BillingService {
       encryptionSecret: this.options.encryptionSecret,
       patch
     });
-    await this.options.registry.updateProject({
-      ...registered.project,
-      billing
-    });
+    await this.options.registry.patchProject(registered.project.slug, { billing });
 
     return this.readSettings(registered.project);
   }

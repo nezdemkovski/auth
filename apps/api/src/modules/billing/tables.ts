@@ -32,12 +32,33 @@ export const billingWebhookEvents = pgTable(
     resourceId: text("resource_id").notNull(),
     occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
     receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
-    processedAt: timestamp("processed_at", { withTimezone: true }).notNull().defaultNow(),
+    status: text("status").notNull().default("processed"),
+    processingStartedAt: timestamp("processing_started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    processedAt: timestamp("processed_at", { withTimezone: true }),
     payload: jsonb("payload").notNull()
   },
   (table) => [
     primaryKey({
       columns: [table.projectSlug, table.eventKey]
+    })
+  ]
+);
+
+export const billingWebhookResourceVersions = pgTable(
+  "auth_billing_webhook_resource_versions",
+  {
+    projectSlug: text("project_slug").notNull(),
+    resourceType: text("resource_type").notNull(),
+    resourceId: text("resource_id").notNull(),
+    versionKey: text("version_key").notNull(),
+    eventKey: text("event_key").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.projectSlug, table.resourceType, table.resourceId]
     })
   ]
 );
@@ -134,6 +155,7 @@ export const billingEntitlementGrants = pgTable(
     amount: integer("amount"),
     remaining: integer("remaining"),
     resetPeriod: text("reset_period").notNull(),
+    resetAt: timestamp("reset_at", { withTimezone: true }),
     priority: integer("priority").notNull().default(100),
     sourceType: text("source_type").notNull(),
     sourceId: text("source_id").notNull(),
@@ -170,9 +192,16 @@ export const billingUsageReservations = pgTable("auth_billing_usage_reservations
   userId: text("user_id").notNull(),
   benefitKey: text("benefit_key").notNull(),
   amount: integer("amount").notNull(),
+  idempotencyKey: text("idempotency_key"),
   grantConsumptions: jsonb("grant_consumptions").notNull(),
   status: text("status").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
-});
+}, (table) => [
+  unique("auth_billing_usage_reservations_idempotency_key").on(
+    table.projectSlug,
+    table.userId,
+    table.idempotencyKey
+  )
+]);

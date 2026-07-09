@@ -1,8 +1,10 @@
 import type { Hono } from "hono";
 import { cors } from "hono/cors";
 
-import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
+import type { AuthRegistry } from "../../auth/registry";
 import { mediaUploadError } from "../../http/admin/shared";
+import { isTrustedProjectMutation } from "../../http/project-csrf";
+import { requireProjectSession } from "../../http/project-session";
 import { ErrorCode } from "../../runtime/error-codes";
 import { StorageService } from "./core";
 import {
@@ -39,14 +41,16 @@ export const registerPublicStorageRoutes = (app: Hono<{ Variables: PublicStorage
   );
 
   app.post("/api/:project/upload", async (c) => {
-    const registered = options.registry.get(c.req.param("project"));
-    if (!registered) {
-      return c.json({ error: ErrorCode.UnknownProject }, 404);
+    if (!isTrustedProjectMutation(options.registry, c.req.param("project"), c.req.raw.headers)) {
+      return c.json({ error: ErrorCode.ForbiddenOrigin }, 403);
     }
-
-    const session = await getProjectSession(registered.auth, c.req.raw.headers);
-    if (!session) {
-      return c.json({ error: ErrorCode.Unauthorized }, 401);
+    const access = await requireProjectSession(
+      options.registry,
+      c.req.param("project"),
+      c.req.raw.headers
+    );
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
     }
     const bodyError = mediaUploadBodyError(c.req.raw.headers.get("content-length"));
     if (bodyError) {
@@ -66,10 +70,10 @@ export const registerPublicStorageRoutes = (app: Hono<{ Variables: PublicStorage
 
     try {
       const result = await options.storageService.uploadUserAvatar({
-        registered,
+        registered: access.registered,
         purpose: uploadRequest.purpose,
         file: uploadRequest.file,
-        ownerUserId: session.user.id
+        ownerUserId: access.session.user.id
       });
 
       return c.json(result);
@@ -77,8 +81,4 @@ export const registerPublicStorageRoutes = (app: Hono<{ Variables: PublicStorage
       return mediaUploadError(error);
     }
   });
-};
-
-const getProjectSession = async (auth: RegisteredProject["auth"], headers: Headers) => {
-  return auth.api.getSession({ headers });
 };

@@ -15,6 +15,7 @@ import {
 import type { PolarEntitlementGrantStore } from "../usage-store";
 import type { PolarWebhookStore } from "../webhook-store";
 import {
+  polarWebhookAuditPayload,
   polarWebhookEventKey,
   processPolarWebhook
 } from "../webhooks";
@@ -44,24 +45,55 @@ const project: AuthProject = {
 
 const createStore = () => {
   const eventKeys: string[] = [];
+  const resourceVersions = new Map<string, { versionKey: string; eventKey: string }>();
   const orders: string[] = [];
   const revokedSources: string[] = [];
   const revokedSubscriptions: string[] = [];
   const grantedSources: string[] = [];
+  const storedPayloads: unknown[] = [];
   const store: PolarWebhookStore = {
-    recordEvent: async (input) => {
+    withResourceLock: async (_input, operation) => operation(),
+    claimEvent: async (input) => {
+      storedPayloads.push(input.payload);
       if (eventKeys.includes(input.eventKey)) {
         return false;
       }
       eventKeys.push(input.eventKey);
       return true;
     },
+    claimResourceVersion: async (input) => {
+      const key = `${input.projectSlug}:${input.resourceType}:${input.resourceId}`;
+      const current = resourceVersions.get(key);
+      if (current && current.versionKey >= input.versionKey) {
+        return false;
+      }
+      resourceVersions.set(key, {
+        versionKey: input.versionKey,
+        eventKey: input.eventKey
+      });
+      return true;
+    },
+    releaseResourceVersion: async (input) => {
+      const key = `${input.projectSlug}:${input.resourceType}:${input.resourceId}`;
+      if (resourceVersions.get(key)?.eventKey === input.eventKey) {
+        resourceVersions.delete(key);
+      }
+    },
+    completeEvent: async () => {},
+    failEvent: async (_projectSlug, eventKey) => {
+      const index = eventKeys.indexOf(eventKey);
+      if (index >= 0) {
+        eventKeys.splice(index, 1);
+      }
+    },
     upsertOrder: async (input) => {
       orders.push(input.orderId);
+      storedPayloads.push(input.payload);
     },
     upsertCustomerState: async () => {},
     upsertBenefitGrant: async () => {},
-    upsertSubscription: async () => {}
+    upsertSubscription: async () => {},
+    close: async () => {}
   };
   const entitlements: PolarEntitlementGrantStore = {
     grantProductEntitlements: async (input) => {
@@ -84,6 +116,7 @@ const createStore = () => {
     revokedSources,
     revokedSubscriptions,
     grantedSources,
+    storedPayloads,
     store,
     entitlements
   };
@@ -102,7 +135,31 @@ describe("billing webhooks", () => {
     ).toBe("order.paid:order_123:2026-06-01T12:00:00.000Z");
   });
 
-  test("records a webhook only after projection succeeds", async () => {
+  test("persists only the explicit billing audit projection", async () => {
+    const state = createStore();
+
+    await processPolarWebhook(
+      {
+        project,
+        store: state.store,
+        entitlements: state.entitlements
+      },
+      orderPaidPayload()
+    );
+
+    const persisted = JSON.stringify(state.storedPayloads);
+    expect(persisted).not.toContain("customer@example.com");
+    expect(persisted).not.toContain("Customer");
+    expect(persisted).not.toContain("billingAddress");
+    expect(persisted).not.toContain("metadata");
+    expect(persisted).toContain("customer_123");
+    expect(persisted).toContain("2026-06-01T12:00:00.000Z");
+    expect(
+      polarWebhookAuditPayload(orderPaidPayload()).data
+    ).not.toHaveProperty("customer");
+  });
+
+  test("releases event and resource claims when projection fails", async () => {
     const state = createStore();
     state.entitlements.grantProductEntitlements = async () => {
       throw new Error("projection failed");
@@ -135,10 +192,26 @@ describe("billing webhooks", () => {
     await processPolarWebhook(context, payload);
     await processPolarWebhook(context, payload);
 
-    expect(state.grantedSources).toEqual(["order_123", "order_123"]);
+    expect(state.grantedSources).toEqual(["order_123"]);
     expect(state.eventKeys).toEqual([
       "order.paid:order_123:2026-06-01T12:00:00.000Z"
     ]);
+  });
+
+  test("does not regrant an order when an older paid event arrives after refund", async () => {
+    const state = createStore();
+    const context = {
+      project,
+      store: state.store,
+      entitlements: state.entitlements
+    };
+
+    await processPolarWebhook(context, orderRefundedPayload());
+    await processPolarWebhook(context, orderPaidPayload());
+
+    expect(state.revokedSources).toEqual(["polar_order:order_123"]);
+    expect(state.grantedSources).toEqual([]);
+    expect(state.orders).toEqual(["order_123"]);
   });
 
   test("deactivates order grants when Polar revokes the backing event", async () => {

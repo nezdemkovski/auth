@@ -1,10 +1,12 @@
 import type { Hono } from "hono";
 import { cors } from "hono/cors";
 
-import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
+import type { AuthRegistry } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import type { AdminDatabase } from "../../db/admin-pool";
 import { ErrorCode } from "../../runtime/error-codes";
+import { isTrustedProjectMutation } from "../../http/project-csrf";
+import { requireProjectSession } from "../../http/project-session";
 import { isRecord } from "../../runtime/type-guards";
 import {
   commitBillingUsageReservation,
@@ -48,14 +50,13 @@ export const registerBillingUsageRoutes = (
   );
 
   app.get("/api/:project/billing/usage/summary", async (c) => {
-    const project = options.registry.get(c.req.param("project"));
-    if (!project) {
-      return c.json({ error: ErrorCode.UnknownProject }, 404);
-    }
-
-    const session = await getProjectSession(project, c.req.raw.headers);
-    if (!session) {
-      return c.json({ error: ErrorCode.Unauthorized }, 401);
+    const access = await requireProjectSession(
+      options.registry,
+      c.req.param("project"),
+      c.req.raw.headers
+    );
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
     }
 
     const key = c.req.query("key");
@@ -66,22 +67,24 @@ export const registerBillingUsageRoutes = (
     return c.json({
       summary: await readBillingUsageSummary({
         ...options,
-        project: project.project,
-        userId: session.user.id,
+        project: access.registered.project,
+        userId: access.session.user.id,
         key
       })
     });
   });
 
   app.post("/api/:project/billing/usage/consume", async (c) => {
-    const project = options.registry.get(c.req.param("project"));
-    if (!project) {
-      return c.json({ error: ErrorCode.UnknownProject }, 404);
+    if (!isTrustedProjectMutation(options.registry, c.req.param("project"), c.req.raw.headers)) {
+      return c.json({ error: ErrorCode.ForbiddenOrigin }, 403);
     }
-
-    const session = await getProjectSession(project, c.req.raw.headers);
-    if (!session) {
-      return c.json({ error: ErrorCode.Unauthorized }, 401);
+    const access = await requireProjectSession(
+      options.registry,
+      c.req.param("project"),
+      c.req.raw.headers
+    );
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
     }
 
     const body = await c.req.json().catch(() => null);
@@ -89,27 +92,34 @@ export const registerBillingUsageRoutes = (
     if (!request) {
       return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
+    const idempotencyKey = c.req.header("Idempotency-Key");
+    if (!validIdempotencyKey(idempotencyKey)) {
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
+    }
 
     const result = await consumeBillingUsage({
       ...options,
-      project: project.project,
-      userId: session.user.id,
+      project: access.registered.project,
+      userId: access.session.user.id,
       key: request.key,
-      amount: request.amount
+      amount: request.amount,
+      idempotencyKey
     });
 
     return c.json(result, result.allowed ? 200 : 402);
   });
 
   app.post("/api/:project/billing/usage/reserve", async (c) => {
-    const project = options.registry.get(c.req.param("project"));
-    if (!project) {
-      return c.json({ error: ErrorCode.UnknownProject }, 404);
+    if (!isTrustedProjectMutation(options.registry, c.req.param("project"), c.req.raw.headers)) {
+      return c.json({ error: ErrorCode.ForbiddenOrigin }, 403);
     }
-
-    const session = await getProjectSession(project, c.req.raw.headers);
-    if (!session) {
-      return c.json({ error: ErrorCode.Unauthorized }, 401);
+    const access = await requireProjectSession(
+      options.registry,
+      c.req.param("project"),
+      c.req.raw.headers
+    );
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
     }
 
     const body = await c.req.json().catch(() => null);
@@ -117,27 +127,34 @@ export const registerBillingUsageRoutes = (
     if (!request) {
       return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
+    const idempotencyKey = c.req.header("Idempotency-Key");
+    if (!validIdempotencyKey(idempotencyKey)) {
+      return c.json({ error: ErrorCode.InvalidBody }, 400);
+    }
 
     const result = await reserveBillingUsage({
       ...options,
-      project: project.project,
-      userId: session.user.id,
+      project: access.registered.project,
+      userId: access.session.user.id,
       key: request.key,
-      amount: request.amount
+      amount: request.amount,
+      idempotencyKey
     });
 
     return c.json(result, result.allowed ? 200 : 402);
   });
 
   app.post("/api/:project/billing/usage/commit", async (c) => {
-    const project = options.registry.get(c.req.param("project"));
-    if (!project) {
-      return c.json({ error: ErrorCode.UnknownProject }, 404);
+    if (!isTrustedProjectMutation(options.registry, c.req.param("project"), c.req.raw.headers)) {
+      return c.json({ error: ErrorCode.ForbiddenOrigin }, 403);
     }
-
-    const session = await getProjectSession(project, c.req.raw.headers);
-    if (!session) {
-      return c.json({ error: ErrorCode.Unauthorized }, 401);
+    const access = await requireProjectSession(
+      options.registry,
+      c.req.param("project"),
+      c.req.raw.headers
+    );
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
     }
 
     const body = await c.req.json().catch(() => null);
@@ -148,8 +165,8 @@ export const registerBillingUsageRoutes = (
 
     const result = await commitBillingUsageReservation({
       ...options,
-      project: project.project,
-      userId: session.user.id,
+      project: access.registered.project,
+      userId: access.session.user.id,
       reservationId: request.reservationId
     });
     if (!result) {
@@ -160,14 +177,16 @@ export const registerBillingUsageRoutes = (
   });
 
   app.post("/api/:project/billing/usage/release", async (c) => {
-    const project = options.registry.get(c.req.param("project"));
-    if (!project) {
-      return c.json({ error: ErrorCode.UnknownProject }, 404);
+    if (!isTrustedProjectMutation(options.registry, c.req.param("project"), c.req.raw.headers)) {
+      return c.json({ error: ErrorCode.ForbiddenOrigin }, 403);
     }
-
-    const session = await getProjectSession(project, c.req.raw.headers);
-    if (!session) {
-      return c.json({ error: ErrorCode.Unauthorized }, 401);
+    const access = await requireProjectSession(
+      options.registry,
+      c.req.param("project"),
+      c.req.raw.headers
+    );
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
     }
 
     const body = await c.req.json().catch(() => null);
@@ -178,8 +197,8 @@ export const registerBillingUsageRoutes = (
 
     const result = await releaseBillingUsageReservation({
       ...options,
-      project: project.project,
-      userId: session.user.id,
+      project: access.registered.project,
+      userId: access.session.user.id,
       reservationId: request.reservationId
     });
     if (!result) {
@@ -188,10 +207,6 @@ export const registerBillingUsageRoutes = (
 
     return c.json(result);
   });
-};
-
-const getProjectSession = async (project: RegisteredProject, headers: Headers) => {
-  return project.auth.api.getSession({ headers });
 };
 
 const parseConsumeRequest = (body: unknown) => {
@@ -212,6 +227,15 @@ const parseConsumeRequest = (body: unknown) => {
 
 const validBenefitKey = (value: unknown): value is string => {
   return typeof value === "string" && /^[a-z][a-z0-9_]*$/.test(value);
+};
+
+export const validIdempotencyKey = (value: unknown): value is string => {
+  return (
+    typeof value === "string" &&
+    value.length >= 16 &&
+    value.length <= 128 &&
+    /^[A-Za-z0-9._:-]+$/.test(value)
+  );
 };
 
 const parseReservationRequest = (body: unknown) => {

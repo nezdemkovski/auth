@@ -29,6 +29,8 @@ describe("project email handlers", () => {
       }
     });
 
+    expect(handlers.emailAndPassword?.requireEmailVerification).toBe(true);
+
     await handlers.emailVerification?.sendVerificationEmail({
       user: {
         email: "user@example.com"

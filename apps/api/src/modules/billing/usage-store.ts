@@ -1,15 +1,17 @@
-import { and, eq, gt, isNull, lt, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, lt, notInArray, sql } from "drizzle-orm";
 import type { NodePgTransaction } from "drizzle-orm/node-postgres";
 import type { AnyRelations } from "drizzle-orm/relations";
 
 import {
   EntitlementGrantType,
+  EntitlementResetPeriod,
   type AuthProject,
   type BillingEntitlement,
   type BillingProductMapping
 } from "../../config/projects";
-import type { AdminDatabaseOptions } from "../../db/admin-pool";
+import type { AdminDatabase, AdminDatabaseOptions } from "../../db/admin-pool";
 import { withAdminDb } from "../../db/admin-pool";
+import { isPostgresUniqueViolation } from "../../db/errors";
 import { randomBase64Url } from "../../runtime/crypto";
 import { isRecord } from "../../runtime/type-guards";
 import {
@@ -31,6 +33,11 @@ export enum BillingUsageReservationStatus {
   Committed = "committed",
   Released = "released",
   Expired = "expired"
+}
+
+export enum BillingEntitlementSourceType {
+  Free = "free",
+  PolarOrder = "polar_order"
 }
 
 export type BillingUsageReservationResult = {
@@ -79,6 +86,13 @@ type GrantConsumption = {
   amount: number | null;
 };
 
+class InsufficientBillingUsageError extends Error {
+  constructor() {
+    super("insufficient_billing_usage");
+    this.name = "InsufficientBillingUsageError";
+  }
+}
+
 type BillingUsageTransaction = NodePgTransaction<AnyRelations>;
 
 export const ensureBillingUsageTables = async (options: AdminDatabaseOptions) => {
@@ -93,6 +107,7 @@ export const ensureBillingUsageTables = async (options: AdminDatabaseOptions) =>
         amount integer,
         remaining integer,
         reset_period text NOT NULL,
+        reset_at timestamptz,
         priority integer NOT NULL DEFAULT 100,
         source_type text NOT NULL,
         source_id text NOT NULL,
@@ -103,6 +118,10 @@ export const ensureBillingUsageTables = async (options: AdminDatabaseOptions) =>
         updated_at timestamptz NOT NULL DEFAULT now(),
         UNIQUE (project_slug, user_id, benefit_key, source_type, source_id)
       )
+    `);
+    await db.execute(sql`
+      ALTER TABLE auth_billing_entitlement_grants
+      ADD COLUMN IF NOT EXISTS reset_at timestamptz
     `);
     await db.execute(sql`
       CREATE INDEX IF NOT EXISTS auth_billing_entitlement_grants_lookup_idx
@@ -133,12 +152,22 @@ export const ensureBillingUsageTables = async (options: AdminDatabaseOptions) =>
         user_id text NOT NULL,
         benefit_key text NOT NULL,
         amount integer NOT NULL,
+        idempotency_key text,
         grant_consumptions jsonb NOT NULL,
         status text NOT NULL,
         expires_at timestamptz NOT NULL,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       )
+    `);
+    await db.execute(sql`
+      ALTER TABLE auth_billing_usage_reservations
+      ADD COLUMN IF NOT EXISTS idempotency_key text
+    `);
+    await db.execute(sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS auth_billing_usage_reservations_idempotency_key
+      ON auth_billing_usage_reservations (project_slug, user_id, idempotency_key)
+      WHERE idempotency_key IS NOT NULL
     `);
     await db.execute(sql`
       CREATE INDEX IF NOT EXISTS auth_billing_usage_reservations_pending_idx
@@ -182,8 +211,9 @@ export const readBillingUsageSummary = async (
     key: string;
   }
 ) => {
-  await ensureFreeEntitlementGrants(options);
   await releaseExpiredBillingUsageReservations(options);
+  await ensureFreeEntitlementGrants(options);
+  await resetDueBillingEntitlements(options);
 
   return withAdminDb(options, async ({ db }) => {
     const rows = await db
@@ -212,6 +242,7 @@ export const consumeBillingUsage = async (
     userId: string;
     key: string;
     amount: number;
+    idempotencyKey?: string;
   }
 ) => {
   const reservation = await reserveBillingUsage(options);
@@ -239,46 +270,36 @@ export const reserveBillingUsage = async (
     key: string;
     amount: number;
     ttlSeconds?: number;
+    idempotencyKey?: string;
   }
 ): Promise<BillingUsageReservationResult> => {
-  await ensureFreeEntitlementGrants(options);
   await releaseExpiredBillingUsageReservations(options);
+  await ensureFreeEntitlementGrants(options);
+  await resetDueBillingEntitlements(options);
 
   return withAdminDb(options, async ({ db }) => {
-    const reservationId = randomBase64Url(24);
-    const transactionResult = await db.transaction(async (tx) => {
-      const grantConsumptions: GrantConsumption[] = [];
-      let remainingAmount = options.amount;
-
-      const unlimitedGrants = await tx
-        .select({ id: billingEntitlementGrants.id })
-        .from(billingEntitlementGrants)
-        .where(
-          and(
-            eq(billingEntitlementGrants.projectSlug, options.project.slug),
-            eq(billingEntitlementGrants.userId, options.userId),
-            eq(billingEntitlementGrants.benefitKey, options.key),
-            eq(billingEntitlementGrants.active, true),
-            isNull(billingEntitlementGrants.amount)
-          )
-        )
-        .orderBy(billingEntitlementGrants.priority, billingEntitlementGrants.createdAt)
-        .limit(1);
-      const unlimitedGrant = unlimitedGrants[0];
-      if (unlimitedGrant) {
-        grantConsumptions.push({
-          id: unlimitedGrant.id,
-          amount: null
-        });
-        remainingAmount = 0;
+    if (options.idempotencyKey) {
+      const existing = await findIdempotentReservation(db, options);
+      if (existing) {
+        return replayBillingUsageReservation(options, existing);
       }
+    }
 
-      while (remainingAmount > 0) {
-        const grants = await tx
-          .select({
-            id: billingEntitlementGrants.id,
-            remaining: billingEntitlementGrants.remaining
-          })
+    const reservationId = randomBase64Url(24);
+    let transactionResult: {
+      allowed: true;
+      reservationId: string;
+    };
+    try {
+      transactionResult = await db.transaction(async (tx): Promise<{
+        allowed: true;
+        reservationId: string;
+      }> => {
+        const grantConsumptions: GrantConsumption[] = [];
+        let remainingAmount = options.amount;
+
+        const unlimitedGrants = await tx
+          .select({ id: billingEntitlementGrants.id })
           .from(billingEntitlementGrants)
           .where(
             and(
@@ -286,51 +307,92 @@ export const reserveBillingUsage = async (
               eq(billingEntitlementGrants.userId, options.userId),
               eq(billingEntitlementGrants.benefitKey, options.key),
               eq(billingEntitlementGrants.active, true),
-              gt(billingEntitlementGrants.remaining, 0)
+              isNull(billingEntitlementGrants.amount)
             )
           )
           .orderBy(billingEntitlementGrants.priority, billingEntitlementGrants.createdAt)
-          .limit(1)
-          .for("update", { skipLocked: true });
-        const grant = grants[0];
-        if (!grant) {
-          return {
-            allowed: false,
-            reservationId: null
-          };
+          .limit(1);
+        const unlimitedGrant = unlimitedGrants[0];
+        if (unlimitedGrant) {
+          grantConsumptions.push({
+            id: unlimitedGrant.id,
+            amount: null
+          });
+          remainingAmount = 0;
         }
 
-        const consumed = Math.min(grant.remaining ?? 0, remainingAmount);
-        await tx
-          .update(billingEntitlementGrants)
-          .set({
-            remaining: sql`${billingEntitlementGrants.remaining} - ${consumed}`,
-            updatedAt: sql`now()`
-          })
-          .where(eq(billingEntitlementGrants.id, grant.id));
-        grantConsumptions.push({
-          id: grant.id,
-          amount: consumed
+        while (remainingAmount > 0) {
+          const grants = await tx
+            .select({
+              id: billingEntitlementGrants.id,
+              remaining: billingEntitlementGrants.remaining
+            })
+            .from(billingEntitlementGrants)
+            .where(
+              and(
+                eq(billingEntitlementGrants.projectSlug, options.project.slug),
+                eq(billingEntitlementGrants.userId, options.userId),
+                eq(billingEntitlementGrants.benefitKey, options.key),
+                eq(billingEntitlementGrants.active, true),
+                gt(billingEntitlementGrants.remaining, 0)
+              )
+            )
+            .orderBy(billingEntitlementGrants.priority, billingEntitlementGrants.createdAt)
+            .limit(1)
+            .for("update", { skipLocked: true });
+          const grant = grants[0];
+          if (!grant) {
+            throw new InsufficientBillingUsageError();
+          }
+
+          const consumed = Math.min(grant.remaining ?? 0, remainingAmount);
+          await tx
+            .update(billingEntitlementGrants)
+            .set({
+              remaining: sql`${billingEntitlementGrants.remaining} - ${consumed}`,
+              updatedAt: sql`now()`
+            })
+            .where(eq(billingEntitlementGrants.id, grant.id));
+          grantConsumptions.push({
+            id: grant.id,
+            amount: consumed
+          });
+          remainingAmount -= consumed;
+        }
+
+        await tx.insert(billingUsageReservations).values({
+          id: reservationId,
+          projectSlug: options.project.slug,
+          userId: options.userId,
+          benefitKey: options.key,
+          amount: options.amount,
+          idempotencyKey: options.idempotencyKey ?? null,
+          grantConsumptions,
+          status: BillingUsageReservationStatus.Pending,
+          expiresAt: sql`now() + (${options.ttlSeconds ?? 900}::int * interval '1 second')`
         });
-        remainingAmount -= consumed;
-      }
 
-      await tx.insert(billingUsageReservations).values({
-        id: reservationId,
-        projectSlug: options.project.slug,
-        userId: options.userId,
-        benefitKey: options.key,
-        amount: options.amount,
-        grantConsumptions,
-        status: BillingUsageReservationStatus.Pending,
-        expiresAt: sql`now() + (${options.ttlSeconds ?? 900}::int * interval '1 second')`
+        return {
+          allowed: true,
+          reservationId
+        };
       });
-
-      return {
-        allowed: true,
-        reservationId
-      };
-    });
+    } catch (error) {
+      if (error instanceof InsufficientBillingUsageError) {
+        return {
+          allowed: false,
+          reservationId: null,
+          summary: await readBillingUsageSummary(options)
+        };
+      }
+      if (options.idempotencyKey && isPostgresUniqueViolation(error)) {
+        const existing = await findIdempotentReservation(db, options);
+        if (existing) {
+          return replayBillingUsageReservation(options, existing);
+        }
+      }
+      throw error;
+    }
 
     return {
       ...transactionResult,
@@ -355,6 +417,7 @@ export const commitBillingUsageReservation = async (
           id: billingUsageReservations.id,
           benefitKey: billingUsageReservations.benefitKey,
           amount: billingUsageReservations.amount,
+          status: billingUsageReservations.status,
           grantConsumptions: billingUsageReservations.grantConsumptions,
           expiresAt: billingUsageReservations.expiresAt
         })
@@ -364,7 +427,10 @@ export const commitBillingUsageReservation = async (
             eq(billingUsageReservations.id, options.reservationId),
             eq(billingUsageReservations.projectSlug, options.project.slug),
             eq(billingUsageReservations.userId, options.userId),
-            eq(billingUsageReservations.status, BillingUsageReservationStatus.Pending)
+            inArray(billingUsageReservations.status, [
+              BillingUsageReservationStatus.Pending,
+              BillingUsageReservationStatus.Committed
+            ])
           )
         )
         .limit(1)
@@ -372,6 +438,12 @@ export const commitBillingUsageReservation = async (
       const reservation = reservations[0];
       if (!reservation) {
         return null;
+      }
+      if (reservation.status === BillingUsageReservationStatus.Committed) {
+        return {
+          allowed: true,
+          key: reservation.benefitKey
+        };
       }
       if (reservation.expiresAt.getTime() <= Date.now()) {
         await releaseReservation(tx, reservation, BillingUsageReservationStatus.Expired);
@@ -411,6 +483,55 @@ export const commitBillingUsageReservation = async (
       })
     };
   });
+};
+
+const findIdempotentReservation = async (
+  db: AdminDatabase["db"],
+  options: {
+    project: AuthProject;
+    userId: string;
+    idempotencyKey?: string;
+  }
+) => {
+  if (!options.idempotencyKey) {
+    return null;
+  }
+
+  const rows = await db
+    .select({
+      id: billingUsageReservations.id,
+      status: billingUsageReservations.status
+    })
+    .from(billingUsageReservations)
+    .where(
+      and(
+        eq(billingUsageReservations.projectSlug, options.project.slug),
+        eq(billingUsageReservations.userId, options.userId),
+        eq(billingUsageReservations.idempotencyKey, options.idempotencyKey)
+      )
+    )
+    .limit(1);
+
+  return rows[0] ?? null;
+};
+
+const replayBillingUsageReservation = async (
+  options: AdminDatabaseOptions & {
+    project: AuthProject;
+    userId: string;
+    key: string;
+  },
+  reservation: { id: string; status: string }
+): Promise<BillingUsageReservationResult> => {
+  const allowed =
+    reservation.status === BillingUsageReservationStatus.Pending ||
+    reservation.status === BillingUsageReservationStatus.Committed;
+
+  return {
+    allowed,
+    reservationId: reservation.id,
+    summary: await readBillingUsageSummary(options)
+  };
 };
 
 export const releaseBillingUsageReservation = async (
@@ -487,7 +608,7 @@ export const grantBillingProductEntitlements = async (
     ...options,
     product,
     entitlements: product.entitlements,
-    sourceType: "polar_order",
+    sourceType: BillingEntitlementSourceType.PolarOrder,
     sourceId: options.sourceId,
     metadata: options.metadata
   });
@@ -501,18 +622,82 @@ const ensureFreeEntitlementGrants = async (
     userId: string;
   }
 ) => {
-  if (options.project.billing.freeEntitlements.length === 0) {
-    return;
+  const entitlements = options.project.billing.freeEntitlements;
+  if (entitlements.length > 0) {
+    await grantEntitlements({
+      ...options,
+      product: null,
+      entitlements,
+      sourceType: BillingEntitlementSourceType.Free,
+      sourceId: "default",
+      metadata: {},
+      reconcileExisting: true
+    });
   }
 
-  await grantEntitlements({
-    ...options,
-    product: null,
-    entitlements: options.project.billing.freeEntitlements,
-    sourceType: "free",
-    sourceId: "default",
-    metadata: {},
-    reconcileExisting: true
+  await withAdminDb(options, async ({ db }) => {
+    const desiredKeys = entitlements.map((entitlement) => entitlement.key);
+    await db
+      .update(billingEntitlementGrants)
+      .set({
+        active: false,
+        remaining: sql`CASE WHEN ${billingEntitlementGrants.remaining} IS NULL THEN NULL ELSE 0 END`,
+        updatedAt: sql`now()`
+      })
+      .where(
+        and(
+          eq(billingEntitlementGrants.projectSlug, options.project.slug),
+          eq(billingEntitlementGrants.userId, options.userId),
+          eq(
+            billingEntitlementGrants.sourceType,
+            BillingEntitlementSourceType.Free
+          ),
+          eq(billingEntitlementGrants.sourceId, "default"),
+          eq(billingEntitlementGrants.active, true),
+          desiredKeys.length > 0
+            ? notInArray(billingEntitlementGrants.benefitKey, desiredKeys)
+            : undefined
+        )
+      );
+  });
+};
+
+const resetDueBillingEntitlements = async (
+  options: AdminDatabaseOptions & {
+    project: AuthProject;
+    userId: string;
+    key?: string;
+  }
+) => {
+  await withAdminDb(options, async ({ db }) => {
+    await db
+      .update(billingEntitlementGrants)
+      .set({
+        remaining: billingEntitlementGrants.amount,
+        resetAt: sql`
+          CASE ${billingEntitlementGrants.resetPeriod}
+            WHEN ${EntitlementResetPeriod.Monthly} THEN now() + interval '1 month'
+            WHEN ${EntitlementResetPeriod.Yearly} THEN now() + interval '1 year'
+            ELSE NULL
+          END
+        `,
+        updatedAt: sql`now()`
+      })
+      .where(
+        and(
+          eq(billingEntitlementGrants.projectSlug, options.project.slug),
+          eq(billingEntitlementGrants.userId, options.userId),
+          options.key
+            ? eq(billingEntitlementGrants.benefitKey, options.key)
+            : undefined,
+          eq(billingEntitlementGrants.active, true),
+          eq(
+            billingEntitlementGrants.grantType,
+            EntitlementGrantType.RecurringQuota
+          ),
+          lt(billingEntitlementGrants.resetAt, sql`now()`)
+        )
+      );
   });
 };
 
@@ -696,24 +881,32 @@ const grantEntitlements = async (
   await withAdminDb(options, async ({ db }) => {
     for (const entitlement of options.entitlements) {
       const reconcileExisting = options.reconcileExisting === true;
-      await db
+      const values = {
+        id: randomBase64Url(24),
+        projectSlug: options.project.slug,
+        userId: options.userId,
+        benefitKey: entitlement.key,
+        grantType: entitlement.grantType,
+        amount: entitlement.amount,
+        remaining: initialRemaining(entitlement),
+        resetPeriod: entitlement.resetPeriod,
+        resetAt: initialResetAt(entitlement),
+        priority: entitlement.priority,
+        sourceType: options.sourceType,
+        sourceId: options.sourceId,
+        productSlug: options.product?.slug ?? null,
+        metadata: options.metadata
+      };
+      const insert = db
         .insert(billingEntitlementGrants)
-        .values({
-          id: randomBase64Url(24),
-          projectSlug: options.project.slug,
-          userId: options.userId,
-          benefitKey: entitlement.key,
-          grantType: entitlement.grantType,
-          amount: entitlement.amount,
-          remaining: initialRemaining(entitlement),
-          resetPeriod: entitlement.resetPeriod,
-          priority: entitlement.priority,
-          sourceType: options.sourceType,
-          sourceId: options.sourceId,
-          productSlug: options.product?.slug ?? null,
-          metadata: options.metadata
-        })
-        .onConflictDoUpdate({
+        .values(values);
+
+      if (!reconcileExisting) {
+        await insert.onConflictDoNothing();
+        continue;
+      }
+
+      await insert.onConflictDoUpdate({
           target: [
             billingEntitlementGrants.projectSlug,
             billingEntitlementGrants.userId,
@@ -722,15 +915,11 @@ const grantEntitlements = async (
             billingEntitlementGrants.sourceId
           ],
           set: {
-            grantType: reconcileExisting
-              ? sql`EXCLUDED.grant_type`
-              : billingEntitlementGrants.grantType,
-            amount: reconcileExisting
-              ? sql`EXCLUDED.amount`
-              : billingEntitlementGrants.amount,
-            remaining: reconcileExisting
-              ? sql`
+            grantType: sql`EXCLUDED.grant_type`,
+            amount: sql`EXCLUDED.amount`,
+            remaining: sql`
                   CASE
+                    WHEN ${billingEntitlementGrants.active} = false THEN EXCLUDED.remaining
                     WHEN EXCLUDED.amount IS NULL THEN NULL
                     WHEN ${billingEntitlementGrants.amount} IS NULL THEN EXCLUDED.remaining
                     ELSE GREATEST(
@@ -741,26 +930,47 @@ const grantEntitlements = async (
                       )
                     )
                   END
-                `
-              : billingEntitlementGrants.remaining,
-            resetPeriod: reconcileExisting
-              ? sql`EXCLUDED.reset_period`
-              : billingEntitlementGrants.resetPeriod,
-            priority: reconcileExisting
-              ? sql`EXCLUDED.priority`
-              : billingEntitlementGrants.priority,
-            productSlug: reconcileExisting
-              ? sql`EXCLUDED.product_slug`
-              : billingEntitlementGrants.productSlug,
-            active: reconcileExisting ? true : billingEntitlementGrants.active,
-            metadata: reconcileExisting
-              ? sql`EXCLUDED.metadata`
-              : billingEntitlementGrants.metadata,
-            updatedAt: reconcileExisting ? sql`now()` : billingEntitlementGrants.updatedAt
-          }
+                `,
+            resetPeriod: sql`EXCLUDED.reset_period`,
+            resetAt: sql`
+              CASE
+                WHEN ${billingEntitlementGrants.resetPeriod} IS DISTINCT FROM EXCLUDED.reset_period
+                  THEN EXCLUDED.reset_at
+                ELSE ${billingEntitlementGrants.resetAt}
+              END
+            `,
+            priority: sql`EXCLUDED.priority`,
+            productSlug: sql`EXCLUDED.product_slug`,
+            active: true,
+            metadata: sql`EXCLUDED.metadata`,
+            updatedAt: sql`now()`
+          },
+          setWhere: sql`
+            ${billingEntitlementGrants.grantType} IS DISTINCT FROM EXCLUDED.grant_type
+            OR ${billingEntitlementGrants.amount} IS DISTINCT FROM EXCLUDED.amount
+            OR ${billingEntitlementGrants.resetPeriod} IS DISTINCT FROM EXCLUDED.reset_period
+            OR ${billingEntitlementGrants.priority} IS DISTINCT FROM EXCLUDED.priority
+            OR ${billingEntitlementGrants.productSlug} IS DISTINCT FROM EXCLUDED.product_slug
+            OR ${billingEntitlementGrants.active} = false
+            OR ${billingEntitlementGrants.metadata} IS DISTINCT FROM EXCLUDED.metadata
+          `
         });
     }
   });
+};
+
+const initialResetAt = (entitlement: BillingEntitlement) => {
+  const resetAt = new Date();
+  if (entitlement.resetPeriod === EntitlementResetPeriod.Monthly) {
+    resetAt.setUTCMonth(resetAt.getUTCMonth() + 1);
+    return resetAt;
+  }
+  if (entitlement.resetPeriod === EntitlementResetPeriod.Yearly) {
+    resetAt.setUTCFullYear(resetAt.getUTCFullYear() + 1);
+    return resetAt;
+  }
+
+  return null;
 };
 
 const initialRemaining = (entitlement: BillingEntitlement) => {

@@ -1,8 +1,8 @@
 import type { DeliverySettings, DeliverySettingsPatch } from "../types";
-import { jsonHeaders, readErrorMessage, readJson } from "./shared";
+import { adminFetch, jsonHeaders, readErrorMessage, readJson } from "./shared";
 
 export async function fetchDeliverySettings(): Promise<DeliverySettings> {
-  const response = await fetch("/admin/api/delivery-settings", {
+  const response = await adminFetch("/admin/api/delivery-settings", {
     credentials: "include"
   });
   if (!response.ok) throw new Error("Could not load delivery settings");
@@ -12,7 +12,7 @@ export async function fetchDeliverySettings(): Promise<DeliverySettings> {
 export async function updateDeliverySettings(
   patch: DeliverySettingsPatch
 ): Promise<DeliverySettings> {
-  const response = await fetch("/admin/api/delivery-settings", {
+  const response = await adminFetch("/admin/api/delivery-settings", {
     method: "PATCH",
     credentials: "include",
     headers: jsonHeaders,
@@ -27,7 +27,7 @@ export async function updateDeliverySettings(
 }
 
 export async function verifyDeliverySettings(): Promise<void> {
-  const response = await fetch("/admin/api/delivery-settings/verify", {
+  const response = await adminFetch("/admin/api/delivery-settings/verify", {
     method: "POST",
     credentials: "include"
   });
