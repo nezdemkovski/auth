@@ -60,7 +60,7 @@ jobs:
 
       - name: Refuse mutable release tags
         run: |
-          for image in auth-api auth-admin auth-login; do
+          for image in auth-api auth-admin auth-login auth-router; do
             if docker buildx imagetools inspect "ghcr.io/nezdemkovski/$image:${{ steps.chart.outputs.app_version }}" >/dev/null 2>&1; then
               echo "Refusing to overwrite existing image tag: $image:${{ steps.chart.outputs.app_version }}"
               exit 1
@@ -100,6 +100,17 @@ jobs:
           provenance: mode=max
           sbom: true
 
+      - name: Build and push router
+        id: router
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: apps/router/Dockerfile
+          push: true
+          tags: ghcr.io/nezdemkovski/auth-router:${{ steps.chart.outputs.app_version }}
+          provenance: mode=max
+          sbom: true
+
       - name: Record immutable image references
         run: |
           {
@@ -107,4 +118,5 @@ jobs:
             echo '- `ghcr.io/nezdemkovski/auth-api@${{ steps.api.outputs.digest }}`'
             echo '- `ghcr.io/nezdemkovski/auth-admin@${{ steps.admin.outputs.digest }}`'
             echo '- `ghcr.io/nezdemkovski/auth-login@${{ steps.login.outputs.digest }}`'
+            echo '- `ghcr.io/nezdemkovski/auth-router@${{ steps.router.outputs.digest }}`'
           } >> "$GITHUB_STEP_SUMMARY"

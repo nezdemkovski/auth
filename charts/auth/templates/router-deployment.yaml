@@ -23,7 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: router
-          image: "{{ .Values.router.image.repository }}:{{ .Values.router.image.tag }}@{{ .Values.router.image.digest }}"
+          image: "{{ .Values.router.image.repository }}{{ if .Values.router.image.digest }}@{{ .Values.router.image.digest }}{{ else }}:{{ .Values.router.image.tag | default .Chart.AppVersion }}{{ end }}"
           imagePullPolicy: {{ .Values.router.image.pullPolicy }}
           ports:
             - name: http
@@ -38,13 +38,13 @@ spec:
               mountPath: /data
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /readyz
               port: http
             initialDelaySeconds: 3
             periodSeconds: 10
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /livez
               port: http
             initialDelaySeconds: 10
             periodSeconds: 20

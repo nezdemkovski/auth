@@ -25,7 +25,8 @@ describe("repository security controls", () => {
     const dockerfilePaths = [
       "apps/api/Dockerfile",
       "apps/admin/Dockerfile",
-      "apps/login/Dockerfile"
+      "apps/login/Dockerfile",
+      "apps/router/Dockerfile"
     ];
 
     for (const path of workflowPaths) {
@@ -68,6 +69,9 @@ describe("repository security controls", () => {
     expect(rendered).toContain('value: "false"');
     expect(rendered).toContain("path: /livez");
     expect(rendered).toContain("path: /readyz");
+    expect(rendered).toContain("@health path /healthz /livez /readyz");
+    expect(rendered).toContain("ghcr.io/nezdemkovski/auth-router:v0.1.79");
+    expect(rendered).not.toContain("cp /usr/bin/caddy /runtime/caddy");
     expect(rendered).toContain('reloader.stakater.com/auto: "true"');
     expect(rendered).toContain("kind: NetworkPolicy");
     expect(rendered).toContain("name: auth-default-deny");

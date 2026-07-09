@@ -34,7 +34,8 @@ data:
         }
       }
 
-      handle /healthz {
+      @health path /healthz /livez /readyz
+      handle @health {
         reverse_proxy {{ .Values.api.service.name }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.api.service.port }} {
           import api_proxy
         }
