@@ -26,25 +26,27 @@ describe("http security helpers", () => {
     expect(clientKey(headers, { trustProxyHeaders: false })).toBe("198.51.100.10");
   });
 
-  test("uses Cloudflare IP first when proxy headers are trusted", () => {
+  test("trusts only the router-owned client IP header in proxy mode", () => {
     const headers = new Headers({
+      "x-auth-client-ip": "198.51.100.10",
       "cf-connecting-ip": "203.0.113.10",
       "x-forwarded-for": "203.0.113.11, 10.0.0.1"
     });
 
-    expect(clientKey(headers, { trustProxyHeaders: true })).toBe("203.0.113.10");
+    expect(clientKey(headers, { trustProxyHeaders: true })).toBe("198.51.100.10");
   });
 
-  test("falls back to first forwarded IP and then unknown in trusted proxy mode", () => {
+  test("fails closed when the router-owned client IP header is missing", () => {
     expect(
       clientKey(
-        new Headers({ "x-forwarded-for": "203.0.113.11, 10.0.0.1" }),
+        new Headers({
+          "cf-connecting-ip": "203.0.113.10",
+          "x-forwarded-for": "203.0.113.11, 10.0.0.1"
+        }),
         { trustProxyHeaders: true }
       )
-    ).toBe("203.0.113.11");
-    expect(clientKey(new Headers(), { trustProxyHeaders: true })).toBe(
-      "unknown"
-    );
+    ).toBeNull();
+    expect(clientKey(new Headers(), { trustProxyHeaders: true })).toBeNull();
   });
 
   test("normalizes project auth paths into one rate-limit bucket", () => {

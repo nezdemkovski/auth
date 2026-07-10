@@ -52,6 +52,8 @@ Status values: `open`, `test-added`, `fixed`, `mitigated`, `decision-required`, 
 | PRIV-01 | Medium | Complete Polar webhook payloads containing billing PII are duplicated without an explicit retention policy. | `apps/api/src/modules/billing/webhooks.ts`, `apps/api/src/modules/billing/webhook-store.ts` | verified |
 | AUTH-01 | Medium | Email verification is sent but not required before a session is issued; enumeration behavior is not documented as policy. | `apps/api/src/auth/project-auth.ts`, `apps/api/src/email/templates.tsx` | verified |
 | DOC-01 | Low | Environment, route, dependency, database, and recovery documentation has drifted from the implementation. | `.env.example`, `README.md`, `docs/OPERATIONS.md` | verified |
+| LIVE-01 | Medium | The public realm JWKS alias forwards the wrong path to Better Auth and returns 404. | `apps/api/src/modules/auth-proxy/http.ts`, `auth.integration.ts` | verified |
+| LIVE-02 | Medium | Better Auth rejects the multi-hop forwarded IP chain and collapses clients into one shared rate-limit bucket. | `apps/api/src/config/proxy.ts`, `apps/api/src/http/security.ts`, `charts/auth/templates/router-configmap.yaml` | verified |
 
 ## Remediation rules
 
@@ -73,19 +75,19 @@ Status values: `open`, `test-added`, `fixed`, `mitigated`, `decision-required`, 
 - Auth boundaries: `project-auth.test.ts`, `policy.test.ts`, `auth-proxy/http.test.ts`,
   `login/core.test.ts`, `project-csrf.test.ts`, `project-session.test.ts`, and
   `session.test.ts`.
-- Data correctness: 41 Postgres/Redis/S3 integration tests cover bootstrap output, concurrent realm
+- Data correctness: 42 Postgres/Redis/S3 integration tests cover bootstrap output, concurrent realm
   creation, quota rollback/idempotency/reset, cross-replica webhook serialization and deduplication,
-  replacement storage cleanup, email verification, PKCE, users, and settings.
+  replacement storage cleanup, email verification, PKCE, JWKS aliases, users, and settings.
 - Browser behavior: 3 Playwright tests cover URL credential scrubbing, forced
   bootstrap password rotation, and centralized 401 session invalidation.
 - Operations: `repository-controls.test.ts` renders the chart and asserts the
   migration job, probes, NetworkPolicy, pod hardening, immutable pins, one
   lockfile, and dependency health checks.
-- Final verification: 150 API unit tests, frontend package tests, 5 repository
-  controls, 41 integration tests, 3 browser tests, full Turbo build, Helm lint
-  with and without object storage, Caddy validation, all three Docker builds,
-  non-root/read-only container smoke tests, and a clean production dependency
-  audit.
+- Final verification: 151 API unit tests, frontend package tests, 5 repository
+  controls, 42 integration tests, 3 browser tests, full Turbo build, Helm lint
+  with and without object storage, Caddy validation, all four Docker builds,
+  non-root/read-only container smoke tests, router-owned client IP overwrite
+  verification, and a clean production dependency audit.
 
 ## Architecture second pass
 

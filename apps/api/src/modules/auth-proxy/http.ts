@@ -36,7 +36,8 @@ export type AuthProxyRegisteredProject = {
 
 export const registerAuthProxyRoutes = <TEnv extends Env>(app: Hono<TEnv>, options: { registry: AuthProxyRegistry }) => {
   app.get("/api/:project/.well-known/jwks.json", async (c) => {
-    const registered = options.registry.get(c.req.param("project"));
+    const projectSlug = c.req.param("project");
+    const registered = options.registry.get(projectSlug);
 
     if (!registered) {
       return c.json(
@@ -47,7 +48,15 @@ export const registerAuthProxyRoutes = <TEnv extends Env>(app: Hono<TEnv>, optio
       );
     }
 
-    return await registered.auth.handler(c.req.raw);
+    const url = new URL(c.req.url);
+    url.pathname = `/api/${projectSlug}/auth/.well-known/jwks.json`;
+
+    return await registered.auth.handler(
+      new Request(url, {
+        method: c.req.method,
+        headers: c.req.raw.headers
+      })
+    );
   });
 
   app.get("/api/:project/.well-known/oauth-authorization-server", (c) => {

@@ -128,6 +128,45 @@ describe("auth integration", () => {
     }
   });
 
+  test("serves the same JWKS from public and canonical realm paths", async () => {
+    const project = await seedIntegrationRealm({
+      slug: "jwks-auth",
+      schema: "jwks_auth",
+      name: "JWKS Auth"
+    });
+    const { app, close } = await createIntegrationApp();
+
+    try {
+      const publicResponse = await app.request(
+        `/api/${project.slug}/.well-known/jwks.json`,
+        {
+          headers: {
+            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+          }
+        }
+      );
+      const canonicalResponse = await app.request(
+        `/api/${project.slug}/auth/.well-known/jwks.json`,
+        {
+          headers: {
+            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+          }
+        }
+      );
+
+      expect(publicResponse.status).toBe(200);
+      expect(canonicalResponse.status).toBe(200);
+
+      const publicJwks = await readIntegrationJson(publicResponse);
+      const canonicalJwks = await readIntegrationJson(canonicalResponse);
+      expect(publicJwks).toEqual(canonicalJwks);
+      expect(Array.isArray(publicJwks.keys)).toBe(true);
+      expect(publicJwks.keys).not.toHaveLength(0);
+    } finally {
+      await close();
+    }
+  });
+
   test("blocks disabled feature routes before Better Auth handles them", async () => {
     const project = await seedIntegrationRealm({
       slug: "feature-gated-auth",

@@ -195,6 +195,22 @@ describe("auth route feature gates", () => {
 });
 
 describe("auth proxy HTTP boundary", () => {
+  test("maps the public JWKS alias to the canonical Better Auth path", async () => {
+    const handledPaths: string[] = [];
+    const app = createAuthProxyApp(
+      createRegistry(createRegisteredProject(project, handledPaths))
+    );
+
+    const response = await app.request(
+      "/api/demo/.well-known/jwks.json?source=discovery"
+    );
+
+    expect(response.status).toBe(200);
+    expect(handledPaths).toEqual([
+      "/api/demo/auth/.well-known/jwks.json"
+    ]);
+  });
+
   test("returns not found for disabled feature routes without calling Better Auth", async () => {
     const handledPaths: string[] = [];
     const app = createAuthProxyApp(

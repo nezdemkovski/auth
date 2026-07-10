@@ -18,6 +18,7 @@ data:
       header_up -CF-Connecting-IP
       header_up -X-Real-IP
       header_up -X-Client-IP
+      header_up X-Auth-Client-IP {client_ip}
     }
 
     :{{ .Values.router.service.targetPort }} {

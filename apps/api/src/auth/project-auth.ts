@@ -12,6 +12,7 @@ import {
   BillingProvider,
   type AuthProject
 } from "../config/projects";
+import { TRUSTED_CLIENT_IP_HEADER } from "../config/proxy";
 import { SOCIAL_PROVIDER_IDS } from "../config/social-providers";
 import type { ProjectDatabase } from "../db/project-db";
 import type { EmailSender } from "../email/sender";
@@ -192,12 +193,7 @@ export const createBaseProjectAuthOptions = (options: {
       ...(options.trustProxyHeaders
         ? {
             ipAddress: {
-              ipAddressHeaders: [
-                "cf-connecting-ip",
-                "x-forwarded-for",
-                "x-real-ip",
-                "x-client-ip"
-              ]
+              ipAddressHeaders: [TRUSTED_CLIENT_IP_HEADER]
             }
           }
         : {})

@@ -1,6 +1,7 @@
 import type { MiddlewareHandler } from "hono";
 import type { RedisClient } from "bun";
 
+import { TRUSTED_CLIENT_IP_HEADER } from "../config/proxy";
 import { ReconnectingRedisClient } from "../db/redis";
 import { ErrorCode } from "../runtime/error-codes";
 import { logError } from "../runtime/logger";
@@ -304,11 +305,7 @@ export const clientKey = (headers: Headers, options: { trustProxyHeaders: boolea
     return headers.get(DIRECT_CLIENT_IP_HEADER) ?? null;
   }
 
-  return (
-    headers.get("cf-connecting-ip") ??
-    headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    "unknown"
-  );
+  return headers.get(TRUSTED_CLIENT_IP_HEADER)?.trim() || null;
 };
 
 export const normalizeRateLimitPath = (path: string) => {

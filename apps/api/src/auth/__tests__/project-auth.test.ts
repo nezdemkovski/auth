@@ -134,12 +134,7 @@ describe("project auth options", () => {
   test("trusts proxy IP headers only when explicitly enabled", () => {
     expect(createOptions(baseProject).advanced?.ipAddress).toBeUndefined();
     expect(createOptions(baseProject, true).advanced?.ipAddress).toEqual({
-      ipAddressHeaders: [
-        "cf-connecting-ip",
-        "x-forwarded-for",
-        "x-real-ip",
-        "x-client-ip"
-      ]
+      ipAddressHeaders: ["x-auth-client-ip"]
     });
   });
 
