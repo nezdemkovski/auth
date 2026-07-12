@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { Hono } from "hono";
 
 import {
   DEFAULT_PROJECT_BILLING,
@@ -13,6 +14,7 @@ import {
   createLoginSessionCode,
   exchangeLoginCode,
   getLoginConfig,
+  registerLoginRoutes,
   type LoginOptions
 } from "../http";
 import { PkceChallengeMethod } from "../translator";
@@ -83,6 +85,28 @@ const configOptions = {
 };
 
 describe("login HTTP handlers", () => {
+  test("allows trusted browser origins to exchange PKCE login codes", async () => {
+    const app = new Hono();
+    registerLoginRoutes(app as never, {
+      ...unusedOptions,
+      registry: configOptions.registry
+    });
+
+    const response = await app.request("/api/demo/login/token", {
+      method: "OPTIONS",
+      headers: {
+        Origin: "https://demo.example.com",
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "content-type"
+      }
+    });
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-origin")).toBe(
+      "https://demo.example.com"
+    );
+  });
+
   test("returns login runtime config for trusted redirects and valid PKCE", async () => {
     const url = new URL("http://auth.local/api/demo/login/config/login");
     url.searchParams.set("redirect_uri", "https://demo.example.com/auth/callback");

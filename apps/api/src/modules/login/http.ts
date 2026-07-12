@@ -1,6 +1,7 @@
 import type { AuthRegistry } from "../../auth/registry";
 import type { ObservabilityReporter } from "../observability/core";
 import type { Hono } from "hono";
+import { cors } from "hono/cors";
 import { ErrorCode } from "../../runtime/error-codes";
 import {
   LoginFlowError,
@@ -43,6 +44,19 @@ type LoginConfigOptions = {
 };
 
 export const registerLoginRoutes = (app: Hono<{ Variables: LoginVariables }>, options: LoginOptions) => {
+  app.use(
+    "/api/:project/login/token",
+    cors({
+      origin: (origin, c) => {
+        const project = c.req.param("project");
+        return project && options.registry.isTrustedOrigin(project, origin) ? origin : "";
+      },
+      allowHeaders: ["Content-Type"],
+      allowMethods: ["POST", "OPTIONS"],
+      maxAge: 600
+    })
+  );
+
   app.get("/api/:project/login/config/login", (c) =>
     getLoginConfig(c.req.raw, c.req.param("project"), options)
   );
