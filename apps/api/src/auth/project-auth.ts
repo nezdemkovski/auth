@@ -312,7 +312,12 @@ const buildTelegramPlugin = (project: AuthProject) => {
       miniApp: {
         enabled: true,
         validateInitData: true,
-        allowAutoSignin: true
+        allowAutoSignin: true,
+        mapMiniAppDataToUser: (user) => ({
+          name: user.last_name ? `${user.first_name} ${user.last_name}` : user.first_name,
+          email: `telegram-${user.id}@telegram.invalid`,
+          image: user.photo_url
+        })
       }
     })
   ];
