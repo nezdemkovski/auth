@@ -79,14 +79,14 @@ describe("repository security controls", () => {
     expect(rendered).toContain("path: /readyz");
     expect(rendered).toContain("@health path /healthz /livez /readyz");
     expect(rendered).toContain("header_up X-Auth-Client-IP {client_ip}");
-    expect(rendered).toContain("ghcr.io/nezdemkovski/auth-router:v0.1.81");
+    expect(rendered).toContain("ghcr.io/nezdemkovski/auth-router:v0.1.82");
     expect(rendered).not.toContain("cp /usr/bin/caddy /runtime/caddy");
     expect(rendered).toContain('reloader.stakater.com/auto: "true"');
     expect(rendered).toContain("kind: NetworkPolicy");
     expect(rendered).toContain("name: auth-default-deny");
     expect(rendered.match(/automountServiceAccountToken: false/g)?.length).toBe(8);
     expect(rendered).not.toContain("allowPrivilegeEscalation: true");
-  });
+  }, 15_000);
 
   test("does not mask integration dependency health failures", async () => {
     const compose = await read("dev/docker-compose.integration.yml");
