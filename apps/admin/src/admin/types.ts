@@ -46,16 +46,19 @@ export type ProjectFeatures = {
   };
 };
 
-export type SocialProviderId = "github" | "google" | "twitter" | "facebook";
+export type SocialProviderId = "telegram" | "github" | "google" | "twitter" | "facebook";
 
 export type SocialProviderCatalogItem = {
   id: SocialProviderId;
   label: string;
   shortLabel: string;
-  clientIdLabel: string;
+  clientIdLabel?: string;
   clientSecretLabel: string;
   defaultScopes: string[];
   docsUrl: string;
+  flow: "oauth" | "mini-app";
+  supportsCredentialCheck: boolean;
+  requiresClientId: boolean;
 };
 
 export type PublicSocialProviderSettings = {

@@ -6,6 +6,7 @@ import {
   type ProjectSocialProviders
 } from "../../config/projects";
 import {
+  isSocialProviderConfigured,
   isSocialProviderId,
   SOCIAL_PROVIDER_IDS,
   type SocialProviderId
@@ -96,7 +97,10 @@ export const readProjectSocialProviders = async (options: AdminDatabaseOptions &
         provider,
         enabled: row?.enabled ?? false,
         clientId,
-        configured: Boolean(clientId && row?.clientSecretCipher),
+        configured: isSocialProviderConfigured(provider, {
+          clientId,
+          clientSecret: row?.clientSecretCipher ?? ""
+        }),
         verifiedAt: normalizeDate(row?.verifiedAt ?? null),
         callbackUrl: socialProviderCallbackUrl(options.publicBaseUrl, options.project, provider)
       };

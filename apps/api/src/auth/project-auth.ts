@@ -4,6 +4,7 @@ import { admin, bearer, jwt, lastLoginMethod, twoFactor } from "better-auth/plug
 import { agentAuth } from "@better-auth/agent-auth";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { passkey } from "@better-auth/passkey";
+import { telegram } from "@nezdemkovski/better-auth-telegram";
 import { checkout, polar, portal, usage, webhooks } from "@polar-sh/better-auth";
 import { Polar } from "@polar-sh/sdk";
 
@@ -12,6 +13,11 @@ import {
   BillingProvider,
   type AuthProject
 } from "../config/projects";
+import {
+  isSocialProviderConfigured,
+  isOAuthSocialProvider,
+  SocialProvider
+} from "../config/social-providers";
 import { TRUSTED_CLIENT_IP_HEADER } from "../config/proxy";
 import { SOCIAL_PROVIDER_IDS } from "../config/social-providers";
 import type { ProjectDatabase } from "../db/project-db";
@@ -156,6 +162,7 @@ export const createBaseProjectAuthOptions = (options: {
           openidConfig: true
         }
       }),
+      ...buildTelegramPlugin(project),
       lastLoginMethod({
         customResolveMethod: (ctx) => {
           if (ctx.path === "/passkey/verify-authentication") {
@@ -276,15 +283,38 @@ const buildSocialProviders = (project: AuthProject) => {
   const socialProviders: NonNullable<BetterAuthOptions["socialProviders"]> = {};
 
   for (const provider of SOCIAL_PROVIDER_IDS) {
+    if (!isOAuthSocialProvider(provider)) {
+      continue;
+    }
     const settings = project.socialProviders[provider];
     socialProviders[provider] = {
-      enabled: settings.enabled && Boolean(settings.clientId && settings.clientSecret),
+      enabled: settings.enabled && isSocialProviderConfigured(provider, settings),
       clientId: settings.clientId,
       clientSecret: settings.clientSecret
     };
   }
 
   return socialProviders;
+};
+
+const buildTelegramPlugin = (project: AuthProject) => {
+  const settings = project.socialProviders[SocialProvider.Telegram];
+  if (!settings.enabled || !isSocialProviderConfigured(SocialProvider.Telegram, settings)) {
+    return [];
+  }
+
+  return [
+    telegram({
+      botToken: settings.clientSecret,
+      botUsername: settings.clientId,
+      loginWidget: false,
+      miniApp: {
+        enabled: true,
+        validateInitData: true,
+        allowAutoSignin: true
+      }
+    })
+  ];
 };
 
 export const buildOAuthValidAudiences = (project: AuthProject, publicBaseUrl: string) => {

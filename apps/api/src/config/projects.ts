@@ -214,6 +214,7 @@ const defaultSocialProvider = () => {
 };
 
 export const DEFAULT_PROJECT_SOCIAL_PROVIDERS: ProjectSocialProviders = {
+  [SocialProvider.Telegram]: defaultSocialProvider(),
   [SocialProvider.GitHub]: defaultSocialProvider(),
   [SocialProvider.Google]: defaultSocialProvider(),
   [SocialProvider.Twitter]: defaultSocialProvider(),

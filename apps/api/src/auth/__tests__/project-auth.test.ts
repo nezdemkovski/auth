@@ -131,6 +131,29 @@ describe("project auth options", () => {
     expect(enabledPluginIds).toContain("polar");
   });
 
+  test("adds the Telegram Mini App plugin only when the realm enables it", () => {
+    const disabledPluginIds = (createOptions(baseProject).plugins ?? []).map(
+      (plugin) => plugin.id
+    );
+    const enabledPluginIds = (
+      createOptions({
+        ...baseProject,
+        socialProviders: {
+          ...DEFAULT_PROJECT_SOCIAL_PROVIDERS,
+          telegram: {
+            enabled: true,
+            clientId: "demo_bot",
+            clientSecret: "telegram-bot-token",
+            verifiedAt: null
+          }
+        }
+      }).plugins ?? []
+    ).map((plugin) => plugin.id);
+
+    expect(disabledPluginIds).not.toContain("telegram");
+    expect(enabledPluginIds).toContain("telegram");
+  });
+
   test("trusts proxy IP headers only when explicitly enabled", () => {
     expect(createOptions(baseProject).advanced?.ipAddress).toBeUndefined();
     expect(createOptions(baseProject, true).advanced?.ipAddress).toEqual({

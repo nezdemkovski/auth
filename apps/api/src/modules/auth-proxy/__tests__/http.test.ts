@@ -13,6 +13,7 @@ import {
   ProjectTwoFactorRequirement,
   type AuthProject
 } from "../../../config/projects";
+import { SocialProvider } from "../../../config/social-providers";
 import { ErrorCode } from "../../../runtime/error-codes";
 import {
   registerAuthProxyRoutes,
@@ -114,6 +115,38 @@ describe("auth route feature gates", () => {
     expect(
       isEnabledAuthFeaturePath(requiredProject, "/api/demo/auth/callback/github")
     ).toBe(false);
+    expect(
+      isEnabledAuthFeaturePath(
+        requiredProject,
+        "/api/demo/auth/telegram/miniapp/signin"
+      )
+    ).toBe(false);
+  });
+
+  test("opens Telegram Mini App sign-in only for configured realms", () => {
+    expect(
+      isEnabledAuthFeaturePath(project, "/api/demo/auth/telegram/miniapp/signin")
+    ).toBe(false);
+
+    const telegramProject: AuthProject = {
+      ...project,
+      socialProviders: {
+        ...project.socialProviders,
+        [SocialProvider.Telegram]: {
+          enabled: true,
+          clientId: "demo_bot",
+          clientSecret: "telegram-bot-token",
+          verifiedAt: null
+        }
+      }
+    };
+
+    expect(
+      isEnabledAuthFeaturePath(
+        telegramProject,
+        "/api/demo/auth/telegram/miniapp/signin"
+      )
+    ).toBe(true);
   });
 
   test("keeps disabled feature endpoints closed", () => {

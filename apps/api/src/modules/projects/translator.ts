@@ -1,5 +1,8 @@
 import { ADMIN_PROJECT_SLUG, type AuthProject } from "../../config/projects";
-import { SOCIAL_PROVIDER_CATALOG } from "../../config/social-providers";
+import {
+  isSocialProviderConfigured,
+  SOCIAL_PROVIDER_CATALOG
+} from "../../config/social-providers";
 import { socialProviderCallbackUrl } from "./social-provider-store";
 
 export type ProjectCounts = {
@@ -28,7 +31,7 @@ export const projectResponse = (project: AuthProject, counts: ProjectCounts = EM
         provider: provider.id,
         enabled: settings.enabled,
         clientId: settings.clientId,
-        configured: Boolean(settings.clientId && settings.clientSecret),
+        configured: isSocialProviderConfigured(provider.id, settings),
         verifiedAt: settings.verifiedAt,
         callbackUrl: socialProviderCallbackUrl(publicBaseUrl, project, provider.id)
       };

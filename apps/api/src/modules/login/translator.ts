@@ -1,7 +1,9 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import {
+  isSocialProviderConfigured,
+  isOAuthSocialProvider,
   SOCIAL_PROVIDER_CATALOG,
-  type SocialProviderId
+  SOCIAL_PROVIDER_IDS
 } from "../../config/social-providers";
 import {
   ProjectTwoFactorRequirement
@@ -135,9 +137,15 @@ export const enabledSocialProviders = (registered: Pick<NonNullable<ReturnType<A
     return [];
   }
 
-  return Object.entries(registered.project.socialProviders)
-    .filter(([, provider]) => provider.enabled && provider.clientId && provider.clientSecret)
-    .map(([provider]) => provider as SocialProviderId);
+  return SOCIAL_PROVIDER_IDS
+    .filter((provider) => {
+      const settings = registered.project.socialProviders[provider];
+      return (
+        isOAuthSocialProvider(provider) &&
+        settings.enabled &&
+        isSocialProviderConfigured(provider, settings)
+      );
+    });
 };
 
 const describeOAuthScope = (scope: string) => {

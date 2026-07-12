@@ -8,6 +8,7 @@ import {
 } from "../../config/projects";
 import {
   SOCIAL_PROVIDER_CATALOG,
+  supportsSocialProviderCredentialCheck,
   type SocialProviderId
 } from "../../config/social-providers";
 import { ErrorCode } from "../../runtime/error-codes";
@@ -262,9 +263,17 @@ export class ProjectService {
       patch,
       encryptionSecret: this.options.encryptionSecret
     });
-    await this.options.registry.patchProject(registered.project.slug, {
+    const nextProject = {
+      ...registered.project,
       socialProviders
+    };
+    await prepareProjectSchema({
+      databaseUrl: this.options.databaseUrl,
+      publicBaseUrl: this.options.publicBaseUrl,
+      secret: this.options.secret,
+      project: nextProject
     });
+    await this.options.registry.updateProject(nextProject);
 
     return this.readSocialProviders(registered.project);
   }
@@ -274,6 +283,13 @@ export class ProjectService {
     provider: SocialProviderId,
     headers: Headers
   ) {
+    if (!supportsSocialProviderCredentialCheck(provider)) {
+      throw new ProjectServiceError(
+        "provider_check_not_supported",
+        409,
+        "Telegram credentials are verified during Mini App sign-in"
+      );
+    }
     const settings = registered.project.socialProviders[provider];
     if (!settings.enabled || !settings.clientId || !settings.clientSecret) {
       throw new ProjectServiceError(

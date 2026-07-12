@@ -41,6 +41,12 @@ describe("login translator", () => {
           billing: DEFAULT_PROJECT_BILLING,
           storage: DEFAULT_PROJECT_STORAGE,
           socialProviders: {
+            [SocialProvider.Telegram]: {
+              enabled: true,
+              clientId: "demo_bot",
+              clientSecret: "telegram-bot-token",
+              verifiedAt: null
+            },
             [SocialProvider.GitHub]: {
               enabled: true,
               clientId: "github-client",

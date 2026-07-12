@@ -1,6 +1,6 @@
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { SiFacebook, SiX } from "@icons-pack/react-simple-icons";
+import { SiFacebook, SiTelegram, SiX } from "@icons-pack/react-simple-icons";
 import Github from "@lobehub/icons/es/Github";
 import Google from "@lobehub/icons/es/Google";
 
@@ -13,6 +13,7 @@ import type {
 import { Button, FormAlert, SettingsInput, TogglePill } from "@nezdemkovski/auth-ui";
 
 const providerIcons: Record<SocialProviderId, React.ComponentType<{ size?: number }>> = {
+  telegram: SiTelegram,
   github: Github,
   google: Google,
   twitter: SiX,
@@ -204,14 +205,16 @@ function SocialProviderEditor({
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <SettingsInput
-          id={`${item.id}-client-id`}
-          label={item.clientIdLabel}
-          value={clientId}
-          disabled={disabled || pending}
-          onChange={setClientId}
-        />
+      <div className={`grid gap-4 ${item.clientIdLabel ? "md:grid-cols-2" : ""}`}>
+        {item.clientIdLabel ? (
+          <SettingsInput
+            id={`${item.id}-client-id`}
+            label={item.clientIdLabel}
+            value={clientId}
+            disabled={disabled || pending}
+            onChange={setClientId}
+          />
+        ) : null}
         <SettingsInput
           id={`${item.id}-client-secret`}
           label={item.clientSecretLabel}
@@ -248,15 +251,17 @@ function SocialProviderEditor({
       </div>
 
       <div className="flex flex-wrap justify-end gap-2">
-        <Button
-          type="button"
-          disabled={disabled || verifyPending || !provider.configured || !enabled}
-          onClick={() => onVerify(item.id)}
-          loading={verifyPending}
-          size="sm"
-        >
-          {verifyPending ? "Checking…" : "Check"}
-        </Button>
+        {item.supportsCredentialCheck ? (
+          <Button
+            type="button"
+            disabled={disabled || verifyPending || !provider.configured || !enabled}
+            onClick={() => onVerify(item.id)}
+            loading={verifyPending}
+            size="sm"
+          >
+            {verifyPending ? "Checking…" : "Check"}
+          </Button>
+        ) : null}
         <Button
           type="submit"
           disabled={disabled || pending}
