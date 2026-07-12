@@ -190,7 +190,8 @@ export const createBaseProjectAuthOptions = (options: {
             sub: user.id,
             email: user.email,
             email_verified: user.emailVerified === true,
-            project: project.slug
+            project: project.slug,
+            telegram_id: user.telegramId
           })
         }
       })
