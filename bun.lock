@@ -44,7 +44,7 @@
         "@better-auth/drizzle-adapter": "1.7.0-rc.1",
         "@better-auth/oauth-provider": "1.7.0-rc.1",
         "@better-auth/passkey": "1.7.0-rc.1",
-        "@nezdemkovski/better-auth-telegram": "1.5.0",
+        "@nezdemkovski/better-auth-telegram": "1.5.1",
         "@polar-sh/better-auth": "1.8.4",
         "@polar-sh/sdk": "0.48.1",
         "@react-email/components": "1.0.12",
@@ -413,7 +413,7 @@
 
     "@nezdemkovski/auth-ui": ["@nezdemkovski/auth-ui@workspace:packages/ui"],
 
-    "@nezdemkovski/better-auth-telegram": ["@nezdemkovski/better-auth-telegram@1.5.0", "", { "peerDependencies": { "@better-auth/core": "^1.7.0-rc.1", "better-auth": "^1.7.0-rc.1" } }, "sha512-vzoR/YtT2hqtvOi4761EMebx+t+5DZk6aYl7bogKrwPt2HUmLbMmfKownnMUqrNRix5Op/ZHWuR+8fRq+Z1lag=="],
+    "@nezdemkovski/better-auth-telegram": ["@nezdemkovski/better-auth-telegram@1.5.1", "", { "peerDependencies": { "@better-auth/core": "^1.7.0-rc.1", "better-auth": "^1.7.0-rc.1" } }, "sha512-8A6OTf78P1rQOnzySXg86Vk/o8DFZqLqOMYJ15jKDfARtrEKa9UjvZDK5CTbKBu85qsUYYdY6/TQ3yrZFf8cjw=="],
 
     "@noble/ciphers": ["@noble/ciphers@2.2.0", "", {}, "sha512-Z6pjIZ/8IJcCGzb2S/0Px5J81yij85xASuk1teLNeg75bfT07MV3a/O2Mtn1I2se43k3lkVEcFaR10N4cgQcZA=="],
 

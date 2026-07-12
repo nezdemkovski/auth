@@ -17,7 +17,7 @@
     "@better-auth/drizzle-adapter": "1.7.0-rc.1",
     "@better-auth/oauth-provider": "1.7.0-rc.1",
     "@better-auth/passkey": "1.7.0-rc.1",
-    "@nezdemkovski/better-auth-telegram": "1.5.0",
+    "@nezdemkovski/better-auth-telegram": "1.5.1",
     "@polar-sh/better-auth": "1.8.4",
     "@polar-sh/sdk": "0.48.1",
     "@react-email/components": "1.0.12",
