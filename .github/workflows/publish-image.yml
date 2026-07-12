@@ -1,7 +1,6 @@
 name: Publish Image
 
 on:
-  workflow_dispatch:
   push:
     branches: [master]
     paths:
