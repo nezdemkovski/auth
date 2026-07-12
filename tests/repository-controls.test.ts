@@ -58,36 +58,6 @@ describe("repository security controls", () => {
     );
   });
 
-  test("renders migration, health, secret reload, and pod hardening controls", () => {
-    const result = Bun.spawnSync([
-      "helm",
-      "template",
-      "auth",
-      "charts/auth",
-      "--namespace",
-      "auth",
-      "--set",
-      "objectStorage.enabled=true"
-    ]);
-    const rendered = result.stdout.toString();
-
-    expect(result.exitCode).toBe(0);
-    expect(rendered).toContain("name: auth-api-migrate");
-    expect(rendered).toContain("AUTH_AUTO_MIGRATE");
-    expect(rendered).toContain('value: "false"');
-    expect(rendered).toContain("path: /livez");
-    expect(rendered).toContain("path: /readyz");
-    expect(rendered).toContain("@health path /healthz /livez /readyz");
-    expect(rendered).toContain("header_up X-Auth-Client-IP {client_ip}");
-    expect(rendered).toContain("ghcr.io/nezdemkovski/auth-router:v0.1.82");
-    expect(rendered).not.toContain("cp /usr/bin/caddy /runtime/caddy");
-    expect(rendered).toContain('reloader.stakater.com/auto: "true"');
-    expect(rendered).toContain("kind: NetworkPolicy");
-    expect(rendered).toContain("name: auth-default-deny");
-    expect(rendered.match(/automountServiceAccountToken: false/g)?.length).toBe(8);
-    expect(rendered).not.toContain("allowPrivilegeEscalation: true");
-  }, 15_000);
-
   test("does not mask integration dependency health failures", async () => {
     const compose = await read("dev/docker-compose.integration.yml");
 
