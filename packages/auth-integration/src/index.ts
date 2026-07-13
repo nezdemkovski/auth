@@ -9,3 +9,10 @@ export {
   type AuthPlatformIdentity,
   type AuthPlatformIdentityOptions
 } from "./identity/subject";
+export {
+  AuthPlatformResource,
+  AuthPlatformResourceScope,
+  authPlatformResourceIdentifier,
+  authPlatformResourceMetadataUrl,
+  authPlatformResourceScopes
+} from "./resource/config";

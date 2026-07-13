@@ -679,7 +679,27 @@ describe("billing usage integration", () => {
         projectSlug: project.slug,
         ownerCookie: cookie,
         resource: billingResource,
-        scopes: [OAuthScope.BillingUsageWrite]
+        scopes: [OAuthScope.BillingUsageRead, OAuthScope.BillingUsageWrite]
+      });
+      const readOnlyService = await createIntegrationServiceResourceToken({
+        app,
+        registry,
+        projectSlug: project.slug,
+        ownerCookie: cookie,
+        resource: billingResource,
+        scopes: [OAuthScope.BillingUsageRead]
+      });
+      const storageService = await createIntegrationServiceResourceToken({
+        app,
+        registry,
+        projectSlug: project.slug,
+        ownerCookie: cookie,
+        resource: oauthResourceIdentifier(
+          integrationPublicBaseUrl,
+          project.slug,
+          OAuthResource.Storage
+        ),
+        scopes: [OAuthScope.StorageAvatarWrite]
       });
 
       await expectApiSummary(app, project, billingToken, {
@@ -687,6 +707,17 @@ describe("billing usage integration", () => {
         limit: 3,
         remaining: 3
       });
+
+      const serviceOnUserEndpoint = await app.request(
+        `/api/${project.slug}/billing/usage/summary?key=${benefitKey}`,
+        {
+          headers: {
+            Authorization: `Bearer ${service.accessToken}`,
+            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+          }
+        }
+      );
+      expect(serviceOnUserEndpoint.status).toBe(401);
 
       const sessionMutation = await app.request(
         `/api/${project.slug}/billing/usage/reserve`,
@@ -720,6 +751,32 @@ describe("billing usage integration", () => {
         }
       );
       expect(delegatedMutation.status).toBe(401);
+
+      const insufficientServiceScope = await billingApi(
+        app,
+        project,
+        readOnlyService.accessToken,
+        billingUserId,
+        "reserve",
+        {
+          key: benefitKey,
+          amount: 1
+        }
+      );
+      expect(insufficientServiceScope.status).toBe(403);
+
+      const wrongServiceAudience = await billingApi(
+        app,
+        project,
+        storageService.accessToken,
+        billingUserId,
+        "reserve",
+        {
+          key: benefitKey,
+          amount: 1
+        }
+      );
+      expect(wrongServiceAudience.status).toBe(401);
 
       const unknownSubject = await billingApi(
         app,

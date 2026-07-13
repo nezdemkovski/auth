@@ -24,6 +24,8 @@
     "dist/index.d.ts.map",
     "dist/identity",
     "dist/provider",
+    "dist/resource",
+    "dist/shared",
     "README.md"
   ],
   "scripts": {

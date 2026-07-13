@@ -427,11 +427,11 @@ Expected obsolete files:
   alerts that exist only for it.
 - [ ] Remove legacy CORS allowances and rate-limit rules.
 - [ ] Remove unused JWT/session contracts and dependencies from the lockfile.
-- [ ] Rewrite `README.md` so the primary integration is OIDC federation through
+- [x] Rewrite `README.md` so the primary integration is OIDC federation through
   Better Auth, not the custom login handoff.
-- [ ] Rewrite `docs/SDK.md` around Better Auth configuration and platform
+- [x] Rewrite `docs/SDK.md` around Better Auth configuration and platform
   business clients.
-- [ ] Update `TODO.md` and remove completed items that celebrate the deleted
+- [x] Update `TODO.md` and remove completed items that celebrate the deleted
   custom login-code implementation.
 - [ ] Mark the old npm SDK versions as deprecated with a migration message.
 - [ ] Publish replacement packages only after full typecheck, unit, integration,
@@ -475,7 +475,7 @@ rg 'createRemoteJWKSet|jwtVerify' packages/auth-server apps/api/src/modules
 Additional checks:
 
 - [x] Central Better Auth config includes the legacy `/token` disablement.
-- [ ] Every resource verifier receives an explicit audience and scopes.
+- [x] Every resource verifier receives an explicit audience and scopes.
 - [ ] No product browser bundle contains a central client secret.
 - [ ] No web product stores central access or refresh tokens in local storage,
   session storage, IndexedDB, AsyncStorage, or a JavaScript-readable cookie.

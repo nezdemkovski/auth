@@ -214,5 +214,8 @@ through the consent screen.
 
 OAuth resource identifiers are not inferred from browser trusted origins. A
 client may request `resource=` only after that exact Better Auth OAuth resource
-has been registered and linked to the client. Until the resource-management
-migration is complete, resource requests fail closed with `invalid_target`.
+has been registered and linked to the client. The current platform resources
+are avatar storage and billing usage; both publish OAuth Protected Resource
+Metadata and enforce audience-specific scopes. Quota mutations additionally
+require a Better Auth `client_credentials` token and never accept a browser
+session or user-delegated token.

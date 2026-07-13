@@ -37,6 +37,29 @@ Pass `resource` only after that exact resource has been created in Better Auth
 and linked to the OAuth client. Browser trusted origins are not OAuth resource
 identifiers.
 
+## Platform resources
+
+Use the exported conventions instead of copying audience and scope strings
+between product backends:
+
+```ts
+import {
+  AuthPlatformResource,
+  AuthPlatformResourceScope,
+  authPlatformResourceIdentifier
+} from "@nezdemkovski/auth-integration";
+
+const billingResource = authPlatformResourceIdentifier(
+  "https://auth.example.com/api/demo",
+  AuthPlatformResource.Billing
+);
+const billingWriteScope = AuthPlatformResourceScope.BillingUsageWrite;
+```
+
+The package deliberately does not exchange, cache, refresh, or persist OAuth
+tokens. Product backends use Better Auth's standard OAuth endpoints and keep
+service credentials in their own secret manager.
+
 ## Central identity
 
 Use `readAuthPlatformIdentity` on the server with accounts returned by Better

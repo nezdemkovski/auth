@@ -4,8 +4,11 @@
 
 - Extend the existing Postgres/Redis/S3 and browser suites with real passkey,
   2FA enrollment, email-delivery, and Polar checkout sandbox scenarios.
-- Extend the reference product with OAuth MCP and platform billing-resource
-  examples after their explicit resources and scopes are registered.
+- Add admin-managed Better Auth client lifecycle for product web, public/MCP,
+  and service profiles: create, list, rotate, disable, delete, and resource
+  linking without exposing stored secrets.
+- Migrate Amela to the reference-product pattern and the service-only billing
+  contract, then remove its legacy auth SDK usage.
 - Expand structured request logging to cover request/response metadata without
   leaking credentials, tokens, cookies, or PII.
 - Expand audit events to cover successful email verification/reset flows. Failed
@@ -17,15 +20,12 @@
 
 ## Billing and Entitlements
 
-- Finish the product-app entitlement API:
-  - read current entitlements for the signed-in user.
-  - consume quota or credits atomically.
-  - expose stable benefit keys to apps without leaking Polar internals.
+- Add a broader entitlement view for boolean and lifetime benefits alongside
+  the existing audience-bound usage summary and atomic quota operations.
 - Add an OpenMarkers integration example for the current 50 AI requests product:
   checkout button, checkout return handling, and request consumption.
-- Decide how apps report usage:
-  auth-owned generic quota/credit consumption versus app-owned detailed business
-  events.
+- Keep auth-owned usage limited to generic quota accounting; detailed business
+  events remain in the product that understands them.
 
 ## Security and Operations
 
@@ -144,6 +144,16 @@
   local development.
 - Hosted OAuth login delegates authorization codes, PKCE, sessions, and token
   lifecycle to Better Auth without a platform login-code store.
+- Reference product signs in through central Better Auth and establishes its
+  own local HttpOnly Better Auth session.
+- Avatar storage and billing usage are explicit Better Auth OAuth resources
+  with Protected Resource Metadata, audience-bound access tokens, and
+  least-privilege scopes.
+- Billing quota mutations use Better Auth `client_credentials` and reject both
+  central session cookies and user-delegated OAuth tokens.
+- Thin `@nezdemkovski/auth-integration` and business-only
+  `@nezdemkovski/auth-contracts` packages replace the legacy auth state-machine
+  SDK design.
 - Polar billing provider support:
   encrypted provider settings, connection verification, product listing,
   product creation, product/price/benefit mapping, and Better Auth Polar plugin

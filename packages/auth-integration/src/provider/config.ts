@@ -1,5 +1,7 @@
 import type { GenericOAuthConfig } from "better-auth/plugins/generic-oauth";
 
+import { normalizeIdentifier, requiredValue } from "../shared/identifier";
+
 export enum AuthPlatformScope {
   OpenId = "openid",
   Profile = "profile",
@@ -49,30 +51,6 @@ export const createAuthPlatformProvider = (
         }
       : {})
   };
-};
-
-const requiredValue = (value: string, field: string) => {
-  const normalized = value.trim();
-  if (!normalized) {
-    throw new Error(`${field} is required`);
-  }
-
-  return normalized;
-};
-
-const normalizeIdentifier = (value: string, field: string) => {
-  const normalized = requiredValue(value, field).replace(/\/$/, "");
-
-  try {
-    const url = new URL(normalized);
-    if (url.hash || url.search) {
-      throw new Error();
-    }
-  } catch {
-    throw new Error(`${field} must be an absolute URI without query or fragment`);
-  }
-
-  return normalized;
 };
 
 const normalizeScopes = (scopes: string[] | undefined) => {
