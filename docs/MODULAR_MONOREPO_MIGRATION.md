@@ -198,7 +198,7 @@ Package API rules:
 
 - [ ] Stop `projects` from importing billing and storage stores to assemble an
   effective project. Move aggregation to the API composition/application layer.
-- [ ] Stop storage from importing project and user stores when replacing icons
+- [x] Stop storage from importing project and user stores when replacing icons
   or avatars. Let an app-level media use case coordinate storage with realm or
   identity ports.
 - [ ] Stop `AuthRegistry` and Better Auth construction from importing Polar
@@ -308,21 +308,21 @@ Migrate one domain at a time and keep every move behavior-preserving.
 
 ## Phase 4: Extract Storage
 
-- [ ] Move storage models, validation, object-key policy, settings, object
+- [x] Move storage models, validation, object-key policy, settings, object
   persistence, and S3 adapter into the storage package.
-- [ ] Define explicit storage ports for object persistence and provider access.
-- [ ] Create an app-level media use case that coordinates storage output with
+- [x] Define explicit storage ports for object persistence and provider access.
+- [x] Create an app-level media use case that coordinates storage output with
   identity avatar or realm icon updates.
-- [ ] Keep OAuth resource authorization in the API boundary; storage receives
+- [x] Keep OAuth resource authorization in the API boundary; storage receives
   an already-authorized actor and realm.
-- [ ] Ensure storage cannot query identity or realm tables directly.
-- [ ] Preserve upload size, MIME, ownership, realm-prefix, replacement cleanup,
+- [x] Ensure storage cannot query identity or realm tables directly.
+- [x] Preserve upload size, MIME, ownership, realm-prefix, replacement cleanup,
   and disabled-storage security tests.
 
 ### Phase 4 exit gate
 
-- [ ] Storage can be tested with fake ports and no Better Auth registry.
-- [ ] Cross-realm object access remains impossible through the HTTP integration
+- [x] Storage can be tested with fake ports and no Better Auth registry.
+- [x] Cross-realm object access remains impossible through the HTTP integration
   suite.
 
 ## Phase 5: Extract Billing and Entitlements

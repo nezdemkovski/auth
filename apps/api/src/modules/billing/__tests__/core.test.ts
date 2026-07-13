@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Polar } from "@polar-sh/sdk";
+import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 
 import {
   BillingEnvironment,
@@ -8,7 +9,6 @@ import {
   BillingRecurringInterval,
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  DEFAULT_PROJECT_STORAGE,
   type AuthProject
 } from "../../../config/projects";
 import {

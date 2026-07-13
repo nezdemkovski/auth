@@ -9,7 +9,6 @@ import { ErrorCode } from "../runtime/error-codes";
 import { AdminAccountService } from "../modules/admin-account/core";
 import { registerAdminAccountRoutes } from "../modules/admin-account/http";
 import { BillingService } from "../modules/billing/core";
-import { StorageService } from "../modules/storage/core";
 import { registerBillingRoutes } from "../modules/billing/http";
 import { registerDeliveryRoutes } from "../modules/delivery/http";
 import { registerObservabilityRoutes } from "../modules/observability/http";
@@ -35,14 +34,6 @@ export const createAdminApi = (options: AdminApiOptions) => {
     adminDb: options.adminDb,
     publicBaseUrl: options.publicBaseUrl,
     encryptionSecret: options.encryptionSecret
-  });
-  const storageService = new StorageService({
-    registry: options.registry,
-    databaseUrl: options.databaseUrl,
-    adminProject: options.adminProject,
-    adminDb: options.adminDb,
-    encryptionSecret: options.encryptionSecret,
-    managedStorage: options.managedStorage
   });
   const deliveryService = new DeliveryService({
     databaseUrl: options.databaseUrl,
@@ -87,9 +78,10 @@ export const createAdminApi = (options: AdminApiOptions) => {
     adminAccountService,
     billingService,
     deliveryService,
+    mediaService: options.mediaService,
     observabilityService,
     projectService,
-    storageService,
+    storageService: options.storageService,
     usersService
   };
 

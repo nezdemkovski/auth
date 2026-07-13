@@ -6,8 +6,15 @@ import {
 } from "@nezdemkovski/auth-delivery";
 
 import {
-  StorageProvider
-} from "../src/config/projects";
+  insertStorageObject,
+  listStorageObjects,
+  loadProjectStorageSettings,
+  MediaUploadPurpose,
+  publicStorageSettings,
+  readStorageSettings,
+  StorageProvider,
+  updateStorageSettings
+} from "@nezdemkovski/auth-storage";
 import {
   ObservabilityProvider,
   readObservabilitySettings,
@@ -22,21 +29,11 @@ import {
 } from "../src/modules/projects/social-provider-store";
 import {
   deleteProjectSettings,
-  loadEffectiveProjects,
   projectSettingsExists,
   updateProjectIconUrl,
   updateProjectSettings
 } from "../src/modules/projects/store";
-import {
-  loadProjectStorageSettings,
-  readPublicStorageSettings,
-  updateStorageSettings
-} from "../src/modules/storage/settings-store";
-import {
-  insertStorageObject,
-  listStorageObjects
-} from "../src/modules/storage/objects-store";
-import { MediaUploadPurpose } from "../src/modules/storage/media";
+import { loadEffectiveProjects } from "../src/application/project-catalog";
 import { seedIntegrationRealm } from "./seed";
 import {
   createIntegrationApp,
@@ -133,7 +130,7 @@ describe("settings integration", () => {
 
     await updateStorageSettings({
       ...integrationAdminDbOptions,
-      project,
+      projectSlug: project.slug,
       encryptionSecret: integrationEncryptionSecret,
       managedStorage: project.storage,
       patch: {
@@ -149,7 +146,7 @@ describe("settings integration", () => {
     });
     await updateStorageSettings({
       ...integrationAdminDbOptions,
-      project,
+      projectSlug: project.slug,
       encryptionSecret: integrationEncryptionSecret,
       managedStorage: project.storage,
       patch: {
@@ -165,7 +162,7 @@ describe("settings integration", () => {
     await expect(
       loadProjectStorageSettings({
         ...integrationAdminDbOptions,
-        project,
+        projectSlug: project.slug,
         encryptionSecret: integrationEncryptionSecret,
         managedStorage: project.storage
       })
@@ -177,11 +174,10 @@ describe("settings integration", () => {
       secretAccessKey: "integration-secret-key"
     });
     await expect(
-      readPublicStorageSettings({
+      readStorageSettings({
         ...integrationAdminDbOptions,
-        project,
-        managedStorage: project.storage
-      })
+        projectSlug: project.slug
+      }).then((stored) => publicStorageSettings(stored, project.storage))
     ).resolves.toMatchObject({
       configured: true,
       accessKeyIdConfigured: true,

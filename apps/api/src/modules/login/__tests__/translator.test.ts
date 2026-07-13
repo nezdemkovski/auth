@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 
 import {
   DEFAULT_PROJECT_BILLING,
   DEFAULT_PROJECT_FEATURES,
-  DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  DEFAULT_PROJECT_STORAGE
+  DEFAULT_PROJECT_SOCIAL_PROVIDERS
 } from "../../../config/projects";
 import { SocialProvider } from "../../../config/social-providers";
 import {

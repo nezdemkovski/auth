@@ -8,6 +8,10 @@ import {
   type EmailConfig
 } from "@nezdemkovski/auth-delivery";
 import { ensureObservabilitySettingsTable } from "@nezdemkovski/auth-observability";
+import {
+  ensureStorageObjectsTable,
+  ensureStorageSettingsTable
+} from "@nezdemkovski/auth-storage";
 
 import { AuthUserRole, type AuthProject } from "../config/projects";
 import { randomBase64Url } from "../runtime/crypto";
@@ -26,8 +30,6 @@ import {
   seedAdminProjectSettings
 } from "../modules/projects/store";
 import { ensureSocialProviderSettingsTable } from "../modules/projects/social-provider-store";
-import { ensureStorageObjectsTable } from "../modules/storage/objects-store";
-import { ensureStorageSettingsTable } from "../modules/storage/settings-store";
 
 type BootstrapOptions = {
   databaseUrl: string;

@@ -1,7 +1,7 @@
 import type { Env } from "../config/env";
 import { createAdminDatabase } from "./admin-pool";
 import { bootstrapProjects, prepareProjectSchema } from "./bootstrap";
-import { loadEffectiveProjects } from "../modules/projects/store";
+import { loadEffectiveProjects } from "../application/project-catalog";
 
 export const migrateDatabase = async (env: Env) => {
   await bootstrapProjects({

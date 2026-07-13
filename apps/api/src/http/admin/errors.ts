@@ -1,4 +1,4 @@
-import { MediaUploadError } from "../../modules/storage/media";
+import { MediaUploadError } from "@nezdemkovski/auth-storage";
 
 type DomainError = Error & {
   code: string;

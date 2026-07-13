@@ -1,6 +1,6 @@
 import { boolean, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
-import type { MediaUploadPurpose } from "./media";
+import type { MediaUploadPurpose } from "./model";
 
 export const storageSettings = pgTable("auth_storage_settings", {
   projectSlug: text("project_slug").primaryKey(),

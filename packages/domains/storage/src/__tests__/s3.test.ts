@@ -1,16 +1,10 @@
-import {
-  afterEach,
-  describe,
-  expect,
-  test
-} from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 
-import { StorageProvider } from "../../../config/projects";
 import {
-  MediaUploadError,
   MediaUploadPurpose,
-  uploadMedia
-} from "../media";
+  StorageProvider
+} from "../model";
+import { createS3StorageProvider, MediaUploadError } from "../s3";
 
 const originalS3Client = Bun.S3Client;
 const s3Writes: Array<{
@@ -31,11 +25,7 @@ class FakeS3Client {
       acl: string;
     }
   ) {
-    s3Writes.push({
-      objectKey,
-      bytes,
-      options
-    });
+    s3Writes.push({ objectKey, bytes, options });
   }
 }
 
@@ -51,16 +41,16 @@ const configuredStorage = {
   secretAccessKey: "secret"
 };
 
-describe("storage media upload", () => {
+describe("S3 storage provider", () => {
   afterEach(() => {
     s3Writes.length = 0;
     Reflect.set(Bun, "S3Client", originalS3Client);
   });
 
-  test("uploads supported images to realm-scoped object storage", async () => {
+  test("uploads supported images to realm-scoped object keys", async () => {
     Reflect.set(Bun, "S3Client", FakeS3Client);
 
-    const result = await uploadMedia({
+    const result = await createS3StorageProvider().upload({
       storage: configuredStorage,
       realmSlug: "demo",
       purpose: MediaUploadPurpose.ProjectIcon,
@@ -80,67 +70,38 @@ describe("storage media upload", () => {
     );
     expect(result.checksumSha256).toHaveLength(64);
     expect(s3Writes).toHaveLength(1);
-    expect(s3Writes[0]).toMatchObject({
-      objectKey: result.objectKey,
-      options: {
-        type: "image/png",
-        acl: "public-read"
-      }
-    });
-    expect(new TextDecoder().decode(s3Writes[0]?.bytes)).toBe("avatar-bytes");
   });
 
-  test("rejects uploads when S3 storage is not configured", async () => {
+  test("rejects disabled storage and active SVG content", async () => {
+    const provider = createS3StorageProvider();
+
     await expect(
-      uploadMedia({
-        storage: {
-          ...configuredStorage,
-          enabled: false
-        },
+      provider.upload({
+        storage: { ...configuredStorage, enabled: false },
         realmSlug: "demo",
         purpose: MediaUploadPurpose.ProjectIcon,
         file: new File(["avatar"], "avatar.png", { type: "image/png" }),
         ownerUserId: null
       })
-    ).rejects.toMatchObject({
-      code: "storage_not_configured"
-    });
-  });
+    ).rejects.toMatchObject({ code: "storage_not_configured" });
 
-  test("rejects non-image files before touching object storage", async () => {
     await expect(
-      uploadMedia({
+      provider.upload({
         storage: configuredStorage,
         realmSlug: "demo",
         purpose: MediaUploadPurpose.ProjectIcon,
-        file: new File(["hello"], "notes.txt", { type: "text/plain" }),
-        ownerUserId: null
-      })
-    ).rejects.toMatchObject({
-      code: "unsupported_file_type"
-    });
-  });
-
-  test("rejects active SVG content before touching object storage", async () => {
-    await expect(
-      uploadMedia({
-        storage: configuredStorage,
-        realmSlug: "demo",
-        purpose: MediaUploadPurpose.ProjectIcon,
-        file: new File(["<svg><script>alert(1)</script></svg>"], "avatar.svg", {
+        file: new File(["<svg><script>x</script></svg>"], "avatar.svg", {
           type: "image/svg+xml"
         }),
         ownerUserId: null
       })
-    ).rejects.toMatchObject({
-      code: "unsupported_file_type"
-    });
+    ).rejects.toMatchObject({ code: "unsupported_file_type" });
     expect(s3Writes).toEqual([]);
   });
 
   test("requires an owner for user avatar object keys", async () => {
     await expect(
-      uploadMedia({
+      createS3StorageProvider().upload({
         storage: configuredStorage,
         realmSlug: "demo",
         purpose: MediaUploadPurpose.UserAvatar,

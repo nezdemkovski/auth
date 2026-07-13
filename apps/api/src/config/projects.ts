@@ -3,6 +3,10 @@ import {
   SocialProvider,
   type SocialProviderId
 } from "./social-providers";
+import {
+  DEFAULT_PROJECT_STORAGE,
+  type ProjectStorageSettings
+} from "@nezdemkovski/auth-storage";
 
 export type AuthProject = {
   slug: string;
@@ -127,23 +131,6 @@ export type ProjectBillingSettings = {
   products: BillingProductMapping[];
 };
 
-export enum StorageProvider {
-  None = "none",
-  S3 = "s3"
-}
-
-export type ProjectStorageSettings = {
-  provider: StorageProvider;
-  enabled: boolean;
-  managed: boolean;
-  endpoint: string;
-  region: string;
-  bucket: string;
-  publicBaseUrl: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-};
-
 export const DEFAULT_PROJECT_BILLING: ProjectBillingSettings = {
   provider: BillingProvider.None,
   enabled: false,
@@ -153,18 +140,6 @@ export const DEFAULT_PROJECT_BILLING: ProjectBillingSettings = {
   webhookSecret: "",
   freeEntitlements: [],
   products: []
-};
-
-export const DEFAULT_PROJECT_STORAGE: ProjectStorageSettings = {
-  provider: StorageProvider.None,
-  enabled: false,
-  managed: false,
-  endpoint: "",
-  region: "auto",
-  bucket: "",
-  publicBaseUrl: "",
-  accessKeyId: "",
-  secretAccessKey: ""
 };
 
 export const DEFAULT_PROJECT_FEATURES: ProjectFeatures = {

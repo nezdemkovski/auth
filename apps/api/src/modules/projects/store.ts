@@ -6,21 +6,17 @@ import {
   type AuthProject
 } from "../../config/projects";
 import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
-import { cloneDefaultBilling, loadBillingSettings } from "../billing/store";
-import {
-  cloneDefaultStorage,
-  loadStorageSettings
-} from "../storage/settings-store";
-import {
-  cloneDefaultSocialProviders,
-  loadSocialProviderSettings
-} from "./social-provider-store";
 import {
   normalizeProjectFeatures,
   validateProjectSettingsPatch,
   type ProjectSettingsPatch
 } from "./validator";
 import { projectSettings } from "./tables";
+
+export type StoredProjectSettings = Omit<
+  AuthProject,
+  "socialProviders" | "billing" | "storage"
+>;
 
 export const ensureProjectSettingsTable = async (options: AdminDatabaseOptions) => {
   await withAdminDb(options, async ({ db }) => {
@@ -86,30 +82,6 @@ export const seedAdminProjectSettings = async (options: AdminDatabaseOptions) =>
         }
       });
   });
-};
-
-export const loadEffectiveProjects = async (options: AdminDatabaseOptions & {
-  encryptionSecret: string;
-  managedStorage: AuthProject["storage"];
-}) => {
-  const all = await readProjectSettings(options);
-  const socialProviders = await loadSocialProviderSettings(options);
-  const billingSettings = await loadBillingSettings(options);
-  const storageSettings = await loadStorageSettings(options);
-  const allWithSettings = all.map((project) => ({
-    ...project,
-    socialProviders:
-      socialProviders.get(project.slug) ?? cloneDefaultSocialProviders(),
-    billing: billingSettings.get(project.slug) ?? cloneDefaultBilling(),
-    storage: storageSettings.get(project.slug) ?? cloneDefaultStorage(options.managedStorage)
-  }));
-  const bySlug = new Map(allWithSettings.map((project) => [project.slug, project]));
-  const adminProject = bySlug.get(options.adminProject.slug) ?? options.adminProject;
-
-  return {
-    adminProject,
-    projects: allWithSettings.filter((project) => project.slug !== adminProject.slug)
-  };
 };
 
 export const projectSettingsExists = async (options: AdminDatabaseOptions & {
@@ -243,7 +215,7 @@ export const updateProjectIconUrl = async (options: AdminDatabaseOptions & {
   });
 };
 
-const readProjectSettings = async (options: AdminDatabaseOptions) => {
+export const readProjectSettings = async (options: AdminDatabaseOptions) => {
   return withAdminDb(options, async ({ db }) => {
     const rows = await db
       .select()
@@ -279,15 +251,8 @@ const rowToProject = (row: typeof projectSettings.$inferSelect) => {
     iconUrl: row.iconUrl ?? "",
     appUrl: row.appUrl ?? "",
     trustedOrigins: normalizeTrustedOrigins(row.trustedOrigins),
-    features: normalizeProjectFeatures(row.features),
-    socialProviders: optionsDefaultSocialProviders(),
-    billing: cloneDefaultBilling(),
-    storage: cloneDefaultStorage()
+    features: normalizeProjectFeatures(row.features)
   };
-};
-
-const optionsDefaultSocialProviders = () => {
-  return cloneDefaultSocialProviders();
 };
 
 const normalizeTrustedOrigins = (value: unknown) => {

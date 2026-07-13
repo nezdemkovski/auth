@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { Pool } from "pg";
+import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 
 import {
   ADMIN_PROJECT,
   DEFAULT_PROJECT_BILLING,
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  DEFAULT_PROJECT_STORAGE,
   type AuthProject
 } from "../../../config/projects";
 import { UsersService } from "../core";

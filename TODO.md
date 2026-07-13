@@ -116,6 +116,12 @@
 
 ## Done
 
+- Storage capability extraction into private compiled
+  `@nezdemkovski/auth-storage`, with explicit persistence/provider ports and an
+  API-owned media use case for realm icons and user avatars.
+- Shared crypto primitives extracted into private compiled
+  `@nezdemkovski/auth-platform-crypto` instead of duplicating hash/random
+  helpers across backend packages.
 - Turborepo workspace split:
   `apps/api`, `apps/admin`, `apps/login`, `packages/client-shared`, and
   `packages/ui`.

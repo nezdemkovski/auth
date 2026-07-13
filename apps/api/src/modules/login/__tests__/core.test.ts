@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 
 import {
   AuthUserRole,
   DEFAULT_PROJECT_BILLING,
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  DEFAULT_PROJECT_STORAGE,
   ProjectTwoFactorRequirement,
   type AuthProject
 } from "../../../config/projects";

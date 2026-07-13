@@ -32,7 +32,7 @@ import { projectResponse, socialProvidersResponse } from "./translator";
 import {
   cloneDefaultStorage,
   loadProjectStorageSettings
-} from "../storage/settings-store";
+} from "@nezdemkovski/auth-storage";
 import {
   normalizeProjectFeatures,
   type ProjectSettingsCreate,
@@ -123,6 +123,10 @@ export class ProjectService {
         project
       });
       settingsCreated = true;
+      const createdProject = {
+        ...project,
+        ...created
+      };
 
       schemaCreationStarted = true;
       await prepareProjectSchema({
@@ -131,8 +135,8 @@ export class ProjectService {
         secret: this.options.secret,
         project
       });
-      await this.options.registry.updateProject(created);
-      return this.projectResponseWithCounts(created);
+      await this.options.registry.updateProject(createdProject);
+      return this.projectResponseWithCounts(createdProject);
     } catch (error) {
       if (settingsCreated) {
         await deleteProjectSettings({
@@ -188,29 +192,33 @@ export class ProjectService {
       if (!updated) {
         throw new ProjectServiceError(ErrorCode.UnknownProject, 404, "Unknown project");
       }
+      const projectWithCurrentCapabilities = {
+        ...registered.project,
+        ...updated
+      };
 
       const socialProviders = await loadProjectSocialProviders({
         databaseUrl: this.options.databaseUrl,
         adminProject: this.options.adminProject,
         adminDb: this.options.adminDb,
-        project: updated,
+        project: projectWithCurrentCapabilities,
         encryptionSecret: this.options.encryptionSecret
       });
       const billing = await loadProjectBillingSettings({
         databaseUrl: this.options.databaseUrl,
         adminProject: this.options.adminProject,
         adminDb: this.options.adminDb,
-        project: updated,
+        project: projectWithCurrentCapabilities,
         encryptionSecret: this.options.encryptionSecret
       });
       const storage = await loadProjectStorageSettings({
         databaseUrl: this.options.databaseUrl,
         adminProject: this.options.adminProject,
         adminDb: this.options.adminDb,
-        project: updated,
+        projectSlug: updated.slug,
         encryptionSecret: this.options.encryptionSecret,
         managedStorage: this.options.managedStorage
-      });
+      }) ?? cloneDefaultStorage(this.options.managedStorage);
       const nextProject = {
         ...updated,
         socialProviders,

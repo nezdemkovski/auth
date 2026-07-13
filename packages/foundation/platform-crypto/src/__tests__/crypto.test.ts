@@ -5,10 +5,10 @@ import {
   randomHex,
   sha256Base64Url,
   sha256Hex
-} from "../crypto";
+} from "../index";
 
-describe("Bun runtime crypto helpers", () => {
-  test("hashes with Bun.CryptoHasher", () => {
+describe("platform crypto", () => {
+  test("hashes values with SHA-256", () => {
     expect(sha256Hex("abc")).toBe(
       "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
     );
@@ -17,7 +17,7 @@ describe("Bun runtime crypto helpers", () => {
     );
   });
 
-  test("generates URL-safe and hex random values", () => {
+  test("generates URL-safe and hexadecimal random values", () => {
     expect(randomBase64Url(24)).toMatch(/^[A-Za-z0-9_-]{32}$/);
     expect(randomHex(16)).toMatch(/^[a-f0-9]{32}$/);
   });

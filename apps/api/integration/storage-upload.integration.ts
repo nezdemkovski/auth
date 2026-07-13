@@ -6,9 +6,11 @@ import {
   oauthResourceIdentifier,
   oauthResourceMetadataUrl
 } from "../src/config/oauth-resources";
-import { StorageProvider } from "../src/config/projects";
+import {
+  StorageProvider,
+  updateStorageSettings
+} from "@nezdemkovski/auth-storage";
 import { DIRECT_CLIENT_IP_HEADER } from "../src/http/security";
-import { updateStorageSettings } from "../src/modules/storage/settings-store";
 import { seedIntegrationRealm } from "./seed";
 import {
   createIntegrationAdminSession,
@@ -38,7 +40,7 @@ describe("storage upload integration", () => {
     });
     await updateStorageSettings({
       ...integrationAdminDbOptions,
-      project,
+      projectSlug: project.slug,
       encryptionSecret: integrationEncryptionSecret,
       managedStorage: integrationStorage,
       patch: {

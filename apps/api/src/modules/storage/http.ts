@@ -1,14 +1,12 @@
 import { projectResponse } from "../projects/translator";
-import { ErrorCode } from "../../runtime/error-codes";
 import {
   mediaUploadBodyError,
   MediaUploadBodyError,
-  MediaUploadPurpose
-} from "./media";
-import {
+  MediaUploadPurpose,
   parseMediaUploadRequest,
   parseStorageSettingsPatch
-} from "./validator";
+} from "@nezdemkovski/auth-storage";
+import { ErrorCode } from "../../runtime/error-codes";
 import {
   auditLog,
   mediaUploadError,
@@ -22,6 +20,7 @@ import {
 export const registerStorageRoutes: AdminRouteRegistration = ({
   app,
   options,
+  mediaService,
   storageService
 }) => {
   app.get("/projects/:project/storage", async (c) => {
@@ -36,7 +35,7 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
     }
 
     return c.json({
-      settings: await storageService.readSettings(project.registered.project)
+      settings: await storageService.readSettings(project.registered.project.slug)
     });
   });
 
@@ -52,7 +51,11 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
     }
 
     return c.json({
-      objects: await storageService.listObjects(project.registered)
+      objects: await storageService.listObjects({
+        slug: project.registered.project.slug,
+        storage: project.registered.project.storage,
+        pool: project.registered.projectDb.pool
+      })
     });
   });
 
@@ -74,7 +77,10 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
     }
 
     try {
-      const settings = await storageService.updateSettings(project.registered, patch);
+      const settings = await storageService.updateSettings(
+        project.registered.project.slug,
+        patch
+      );
       auditLog("storage.settings.updated", {
         actorId: admin.session.user.id,
         actorEmail: admin.session.user.email,
@@ -121,8 +127,11 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
     }
 
     try {
-      const result = await storageService.uploadProjectIcon({
-        registered: project.registered,
+      const result = await mediaService.uploadProjectIcon({
+        registered: {
+          project: project.registered.project,
+          pool: project.registered.projectDb.pool
+        },
         purpose: uploadRequest.purpose,
         file: uploadRequest.file,
         ownerUserId: admin.session.user.id

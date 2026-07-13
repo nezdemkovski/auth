@@ -1,10 +1,12 @@
 import {
   ADMIN_PROJECT,
+  type AuthProject
+} from "./projects";
+import {
   DEFAULT_PROJECT_STORAGE,
   StorageProvider,
-  type AuthProject,
   type ProjectStorageSettings
-} from "./projects";
+} from "@nezdemkovski/auth-storage";
 import {
   EmailProvider,
   type EmailConfig

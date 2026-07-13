@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
-import { MediaUploadPurpose } from "../media";
-import { parseMediaUploadRequest } from "../validator";
+import { MediaUploadPurpose } from "../model";
+import {
+  parseMediaUploadRequest,
+  storageEndpointProtocolIsAllowed
+} from "../validator";
 
 describe("storage validator", () => {
   test("accepts only the expected media upload purpose and a file", async () => {
@@ -28,5 +31,23 @@ describe("storage validator", () => {
     await expect(
       parseMediaUploadRequest(form, MediaUploadPurpose.UserAvatar)
     ).resolves.toBeNull();
+  });
+
+  test("requires HTTPS for user-configured storage endpoints", () => {
+    expect(
+      storageEndpointProtocolIsAllowed(new URL("https://s3.example.com"), {
+        allowHttpEndpoint: false
+      })
+    ).toBe(true);
+    expect(
+      storageEndpointProtocolIsAllowed(new URL("http://127.0.0.1:9000"), {
+        allowHttpEndpoint: false
+      })
+    ).toBe(false);
+    expect(
+      storageEndpointProtocolIsAllowed(new URL("http://rustfs:9000"), {
+        allowHttpEndpoint: true
+      })
+    ).toBe(true);
   });
 });

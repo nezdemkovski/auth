@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { EmailSender } from "@nezdemkovski/auth-delivery";
+import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 
 import {
   createBaseProjectAuthOptions,
@@ -10,7 +11,6 @@ import {
   BillingProvider,
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_BILLING,
-  DEFAULT_PROJECT_STORAGE,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   ProjectTwoFactorRequirement,
   type AuthProject

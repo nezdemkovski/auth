@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { EmailProvider } from "@nezdemkovski/auth-delivery";
+import { StorageProvider } from "@nezdemkovski/auth-storage";
 
-import { StorageProvider } from "../projects";
 import { loadEnv } from "../env";
 
 const baseEnv = {

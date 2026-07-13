@@ -1,14 +1,18 @@
 import type { Hono } from "hono";
 import { cors } from "hono/cors";
+import {
+  mediaUploadBodyError,
+  MediaUploadBodyError,
+  MediaUploadPurpose,
+  parseMediaUploadRequest
+} from "@nezdemkovski/auth-storage";
 
 import type { AuthRegistry } from "../../auth/registry";
 import { OAuthResource, OAuthScope } from "../../config/oauth-resources";
 import { mediaUploadError } from "../../http/admin/shared";
 import { ErrorCode } from "../../runtime/error-codes";
 import { authorizeUserOAuthResourceRequest } from "../oauth-resource/http";
-import { StorageService } from "./core";
-import { mediaUploadBodyError, MediaUploadBodyError, MediaUploadPurpose } from "./media";
-import { parseMediaUploadRequest } from "./validator";
+import type { MediaService } from "../media/core";
 
 type PublicStorageVariables = {
   registry: AuthRegistry;
@@ -19,7 +23,7 @@ export const registerPublicStorageRoutes = (
   options: {
     registry: AuthRegistry;
     publicBaseUrl: string;
-    storageService: StorageService;
+    mediaService: MediaService;
   }
 ) => {
   app.use(
@@ -71,8 +75,11 @@ export const registerPublicStorageRoutes = (
     }
 
     try {
-      const result = await options.storageService.uploadUserAvatar({
-        registered: access.value.registered,
+      const result = await options.mediaService.uploadUserAvatar({
+        registered: {
+          project: access.value.registered.project,
+          pool: access.value.registered.projectDb.pool
+        },
         purpose: uploadRequest.purpose,
         file: uploadRequest.file,
         ownerUserId: access.value.subject
@@ -101,8 +108,11 @@ export const registerPublicStorageRoutes = (
     }
     try {
       return c.json(
-        await options.storageService.deleteUserAvatar({
-          registered: access.value.registered,
+        await options.mediaService.deleteUserAvatar({
+          registered: {
+            project: access.value.registered.project,
+            pool: access.value.registered.projectDb.pool
+          },
           ownerUserId: access.value.subject
         })
       );

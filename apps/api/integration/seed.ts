@@ -3,11 +3,11 @@ import {
   BillingProvider,
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  DEFAULT_PROJECT_STORAGE,
   type AuthProject,
   type BillingEntitlement,
   type BillingProductMapping
 } from "../src/config/projects";
+import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 import { integrationAdminDbOptions, integrationEncryptionSecret } from "./setup";
 import { updateBillingSettings } from "../src/modules/billing/store";
 import { createProjectSettings } from "../src/modules/projects/store";

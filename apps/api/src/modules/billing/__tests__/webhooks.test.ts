@@ -3,13 +3,13 @@ import type { BenefitGrantCustomWebhook } from "@polar-sh/sdk/models/components/
 import type { CustomerIndividual } from "@polar-sh/sdk/models/components/customerindividual";
 import type { Order } from "@polar-sh/sdk/models/components/order";
 import { OrderBillingReason } from "@polar-sh/sdk/models/components/orderbillingreason";
+import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 
 import {
   BillingEnvironment,
   BillingProvider,
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  DEFAULT_PROJECT_STORAGE,
   type AuthProject
 } from "../../../config/projects";
 import type { PolarEntitlementGrantStore } from "../usage-store";

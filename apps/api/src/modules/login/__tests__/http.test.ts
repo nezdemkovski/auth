@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
+import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 
 import {
   DEFAULT_PROJECT_BILLING,
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  DEFAULT_PROJECT_STORAGE,
   type AuthProject
 } from "../../../config/projects";
 import { ErrorCode } from "../../../runtime/error-codes";

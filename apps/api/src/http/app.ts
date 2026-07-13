@@ -7,11 +7,15 @@ import {
   readDeliverySettings,
   toRuntimeEmailConfig
 } from "@nezdemkovski/auth-delivery";
+import {
+  createS3StorageProvider,
+  createStorageStore,
+  StorageService
+} from "@nezdemkovski/auth-storage";
 
 import { registerLoginRoutes } from "../modules/login/http";
 import { registerAuthProxyRoutes } from "../modules/auth-proxy/http";
 import { inferObservabilityContext } from "../modules/observability/http";
-import { StorageService } from "../modules/storage/core";
 import { registerPublicStorageRoutes } from "../modules/storage/public-http";
 import type { Env } from "../config/env";
 import type { AuthProject } from "../config/projects";
@@ -22,7 +26,10 @@ import { registerBillingUsageRoutes } from "../modules/billing-usage/http";
 import { registerOAuthResourceRoutes } from "../modules/oauth-resource/http";
 import { createPolarEntitlementGrantStore } from "../modules/billing/usage-store";
 import { createPolarWebhookStore } from "../modules/billing/webhook-store";
-import { loadEffectiveProjects } from "../modules/projects/store";
+import { loadEffectiveProjects } from "../application/project-catalog";
+import { updateProjectIconUrl } from "../modules/projects/store";
+import { MediaService } from "../modules/media/core";
+import { readUserImage, updateUserImage } from "../modules/users/store";
 import { ErrorCode } from "../runtime/error-codes";
 import { logError } from "../runtime/logger";
 import { createAdminApi } from "./admin";
@@ -63,6 +70,14 @@ export const createApp = async (env: Env) => {
   const runtimeDeliverySettings = toRuntimeEmailConfig(deliverySettings);
   const emailSender = createEmailSender(runtimeDeliverySettings);
 
+  const storageStore = createStorageStore({
+    databaseUrl: env.databaseUrl,
+    adminProject,
+    adminDb,
+    encryptionSecret: env.secretEncryptionKey,
+    managedStorage: env.storage
+  });
+
   ({ adminProject, projects } = await loadEffectiveProjects({
     databaseUrl: env.databaseUrl,
     adminProject,
@@ -89,12 +104,39 @@ export const createApp = async (env: Env) => {
   });
   await registry.ready();
   const storageService = new StorageService({
-    registry,
-    databaseUrl: env.databaseUrl,
-    adminProject,
-    adminDb,
-    encryptionSecret: env.secretEncryptionKey,
-    managedStorage: env.storage
+    store: storageStore,
+    provider: createS3StorageProvider(),
+    managedStorage: env.storage,
+    applyRuntimeSettings: (projectSlug, storage) =>
+      registry.patchProject(projectSlug, { storage }),
+    reportCleanupError: (event) => {
+      logError(`storage_${event.type}`, {
+        objectKey: event.objectKey,
+        previousUrl: event.previousUrl,
+        error: event.error instanceof Error ? event.error.message : String(event.error)
+      });
+    }
+  });
+  const mediaService = new MediaService({
+    storage: storageService,
+    realmIcons: {
+      updateIcon: async (projectSlug, iconUrl) => {
+        const project = await updateProjectIconUrl({
+          databaseUrl: env.databaseUrl,
+          adminProject,
+          adminDb,
+          slug: projectSlug,
+          iconUrl
+        });
+        return Boolean(project);
+      },
+      applyRuntimeIcon: (projectSlug, iconUrl) =>
+        registry.patchProject(projectSlug, { iconUrl })
+    },
+    userAvatars: {
+      read: readUserImage,
+      update: updateUserImage
+    }
   });
 
   const app = new Hono<{ Variables: AppVariables }>({
@@ -140,7 +182,9 @@ export const createApp = async (env: Env) => {
       secret: env.betterAuthSecret,
       encryptionSecret: env.secretEncryptionKey,
       managedStorage: env.storage,
-      observabilityReporter
+      observabilityReporter,
+      mediaService,
+      storageService
     })
   );
 
@@ -161,7 +205,7 @@ export const createApp = async (env: Env) => {
   registerPublicStorageRoutes(app, {
     registry,
     publicBaseUrl: env.publicBaseUrl,
-    storageService
+    mediaService
   });
   registerAuthProxyRoutes(app, { registry });
 
