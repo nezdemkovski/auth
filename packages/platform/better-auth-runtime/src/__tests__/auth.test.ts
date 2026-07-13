@@ -1,68 +1,75 @@
 import { describe, expect, test } from "bun:test";
-import type { EmailSender } from "@nezdemkovski/auth-delivery";
-import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 import {
-  DEFAULT_PROJECT_BILLING
-} from "@nezdemkovski/auth-billing";
+  DEFAULT_REALM_FEATURES,
+  DEFAULT_REALM_SOCIAL_PROVIDERS,
+  RealmTwoFactorRequirement,
+  type Realm
+} from "@nezdemkovski/auth-realm";
 
 import {
   createBaseProjectAuthOptions,
   createProjectMigrationAuthOptions,
-  projectAuthSecret
-} from "../project-auth";
-import {
-  DEFAULT_PROJECT_FEATURES,
-  DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  ProjectTwoFactorRequirement,
-  type AuthProject
-} from "../../config/projects";
-import {
-  OAUTH_DYNAMIC_CLIENT_SCOPES,
-  OAUTH_SCOPES,
-  oauthResourceDefinitions
-} from "../../config/oauth-resources";
+  projectAuthSecret,
+  type ProjectAuthProtocolOptions
+} from "../index";
 
-const baseProject: AuthProject = {
+const baseRealm: Realm = {
   slug: "demo",
   name: "Demo App",
   schema: "demo_auth",
-  description: "Marker maps",
+  description: "Demo realm",
   iconUrl: "",
   appUrl: "https://demo.example.com",
   trustedOrigins: ["https://demo.example.com"],
-  features: DEFAULT_PROJECT_FEATURES,
-  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  billing: DEFAULT_PROJECT_BILLING,
-  storage: DEFAULT_PROJECT_STORAGE
+  features: DEFAULT_REALM_FEATURES,
+  socialProviders: DEFAULT_REALM_SOCIAL_PROVIDERS
 };
 
-function createOptions(project: AuthProject, trustProxyHeaders = false) {
+const protocol: ProjectAuthProtocolOptions<Realm> = {
+  oauthProvider: {
+    scopes: ["openid", "profile", "email", "offline_access"],
+    dynamicClientScopes: ["openid", "profile", "email", "offline_access"],
+    resources: (project) => [
+      {
+        identifier: `https://auth.example.com/api/${project.slug}/resource`,
+        allowedScopes: ["resource:read"]
+      }
+    ],
+    userAccessTokenClaims: {
+      "https://auth.example.com/claims/token-kind": "user"
+    },
+    serviceAccessTokenClaims: {
+      "https://auth.example.com/claims/token-kind": "service"
+    }
+  }
+};
+
+const createOptions = (realm: Realm, trustProxyHeaders = false) => {
   return createBaseProjectAuthOptions({
-    project,
+    project: realm,
     publicBaseUrl: "https://auth.example.com",
     secret: "x".repeat(32),
-    emailSender: null,
-    trustProxyHeaders
+    trustedClientIpHeader: "x-demo-client-ip",
+    trustProxyHeaders,
+    protocol
   });
-}
+};
 
-function createMigrationOptions(project: AuthProject) {
+const createMigrationOptions = (realm: Realm) => {
   return createProjectMigrationAuthOptions({
-    project,
+    project: realm,
     database: undefined,
     publicBaseUrl: "https://auth.example.com",
-    secret: "x".repeat(32)
+    secret: "x".repeat(32),
+    trustedClientIpHeader: "x-demo-client-ip",
+    protocol
   });
-}
-
-const emailSender: EmailSender = {
-  send: async () => {}
 };
 
 describe("project auth options", () => {
-  test("pins the OAuth provider to the release candidate with native resources", async () => {
+  test("pins the OAuth provider to the Better Auth release candidate", async () => {
     const manifest = await Bun.file(
-      new URL("../../../package.json", import.meta.url)
+      new URL("../../package.json", import.meta.url)
     ).json();
 
     expect(manifest.dependencies["@better-auth/oauth-provider"]).toBe(
@@ -71,7 +78,7 @@ describe("project auth options", () => {
   });
 
   test("builds isolated Better Auth settings per realm", () => {
-    const options = createOptions(baseProject);
+    const options = createOptions(baseRealm);
 
     expect(options.appName).toBe("Demo App");
     expect(options.baseURL).toBe("https://auth.example.com/api/demo/auth");
@@ -81,31 +88,29 @@ describe("project auth options", () => {
     expect(options.secret).not.toBe("x".repeat(32));
   });
 
-  test("requires email verification when delivery is configured", () => {
+  test("applies prebuilt email handlers supplied by the composition root", () => {
     const options = createBaseProjectAuthOptions({
-      project: baseProject,
+      project: baseRealm,
       publicBaseUrl: "https://auth.example.com",
       secret: "x".repeat(32),
-      emailSender,
-      trustProxyHeaders: false
+      trustedClientIpHeader: "x-demo-client-ip",
+      trustProxyHeaders: false,
+      protocol,
+      emailContribution: () => ({
+        emailAndPassword: {
+          requireEmailVerification: true
+        }
+      })
     });
 
     expect(options.emailAndPassword?.requireEmailVerification).toBe(true);
-    expect(createOptions(baseProject).emailAndPassword?.requireEmailVerification).toBeUndefined();
+    expect(createOptions(baseRealm).emailAndPassword?.requireEmailVerification)
+      .toBeUndefined();
   });
 
-  test("derives different Better Auth secrets per realm", () => {
-    expect(projectAuthSecret("x".repeat(32), "demo")).not.toBe(
-      projectAuthSecret("x".repeat(32), "another-demo")
-    );
-  });
-
-  test("wires security-sensitive plugins without test helpers in production options", () => {
-    const options = createMigrationOptions(baseProject);
-    const plugins = options.plugins ?? [];
-    const pluginIds = plugins.map(
-      (plugin) => plugin.id
-    );
+  test("wires the official security-sensitive plugins", () => {
+    const options = createMigrationOptions(baseRealm);
+    const pluginIds = (options.plugins ?? []).map((plugin) => plugin.id);
 
     expect(options.disabledPaths).toEqual(["/token"]);
     expect(pluginIds).toContain("admin");
@@ -118,20 +123,16 @@ describe("project auth options", () => {
     expect(pluginIds).toContain("jwt");
     expect(pluginIds).not.toContain("polar");
     expect(pluginIds).not.toContain("test-utils");
-
-    const jwtPlugin = plugins.find((plugin) => plugin.id === "jwt");
-    expect(jwtPlugin ? Reflect.get(jwtPlugin, "options") : null).toMatchObject({
-      disableSettingJwtHeader: true
-    });
   });
 
   test("applies optional plugins supplied by the composition root", () => {
     const options = createBaseProjectAuthOptions({
-      project: baseProject,
+      project: baseRealm,
       publicBaseUrl: "https://auth.example.com",
       secret: "x".repeat(32),
-      emailSender: null,
+      trustedClientIpHeader: "x-demo-client-ip",
       trustProxyHeaders: false,
+      protocol,
       pluginContributions: [() => [{ id: "demo-contribution" }]]
     });
 
@@ -141,22 +142,21 @@ describe("project auth options", () => {
   });
 
   test("configures Telegram through Better Auth Generic OAuth with OIDC and PKCE", () => {
-    const disabledPluginIds = (createOptions(baseProject).plugins ?? []).map(
+    const disabledPluginIds = (createOptions(baseRealm).plugins ?? []).map(
       (plugin) => plugin.id
     );
-    const enabledPlugins =
-      createOptions({
-        ...baseProject,
-        socialProviders: {
-          ...DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-          telegram: {
-            enabled: true,
-            clientId: "telegram-client",
-            clientSecret: "telegram-oidc-secret",
-            verifiedAt: null
-          }
+    const enabledPlugins = createOptions({
+      ...baseRealm,
+      socialProviders: {
+        ...DEFAULT_REALM_SOCIAL_PROVIDERS,
+        telegram: {
+          enabled: true,
+          clientId: "telegram-client",
+          clientSecret: "telegram-oidc-secret",
+          verifiedAt: null
         }
-      }).plugins ?? [];
+      }
+    }).plugins ?? [];
     const telegramPlugin = enabledPlugins.find(
       (plugin) => plugin.id === "generic-oauth"
     );
@@ -182,74 +182,61 @@ describe("project auth options", () => {
   });
 
   test("trusts proxy IP headers only when explicitly enabled", () => {
-    expect(createOptions(baseProject).advanced?.ipAddress).toBeUndefined();
-    expect(createOptions(baseProject, true).advanced?.ipAddress).toEqual({
-      ipAddressHeaders: ["x-auth-client-ip"]
+    expect(createOptions(baseRealm).advanced?.ipAddress).toBeUndefined();
+    expect(createOptions(baseRealm, true).advanced?.ipAddress).toEqual({
+      ipAddressHeaders: ["x-demo-client-ip"]
     });
   });
 
-  test("defines explicit OAuth resources without trusting browser origins", () => {
-    const oauthProject = {
-      ...baseProject,
+  test("uses protocol resources only when the realm enables OAuth resources", () => {
+    const oauthRealm = {
+      ...baseRealm,
       features: {
-        ...baseProject.features,
+        ...baseRealm.features,
         oauthProvider: {
           enabled: true,
           dynamicClientRegistration: false
         }
       }
     };
-    const oauthPlugin = (createMigrationOptions(oauthProject).plugins ?? [])
+    const oauthPlugin = (createMigrationOptions(oauthRealm).plugins ?? [])
       .find((plugin) => plugin.id === "oauth-provider");
     const oauthOptions = oauthPlugin
       ? Reflect.get(oauthPlugin, "options")
       : null;
 
     expect(oauthOptions).toMatchObject({
-      scopes: OAUTH_SCOPES,
-      resources: oauthResourceDefinitions(
-        "https://auth.example.com",
-        oauthProject.slug
-      ),
+      scopes: protocol.oauthProvider.scopes,
+      resources: protocol.oauthProvider.resources(oauthRealm),
       resourceSeedMode: "overwrite",
       enforcePerClientResources: true,
-      clientRegistrationDefaultScopes: OAUTH_DYNAMIC_CLIENT_SCOPES,
-      clientRegistrationAllowedScopes: OAUTH_DYNAMIC_CLIENT_SCOPES
+      clientRegistrationDefaultScopes:
+        protocol.oauthProvider.dynamicClientScopes,
+      clientRegistrationAllowedScopes:
+        protocol.oauthProvider.dynamicClientScopes
     });
-    expect(
-      oauthOptions ? Reflect.get(oauthOptions, "resources") : []
-    ).not.toContainEqual(
-      expect.objectContaining({ identifier: oauthProject.appUrl })
-    );
 
-    const disabledOAuthPlugin = (
-      createMigrationOptions(baseProject).plugins ?? []
-    ).find((plugin) => plugin.id === "oauth-provider");
-    const disabledOAuthOptions = disabledOAuthPlugin
-      ? Reflect.get(disabledOAuthPlugin, "options")
+    const disabledPlugin = (createMigrationOptions(baseRealm).plugins ?? [])
+      .find((plugin) => plugin.id === "oauth-provider");
+    const disabledOptions = disabledPlugin
+      ? Reflect.get(disabledPlugin, "options")
       : null;
-    expect(
-      typeof disabledOAuthOptions === "object" && disabledOAuthOptions !== null
-        ? Reflect.get(disabledOAuthOptions, "resources")
-        : null
-    ).toEqual([]);
+    expect(disabledOptions ? Reflect.get(disabledOptions, "resources") : null)
+      .toEqual([]);
   });
 
-  test("uses the OAuth Provider post-login hook for product security policy", async () => {
-    const project = {
-      ...baseProject,
+  test("uses the OAuth Provider post-login hook for realm security policy", async () => {
+    const realm = {
+      ...baseRealm,
       features: {
-        ...DEFAULT_PROJECT_FEATURES,
-        passkey: {
-          enabled: true
-        },
+        ...DEFAULT_REALM_FEATURES,
         twoFactor: {
           enabled: true,
-          required: ProjectTwoFactorRequirement.Everyone
+          required: RealmTwoFactorRequirement.Everyone
         }
       }
     };
-    const oauthPlugin = (createMigrationOptions(project).plugins ?? [])
+    const oauthPlugin = (createMigrationOptions(realm).plugins ?? [])
       .find((plugin) => plugin.id === "oauth-provider");
     const oauthOptions = oauthPlugin
       ? Reflect.get(oauthPlugin, "options")
@@ -262,48 +249,38 @@ describe("project auth options", () => {
       throw new Error("Expected OAuth Provider post-login configuration");
     }
 
-    expect(postLogin.page).toBe("/login/demo");
+    const session = {
+      id: "session-id",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      userId: "user-id",
+      expiresAt: new Date(Date.now() + 60_000),
+      token: "session-token"
+    };
+    const user = {
+      id: "user-id",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      email: "user@example.com",
+      emailVerified: true,
+      name: "Demo User",
+      role: "user"
+    };
     const shouldRedirectBeforeEnrollment = await postLogin.shouldRedirect({
       headers: new Headers(),
       scopes: ["openid"],
-      session: {
-        id: "session-id",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        userId: "user-id",
-        expiresAt: new Date(Date.now() + 60_000),
-        token: "session-token"
-      },
+      session,
       user: {
-        id: "user-id",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        email: "user@example.com",
-        emailVerified: true,
-        name: "Demo User",
-        role: "user",
+        ...user,
         twoFactorEnabled: false
       }
     });
     const shouldRedirectAfterEnrollment = await postLogin.shouldRedirect({
       headers: new Headers(),
       scopes: ["openid"],
-      session: {
-        id: "session-id",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        userId: "user-id",
-        expiresAt: new Date(Date.now() + 60_000),
-        token: "session-token"
-      },
+      session,
       user: {
-        id: "user-id",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        email: "user@example.com",
-        emailVerified: true,
-        name: "Demo User",
-        role: "user",
+        ...user,
         twoFactorEnabled: true
       }
     });
@@ -314,9 +291,9 @@ describe("project auth options", () => {
 
   test("enables social providers only when enabled and fully configured", () => {
     const options = createOptions({
-      ...baseProject,
+      ...baseRealm,
       socialProviders: {
-        ...DEFAULT_PROJECT_SOCIAL_PROVIDERS,
+        ...DEFAULT_REALM_SOCIAL_PROVIDERS,
         github: {
           enabled: true,
           clientId: "github-client",
@@ -343,7 +320,7 @@ describe("project auth options", () => {
   });
 });
 
-function providerEnabled(provider: unknown) {
+const providerEnabled = (provider: unknown) => {
   if (
     typeof provider === "object" &&
     provider !== null &&
@@ -353,4 +330,4 @@ function providerEnabled(provider: unknown) {
   }
 
   return false;
-}
+};

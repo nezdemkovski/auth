@@ -50,11 +50,11 @@ const createRegisteredProject = (
       handledPaths.push(new URL(request.url).pathname);
       return Response.json({ ok: true });
     },
+    authorizationServerMetadata: async () => Response.json({ ok: true }),
+    openIdConfiguration: async () => Response.json({ ok: true }),
     api: {
       getSession: async () => session,
-      getAgentConfiguration: async () => ({ ok: true }),
-      getOAuthServerConfig: () => ({ ok: true }),
-      getOpenIdConfig: () => ({ ok: true })
+      getAgentConfiguration: async () => ({ ok: true })
     }
   }
 });

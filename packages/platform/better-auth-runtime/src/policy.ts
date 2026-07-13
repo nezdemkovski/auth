@@ -1,8 +1,9 @@
 import {
-  AuthUserRole,
-  ProjectTwoFactorRequirement,
-  type AuthProject
-} from "../config/projects";
+  RealmTwoFactorRequirement,
+  type Realm
+} from "@nezdemkovski/auth-realm";
+
+import { AuthUserRole } from "./model";
 
 type PolicyUser = {
   id?: string;
@@ -11,12 +12,12 @@ type PolicyUser = {
 };
 
 export const mustEnrollTwoFactor = (
-  policy: AuthProject["features"]["twoFactor"],
+  policy: Realm["features"]["twoFactor"],
   user: PolicyUser | null
 ) => {
   if (
     !policy.enabled ||
-    policy.required === ProjectTwoFactorRequirement.Optional ||
+    policy.required === RealmTwoFactorRequirement.Optional ||
     user?.twoFactorEnabled
   ) {
     return false;
@@ -26,37 +27,37 @@ export const mustEnrollTwoFactor = (
 };
 
 export const twoFactorRequiredForUser = (
-  policy: AuthProject["features"]["twoFactor"],
+  policy: Realm["features"]["twoFactor"],
   user: PolicyUser | null
 ) => {
   if (
     !policy.enabled ||
-    policy.required === ProjectTwoFactorRequirement.Optional
+    policy.required === RealmTwoFactorRequirement.Optional
   ) {
     return false;
   }
 
-  if (policy.required === ProjectTwoFactorRequirement.Everyone) {
+  if (policy.required === RealmTwoFactorRequirement.Everyone) {
     return true;
   }
 
   return (
-    policy.required === ProjectTwoFactorRequirement.Admins &&
+    policy.required === RealmTwoFactorRequirement.Admins &&
     user?.role === AuthUserRole.Admin
   );
 };
 
 export const projectSessionSatisfiesPolicy = (
-  project: Pick<AuthProject, "features">,
+  project: Pick<Realm, "features">,
   user: PolicyUser
 ) => {
   return !mustEnrollTwoFactor(project.features.twoFactor, user);
 };
 
-export const socialSignInAllowed = (project: Pick<AuthProject, "features">) => {
+export const socialSignInAllowed = (project: Pick<Realm, "features">) => {
   const policy = project.features.twoFactor;
   return (
     !policy.enabled ||
-    policy.required === ProjectTwoFactorRequirement.Optional
+    policy.required === RealmTwoFactorRequirement.Optional
   );
 };

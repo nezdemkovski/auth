@@ -10,7 +10,7 @@ import {
 import {
   mustEnrollTwoFactor,
   socialSignInAllowed
-} from "../../auth/policy";
+} from "@nezdemkovski/auth-better-auth-runtime";
 
 export enum LoginPage {
   Login = "login",

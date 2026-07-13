@@ -45,6 +45,7 @@
         "@better-auth/drizzle-adapter": "1.7.0-rc.1",
         "@better-auth/oauth-provider": "1.7.0-rc.1",
         "@better-auth/passkey": "1.7.0-rc.1",
+        "@nezdemkovski/auth-better-auth-runtime": "workspace:*",
         "@nezdemkovski/auth-billing": "workspace:*",
         "@nezdemkovski/auth-contracts": "workspace:*",
         "@nezdemkovski/auth-delivery": "workspace:*",
@@ -186,6 +187,21 @@
       },
       "devDependencies": {
         "@types/pg": "8.20.0",
+      },
+    },
+    "packages/platform/better-auth-runtime": {
+      "name": "@nezdemkovski/auth-better-auth-runtime",
+      "version": "0.0.0",
+      "dependencies": {
+        "@better-auth/agent-auth": "0.6.2",
+        "@better-auth/oauth-provider": "1.7.0-rc.1",
+        "@better-auth/passkey": "1.7.0-rc.1",
+        "@nezdemkovski/auth-platform-crypto": "workspace:*",
+        "@nezdemkovski/auth-realm": "workspace:*",
+        "better-auth": "1.7.0-rc.1",
+        "drizzle-orm": "1.0.0-rc.4",
+        "jose": "6.2.3",
+        "pg": "8.21.0",
       },
     },
     "packages/ui": {
@@ -514,6 +530,8 @@
     "@nezdemkovski/auth-admin": ["@nezdemkovski/auth-admin@workspace:apps/admin"],
 
     "@nezdemkovski/auth-api": ["@nezdemkovski/auth-api@workspace:apps/api"],
+
+    "@nezdemkovski/auth-better-auth-runtime": ["@nezdemkovski/auth-better-auth-runtime@workspace:packages/platform/better-auth-runtime"],
 
     "@nezdemkovski/auth-billing": ["@nezdemkovski/auth-billing@workspace:packages/domains/billing"],
 

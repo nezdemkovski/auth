@@ -1,4 +1,4 @@
-import { projectSessionSatisfiesPolicy } from "../auth/policy";
+import { projectSessionSatisfiesPolicy } from "@nezdemkovski/auth-better-auth-runtime";
 import type { AuthProject } from "../config/projects";
 import { ErrorCode } from "../runtime/error-codes";
 

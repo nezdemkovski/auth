@@ -2,6 +2,7 @@ import { getMigrations } from "better-auth/db/migration";
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, type PoolClient } from "pg";
+import { createProjectDatabase } from "@nezdemkovski/auth-better-auth-runtime";
 import {
   ensureDeliverySettingsTable,
   seedDeliverySettingsFromEnv,
@@ -28,7 +29,6 @@ import {
   createProjectAuth,
   createProjectMigrationAuthOptions
 } from "../auth/project-auth";
-import { createProjectDatabase } from "./project-db";
 
 type BootstrapOptions = {
   databaseUrl: string;

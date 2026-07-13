@@ -116,6 +116,10 @@
 
 ## Done
 
+- Per-realm Better Auth construction, lifecycle registry, auth policy,
+  Telegram OIDC, project database setup, OAuth metadata, and DPoP verification
+  extracted into private compiled `@nezdemkovski/auth-better-auth-runtime`;
+  delivery and billing enter only through app-owned composition functions.
 - Realm metadata, feature policy, social-provider configuration, validation,
   and persistence extracted into private compiled `@nezdemkovski/auth-realm`;
   app-level project responses still compose billing and storage explicitly.

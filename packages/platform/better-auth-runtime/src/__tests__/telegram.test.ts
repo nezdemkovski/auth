@@ -6,7 +6,7 @@ import {
   createTelegramOidcPlugin,
   TELEGRAM_OIDC_ISSUER,
   telegramOidcUser
-} from "../telegram";
+} from "../index";
 
 describe("Telegram OIDC", () => {
   test("uses the official discovery document with PKCE and confidential client auth", () => {
@@ -59,9 +59,11 @@ describe("Telegram OIDC", () => {
     const invalidSignature = await telegramIdToken(attacker.privateKey, {
       sub: "attacker"
     });
-    const invalidAudience = await telegramIdToken(trusted.privateKey, {
-      sub: "wrong-audience"
-    }, "different-client");
+    const invalidAudience = await telegramIdToken(
+      trusted.privateKey,
+      { sub: "wrong-audience" },
+      "different-client"
+    );
     const verification = createTelegramIdTokenVerification(
       "telegram-client",
       async () => trusted.publicKey

@@ -48,7 +48,7 @@
       },
       "platform": {
         "dependencies": {
-          "allow": ["foundation", "public"]
+          "allow": ["domain", "foundation", "public"]
         }
       },
       "public": {

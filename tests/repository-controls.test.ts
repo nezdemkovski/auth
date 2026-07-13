@@ -100,6 +100,9 @@ describe("repository security controls", () => {
   test("enforces an acyclic modular workspace dependency policy", async () => {
     const rootManifest = await Bun.file(rootFile("package.json")).json();
     const turbo = await Bun.file(rootFile("turbo.json")).json();
+    const authRuntimeManifest = await Bun.file(
+      rootFile("packages/platform/better-auth-runtime/package.json")
+    ).json();
     const packageTags = new Map([
       ["apps/admin", "app"],
       ["apps/api", "app"],
@@ -115,6 +118,7 @@ describe("repository security controls", () => {
       ["packages/domains/storage", "domain"],
       ["packages/foundation/platform-crypto", "foundation"],
       ["packages/foundation/platform-database", "foundation"],
+      ["packages/platform/better-auth-runtime", "platform"],
       ["packages/ui", "frontend"]
     ]);
 
@@ -127,6 +131,22 @@ describe("repository security controls", () => {
       "public"
     ]);
     expect(turbo.boundaries.tags.public.dependencies.allow).toEqual(["public"]);
+    expect(turbo.boundaries.tags.platform.dependencies.allow).toEqual([
+      "domain",
+      "foundation",
+      "public"
+    ]);
+    expect(authRuntimeManifest.dependencies["@nezdemkovski/auth-realm"]).toBe(
+      "workspace:*"
+    );
+    for (const capability of [
+      "@nezdemkovski/auth-billing",
+      "@nezdemkovski/auth-delivery",
+      "@nezdemkovski/auth-observability",
+      "@nezdemkovski/auth-storage"
+    ]) {
+      expect(authRuntimeManifest.dependencies[capability]).toBeUndefined();
+    }
 
     for (const [path, tag] of packageTags) {
       const packageTurbo = await Bun.file(rootFile(`${path}/turbo.json`)).json();
@@ -141,7 +161,8 @@ describe("repository security controls", () => {
       "packages/domains/realm",
       "packages/domains/storage",
       "packages/foundation/platform-crypto",
-      "packages/foundation/platform-database"
+      "packages/foundation/platform-database",
+      "packages/platform/better-auth-runtime"
     ]) {
       const manifest = await Bun.file(rootFile(`${path}/package.json`)).json();
       expect(manifest.private).toBe(true);

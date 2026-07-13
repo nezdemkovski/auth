@@ -358,22 +358,22 @@ Migrate one domain at a time and keep every move behavior-preserving.
   combines realm, billing, storage, delivery, and observability state.
 - [ ] Extract identity administration around Better Auth-owned user/session
   data without copying Better Auth models into a parallel domain model.
-- [ ] Extract per-realm Better Auth construction, policy, registry, Telegram
+- [x] Extract per-realm Better Auth construction, policy, registry, Telegram
   OIDC configuration, and plugin composition into the Better Auth runtime
   package.
-- [ ] Pass delivery, observability, billing, and storage contributions as ports
+- [x] Pass delivery, observability, billing, and storage contributions as ports
   or composition inputs; the runtime package must not import those domains.
 - [ ] Extract OAuth protected-resource verification and metadata into the
   platform OAuth resource package.
-- [ ] Keep login, auth proxy, and consent Hono routes as API composition over
+- [x] Keep login, auth proxy, and consent Hono routes as API composition over
   official Better Auth handlers.
 
 ### Phase 6 exit gate
 
-- [ ] Better Auth runtime knows protocol and realm policy but no business
+- [x] Better Auth runtime knows protocol and realm policy but no business
   capability implementation.
 - [x] Realm knows base configuration but does not load sibling domain stores.
-- [ ] No central Better Auth cookie or custom token state machine reappears.
+- [x] No central Better Auth cookie or custom token state machine reappears.
 
 ## Phase 7: Reorganize Frontend Features
 

@@ -23,6 +23,7 @@ import {
   DEFAULT_PROJECT_STORAGE,
   type ProjectStorageSettings
 } from "@nezdemkovski/auth-storage";
+export { AuthUserRole } from "@nezdemkovski/auth-better-auth-runtime";
 
 export type AuthProject = Realm & {
   billing: ProjectBillingSettings;
@@ -37,11 +38,6 @@ export {
   RealmAgentAuthMode as ProjectAgentAuthMode,
   RealmTwoFactorRequirement as ProjectTwoFactorRequirement
 };
-
-export enum AuthUserRole {
-  Admin = "admin",
-  User = "user"
-}
 
 export const DEFAULT_PROJECT_FEATURES = DEFAULT_REALM_FEATURES;
 export const DEFAULT_PROJECT_SOCIAL_PROVIDERS = DEFAULT_REALM_SOCIAL_PROVIDERS;

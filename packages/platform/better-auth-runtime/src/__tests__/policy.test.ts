@@ -1,23 +1,23 @@
 import { describe, expect, test } from "bun:test";
+import {
+  DEFAULT_REALM_FEATURES,
+  RealmTwoFactorRequirement
+} from "@nezdemkovski/auth-realm";
 
 import {
   AuthUserRole,
-  DEFAULT_PROJECT_FEATURES,
-  ProjectTwoFactorRequirement
-} from "../../config/projects";
-import {
   projectSessionSatisfiesPolicy,
   socialSignInAllowed
-} from "../policy";
+} from "../index";
 
 describe("realm authentication policy", () => {
   test("blocks unenrolled sessions when two-factor is required", () => {
     const project = {
       features: {
-        ...DEFAULT_PROJECT_FEATURES,
+        ...DEFAULT_REALM_FEATURES,
         twoFactor: {
           enabled: true,
-          required: ProjectTwoFactorRequirement.Everyone
+          required: RealmTwoFactorRequirement.Everyone
         }
       }
     };
@@ -40,14 +40,14 @@ describe("realm authentication policy", () => {
     expect(
       socialSignInAllowed({
         features: {
-          ...DEFAULT_PROJECT_FEATURES,
+          ...DEFAULT_REALM_FEATURES,
           twoFactor: {
             enabled: true,
-            required: ProjectTwoFactorRequirement.Admins
+            required: RealmTwoFactorRequirement.Admins
           }
         }
       })
     ).toBe(false);
-    expect(socialSignInAllowed({ features: DEFAULT_PROJECT_FEATURES })).toBe(true);
+    expect(socialSignInAllowed({ features: DEFAULT_REALM_FEATURES })).toBe(true);
   });
 });

@@ -1,8 +1,5 @@
 import type { ResourceServerMetadata } from "@better-auth/oauth-provider";
-import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resource-client";
 import {
-  createDpopReplayStore,
-  verifyAccessTokenRequest,
   type ResourceRequestInput
 } from "better-auth/oauth2";
 
@@ -52,11 +49,7 @@ export const readOAuthResourceMetadata = async (
   options: OAuthResourceOptions
 ): Promise<ResourceServerMetadata> => {
   const registered = requireOAuthProject(options);
-  const { getProtectedResourceMetadata } = oauthProviderResourceClient(
-    registered.auth
-  ).getActions();
-
-  return getProtectedResourceMetadata({
+  return registered.auth.getProtectedResourceMetadata({
     resource: oauthResourceIdentifier(
       options.publicBaseUrl,
       registered.project.slug,
@@ -127,18 +120,15 @@ const verifyOAuthResource = async (
   );
 
   try {
-    const authContext = await registered.auth.$context;
-    const claims = await verifyAccessTokenRequest(options.request, {
+    const claims = await registered.auth.verifyAccessTokenRequest(
+      options.request,
+      {
       jwksUrl: `${options.publicBaseUrl}/api/${options.projectSlug}/.well-known/jwks.json`,
-      verifyOptions: {
-        issuer: `${options.publicBaseUrl}/api/${options.projectSlug}`,
-        audience: identifier
-      },
-      scopes: options.scopes,
-      dpop: {
-        replayStore: createDpopReplayStore(authContext.internalAdapter)
+      issuer: `${options.publicBaseUrl}/api/${options.projectSlug}`,
+      audience: identifier,
+      scopes: options.scopes
       }
-    });
+    );
 
     return { registered, claims };
   } catch (error) {

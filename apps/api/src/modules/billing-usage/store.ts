@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { authUsers } from "../../db/auth-tables";
-import type { ProjectDatabase } from "../../db/project-db";
+import type { ProjectDatabase } from "@nezdemkovski/auth-better-auth-runtime";
 
 export const createBillingSubjectDirectory = (projectDb: ProjectDatabase) => ({
   exists: async (subject: string) => {

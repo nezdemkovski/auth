@@ -1,5 +1,5 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
-import { projectSessionSatisfiesPolicy } from "../../auth/policy";
+import { projectSessionSatisfiesPolicy } from "@nezdemkovski/auth-better-auth-runtime";
 import {
   ADMIN_PROJECT_SLUG,
   AuthUserRole,

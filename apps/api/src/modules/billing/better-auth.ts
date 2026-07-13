@@ -6,14 +6,15 @@ import {
 } from "@nezdemkovski/auth-billing";
 import { checkout, polar, portal, usage, webhooks } from "@polar-sh/better-auth";
 import { Polar } from "@polar-sh/sdk";
+import type { ProjectAuthPluginContribution } from "@nezdemkovski/auth-better-auth-runtime";
 
-import type { ProjectAuthPluginContribution } from "../../auth/project-auth";
+import type { AuthProject } from "../../config/projects";
 import { logInfo, logWarn } from "../../runtime/logger";
 
 export const createBillingAuthPluginContribution = (options: {
   entitlements: PolarEntitlementGrantStore;
   webhooks: PolarWebhookStore;
-}): ProjectAuthPluginContribution => {
+}): ProjectAuthPluginContribution<AuthProject> => {
   return (project) => {
     const settings = project.billing;
     const products = settings.products

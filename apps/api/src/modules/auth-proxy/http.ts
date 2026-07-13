@@ -1,7 +1,3 @@
-import {
-  oauthProviderAuthServerMetadata,
-  oauthProviderOpenIdConfigMetadata
-} from "@better-auth/oauth-provider";
 import type { Env, Hono } from "hono";
 import { cors } from "hono/cors";
 import { BillingProvider } from "@nezdemkovski/auth-billing";
@@ -14,7 +10,7 @@ import {
   projectSessionSatisfiesPolicy,
   socialSignInAllowed,
   twoFactorRequiredForUser
-} from "../../auth/policy";
+} from "@nezdemkovski/auth-better-auth-runtime";
 
 export type AuthProxyRegistry = {
   get(slug: string): AuthProxyRegisteredProject | null;
@@ -25,11 +21,11 @@ export type AuthProxyRegisteredProject = {
   project: AuthProject;
   auth: {
     handler(request: Request): Promise<Response>;
+    authorizationServerMetadata(request: Request): Promise<Response>;
+    openIdConfiguration(request: Request): Promise<Response>;
     api: {
       getSession(input: { headers: Headers }): Promise<unknown>;
       getAgentConfiguration(input: { headers: Headers }): Promise<unknown>;
-      getOAuthServerConfig(input: unknown): unknown;
-      getOpenIdConfig(input: unknown): unknown;
     };
   };
 };
@@ -65,7 +61,7 @@ export const registerAuthProxyRoutes = <TEnv extends Env>(app: Hono<TEnv>, optio
       return c.notFound();
     }
 
-    return oauthProviderAuthServerMetadata(registered.auth)(c.req.raw);
+    return registered.auth.authorizationServerMetadata(c.req.raw);
   });
 
   app.get("/api/:project/.well-known/openid-configuration", (c) => {
@@ -74,7 +70,7 @@ export const registerAuthProxyRoutes = <TEnv extends Env>(app: Hono<TEnv>, optio
       return c.notFound();
     }
 
-    return oauthProviderOpenIdConfigMetadata(registered.auth)(c.req.raw);
+    return registered.auth.openIdConfiguration(c.req.raw);
   });
 
   app.get("/api/:project/.well-known/agent-configuration", async (c) => {
