@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 import { DEFAULT_PROJECT_BILLING } from "@nezdemkovski/auth-billing";
+import { SocialProvider } from "@nezdemkovski/auth-realm";
 
 import {
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS
 } from "../../../config/projects";
-import { SocialProvider } from "../../../config/social-providers";
 import {
   LoginMode,
   LoginNextAction,

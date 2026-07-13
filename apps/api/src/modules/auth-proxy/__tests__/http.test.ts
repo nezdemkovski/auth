@@ -6,6 +6,7 @@ import {
   BillingProvider,
   DEFAULT_PROJECT_BILLING
 } from "@nezdemkovski/auth-billing";
+import { SocialProvider } from "@nezdemkovski/auth-realm";
 
 import {
   ADMIN_PROJECT,
@@ -15,7 +16,6 @@ import {
   ProjectTwoFactorRequirement,
   type AuthProject
 } from "../../../config/projects";
-import { SocialProvider } from "../../../config/social-providers";
 import { ErrorCode } from "../../../runtime/error-codes";
 import {
   registerAuthProxyRoutes,

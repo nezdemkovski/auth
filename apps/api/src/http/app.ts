@@ -16,6 +16,7 @@ import {
   createPolarEntitlementGrantStore,
   createPolarWebhookStore
 } from "@nezdemkovski/auth-billing";
+import { updateRealmIconUrl } from "@nezdemkovski/auth-realm";
 
 import { registerLoginRoutes } from "../modules/login/http";
 import { registerAuthProxyRoutes } from "../modules/auth-proxy/http";
@@ -31,7 +32,6 @@ import { registerOAuthResourceRoutes } from "../modules/oauth-resource/http";
 import { createOAuthResourceAuthorizer } from "../modules/oauth-resource/authorizer";
 import { createBillingAuthPluginContribution } from "../modules/billing/better-auth";
 import { loadEffectiveProjects } from "../application/project-catalog";
-import { updateProjectIconUrl } from "../modules/projects/store";
 import { MediaService } from "../modules/media/core";
 import { readUserImage, updateUserImage } from "../modules/users/store";
 import { ErrorCode } from "../runtime/error-codes";
@@ -138,7 +138,7 @@ export const createApp = async (env: Env) => {
     storage: storageService,
     realmIcons: {
       updateIcon: async (projectSlug, iconUrl) => {
-        const project = await updateProjectIconUrl({
+        const project = await updateRealmIconUrl({
           databaseUrl: env.databaseUrl,
           adminProject,
           adminDb,

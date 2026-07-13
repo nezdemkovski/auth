@@ -1,19 +1,23 @@
+import {
+  decryptSecretValue,
+  encryptSecretValue,
+  type AdminDatabaseOptions,
+  withAdminDb
+} from "@nezdemkovski/auth-platform-database";
 import { and, eq, sql } from "drizzle-orm";
 
 import {
-  DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  type AuthProject,
-  type ProjectSocialProviders
-} from "../../config/projects";
+  cloneDefaultSocialProviders,
+  type Realm,
+  type RealmSocialProviders
+} from "./model";
+import { realmSocialProviderSettings } from "./social-provider-tables";
 import {
   isSocialProviderConfigured,
   isSocialProviderId,
   SOCIAL_PROVIDER_IDS,
   type SocialProviderId
-} from "../../config/social-providers";
-import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
-import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
-import { socialProviderSettings } from "./social-provider-tables";
+} from "./social-providers";
 
 export type SocialProviderSummary = {
   provider: SocialProviderId;
@@ -29,7 +33,11 @@ export type SocialProviderPatch = {
   clientSecret?: string;
 };
 
-export const ensureSocialProviderSettingsTable = async (options: AdminDatabaseOptions) => {
+type RealmReference = Pick<Realm, "slug">;
+
+export const ensureRealmSocialProviderSettingsTable = async (
+  options: AdminDatabaseOptions
+) => {
   await withAdminDb(options, async ({ db }) => {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS auth_social_provider_settings (
@@ -47,19 +55,19 @@ export const ensureSocialProviderSettingsTable = async (options: AdminDatabaseOp
   });
 };
 
-export const loadSocialProviderSettings = async (options: AdminDatabaseOptions & {
-  encryptionSecret: string;
-}) => {
+export const loadRealmSocialProviderSettings = async (
+  options: AdminDatabaseOptions & { encryptionSecret: string }
+) => {
   return withAdminDb(options, async ({ db }) => {
-    const rows = await db.select().from(socialProviderSettings);
+    const rows = await db.select().from(realmSocialProviderSettings);
 
-    const byProject = new Map<string, ProjectSocialProviders>();
+    const byRealm = new Map<string, RealmSocialProviders>();
     for (const row of rows) {
       if (!isSocialProviderId(row.provider)) {
         continue;
       }
 
-      const current = byProject.get(row.projectSlug) ?? cloneDefaultSocialProviders();
+      const current = byRealm.get(row.projectSlug) ?? cloneDefaultSocialProviders();
       current[row.provider] = {
         enabled: row.enabled,
         clientId: row.clientId,
@@ -71,21 +79,21 @@ export const loadSocialProviderSettings = async (options: AdminDatabaseOptions &
         ),
         verifiedAt: normalizeDate(row.verifiedAt)
       };
-      byProject.set(row.projectSlug, current);
+      byRealm.set(row.projectSlug, current);
     }
 
-    return byProject;
+    return byRealm;
   });
 };
 
-export const readProjectSocialProviders = async (options: AdminDatabaseOptions & {
-  project: AuthProject;
-}) => {
+export const readRealmSocialProviders = async (
+  options: AdminDatabaseOptions & { realm: RealmReference }
+) => {
   return withAdminDb(options, async ({ db }) => {
     const result = await db
       .select()
-      .from(socialProviderSettings)
-      .where(eq(socialProviderSettings.projectSlug, options.project.slug));
+      .from(realmSocialProviderSettings)
+      .where(eq(realmSocialProviderSettings.projectSlug, options.realm.slug));
     const rows = new Map(result.map((row) => [row.provider, row]));
 
     return SOCIAL_PROVIDER_IDS.map((provider) => {
@@ -105,19 +113,21 @@ export const readProjectSocialProviders = async (options: AdminDatabaseOptions &
   });
 };
 
-export const updateProjectSocialProvider = async (options: AdminDatabaseOptions & {
-  project: AuthProject;
-  provider: SocialProviderId;
-  patch: SocialProviderPatch;
-  encryptionSecret: string;
-}) => {
+export const updateRealmSocialProvider = async (
+  options: AdminDatabaseOptions & {
+    realm: RealmReference;
+    provider: SocialProviderId;
+    patch: SocialProviderPatch;
+    encryptionSecret: string;
+  }
+) => {
   const clientId = options.patch.clientId.trim();
   const secretCipher =
     options.patch.clientSecret !== undefined
       ? await encryptSocialProviderSecret(
           options.patch.clientSecret.trim(),
           options.encryptionSecret,
-          options.project.slug,
+          options.realm.slug,
           options.provider
         )
       : null;
@@ -125,9 +135,9 @@ export const updateProjectSocialProvider = async (options: AdminDatabaseOptions 
   await withAdminDb(options, async ({ db }) => {
     if (secretCipher === null) {
       await db
-        .insert(socialProviderSettings)
+        .insert(realmSocialProviderSettings)
         .values({
-          projectSlug: options.project.slug,
+          projectSlug: options.realm.slug,
           provider: options.provider,
           enabled: options.patch.enabled,
           clientId,
@@ -135,8 +145,8 @@ export const updateProjectSocialProvider = async (options: AdminDatabaseOptions 
         })
         .onConflictDoUpdate({
           target: [
-            socialProviderSettings.projectSlug,
-            socialProviderSettings.provider
+            realmSocialProviderSettings.projectSlug,
+            realmSocialProviderSettings.provider
           ],
           set: {
             enabled: options.patch.enabled,
@@ -145,11 +155,11 @@ export const updateProjectSocialProvider = async (options: AdminDatabaseOptions 
               CASE
                 WHEN EXCLUDED.enabled = true
                      AND (
-                       ${socialProviderSettings.enabled} = false
-                       OR ${socialProviderSettings.clientId} <> EXCLUDED.client_id
+                       ${realmSocialProviderSettings.enabled} = false
+                       OR ${realmSocialProviderSettings.clientId} <> EXCLUDED.client_id
                      )
                 THEN NULL
-                ELSE ${socialProviderSettings.verifiedAt}
+                ELSE ${realmSocialProviderSettings.verifiedAt}
               END
             `,
             updatedAt: sql`now()`
@@ -157,9 +167,9 @@ export const updateProjectSocialProvider = async (options: AdminDatabaseOptions 
         });
     } else {
       await db
-        .insert(socialProviderSettings)
+        .insert(realmSocialProviderSettings)
         .values({
-          projectSlug: options.project.slug,
+          projectSlug: options.realm.slug,
           provider: options.provider,
           enabled: options.patch.enabled,
           clientId,
@@ -168,8 +178,8 @@ export const updateProjectSocialProvider = async (options: AdminDatabaseOptions 
         })
         .onConflictDoUpdate({
           target: [
-            socialProviderSettings.projectSlug,
-            socialProviderSettings.provider
+            realmSocialProviderSettings.projectSlug,
+            realmSocialProviderSettings.provider
           ],
           set: {
             enabled: options.patch.enabled,
@@ -182,65 +192,75 @@ export const updateProjectSocialProvider = async (options: AdminDatabaseOptions 
     }
   });
 
-  return loadProjectSocialProviders({
+  return loadRealmSocialProviders({
     databaseUrl: options.databaseUrl,
     adminProject: options.adminProject,
     adminDb: options.adminDb,
-    project: options.project,
+    realm: options.realm,
     encryptionSecret: options.encryptionSecret
   });
 };
 
-export const markSocialProviderVerified = async (options: AdminDatabaseOptions & {
-  project: AuthProject;
-  provider: SocialProviderId;
-}) => {
+export const markRealmSocialProviderVerified = async (
+  options: AdminDatabaseOptions & {
+    realm: RealmReference;
+    provider: SocialProviderId;
+  }
+) => {
   await withAdminDb(options, async ({ db }) => {
     await db
-      .update(socialProviderSettings)
+      .update(realmSocialProviderSettings)
       .set({
         verifiedAt: sql`now()`,
         updatedAt: sql`now()`
       })
       .where(
         and(
-          eq(socialProviderSettings.projectSlug, options.project.slug),
-          eq(socialProviderSettings.provider, options.provider)
+          eq(realmSocialProviderSettings.projectSlug, options.realm.slug),
+          eq(realmSocialProviderSettings.provider, options.provider)
         )
       );
   });
 };
 
-export const loadProjectSocialProviders = async (options: AdminDatabaseOptions & {
-  project: AuthProject;
-  encryptionSecret: string;
-}) => {
-  const all = await loadSocialProviderSettings(options);
-  return all.get(options.project.slug) ?? cloneDefaultSocialProviders();
+export const loadRealmSocialProviders = async (
+  options: AdminDatabaseOptions & {
+    realm: RealmReference;
+    encryptionSecret: string;
+  }
+) => {
+  const all = await loadRealmSocialProviderSettings(options);
+  return all.get(options.realm.slug) ?? cloneDefaultSocialProviders();
 };
 
-export const cloneDefaultSocialProviders = () => {
-  return structuredClone(DEFAULT_PROJECT_SOCIAL_PROVIDERS);
-};
-
-export const encryptSocialProviderSecret = (value: string, secret: string, projectSlug: string, provider: SocialProviderId) => {
+export const encryptSocialProviderSecret = (
+  value: string,
+  secret: string,
+  realmSlug: string,
+  provider: SocialProviderId
+) => {
   if (!value) {
     return "";
   }
 
-  return encryptSecretValue(value, secret, encryptionContext(projectSlug, provider));
+  return encryptSecretValue(value, secret, encryptionContext(realmSlug, provider));
 };
 
-export const decryptSocialProviderSecret = (value: string, secret: string, projectSlug: string, provider: SocialProviderId) => {
+export const decryptSocialProviderSecret = (
+  value: string,
+  secret: string,
+  realmSlug: string,
+  provider: SocialProviderId
+) => {
   if (!value) {
     return "";
   }
 
-  return decryptSecretValue(value, secret, encryptionContext(projectSlug, provider));
+  return decryptSecretValue(value, secret, encryptionContext(realmSlug, provider));
 };
 
-const encryptionContext = (projectSlug: string, provider: string) => {
-  return `social-provider:${projectSlug}:${provider}`;
+const encryptionContext = (realmSlug: string, provider: string) => {
+  return `social-provider:${realmSlug}:${provider}`;
 };
 
 const normalizeDate = (value: Date | string | null | undefined) => {

@@ -209,7 +209,7 @@ Package API rules:
   port at route registration.
 - [x] Stop login HTTP code from importing the concrete observability service.
   Depend on a minimal reporter port.
-- [ ] Split `config/projects.ts` so billing, storage, observability, auth feature,
+- [x] Split `config/projects.ts` so billing, storage, observability, auth feature,
   and realm enums are owned by their closest stable package.
 - [ ] Stop database bootstrap from knowing domain table details. Each domain
   exports one migration/bootstrap entrypoint and the app composes them.
@@ -352,7 +352,7 @@ Migrate one domain at a time and keep every move behavior-preserving.
 
 ## Phase 6: Extract Realm, Identity, and Better Auth Runtime
 
-- [ ] Extract realm metadata and realm settings ownership from the current
+- [x] Extract realm metadata and realm settings ownership from the current
   project module.
 - [ ] Keep aggregate admin responses in an app-level query that explicitly
   combines realm, billing, storage, delivery, and observability state.
@@ -372,7 +372,7 @@ Migrate one domain at a time and keep every move behavior-preserving.
 
 - [ ] Better Auth runtime knows protocol and realm policy but no business
   capability implementation.
-- [ ] Realm knows base configuration but does not load sibling domain stores.
+- [x] Realm knows base configuration but does not load sibling domain stores.
 - [ ] No central Better Auth cookie or custom token state machine reappears.
 
 ## Phase 7: Reorganize Frontend Features

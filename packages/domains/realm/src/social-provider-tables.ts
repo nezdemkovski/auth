@@ -1,6 +1,6 @@
 import { boolean, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
 
-export const socialProviderSettings = pgTable(
+export const realmSocialProviderSettings = pgTable(
   "auth_social_provider_settings",
   {
     projectSlug: text("project_slug").notNull(),

@@ -1,35 +1,35 @@
+import { isRecord } from "./guards";
 import {
-  DEFAULT_PROJECT_FEATURES,
-  ProjectAgentAuthMode,
-  ProjectTwoFactorRequirement,
-  type ProjectFeatures
-} from "../../config/projects";
-import { isRecord } from "../../runtime/type-guards";
+  RealmAgentAuthMode,
+  RealmTwoFactorRequirement,
+  cloneDefaultRealmFeatures,
+  type RealmFeatures
+} from "./model";
 import type { SocialProviderPatch } from "./social-provider-store";
 
-export type ProjectSettingsPatch = {
+export type RealmSettingsPatch = {
   name: string;
   description: string;
   iconUrl: string;
   appUrl: string;
   trustedOrigins: string[];
-  features: ProjectFeatures;
+  features: RealmFeatures;
 };
 
-export type ProjectSettingsCreate = Omit<ProjectSettingsPatch, "features"> & {
+export type RealmSettingsCreate = Omit<RealmSettingsPatch, "features"> & {
   slug: string;
-  features?: ProjectFeatures;
+  features?: RealmFeatures;
 };
 
-type ProjectCreateBody = Partial<Record<keyof ProjectSettingsCreate, unknown>>;
-type ProjectSettingsBody = Partial<Record<keyof ProjectSettingsPatch, unknown>>;
+type RealmCreateBody = Partial<Record<keyof RealmSettingsCreate, unknown>>;
+type RealmSettingsBody = Partial<Record<keyof RealmSettingsPatch, unknown>>;
 type SocialProviderBody = {
   enabled?: unknown;
   clientId?: unknown;
   clientSecret?: unknown;
 };
 
-export const parseProjectCreate = (body: ProjectCreateBody) => {
+export const parseRealmCreate = (body: RealmCreateBody) => {
   if (
     typeof body.slug !== "string" ||
     typeof body.name !== "string" ||
@@ -49,11 +49,11 @@ export const parseProjectCreate = (body: ProjectCreateBody) => {
     iconUrl: body.iconUrl.trim(),
     appUrl: body.appUrl.trim(),
     trustedOrigins: body.trustedOrigins.map((origin) => origin.trim()).filter(Boolean),
-    features: normalizeProjectFeatures(body.features)
+    features: normalizeRealmFeatures(body.features)
   };
 };
 
-export const parseProjectSettingsPatch = (body: ProjectSettingsBody) => {
+export const parseRealmSettingsPatch = (body: RealmSettingsBody) => {
   if (
     typeof body.name !== "string" ||
     typeof body.description !== "string" ||
@@ -71,7 +71,7 @@ export const parseProjectSettingsPatch = (body: ProjectSettingsBody) => {
     iconUrl: body.iconUrl.trim(),
     appUrl: body.appUrl.trim(),
     trustedOrigins: body.trustedOrigins.map((origin) => origin.trim()).filter(Boolean),
-    features: normalizeProjectFeatures(body.features)
+    features: normalizeRealmFeatures(body.features)
   };
 };
 
@@ -92,7 +92,7 @@ export const parseSocialProviderPatch = (body: SocialProviderBody) => {
   return patch;
 };
 
-export const validateProjectSettingsPatch = (patch: ProjectSettingsPatch) => {
+export const validateRealmSettingsPatch = (patch: RealmSettingsPatch) => {
   if (patch.name.trim().length === 0) {
     throw new Error("Project name is required");
   }
@@ -110,9 +110,9 @@ export const validateProjectSettingsPatch = (patch: ProjectSettingsPatch) => {
   }
 };
 
-export const normalizeProjectFeatures = (value: unknown) => {
+export const normalizeRealmFeatures = (value: unknown) => {
   if (!isRecord(value)) {
-    return cloneDefaultFeatures();
+    return cloneDefaultRealmFeatures();
   }
 
   const passkey = isRecord(value.passkey) ? value.passkey : {};
@@ -132,19 +132,19 @@ export const normalizeProjectFeatures = (value: unknown) => {
     twoFactor: {
       enabled: typeof twoFactor.enabled === "boolean" ? twoFactor.enabled : false,
       required:
-        required === ProjectTwoFactorRequirement.Admins ||
-        required === ProjectTwoFactorRequirement.Everyone ||
-        required === ProjectTwoFactorRequirement.Optional
+        required === RealmTwoFactorRequirement.Admins ||
+        required === RealmTwoFactorRequirement.Everyone ||
+        required === RealmTwoFactorRequirement.Optional
           ? required
-          : ProjectTwoFactorRequirement.Optional
+          : RealmTwoFactorRequirement.Optional
     },
     agentAuth: {
       enabled: typeof agentAuth.enabled === "boolean" ? agentAuth.enabled : false,
       mode:
-        mode === ProjectAgentAuthMode.ScopedWrite ||
-        mode === ProjectAgentAuthMode.ReadOnly
+        mode === RealmAgentAuthMode.ScopedWrite ||
+        mode === RealmAgentAuthMode.ReadOnly
           ? mode
-          : ProjectAgentAuthMode.ReadOnly
+          : RealmAgentAuthMode.ReadOnly
     },
     oauthProvider: {
       enabled: oauthProviderEnabled,
@@ -181,21 +181,4 @@ const validateOrigin = (value: string) => {
   } catch {
     throw new Error(`Invalid trusted origin: ${value}`);
   }
-};
-
-const cloneDefaultFeatures = () => {
-  return {
-    passkey: {
-      ...DEFAULT_PROJECT_FEATURES.passkey
-    },
-    twoFactor: {
-      ...DEFAULT_PROJECT_FEATURES.twoFactor
-    },
-    agentAuth: {
-      ...DEFAULT_PROJECT_FEATURES.agentAuth
-    },
-    oauthProvider: {
-      ...DEFAULT_PROJECT_FEATURES.oauthProvider
-    }
-  };
 };

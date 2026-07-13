@@ -116,6 +116,9 @@
 
 ## Done
 
+- Realm metadata, feature policy, social-provider configuration, validation,
+  and persistence extracted into private compiled `@nezdemkovski/auth-realm`;
+  app-level project responses still compose billing and storage explicitly.
 - Billing and entitlements extracted into private compiled
   `@nezdemkovski/auth-billing`: Polar settings and webhooks, product mapping,
   grants, quota usage and reservations live behind explicit ports without

@@ -15,6 +15,10 @@ import {
 import {
   ensureBillingTables
 } from "@nezdemkovski/auth-billing";
+import {
+  ensureRealmTables,
+  seedAdminRealmSettings
+} from "@nezdemkovski/auth-realm";
 
 import { AuthUserRole, type AuthProject } from "../config/projects";
 import { randomBase64Url } from "../runtime/crypto";
@@ -25,11 +29,6 @@ import {
   createProjectMigrationAuthOptions
 } from "../auth/project-auth";
 import { createProjectDatabase } from "./project-db";
-import {
-  ensureProjectSettingsTable,
-  seedAdminProjectSettings
-} from "../modules/projects/store";
-import { ensureSocialProviderSettingsTable } from "../modules/projects/social-provider-store";
 
 type BootstrapOptions = {
   databaseUrl: string;
@@ -60,14 +59,11 @@ export const bootstrapProjects = async (options: BootstrapOptions) => {
     });
 
     await bootstrapInitialAdmin(options);
-    await ensureProjectSettingsTable(options);
-    await seedAdminProjectSettings({
+    await ensureRealmTables(options);
+    await seedAdminRealmSettings({
       databaseUrl: options.databaseUrl,
-      adminProject: options.adminProject
-    });
-    await ensureSocialProviderSettingsTable({
-      databaseUrl: options.databaseUrl,
-      adminProject: options.adminProject
+      adminProject: options.adminProject,
+      realm: options.adminProject
     });
     await ensureBillingTables({
       databaseUrl: options.databaseUrl,

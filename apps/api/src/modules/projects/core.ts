@@ -1,42 +1,31 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import { cloneDefaultBilling } from "@nezdemkovski/auth-billing";
 import {
-  normalizeProjectSlug,
-  projectSchemaFromSlug,
-  validateProjectSchema,
-  validateProjectSlug,
-  type AuthProject
-} from "../../config/projects";
-import type { SocialProviderId } from "../../config/social-providers";
+  createRealmFromInput,
+  createRealmSettings,
+  deleteRealmSettings,
+  dropRealmSchema,
+  loadRealmSocialProviders,
+  markRealmSocialProviderVerified,
+  readRealmSocialProviders,
+  realmSettingsExists,
+  updateRealmSettings,
+  updateRealmSocialProvider,
+  type RealmSettingsCreate,
+  type RealmSettingsPatch,
+  type SocialProviderId,
+  type SocialProviderPatch
+} from "@nezdemkovski/auth-realm";
+import type { AuthProject } from "../../config/projects";
 import { ErrorCode } from "../../runtime/error-codes";
 import { prepareProjectSchema } from "../../db/bootstrap";
 import type { AdminDatabase } from "../../db/admin-pool";
 import { isPostgresUniqueViolation } from "../../db/errors";
 import { readProjectCounts } from "../users/store";
-import {
-  loadProjectSocialProviders,
-  markSocialProviderVerified,
-  readProjectSocialProviders,
-  updateProjectSocialProvider,
-  cloneDefaultSocialProviders,
-  type SocialProviderPatch
-} from "./social-provider-store";
-import {
-  createProjectSettings,
-  deleteProjectSettings,
-  dropProjectSchema,
-  projectSettingsExists,
-  updateProjectSettings
-} from "./store";
 import { projectResponse, socialProvidersResponse } from "./translator";
 import {
   cloneDefaultStorage
 } from "@nezdemkovski/auth-storage";
-import {
-  normalizeProjectFeatures,
-  type ProjectSettingsCreate,
-  type ProjectSettingsPatch
-} from "./validator";
 import { logError } from "../../runtime/logger";
 
 export class ProjectServiceError extends Error {
@@ -80,7 +69,7 @@ export class ProjectService {
     return projects.filter((project) => project !== null);
   }
 
-  async createProject(input: ProjectSettingsCreate) {
+  async createProject(input: RealmSettingsCreate) {
     let project: AuthProject;
     try {
       project = createProjectFromInput(input);
@@ -101,7 +90,7 @@ export class ProjectService {
     }
 
     if (
-      await projectSettingsExists({
+      await realmSettingsExists({
         databaseUrl: this.options.databaseUrl,
         adminProject: this.options.adminProject,
         adminDb: this.options.adminDb,
@@ -115,11 +104,11 @@ export class ProjectService {
     let schemaCreationStarted = false;
     let settingsCreated = false;
     try {
-      const created = await createProjectSettings({
+      const created = await createRealmSettings({
         databaseUrl: this.options.databaseUrl,
         adminProject: this.options.adminProject,
         adminDb: this.options.adminDb,
-        project
+        realm: project
       });
       settingsCreated = true;
       const createdProject = {
@@ -138,7 +127,7 @@ export class ProjectService {
       return this.projectResponseWithCounts(createdProject);
     } catch (error) {
       if (settingsCreated) {
-        await deleteProjectSettings({
+        await deleteRealmSettings({
           databaseUrl: this.options.databaseUrl,
           adminProject: this.options.adminProject,
           adminDb: this.options.adminDb,
@@ -152,7 +141,7 @@ export class ProjectService {
       }
 
       if (schemaCreationStarted) {
-        await dropProjectSchema({
+        await dropRealmSchema({
           databaseUrl: this.options.databaseUrl,
           adminProject: this.options.adminProject,
           adminDb: this.options.adminDb,
@@ -178,9 +167,9 @@ export class ProjectService {
     }
   }
 
-  async updateProject(registered: RegisteredProject, patch: ProjectSettingsPatch) {
+  async updateProject(registered: RegisteredProject, patch: RealmSettingsPatch) {
     try {
-      const updated = await updateProjectSettings({
+      const updated = await updateRealmSettings({
         databaseUrl: this.options.databaseUrl,
         adminProject: this.options.adminProject,
         adminDb: this.options.adminDb,
@@ -196,11 +185,11 @@ export class ProjectService {
         ...updated
       };
 
-      const socialProviders = await loadProjectSocialProviders({
+      const socialProviders = await loadRealmSocialProviders({
         databaseUrl: this.options.databaseUrl,
         adminProject: this.options.adminProject,
         adminDb: this.options.adminDb,
-        project: projectWithCurrentCapabilities,
+        realm: projectWithCurrentCapabilities,
         encryptionSecret: this.options.encryptionSecret
       });
       const nextProject = {
@@ -223,11 +212,11 @@ export class ProjectService {
   }
 
   async readSocialProviders(project: AuthProject) {
-    const providers = await readProjectSocialProviders({
+    const providers = await readRealmSocialProviders({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
       adminDb: this.options.adminDb,
-      project
+      realm: project
     });
     return socialProvidersResponse(project, providers, this.options.publicBaseUrl);
   }
@@ -237,11 +226,11 @@ export class ProjectService {
     provider: SocialProviderId,
     patch: SocialProviderPatch
   ) {
-    const socialProviders = await updateProjectSocialProvider({
+    const socialProviders = await updateRealmSocialProvider({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
       adminDb: this.options.adminDb,
-      project: registered.project,
+      realm: registered.project,
       provider,
       patch,
       encryptionSecret: this.options.encryptionSecret
@@ -294,18 +283,18 @@ export class ProjectService {
       );
     }
 
-    await markSocialProviderVerified({
+    await markRealmSocialProviderVerified({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
       adminDb: this.options.adminDb,
-      project: registered.project,
+      realm: registered.project,
       provider
     });
-    const socialProviders = await loadProjectSocialProviders({
+    const socialProviders = await loadRealmSocialProviders({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
       adminDb: this.options.adminDb,
-      project: registered.project,
+      realm: registered.project,
       encryptionSecret: this.options.encryptionSecret
     });
     await this.options.registry.patchProject(registered.project.slug, {
@@ -325,24 +314,12 @@ export class ProjectService {
   }
 }
 
-export const createProjectFromInput = (input: ProjectSettingsCreate) => {
-  const slug = normalizeProjectSlug(input.slug);
-  validateProjectSlug(slug);
+export const createProjectFromInput = (input: RealmSettingsCreate) => {
+  const realm = createRealmFromInput(input);
 
-  const project = {
-    slug,
-    name: input.name.trim(),
-    schema: projectSchemaFromSlug(slug),
-    description: input.description.trim(),
-    iconUrl: input.iconUrl.trim(),
-    appUrl: input.appUrl.trim(),
-    trustedOrigins: input.trustedOrigins.map((origin) => origin.trim()).filter(Boolean),
-    features: normalizeProjectFeatures(input.features),
-    socialProviders: cloneDefaultSocialProviders(),
+  return {
+    ...realm,
     billing: cloneDefaultBilling(),
     storage: cloneDefaultStorage()
   };
-
-  validateProjectSchema(project.schema);
-  return project;
 };

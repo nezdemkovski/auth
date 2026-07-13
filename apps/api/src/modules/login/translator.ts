@@ -3,7 +3,7 @@ import {
   isSocialProviderConfigured,
   SOCIAL_PROVIDER_CATALOG,
   SOCIAL_PROVIDER_IDS
-} from "../../config/social-providers";
+} from "@nezdemkovski/auth-realm";
 import {
   ProjectTwoFactorRequirement
 } from "../../config/projects";

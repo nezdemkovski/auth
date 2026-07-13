@@ -1,4 +1,4 @@
-import { isEnumValue } from "../runtime/enums";
+import { isEnumValue } from "./guards";
 
 export enum SocialProvider {
   Telegram = "telegram",

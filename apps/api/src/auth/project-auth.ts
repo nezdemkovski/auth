@@ -8,6 +8,12 @@ import {
   createProjectEmailHandlers,
   type EmailSender
 } from "@nezdemkovski/auth-delivery";
+import {
+  isBuiltInSocialProvider,
+  isSocialProviderConfigured,
+  SOCIAL_PROVIDER_IDS,
+  SocialProvider
+} from "@nezdemkovski/auth-realm";
 
 import {
   OAUTH_DYNAMIC_CLIENT_SCOPES,
@@ -17,13 +23,7 @@ import {
   oauthTokenKindClaim
 } from "../config/oauth-resources";
 import { AuthUserRole, type AuthProject } from "../config/projects";
-import {
-  isSocialProviderConfigured,
-  isBuiltInSocialProvider,
-  SocialProvider
-} from "../config/social-providers";
 import { TRUSTED_CLIENT_IP_HEADER } from "../config/proxy";
-import { SOCIAL_PROVIDER_IDS } from "../config/social-providers";
 import type { ProjectDatabase } from "../db/project-db";
 import { sha256Hex } from "../runtime/crypto";
 import { mustEnrollTwoFactor } from "./policy";

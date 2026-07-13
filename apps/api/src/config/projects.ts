@@ -1,125 +1,55 @@
 import {
-  SOCIAL_PROVIDER_IDS,
-  SocialProvider,
-  type SocialProviderId
-} from "./social-providers";
-import {
-  DEFAULT_PROJECT_STORAGE,
-  type ProjectStorageSettings
-} from "@nezdemkovski/auth-storage";
+  ADMIN_REALM,
+  ADMIN_REALM_SLUG,
+  DEFAULT_REALM_FEATURES,
+  DEFAULT_REALM_SOCIAL_PROVIDERS,
+  MAX_REALM_SLUG_LENGTH,
+  RealmAgentAuthMode,
+  RealmTwoFactorRequirement,
+  normalizeRealmSlug,
+  realmSchemaFromSlug,
+  validateRealmSchema,
+  validateRealmSlug,
+  type Realm,
+  type RealmFeatures,
+  type RealmSocialProvider,
+  type RealmSocialProviders
+} from "@nezdemkovski/auth-realm";
 import {
   DEFAULT_PROJECT_BILLING,
   type ProjectBillingSettings
 } from "@nezdemkovski/auth-billing";
+import {
+  DEFAULT_PROJECT_STORAGE,
+  type ProjectStorageSettings
+} from "@nezdemkovski/auth-storage";
 
-export type AuthProject = {
-  slug: string;
-  name: string;
-  schema: string;
-  description: string;
-  iconUrl: string;
-  appUrl: string;
-  trustedOrigins: string[];
-  features: ProjectFeatures;
-  socialProviders: ProjectSocialProviders;
+export type AuthProject = Realm & {
   billing: ProjectBillingSettings;
   storage: ProjectStorageSettings;
 };
 
-export type ProjectFeatures = {
-  passkey: {
-    enabled: boolean;
-  };
-  twoFactor: {
-    enabled: boolean;
-    required: ProjectTwoFactorRequirement;
-  };
-  agentAuth: {
-    enabled: boolean;
-    mode: ProjectAgentAuthMode;
-  };
-  oauthProvider: {
-    enabled: boolean;
-    dynamicClientRegistration: boolean;
-  };
+export type ProjectFeatures = RealmFeatures;
+export type ProjectSocialProvider = RealmSocialProvider;
+export type ProjectSocialProviders = RealmSocialProviders;
+
+export {
+  RealmAgentAuthMode as ProjectAgentAuthMode,
+  RealmTwoFactorRequirement as ProjectTwoFactorRequirement
 };
-
-export type ProjectSocialProvider = {
-  enabled: boolean;
-  clientId: string;
-  clientSecret: string;
-  verifiedAt: string | null;
-};
-
-export type ProjectSocialProviders = Record<SocialProviderId, ProjectSocialProvider>;
-
-export enum ProjectTwoFactorRequirement {
-  Optional = "optional",
-  Admins = "admins",
-  Everyone = "everyone"
-}
-
-export enum ProjectAgentAuthMode {
-  ReadOnly = "read-only",
-  ScopedWrite = "scoped-write"
-}
 
 export enum AuthUserRole {
   Admin = "admin",
   User = "user"
 }
 
-export const DEFAULT_PROJECT_FEATURES: ProjectFeatures = {
-  passkey: {
-    enabled: false
-  },
-  twoFactor: {
-    enabled: false,
-    required: ProjectTwoFactorRequirement.Optional
-  },
-  agentAuth: {
-    enabled: false,
-    mode: ProjectAgentAuthMode.ReadOnly
-  },
-  oauthProvider: {
-    enabled: false,
-    dynamicClientRegistration: false
-  }
-};
-
-const defaultSocialProvider = () => {
-  return {
-    enabled: false,
-    clientId: "",
-    clientSecret: "",
-    verifiedAt: null
-  };
-};
-
-export const DEFAULT_PROJECT_SOCIAL_PROVIDERS: ProjectSocialProviders = {
-  [SocialProvider.Telegram]: defaultSocialProvider(),
-  [SocialProvider.GitHub]: defaultSocialProvider(),
-  [SocialProvider.Google]: defaultSocialProvider(),
-  [SocialProvider.Twitter]: defaultSocialProvider(),
-  [SocialProvider.Facebook]: defaultSocialProvider()
-};
-
-export const ADMIN_PROJECT_SLUG = "admin";
-const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/;
-const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
-export const MAX_PROJECT_SLUG_LENGTH = 58;
-const MAX_POSTGRES_IDENTIFIER_BYTES = 63;
+export const DEFAULT_PROJECT_FEATURES = DEFAULT_REALM_FEATURES;
+export const DEFAULT_PROJECT_SOCIAL_PROVIDERS = DEFAULT_REALM_SOCIAL_PROVIDERS;
+export const ADMIN_PROJECT_SLUG = ADMIN_REALM_SLUG;
+export const MAX_PROJECT_SLUG_LENGTH = MAX_REALM_SLUG_LENGTH;
 
 export const ADMIN_PROJECT: AuthProject = {
-  slug: ADMIN_PROJECT_SLUG,
-  name: "Auth Admin",
-  schema: "auth_admin",
-  description: "System admin realm for managing auth projects.",
-  iconUrl: "",
-  appUrl: "",
-  trustedOrigins: [],
-  features: DEFAULT_PROJECT_FEATURES,
-  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
+  ...ADMIN_REALM,
   billing: DEFAULT_PROJECT_BILLING,
   storage: DEFAULT_PROJECT_STORAGE
 };
@@ -128,30 +58,7 @@ export const findProject = (projects: AuthProject[], slug: string) => {
   return projects.find((project) => project.slug === slug) ?? null;
 };
 
-export const normalizeProjectSlug = (value: string) => {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-");
-};
-
-export const projectSchemaFromSlug = (slug: string) => {
-  return `${slug.replaceAll("-", "_")}_auth`;
-};
-
-export const validateProjectSlug = (slug: string) => {
-  if (!SLUG_PATTERN.test(slug) || Buffer.byteLength(slug, "utf8") > MAX_PROJECT_SLUG_LENGTH) {
-    throw new Error(`Invalid project slug: ${slug}`);
-  }
-};
-
-export const validateProjectSchema = (schema: string) => {
-  if (
-    !IDENTIFIER_PATTERN.test(schema) ||
-    Buffer.byteLength(schema, "utf8") > MAX_POSTGRES_IDENTIFIER_BYTES
-  ) {
-    throw new Error(`Invalid Postgres schema name: ${schema}`);
-  }
-};
+export const normalizeProjectSlug = normalizeRealmSlug;
+export const projectSchemaFromSlug = realmSchemaFromSlug;
+export const validateProjectSlug = validateRealmSlug;
+export const validateProjectSchema = validateRealmSchema;

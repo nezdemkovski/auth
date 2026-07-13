@@ -21,18 +21,16 @@ import {
   readObservabilitySettingsState,
   updateObservabilitySettings
 } from "@nezdemkovski/auth-observability";
-import { SocialProvider } from "../src/config/social-providers";
 import {
-  markSocialProviderVerified,
-  readProjectSocialProviders,
-  updateProjectSocialProvider
-} from "../src/modules/projects/social-provider-store";
-import {
-  deleteProjectSettings,
-  projectSettingsExists,
-  updateProjectIconUrl,
-  updateProjectSettings
-} from "../src/modules/projects/store";
+  deleteRealmSettings,
+  markRealmSocialProviderVerified,
+  readRealmSocialProviders,
+  realmSettingsExists,
+  SocialProvider,
+  updateRealmIconUrl,
+  updateRealmSettings,
+  updateRealmSocialProvider
+} from "@nezdemkovski/auth-realm";
 import { loadEffectiveProjects } from "../src/application/project-catalog";
 import { seedIntegrationRealm } from "./seed";
 import {
@@ -40,7 +38,6 @@ import {
   integrationAdminDbOptions,
   integrationAdminProject,
   integrationEncryptionSecret,
-  integrationPublicBaseUrl,
   resetAndBootstrapIntegrationDatabase
 } from "./setup";
 
@@ -223,7 +220,7 @@ describe("settings integration", () => {
     });
 
     await expect(
-      projectSettingsExists({
+      realmSettingsExists({
         ...integrationAdminDbOptions,
         slug: project.slug,
         schema: project.schema
@@ -231,7 +228,7 @@ describe("settings integration", () => {
     ).resolves.toBe(true);
 
     await expect(
-      updateProjectSettings({
+      updateRealmSettings({
         ...integrationAdminDbOptions,
         slug: project.slug,
         patch: {
@@ -250,7 +247,7 @@ describe("settings integration", () => {
       trustedOrigins: ["https://renamed.integration.test"]
     });
     await expect(
-      updateProjectIconUrl({
+      updateRealmIconUrl({
         ...integrationAdminDbOptions,
         slug: project.slug,
         iconUrl: "https://cdn.example.test/new-icon.png"
@@ -274,11 +271,11 @@ describe("settings integration", () => {
       ])
     );
 
-    await deleteProjectSettings({
+    await deleteRealmSettings({
       ...integrationAdminDbOptions,
       slug: project.slug
     });
-    await deleteProjectSettings({
+    await deleteRealmSettings({
       ...integrationAdminDbOptions,
       slug: integrationAdminProject.slug
     });
@@ -299,9 +296,9 @@ describe("settings integration", () => {
       name: "Integration Social"
     });
 
-    await updateProjectSocialProvider({
+    await updateRealmSocialProvider({
       ...integrationAdminDbOptions,
-      project,
+      realm: project,
       provider: SocialProvider.GitHub,
       encryptionSecret: integrationEncryptionSecret,
       patch: {
@@ -310,15 +307,15 @@ describe("settings integration", () => {
         clientSecret: "github-secret"
       }
     });
-    await markSocialProviderVerified({
+    await markRealmSocialProviderVerified({
       ...integrationAdminDbOptions,
-      project,
+      realm: project,
       provider: SocialProvider.GitHub
     });
 
-    const verified = await readProjectSocialProviders({
+    const verified = await readRealmSocialProviders({
       ...integrationAdminDbOptions,
-      project
+      realm: project
     });
     expect(verified.find((provider) => provider.provider === SocialProvider.GitHub))
       .toMatchObject({
@@ -330,9 +327,9 @@ describe("settings integration", () => {
       verified.find((provider) => provider.provider === SocialProvider.GitHub)?.verifiedAt
     ).toEqual(expect.any(String));
 
-    await updateProjectSocialProvider({
+    await updateRealmSocialProvider({
       ...integrationAdminDbOptions,
-      project,
+      realm: project,
       provider: SocialProvider.GitHub,
       encryptionSecret: integrationEncryptionSecret,
       patch: {
@@ -340,9 +337,9 @@ describe("settings integration", () => {
         clientId: "github-client"
       }
     });
-    await updateProjectSocialProvider({
+    await updateRealmSocialProvider({
       ...integrationAdminDbOptions,
-      project,
+      realm: project,
       provider: SocialProvider.GitHub,
       encryptionSecret: integrationEncryptionSecret,
       patch: {
@@ -352,10 +349,9 @@ describe("settings integration", () => {
     });
 
     await expect(
-      readProjectSocialProviders({
+      readRealmSocialProviders({
         ...integrationAdminDbOptions,
-        project,
-        publicBaseUrl: integrationPublicBaseUrl
+        realm: project
       })
     ).resolves.toEqual(
       expect.arrayContaining([

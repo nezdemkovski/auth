@@ -5,14 +5,15 @@ import {
   type BillingEntitlement,
   type BillingProductMapping
 } from "@nezdemkovski/auth-billing";
+import { createRealmSettings } from "@nezdemkovski/auth-realm";
+import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
+
 import {
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   type AuthProject
 } from "../src/config/projects";
-import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 import { integrationAdminDbOptions, integrationEncryptionSecret } from "./setup";
-import { createProjectSettings } from "../src/modules/projects/store";
 
 export const seedIntegrationRealm = async (options: {
   slug: string;
@@ -59,9 +60,9 @@ export const seedIntegrationRealm = async (options: {
     storage: DEFAULT_PROJECT_STORAGE
   };
 
-  await createProjectSettings({
+  await createRealmSettings({
     ...integrationAdminDbOptions,
-    project
+    realm: project
   });
 
   const billing = await updateBillingSettings({

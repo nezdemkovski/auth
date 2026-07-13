@@ -111,6 +111,7 @@ describe("repository security controls", () => {
       ["packages/domains/billing", "domain"],
       ["packages/domains/delivery", "domain"],
       ["packages/domains/observability", "domain"],
+      ["packages/domains/realm", "domain"],
       ["packages/domains/storage", "domain"],
       ["packages/foundation/platform-crypto", "foundation"],
       ["packages/foundation/platform-database", "foundation"],
@@ -137,6 +138,7 @@ describe("repository security controls", () => {
       "packages/domains/billing",
       "packages/domains/delivery",
       "packages/domains/observability",
+      "packages/domains/realm",
       "packages/domains/storage",
       "packages/foundation/platform-crypto",
       "packages/foundation/platform-database"

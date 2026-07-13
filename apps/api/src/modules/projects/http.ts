@@ -1,11 +1,11 @@
-import { isSocialProviderId } from "../../config/social-providers";
+import {
+  isSocialProviderId,
+  parseRealmCreate,
+  parseRealmSettingsPatch,
+  parseSocialProviderPatch
+} from "@nezdemkovski/auth-realm";
 import { ErrorCode } from "../../runtime/error-codes";
 import { ProjectServiceError } from "./core";
-import {
-  parseProjectCreate,
-  parseProjectSettingsPatch,
-  parseSocialProviderPatch
-} from "./validator";
 import {
   auditLog,
   domainErrorResponse,
@@ -39,7 +39,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
     }
 
     const body = await parseJson(c.req);
-    const input = parseProjectCreate(body);
+    const input = parseRealmCreate(body);
     if (!input) {
       return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
@@ -69,7 +69,7 @@ export const registerProjectRoutes: AdminRouteRegistration = ({
     }
 
     const body = await parseJson(c.req);
-    const patch = parseProjectSettingsPatch(body);
+    const patch = parseRealmSettingsPatch(body);
     if (!patch) {
       return c.json({ error: ErrorCode.InvalidBody }, 400);
     }

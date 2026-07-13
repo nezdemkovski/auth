@@ -3,9 +3,9 @@ import {
   isSocialProviderConfigured,
   SOCIAL_PROVIDER_CATALOG,
   SocialProvider,
-  type SocialProviderId
-} from "../../config/social-providers";
-import type { SocialProviderSummary } from "./social-provider-store";
+  type SocialProviderId,
+  type SocialProviderSummary
+} from "@nezdemkovski/auth-realm";
 
 export type ProjectCounts = {
   userCount: number;
@@ -63,7 +63,7 @@ export const socialProvidersResponse = (
 
 export const socialProviderCallbackUrl = (
   publicBaseUrl: string,
-  project: AuthProject,
+  project: Pick<AuthProject, "slug">,
   provider: SocialProviderId
 ) => {
   const callbackPath = provider === SocialProvider.Telegram

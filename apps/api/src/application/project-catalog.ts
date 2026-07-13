@@ -3,6 +3,11 @@ import {
   loadBillingSettings
 } from "@nezdemkovski/auth-billing";
 import {
+  cloneDefaultSocialProviders,
+  loadRealmSocialProviderSettings,
+  readRealmSettings
+} from "@nezdemkovski/auth-realm";
+import {
   cloneDefaultStorage,
   loadStorageSettings,
   type ProjectStorageSettings
@@ -10,11 +15,6 @@ import {
 
 import type { AuthProject } from "../config/projects";
 import type { AdminDatabaseOptions } from "../db/admin-pool";
-import {
-  cloneDefaultSocialProviders,
-  loadSocialProviderSettings
-} from "../modules/projects/social-provider-store";
-import { readProjectSettings } from "../modules/projects/store";
 
 export const loadEffectiveProjects = async (
   options: AdminDatabaseOptions & {
@@ -22,8 +22,8 @@ export const loadEffectiveProjects = async (
     managedStorage: ProjectStorageSettings;
   }
 ) => {
-  const all = await readProjectSettings(options);
-  const socialProviders = await loadSocialProviderSettings(options);
+  const all = await readRealmSettings(options);
+  const socialProviders = await loadRealmSocialProviderSettings(options);
   const billingSettings = await loadBillingSettings(options);
   const storageSettings = await loadStorageSettings(options);
   const allWithSettings: AuthProject[] = all.map((project) => ({

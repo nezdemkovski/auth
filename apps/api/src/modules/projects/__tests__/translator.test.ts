@@ -4,12 +4,12 @@ import {
   BillingEnvironment,
   BillingProvider
 } from "@nezdemkovski/auth-billing";
-
 import {
-  DEFAULT_PROJECT_FEATURES
-} from "../../../config/projects";
-import { SocialProvider } from "../../../config/social-providers";
-import { cloneDefaultSocialProviders } from "../social-provider-store";
+  cloneDefaultSocialProviders,
+  DEFAULT_REALM_FEATURES,
+  SocialProvider
+} from "@nezdemkovski/auth-realm";
+
 import { projectResponse } from "../translator";
 
 describe("project translator", () => {
@@ -32,7 +32,7 @@ describe("project translator", () => {
         iconUrl: "https://example.test/icon.png",
         appUrl: "https://demo.example.com",
         trustedOrigins: ["https://demo.example.com"],
-        features: DEFAULT_PROJECT_FEATURES,
+        features: DEFAULT_REALM_FEATURES,
         socialProviders,
         billing: {
           provider: BillingProvider.None,

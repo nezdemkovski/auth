@@ -1,14 +1,8 @@
-import {
-  boolean,
-  jsonb,
-  pgTable,
-  text,
-  timestamp
-} from "drizzle-orm/pg-core";
+import { boolean, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
-import type { AuthProject } from "../../config/projects";
+import type { Realm } from "./model";
 
-export const projectSettings = pgTable("auth_project_settings", {
+export const realmSettings = pgTable("auth_project_settings", {
   slug: text("slug").primaryKey(),
   name: text("name").notNull(),
   schema: text("schema").notNull(),
@@ -16,10 +10,10 @@ export const projectSettings = pgTable("auth_project_settings", {
   iconUrl: text("icon_url").notNull().default(""),
   appUrl: text("app_url").notNull().default(""),
   trustedOrigins: jsonb("trusted_origins")
-    .$type<AuthProject["trustedOrigins"]>()
+    .$type<Realm["trustedOrigins"]>()
     .notNull(),
   features: jsonb("features")
-    .$type<AuthProject["features"]>()
+    .$type<Realm["features"]>()
     .notNull(),
   system: boolean("system").notNull().default(false),
   enabled: boolean("enabled").notNull().default(true),
