@@ -163,9 +163,9 @@ the immutable `issuer + sub` pair.
   legacy JWT response header when required by the pinned Better Auth version.
 - [x] Keep the JWT plugin only as the signing/JWKS mechanism used by the OAuth
   Provider for JWT access and ID tokens.
-- [ ] Define explicit OAuth resources rather than deriving a broad audience set
+- [x] Define explicit OAuth resources rather than deriving a broad audience set
   from every trusted origin.
-- [ ] Define explicit scopes for each resource.
+- [x] Define explicit scopes for each current platform resource.
 - [x] Keep OIDC identity scopes separate from platform business scopes.
 - [ ] Define distinct client profiles:
   - confidential product web/BFF client: `authorization_code` and
@@ -291,26 +291,27 @@ the immutable `issuer + sub` pair.
   `storage:avatar:delete` user-delegated scopes for the retained avatar API.
 - [x] Define `billing:usage:read` as the minimal read-only scope for the
   retained billing summary API.
-- [ ] Define separate service-only scopes for quota consumption or other
-  backend operations.
+- [x] Define `billing:usage:write` as the service-only scope for authoritative
+  quota mutations.
 - [x] Verify avatar resource requests with the official
   `better-auth/oauth2` request verifier and a database-backed DPoP replay
   store.
 - [x] Check avatar issuer, audience, expiry, and operation scope through Better
   Auth.
-- [ ] Keep only domain authorization after protocol verification, such as
-  validating that a service may act on a subject in its realm.
+- [x] Keep only domain authorization after protocol verification, including
+  validating that an explicit billing subject exists in the service token's
+  realm.
 - [x] Return standards-compliant `WWW-Authenticate` resource challenges from
   the avatar and billing resources.
 - [x] Publish OAuth Protected Resource Metadata for the avatar and billing
   resources.
-- [ ] Ensure checkout, portal, avatar, and entitlement operations no longer
+- [x] Ensure checkout, portal, avatar, and entitlement operations no longer
   require exporting or replaying the central Better Auth session credential.
 
 ### Phase 4 exit gate
 
 - [ ] No product backend forwards a user's central Better Auth session token.
-- [ ] No platform business endpoint treats a browser session token and OAuth
+- [x] No platform business endpoint treats a browser session token and OAuth
   access token as interchangeable credentials.
 
 ## Phase 5: Replace the SDK Packages

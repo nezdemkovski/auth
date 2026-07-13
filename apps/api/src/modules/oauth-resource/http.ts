@@ -10,7 +10,9 @@ import {
 import { ErrorCode } from "../../runtime/error-codes";
 import {
   readOAuthResourceMetadata,
+  requireServiceOAuthResource,
   requireUserOAuthResource,
+  type ServiceOAuthResourceAccess,
   type UserOAuthResourceAccess
 } from "./core";
 import {
@@ -31,6 +33,16 @@ export type UserOAuthResourceAuthorization =
   | {
       ok: true;
       value: UserOAuthResourceAccess;
+    }
+  | {
+      ok: false;
+      failure: OAuthResourceFailureResponse;
+    };
+
+export type ServiceOAuthResourceAuthorization =
+  | {
+      ok: true;
+      value: ServiceOAuthResourceAccess;
     }
   | {
       ok: false;
@@ -98,6 +110,35 @@ export const authorizeUserOAuthResourceRequest = async (options: {
     return {
       ok: true,
       value: await requireUserOAuthResource({
+        ...options,
+        request: requestToResourceInput(options.request)
+      })
+    };
+  } catch (error) {
+    const failure = oauthResourceFailureResponse(error, options);
+    if (!failure) {
+      throw error;
+    }
+
+    return {
+      ok: false,
+      failure
+    };
+  }
+};
+
+export const authorizeServiceOAuthResourceRequest = async (options: {
+  registry: AuthRegistry;
+  publicBaseUrl: string;
+  projectSlug: string;
+  request: Request;
+  resource: OAuthResource;
+  scopes: OAuthScope[];
+}): Promise<ServiceOAuthResourceAuthorization> => {
+  try {
+    return {
+      ok: true,
+      value: await requireServiceOAuthResource({
         ...options,
         request: requestToResourceInput(options.request)
       })

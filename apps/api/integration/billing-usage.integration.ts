@@ -29,6 +29,7 @@ import { seedIntegrationRealm } from "./seed";
 import {
   integrationAdminDbOptions,
   createIntegrationApp,
+  createIntegrationServiceResourceToken,
   createIntegrationUserResourceToken,
   integrationEncryptionSecret,
   integrationPublicBaseUrl,
@@ -577,13 +578,13 @@ describe("billing usage integration", () => {
     });
   });
 
-  test("protects usage reads with a delegated OAuth resource token while preserving usage mutations", async () => {
-    const project = await prepareBillingProject(credits(2), true);
+  test("separates delegated billing reads from service-only quota mutations", async () => {
+    const project = await prepareBillingProject(credits(3), true);
     const { app, registry, close } = await createIntegrationApp();
     const restoreFetch = installIntegrationAppFetch(app);
 
     try {
-      const { cookie } = await signUpIntegrationUser({
+      const { cookie, userId: billingUserId } = await signUpIntegrationUser({
         app,
         projectSlug: project.slug,
         origin: project.appUrl,
@@ -608,7 +609,10 @@ describe("billing usage integration", () => {
         authorization_servers: [
           `${integrationPublicBaseUrl}/api/${project.slug}`
         ],
-        scopes_supported: [OAuthScope.BillingUsageRead]
+        scopes_supported: [
+          OAuthScope.BillingUsageRead,
+          OAuthScope.BillingUsageWrite
+        ]
       });
 
       const sessionOnly = await app.request(
@@ -661,68 +665,177 @@ describe("billing usage integration", () => {
         resource: billingResource,
         scopes: [OAuthScope.BillingUsageRead]
       });
+      const userWriteToken = await createIntegrationUserResourceToken({
+        app,
+        registry,
+        projectSlug: project.slug,
+        userCookie: cookie,
+        resource: billingResource,
+        scopes: [OAuthScope.BillingUsageWrite]
+      });
+      const service = await createIntegrationServiceResourceToken({
+        app,
+        registry,
+        projectSlug: project.slug,
+        ownerCookie: cookie,
+        resource: billingResource,
+        scopes: [OAuthScope.BillingUsageWrite]
+      });
 
       await expectApiSummary(app, project, billingToken, {
         used: 0,
-        limit: 2,
-        remaining: 2
+        limit: 3,
+        remaining: 3
       });
 
-      const firstReservation = await billingApi(app, project, cookie, "reserve", {
-        key: benefitKey,
-        amount: 1
+      const sessionMutation = await app.request(
+        `/api/${project.slug}/billing/usage/reserve`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Cookie: cookie,
+            Origin: project.appUrl,
+            "Idempotency-Key": crypto.randomUUID(),
+            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+          },
+          body: JSON.stringify({
+            subject: billingUserId,
+            key: benefitKey,
+            amount: 1
+          })
+        }
+      );
+      expect(sessionMutation.status).toBe(401);
+
+      const delegatedMutation = await billingApi(
+        app,
+        project,
+        userWriteToken,
+        billingUserId,
+        "reserve",
+        {
+          key: benefitKey,
+          amount: 1
+        }
+      );
+      expect(delegatedMutation.status).toBe(401);
+
+      const unknownSubject = await billingApi(
+        app,
+        project,
+        service.accessToken,
+        "missing_user",
+        "reserve",
+        {
+          key: benefitKey,
+          amount: 1
+        }
+      );
+      expect(unknownSubject.status).toBe(404);
+      expect(await unknownSubject.json()).toEqual({
+        error: "unknown_subject"
       });
+
+      const consumed = await billingApi(
+        app,
+        project,
+        service.accessToken,
+        billingUserId,
+        "consume",
+        {
+          key: benefitKey,
+          amount: 1
+        }
+      );
+      expect(consumed.status).toBe(200);
+
+      const firstReservation = await billingApi(
+        app,
+        project,
+        service.accessToken,
+        billingUserId,
+        "reserve",
+        {
+          key: benefitKey,
+          amount: 1
+        }
+      );
       expect(firstReservation.status).toBe(200);
       const firstBody = await firstReservation.json();
       const firstReservationId = reservationId(firstBody);
       expect(firstReservationId.length).toBeGreaterThan(0);
 
       await expectApiSummary(app, project, billingToken, {
-        used: 1,
-        limit: 2,
+        used: 2,
+        limit: 3,
         remaining: 1
       });
 
-      const release = await billingApi(app, project, cookie, "release", {
-        reservationId: firstReservationId
-      });
+      const release = await billingApi(
+        app,
+        project,
+        service.accessToken,
+        billingUserId,
+        "release",
+        { reservationId: firstReservationId }
+      );
       expect(release.status).toBe(200);
 
       await expectApiSummary(app, project, billingToken, {
-        used: 0,
-        limit: 2,
+        used: 1,
+        limit: 3,
         remaining: 2
       });
 
-      const secondReservation = await billingApi(app, project, cookie, "reserve", {
-        key: benefitKey,
-        amount: 2
-      });
+      const secondReservation = await billingApi(
+        app,
+        project,
+        service.accessToken,
+        billingUserId,
+        "reserve",
+        {
+          key: benefitKey,
+          amount: 2
+        }
+      );
       expect(secondReservation.status).toBe(200);
       const secondReservationId = reservationId(await secondReservation.json());
 
-      const commit = await billingApi(app, project, cookie, "commit", {
-        reservationId: secondReservationId
-      });
+      const commit = await billingApi(
+        app,
+        project,
+        service.accessToken,
+        billingUserId,
+        "commit",
+        { reservationId: secondReservationId }
+      );
       expect(commit.status).toBe(200);
 
       await expectApiSummary(app, project, billingToken, {
-        used: 2,
-        limit: 2,
+        used: 3,
+        limit: 3,
         remaining: 0
       });
 
-      const overLimit = await billingApi(app, project, cookie, "reserve", {
-        key: benefitKey,
-        amount: 1
-      });
+      const overLimit = await billingApi(
+        app,
+        project,
+        service.accessToken,
+        billingUserId,
+        "reserve",
+        {
+          key: benefitKey,
+          amount: 1
+        }
+      );
       expect(overLimit.status).toBe(402);
       expect(await overLimit.json()).toMatchObject({
         allowed: false,
         summary: {
           key: benefitKey,
-          used: 2,
-          limit: 2,
+          used: 3,
+          limit: 3,
           remaining: 0
         }
       });
@@ -1189,20 +1302,23 @@ const expectUnlimitedSummary = async (project: AuthProject) => {
 const billingApi = (
   app: Awaited<ReturnType<typeof createIntegrationApp>>["app"],
   project: AuthProject,
-  cookie: string,
-  action: "reserve" | "release" | "commit",
+  accessToken: string,
+  subject: string,
+  action: "consume" | "reserve" | "release" | "commit",
   body: Record<string, unknown>
 ) => {
   return app.request(`/api/${project.slug}/billing/usage/${action}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Cookie: cookie,
-      Origin: project.appUrl,
+      Authorization: `Bearer ${accessToken}`,
       "Idempotency-Key": crypto.randomUUID(),
       [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify({
+      subject,
+      ...body
+    })
   });
 };
 

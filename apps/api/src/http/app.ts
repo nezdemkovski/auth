@@ -13,7 +13,7 @@ import type { AuthProject } from "../config/projects";
 import { AuthRegistry } from "../auth/registry";
 import { migrateDatabase } from "../db/migrate";
 import { createAdminDatabase } from "../db/admin-pool";
-import { registerBillingUsageRoutes } from "../modules/billing/usage-http";
+import { registerBillingUsageRoutes } from "../modules/billing-usage/http";
 import { registerOAuthResourceRoutes } from "../modules/oauth-resource/http";
 import { createPolarEntitlementGrantStore } from "../modules/billing/usage-store";
 import { createPolarWebhookStore } from "../modules/billing/webhook-store";

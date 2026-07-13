@@ -3,10 +3,12 @@ import { describe, expect, test } from "bun:test";
 import {
   OAuthResource,
   OAuthScope,
+  OAuthTokenKind,
   oauthResourceDefinitions,
   oauthResourceIdentifier,
   oauthResourceMetadataUrl,
-  oauthResourceScopes
+  oauthResourceScopes,
+  oauthTokenKindClaim
 } from "../oauth-resources";
 
 describe("OAuth platform resources", () => {
@@ -43,12 +45,15 @@ describe("OAuth platform resources", () => {
       },
       {
         identifier: "https://auth.example.com/api/demo/billing",
-        allowedScopes: [OAuthScope.BillingUsageRead]
+        allowedScopes: [
+          OAuthScope.BillingUsageRead,
+          OAuthScope.BillingUsageWrite
+        ]
       }
     ]);
   });
 
-  test("defines billing usage as a separate read-only audience", () => {
+  test("defines billing usage as a separate least-privilege audience", () => {
     expect(
       oauthResourceIdentifier(
         "https://auth.example.com",
@@ -57,7 +62,8 @@ describe("OAuth platform resources", () => {
       )
     ).toBe("https://auth.example.com/api/demo/billing");
     expect(oauthResourceScopes(OAuthResource.Billing)).toEqual([
-      OAuthScope.BillingUsageRead
+      OAuthScope.BillingUsageRead,
+      OAuthScope.BillingUsageWrite
     ]);
     expect(
       oauthResourceMetadataUrl(
@@ -68,5 +74,12 @@ describe("OAuth platform resources", () => {
     ).toBe(
       "https://auth.example.com/.well-known/oauth-protected-resource/api/demo/billing"
     );
+    expect(oauthTokenKindClaim("https://auth.example.com/path")).toBe(
+      "https://auth.example.com/claims/token-kind"
+    );
+    expect(Object.values(OAuthTokenKind)).toEqual([
+      OAuthTokenKind.User,
+      OAuthTokenKind.Service
+    ]);
   });
 });

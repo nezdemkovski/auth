@@ -17,6 +17,7 @@ export enum ErrorCode {
   SystemProjectLocked = "system_project_locked",
   TwoFactorRequired = "two_factor_required",
   Unauthorized = "unauthorized",
+  UnknownSubject = "unknown_subject",
   UnknownProject = "unknown_project",
   UnknownProvider = "unknown_provider",
   UnknownReservation = "unknown_reservation"

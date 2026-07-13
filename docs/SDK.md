@@ -132,6 +132,62 @@ The upload resource publishes discovery metadata at
 `/.well-known/oauth-protected-resource/api/<realm>/upload`. OAuth clients must
 also be linked to that Better Auth resource before requesting its audience.
 
+## Service-only billing mutations
+
+Quota mutation is a backend-to-backend operation. Provision a confidential
+Better Auth client with only the `client_credentials` grant, the
+`billing:usage:write` scope, and a link to the realm's billing resource. Keep
+its secret in the product backend; never send the secret or resulting token to
+the browser.
+
+Request the standard Better Auth M2M token:
+
+```ts
+const credentials = Buffer.from(
+  `${env.AUTH_SERVICE_CLIENT_ID}:${env.AUTH_SERVICE_CLIENT_SECRET}`
+).toString("base64");
+const tokenResponse = await fetch(
+  "https://auth.example.com/api/demo/auth/oauth2/token",
+  {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: new URLSearchParams({
+      grant_type: "client_credentials",
+      scope: "billing:usage:write",
+      resource: "https://auth.example.com/api/demo/billing"
+    })
+  }
+);
+const { access_token: accessToken } = await tokenResponse.json();
+```
+
+Then pass the central `issuer + subject` mapping already stored by the product
+backend. The M2M token's own `sub` identifies the service client; it never
+impersonates the user:
+
+```ts
+await fetch("https://auth.example.com/api/demo/billing/usage/consume", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+    "Idempotency-Key": crypto.randomUUID()
+  },
+  body: JSON.stringify({
+    subject: centralIdentity.subject,
+    key: "generation_credits",
+    amount: 1
+  })
+});
+```
+
+The same contract applies to `reserve`, `commit`, and `release`. User session
+cookies and user-delegated OAuth tokens are deliberately rejected on all four
+mutation routes.
+
 ## Business contracts
 
 `@nezdemkovski/auth-contracts` contains parsers for platform business resource

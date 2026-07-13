@@ -14,7 +14,7 @@ tokens with an explicit resource audience and least-privilege scope.
 | `POST /api/:realm/upload` | User-delegated platform resource | OAuth token for the exact upload resource with `storage:avatar:write` | Converted. |
 | `DELETE /api/:realm/upload` | User-delegated platform resource | OAuth token for the exact upload resource with `storage:avatar:delete` | Converted. |
 | `GET /api/:realm/billing/usage/summary` | User-delegated platform resource | OAuth token for the exact billing resource with `billing:usage:read` | Converted. |
-| Billing usage `consume`, `reserve`, `commit`, and `release` | Service-only platform resource | Client Credentials token plus an explicit user subject | Convert after the summary endpoint. A browser or user token must not mutate authoritative quota state. |
+| Billing usage `consume`, `reserve`, `commit`, and `release` | Service-only platform resource | Client Credentials token with `billing:usage:write` plus an explicit user subject | Converted. Browser cookies and user-delegated tokens cannot mutate authoritative quota state. |
 | Product-specific business operations | Product-owned business boundary | Product-local Better Auth session | Keep out of the auth platform unless the capability is genuinely shared. |
 
 ## Registered resources
@@ -42,13 +42,21 @@ For the same realm:
 
 ```text
 resource = https://auth.example.com/api/demo/billing
-scopes   = billing:usage:read
+scopes   = billing:usage:read billing:usage:write
 metadata = https://auth.example.com/.well-known/oauth-protected-resource/api/demo/billing
 issuer   = https://auth.example.com/api/demo
 ```
 
 There is deliberately no cookie or bearer-session fallback on either
 user-delegated resource. Trusted-origin CORS remains a browser transport
-policy; it is not an authentication mechanism. Billing quota mutations remain
-separate because they will accept only a service-client credential and an
-explicit user subject.
+policy; it is not an authentication mechanism. Billing quota mutations accept
+only a Better Auth `client_credentials` token with `billing:usage:write` and an
+explicit central user subject. The resource verifies that the subject exists
+inside the token's realm before changing quota state.
+
+Better Auth owns the service client, secret validation, client-to-resource
+link, scope filtering, token issuance, JWT signature, issuer, audience, and
+expiry. A namespaced `token-kind` policy claim emitted through Better Auth's
+`customAccessTokenClaims` prevents a user authorization-code token from being
+accepted as an M2M credential. No platform code implements a second service
+token format or exchange.

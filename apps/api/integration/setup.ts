@@ -230,39 +230,17 @@ export const createIntegrationUserResourceToken = async (options: {
   resource: string;
   scopes: OAuthScope[];
 }) => {
-  const registered = options.registry.get(options.projectSlug);
-  if (!registered) {
-    throw new Error("Expected the OAuth realm to be registered");
-  }
-
   const callbackUrl = "https://demo.example.com/oauth/callback";
-  const sessionHeaders = new Headers({ Cookie: options.userCookie });
   const scope = options.scopes.join(" ");
-  const client = await registered.auth.api.adminCreateOAuthClient({
-    headers: sessionHeaders,
-    body: {
-      client_name: "Integration Resource Client",
-      redirect_uris: [callbackUrl],
-      token_endpoint_auth_method: "client_secret_basic",
-      grant_types: ["authorization_code"],
-      response_types: ["code"],
-      scope,
-      type: "web",
-      skip_consent: true,
-      require_pkce: true
-    }
+  const client = await createIntegrationResourceClient({
+    ...options,
+    ownerCookie: options.userCookie,
+    profile: IntegrationResourceClientProfile.User,
+    callbackUrl
   });
   if (!client.client_secret) {
     throw new Error("Expected a confidential OAuth client secret");
   }
-
-  await registered.auth.api.adminLinkClientResource({
-    headers: sessionHeaders,
-    params: {
-      identifier: options.resource,
-      client_id: client.client_id
-    }
-  });
 
   const codeVerifier =
     "integration-resource-code-verifier-with-more-than-forty-three-characters";
@@ -334,6 +312,108 @@ export const createIntegrationUserResourceToken = async (options: {
   }
 
   return token.access_token;
+};
+
+export const createIntegrationServiceResourceToken = async (options: {
+  app: Awaited<ReturnType<typeof createIntegrationApp>>["app"];
+  registry: Awaited<ReturnType<typeof createIntegrationApp>>["registry"];
+  projectSlug: string;
+  ownerCookie: string;
+  resource: string;
+  scopes: OAuthScope[];
+}) => {
+  const scope = options.scopes.join(" ");
+  const client = await createIntegrationResourceClient({
+    ...options,
+    profile: IntegrationResourceClientProfile.Service
+  });
+  if (!client.client_secret) {
+    throw new Error("Expected a confidential service client secret");
+  }
+
+  const tokenResponse = await options.app.request(
+    `/api/${options.projectSlug}/auth/oauth2/token`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${client.client_id}:${client.client_secret}`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+        [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+      },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        scope,
+        resource: options.resource
+      }).toString()
+    }
+  );
+  const token = await readIntegrationJson(tokenResponse);
+  if (tokenResponse.status !== 200 || typeof token.access_token !== "string") {
+    throw new Error(
+      `Expected service token exchange to succeed, got ${tokenResponse.status}`
+    );
+  }
+
+  return {
+    accessToken: token.access_token,
+    clientId: client.client_id
+  };
+};
+
+enum IntegrationResourceClientProfile {
+  User = "user",
+  Service = "service"
+}
+
+const createIntegrationResourceClient = async (options: {
+  registry: Awaited<ReturnType<typeof createIntegrationApp>>["registry"];
+  projectSlug: string;
+  ownerCookie: string;
+  resource: string;
+  scopes: OAuthScope[];
+  profile: IntegrationResourceClientProfile;
+  callbackUrl?: string;
+}) => {
+  const registered = options.registry.get(options.projectSlug);
+  if (!registered) {
+    throw new Error("Expected the OAuth realm to be registered");
+  }
+
+  const sessionHeaders = new Headers({ Cookie: options.ownerCookie });
+  const client = await registered.auth.api.adminCreateOAuthClient({
+    headers: sessionHeaders,
+    body:
+      options.profile === IntegrationResourceClientProfile.User
+        ? {
+            client_name: "Integration User Resource Client",
+            redirect_uris: options.callbackUrl ? [options.callbackUrl] : [],
+            token_endpoint_auth_method: "client_secret_basic",
+            grant_types: ["authorization_code"],
+            response_types: ["code"],
+            scope: options.scopes.join(" "),
+            type: "web",
+            skip_consent: true,
+            require_pkce: true
+          }
+        : {
+            client_name: "Integration Service Resource Client",
+            token_endpoint_auth_method: "client_secret_basic",
+            grant_types: ["client_credentials"],
+            scope: options.scopes.join(" "),
+            skip_consent: true,
+            require_pkce: false
+          }
+  });
+
+  await registered.auth.api.adminLinkClientResource({
+    headers: sessionHeaders,
+    params: {
+      identifier: options.resource,
+      client_id: client.client_id
+    }
+  });
+
+  return client;
 };
 
 export const createIntegrationAdminSession = async (options: {

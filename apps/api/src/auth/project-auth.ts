@@ -10,7 +10,9 @@ import { Polar } from "@polar-sh/sdk";
 import {
   OAUTH_DYNAMIC_CLIENT_SCOPES,
   OAUTH_SCOPES,
-  oauthResourceDefinitions
+  OAuthTokenKind,
+  oauthResourceDefinitions,
+  oauthTokenKindClaim
 } from "../config/oauth-resources";
 import { AuthUserRole, BillingProvider, type AuthProject } from "../config/projects";
 import {
@@ -170,6 +172,10 @@ export const createBaseProjectAuthOptions = (options: {
         resources: project.features.oauthProvider.enabled
           ? oauthResourceDefinitions(publicBaseUrl, project.slug)
           : [],
+        customAccessTokenClaims: ({ user }) => ({
+          [oauthTokenKindClaim(publicBaseUrl)]:
+            user === undefined ? OAuthTokenKind.Service : OAuthTokenKind.User
+        }),
         resourceSeedMode: "overwrite",
         enforcePerClientResources: true,
         clientRegistrationDefaultScopes: OAUTH_DYNAMIC_CLIENT_SCOPES,

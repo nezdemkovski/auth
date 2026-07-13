@@ -10,8 +10,10 @@ import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import {
   OAuthResource,
   type OAuthScope,
+  OAuthTokenKind,
   oauthResourceIdentifier,
-  oauthResourceScopes
+  oauthResourceScopes,
+  oauthTokenKindClaim
 } from "../../config/oauth-resources";
 import { isRecord } from "../../runtime/type-guards";
 
@@ -31,6 +33,11 @@ export class OAuthResourceError extends Error {
 export type UserOAuthResourceAccess = {
   registered: RegisteredProject;
   subject: string;
+  clientId: string;
+};
+
+export type ServiceOAuthResourceAccess = {
+  registered: RegisteredProject;
   clientId: string;
 };
 
@@ -65,6 +72,53 @@ export const requireUserOAuthResource = async (
     scopes: OAuthScope[];
   }
 ): Promise<UserOAuthResourceAccess> => {
+  const { registered, claims } = await verifyOAuthResource(options);
+  const clientId = readClientId(claims);
+  if (
+    !clientId ||
+    typeof claims.sub !== "string" ||
+    !claims.sub ||
+    claims.sub === clientId ||
+    claims[oauthTokenKindClaim(options.publicBaseUrl)] !== OAuthTokenKind.User
+  ) {
+    throw new OAuthResourceError(OAuthResourceErrorKind.InvalidToken);
+  }
+
+  return {
+    registered,
+    subject: claims.sub,
+    clientId
+  };
+};
+
+export const requireServiceOAuthResource = async (
+  options: OAuthResourceOptions & {
+    request: ResourceRequestInput;
+    scopes: OAuthScope[];
+  }
+): Promise<ServiceOAuthResourceAccess> => {
+  const { registered, claims } = await verifyOAuthResource(options);
+  const clientId = readClientId(claims);
+  if (
+    !clientId ||
+    claims.sub !== clientId ||
+    claims[oauthTokenKindClaim(options.publicBaseUrl)] !== OAuthTokenKind.Service
+  ) {
+    throw new OAuthResourceError(OAuthResourceErrorKind.InvalidToken);
+  }
+
+  return {
+    registered,
+    clientId
+  };
+};
+
+const verifyOAuthResource = async (
+  options: OAuthResourceOptions & {
+    request: ResourceRequestInput;
+    scopes: OAuthScope[];
+  }
+) => {
   const registered = requireOAuthProject(options);
   const identifier = oauthResourceIdentifier(
     options.publicBaseUrl,
@@ -86,20 +140,7 @@ export const requireUserOAuthResource = async (
       }
     });
 
-    if (
-      typeof claims.sub !== "string" ||
-      !claims.sub ||
-      typeof claims.azp !== "string" ||
-      !claims.azp
-    ) {
-      throw new OAuthResourceError(OAuthResourceErrorKind.InvalidToken);
-    }
-
-    return {
-      registered,
-      subject: claims.sub,
-      clientId: claims.azp
-    };
+    return { registered, claims };
   } catch (error) {
     if (error instanceof OAuthResourceError) {
       throw error;
@@ -113,6 +154,19 @@ export const requireUserOAuthResource = async (
 
     throw error;
   }
+};
+
+const readClientId = (claims: Record<string, unknown>) => {
+  if (
+    typeof claims.azp !== "string" ||
+    !claims.azp ||
+    typeof claims.client_id !== "string" ||
+    claims.client_id !== claims.azp
+  ) {
+    return null;
+  }
+
+  return claims.azp;
 };
 
 const requireOAuthProject = (options: {

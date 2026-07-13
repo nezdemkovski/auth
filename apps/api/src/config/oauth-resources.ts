@@ -5,12 +5,18 @@ export enum OAuthScope {
   OfflineAccess = "offline_access",
   StorageAvatarWrite = "storage:avatar:write",
   StorageAvatarDelete = "storage:avatar:delete",
-  BillingUsageRead = "billing:usage:read"
+  BillingUsageRead = "billing:usage:read",
+  BillingUsageWrite = "billing:usage:write"
 }
 
 export enum OAuthResource {
   Storage = "storage",
   Billing = "billing"
+}
+
+export enum OAuthTokenKind {
+  User = "user",
+  Service = "service"
 }
 
 export const OAUTH_SCOPES = Object.values(OAuthScope);
@@ -27,10 +33,14 @@ export const oauthResourceScopes = (resource: OAuthResource) => {
     return [OAuthScope.StorageAvatarWrite, OAuthScope.StorageAvatarDelete];
   }
   if (resource === OAuthResource.Billing) {
-    return [OAuthScope.BillingUsageRead];
+    return [OAuthScope.BillingUsageRead, OAuthScope.BillingUsageWrite];
   }
 
   return [];
+};
+
+export const oauthTokenKindClaim = (publicBaseUrl: string) => {
+  return `${new URL(publicBaseUrl).origin}/claims/token-kind`;
 };
 
 export const oauthResourceIdentifier = (
