@@ -9,12 +9,10 @@
   domain-acyclic dependency graph.
 - Extend the existing Postgres/Redis/S3 and browser suites with real passkey,
   2FA enrollment, email-delivery, and Polar checkout sandbox scenarios.
-- Add admin-managed Better Auth client lifecycle for product web, public/MCP,
-  and service profiles without exposing stored secrets. This is blocked on
-  Better Auth exposing server-only list/get, secret rotation, disable, and
-  delete operations for unowned service clients. Do not bypass that boundary by
-  reading or writing OAuth Provider tables directly. Create/update and resource
-  linking can already use the official server APIs.
+- Track Better Auth's server-admin OAuth client lifecycle API. Replace the
+  isolated `auth-oauth-client-management` plugin when upstream exposes
+  ownerless list/get/update, secret rotation, disable, and delete operations;
+  keep the admin API contract unchanged during that swap.
 - Migrate Amela to the reference-product pattern and the service-only billing
   contract, then remove its legacy auth SDK usage.
 - Expand structured request logging to cover request/response metadata without
@@ -116,6 +114,12 @@
 
 ## Done
 
+- Realm-owned OAuth client management extracted into the private compiled
+  `@nezdemkovski/auth-oauth-client-management` package. Product web, public/MCP,
+  and service profiles support admin-only create/list/get/update, resource
+  links, secret rotation, disable/enable, and delete without a realm user owner;
+  persistence stays behind Better Auth's adapter models and secrets are returned
+  only at creation or rotation.
 - OAuth protected-resource audiences, scopes, user/service token policy,
   metadata, request authorization, and challenge responses extracted into
   private compiled `@nezdemkovski/auth-oauth-resource`; the per-realm runtime

@@ -37,6 +37,7 @@ apps/reference-product   Executable Better Auth product integration
 packages/auth-contracts  Platform business DTOs and runtime parsers
 packages/auth-integration Thin product-side Better Auth configuration
 packages/client-shared   Shared frontend theme and CSS
+packages/platform/oauth-client-management Realm-owned OAuth client control plane
 packages/ui              Shared React UI primitives
 charts/auth              OCI Helm chart for the full runtime stack
 ```
@@ -206,6 +207,13 @@ central session credential.
 Realms can expose OAuth/OIDC endpoints for first-party apps and remote MCP
 clients. OAuth clients authenticate against the same realm-local user pool as
 the login flow.
+
+Admin-created OAuth clients belong to the realm, not to a user account. The
+authenticated admin API exposes lifecycle routes under
+`/admin/api/projects/<realm>/oauth-clients` for product web, public/MCP, and
+service profiles. Confidential client secrets are returned only when a client
+is created or its secret is rotated; list and detail responses expose only
+`secretConfigured`.
 
 Dynamic Client Registration can be enabled per realm. When enabled, compatible
 OAuth clients, including MCP clients, can register themselves and receive a

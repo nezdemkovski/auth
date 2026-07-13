@@ -15,6 +15,8 @@ import { registerAdminAccountRoutes } from "../modules/admin-account/http";
 import { registerBillingRoutes } from "../modules/billing/http";
 import { registerDeliveryRoutes } from "../modules/delivery/http";
 import { registerObservabilityRoutes } from "../modules/observability/http";
+import { OAuthClientManagementService } from "../modules/oauth-client-management/core";
+import { registerOAuthClientManagementRoutes } from "../modules/oauth-client-management/http";
 import { ProjectService } from "../modules/projects/core";
 import { registerProjectRoutes } from "../modules/projects/http";
 import { registerStorageRoutes } from "../modules/storage/http";
@@ -71,6 +73,7 @@ export const createAdminApi = (options: AdminApiOptions) => {
     encryptionSecret: options.encryptionSecret,
     managedStorage: options.managedStorage
   });
+  const oauthClientManagementService = new OAuthClientManagementService();
   const usersService = new UsersService({
     adminProject: options.adminProject,
     identity: new IdentityService({
@@ -86,6 +89,7 @@ export const createAdminApi = (options: AdminApiOptions) => {
     deliveryService,
     mediaService: options.mediaService,
     observabilityService,
+    oauthClientManagementService,
     projectService,
     storageService: options.storageService,
     usersService
@@ -109,6 +113,7 @@ export const createAdminApi = (options: AdminApiOptions) => {
   registerObservabilityRoutes(routeContext);
 
   registerProjectRoutes(routeContext);
+  registerOAuthClientManagementRoutes(routeContext);
   registerBillingRoutes(routeContext);
   registerStorageRoutes(routeContext);
 

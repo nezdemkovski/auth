@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { EmailProvider } from "@nezdemkovski/auth-delivery";
 import { ObservabilityProvider } from "@nezdemkovski/auth-observability";
+import { OAuthClientProfile } from "@nezdemkovski/auth-oauth-client-management";
 import {
   RealmAgentAuthMode,
   RealmTwoFactorRequirement
@@ -202,6 +203,217 @@ describe("admin API integration", () => {
     }
   });
 
+  test("manages realm-owned OAuth clients without a realm user owner", async () => {
+    const { app, registry, close } = await createIntegrationApp();
+
+    try {
+      const { cookie } = await createIntegrationAdminSession({
+        app,
+        registry,
+        email: "oauth-admin@integration.test"
+      });
+      const projectSlug = "oauth-client-project";
+      const createdProject = await app.request("/admin/api/projects", {
+        method: "POST",
+        headers: adminHeaders(cookie),
+        body: JSON.stringify({
+          ...projectCreateBody(projectSlug),
+          features: {
+            oauthProvider: {
+              enabled: true,
+              dynamicClientRegistration: false
+            }
+          }
+        })
+      });
+      expect(createdProject.status).toBe(201);
+
+      const billingResource = `${integrationPublicBaseUrl}/api/${projectSlug}/billing`;
+      const created = await app.request(
+        `/admin/api/projects/${projectSlug}/oauth-clients`,
+        {
+          method: "POST",
+          headers: adminHeaders(cookie),
+          body: JSON.stringify({
+            name: "Demo Worker",
+            profile: OAuthClientProfile.Service,
+            scopes: ["billing:usage:write"],
+            resources: [billingResource]
+          })
+        }
+      );
+      expect(created.status).toBe(201);
+      const initialCredential = readOAuthCredential(
+        await readIntegrationJson(created)
+      );
+      expect(initialCredential.clientSecret).toMatch(/^[A-Za-z0-9_-]+$/);
+
+      const listed = await app.request(
+        `/admin/api/projects/${projectSlug}/oauth-clients`,
+        {
+          headers: {
+            Cookie: cookie,
+            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+          }
+        }
+      );
+      expect(listed.status).toBe(200);
+      const listedBody = await readIntegrationJson(listed);
+      expect(listedBody).toMatchObject({
+        clients: [
+          {
+            clientId: initialCredential.clientId,
+            name: "Demo Worker",
+            profile: OAuthClientProfile.Service,
+            resources: [billingResource],
+            secretConfigured: true,
+            disabled: false
+          }
+        ]
+      });
+      expect(JSON.stringify(listedBody)).not.toContain(
+        initialCredential.clientSecret
+      );
+
+      const updated = await app.request(
+        `/admin/api/projects/${projectSlug}/oauth-clients/${initialCredential.clientId}`,
+        {
+          method: "PATCH",
+          headers: adminHeaders(cookie),
+          body: JSON.stringify({ name: "Updated Demo Worker" })
+        }
+      );
+      expect(updated.status).toBe(200);
+      expect(await readIntegrationJson(updated)).toMatchObject({
+        client: {
+          clientId: initialCredential.clientId,
+          name: "Updated Demo Worker"
+        }
+      });
+
+      const fetched = await app.request(
+        `/admin/api/projects/${projectSlug}/oauth-clients/${initialCredential.clientId}`,
+        {
+          headers: {
+            Cookie: cookie,
+            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+          }
+        }
+      );
+      expect(fetched.status).toBe(200);
+      expect(await readIntegrationJson(fetched)).toMatchObject({
+        client: {
+          clientId: initialCredential.clientId,
+          name: "Updated Demo Worker"
+        }
+      });
+      expect(
+        await exchangeClientCredentials({
+          app,
+          projectSlug,
+          credential: initialCredential,
+          resource: billingResource
+        })
+      ).toBe(200);
+
+      const rotated = await app.request(
+        `/admin/api/projects/${projectSlug}/oauth-clients/${initialCredential.clientId}/rotate-secret`,
+        {
+          method: "POST",
+          headers: adminHeaders(cookie)
+        }
+      );
+      expect(rotated.status).toBe(200);
+      const rotatedCredential = readOAuthCredential(
+        await readIntegrationJson(rotated)
+      );
+      expect(rotatedCredential.clientSecret).not.toBe(
+        initialCredential.clientSecret
+      );
+      expect(
+        await exchangeClientCredentials({
+          app,
+          projectSlug,
+          credential: initialCredential,
+          resource: billingResource
+        })
+      ).not.toBe(200);
+      expect(
+        await exchangeClientCredentials({
+          app,
+          projectSlug,
+          credential: rotatedCredential,
+          resource: billingResource
+        })
+      ).toBe(200);
+
+      const disabled = await app.request(
+        `/admin/api/projects/${projectSlug}/oauth-clients/${initialCredential.clientId}/disable`,
+        {
+          method: "POST",
+          headers: adminHeaders(cookie)
+        }
+      );
+      expect(disabled.status).toBe(200);
+      expect(await readIntegrationJson(disabled)).toMatchObject({
+        client: { disabled: true }
+      });
+      expect(
+        await exchangeClientCredentials({
+          app,
+          projectSlug,
+          credential: rotatedCredential,
+          resource: billingResource
+        })
+      ).not.toBe(200);
+
+      const enabled = await app.request(
+        `/admin/api/projects/${projectSlug}/oauth-clients/${initialCredential.clientId}/enable`,
+        {
+          method: "POST",
+          headers: adminHeaders(cookie)
+        }
+      );
+      expect(enabled.status).toBe(200);
+      expect(await readIntegrationJson(enabled)).toMatchObject({
+        client: { disabled: false }
+      });
+      expect(
+        await exchangeClientCredentials({
+          app,
+          projectSlug,
+          credential: rotatedCredential,
+          resource: billingResource
+        })
+      ).toBe(200);
+
+      const deleted = await app.request(
+        `/admin/api/projects/${projectSlug}/oauth-clients/${initialCredential.clientId}`,
+        {
+          method: "DELETE",
+          headers: adminHeaders(cookie)
+        }
+      );
+      expect(deleted.status).toBe(204);
+
+      const missing = await app.request(
+        `/admin/api/projects/${projectSlug}/oauth-clients/${initialCredential.clientId}`,
+        {
+          headers: {
+            Cookie: cookie,
+            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+          }
+        }
+      );
+      expect(missing.status).toBe(404);
+      expect(await readIntegrationJson(missing)).toMatchObject({
+        error: "unknown_oauth_client"
+      });
+    } finally {
+      await close();
+    }
+  });
+
   test("updates platform delivery and observability settings through the admin API", async () => {
     const { app, registry, close } = await createIntegrationApp();
 
@@ -305,3 +517,53 @@ const projectCreateBody = (slug: string) => {
     trustedOrigins: [`https://${slug}.integration.test`]
   };
 };
+
+const readOAuthCredential = (body: Record<string, unknown>) => {
+  if (!isRecord(body.credential)) {
+    throw new Error("Expected OAuth client credential");
+  }
+  const clientId = body.credential.clientId;
+  const clientSecret = body.credential.clientSecret;
+  if (
+    typeof clientId !== "string" ||
+    typeof clientSecret !== "string" ||
+    !clientId ||
+    !clientSecret
+  ) {
+    throw new Error("Expected confidential OAuth client credential");
+  }
+
+  return { clientId, clientSecret };
+};
+
+const exchangeClientCredentials = async (options: {
+  app: Awaited<ReturnType<typeof createIntegrationApp>>["app"];
+  projectSlug: string;
+  credential: { clientId: string; clientSecret: string };
+  resource: string;
+}) => {
+  const response = await options.app.request(
+    `/api/${options.projectSlug}/auth/oauth2/token`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(
+          `${options.credential.clientId}:${options.credential.clientSecret}`
+        ).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+        [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+      },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        scope: "billing:usage:write",
+        resource: options.resource
+      }).toString()
+    }
+  );
+
+  return response.status;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}

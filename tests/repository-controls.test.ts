@@ -125,6 +125,9 @@ describe("repository security controls", () => {
     const oauthResourceManifest = await Bun.file(
       rootFile("packages/platform/oauth-resource/package.json")
     ).json();
+    const oauthClientManagementManifest = await Bun.file(
+      rootFile("packages/platform/oauth-client-management/package.json")
+    ).json();
     const packageTags = new Map([
       ["apps/admin", "app"],
       ["apps/api", "app"],
@@ -142,6 +145,7 @@ describe("repository security controls", () => {
       ["packages/foundation/platform-crypto", "foundation"],
       ["packages/foundation/platform-database", "foundation"],
       ["packages/platform/better-auth-runtime", "platform"],
+      ["packages/platform/oauth-client-management", "platform"],
       ["packages/platform/oauth-resource", "platform"],
       ["packages/ui", "frontend"]
     ]);
@@ -158,6 +162,7 @@ describe("repository security controls", () => {
     expect(turbo.boundaries.tags.platform.dependencies.allow).toEqual([
       "domain",
       "foundation",
+      "platform",
       "public"
     ]);
     expect(authRuntimeManifest.dependencies["@nezdemkovski/auth-realm"]).toBe(
@@ -173,6 +178,16 @@ describe("repository security controls", () => {
     }
     expect(
       authRuntimeManifest.dependencies["@nezdemkovski/auth-oauth-resource"]
+    ).toBeUndefined();
+    expect(
+      authRuntimeManifest.dependencies[
+        "@nezdemkovski/auth-oauth-client-management"
+      ]
+    ).toBe("workspace:*");
+    expect(
+      oauthClientManagementManifest.dependencies[
+        "@nezdemkovski/auth-better-auth-runtime"
+      ]
     ).toBeUndefined();
     expect(
       Object.keys(oauthResourceManifest.dependencies).filter((dependency) =>
@@ -196,6 +211,7 @@ describe("repository security controls", () => {
       "packages/foundation/platform-crypto",
       "packages/foundation/platform-database",
       "packages/platform/better-auth-runtime",
+      "packages/platform/oauth-client-management",
       "packages/platform/oauth-resource"
     ]) {
       const manifest = await Bun.file(rootFile(`${path}/package.json`)).json();
@@ -222,6 +238,7 @@ describe("repository security controls", () => {
       "apps/api/src/modules/billing/http.ts",
       "apps/api/src/modules/delivery/http.ts",
       "apps/api/src/modules/observability/http.ts",
+      "apps/api/src/modules/oauth-client-management/http.ts",
       "apps/api/src/modules/projects/http.ts",
       "apps/api/src/modules/storage/http.ts",
       "apps/api/src/modules/users/http.ts"

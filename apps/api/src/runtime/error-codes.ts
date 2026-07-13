@@ -4,6 +4,7 @@ export enum ErrorCode {
   InvalidBenefitKey = "invalid_benefit_key",
   InvalidBody = "invalid_body",
   InvalidCode = "invalid_code",
+  InvalidOAuthClient = "invalid_oauth_client",
   InvalidPkceChallenge = "invalid_pkce_challenge",
   InvalidRedirectUri = "invalid_redirect_uri",
   InvalidStorageSettings = "invalid_storage_settings",
@@ -11,6 +12,7 @@ export enum ErrorCode {
   InsufficientScope = "insufficient_scope",
   MissingClientId = "missing_client_id",
   NotFound = "not_found",
+  OAuthProviderDisabled = "oauth_provider_disabled",
   PasswordChangeRequired = "password_change_required",
   RateLimited = "rate_limited",
   RateLimitUnavailable = "rate_limit_unavailable",
@@ -19,6 +21,7 @@ export enum ErrorCode {
   Unauthorized = "unauthorized",
   UnknownSubject = "unknown_subject",
   UnknownProject = "unknown_project",
+  UnknownOAuthClient = "unknown_oauth_client",
   UnknownProvider = "unknown_provider",
   UnknownReservation = "unknown_reservation"
 }

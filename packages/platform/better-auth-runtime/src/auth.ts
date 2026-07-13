@@ -3,10 +3,16 @@ import {
   oauthProvider,
   oauthProviderAuthServerMetadata,
   oauthProviderOpenIdConfigMetadata,
-  type ResourceServerMetadata
+  type OAuthOptions,
+  type ResourceServerMetadata,
+  type Scope
 } from "@better-auth/oauth-provider";
 import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resource-client";
 import { passkey } from "@better-auth/passkey";
+import {
+  oauthClientManagement,
+  oauthClientSecretStorage
+} from "@nezdemkovski/auth-oauth-client-management";
 import { sha256Hex } from "@nezdemkovski/auth-platform-crypto";
 import {
   isBuiltInSocialProvider,
@@ -74,6 +80,28 @@ export const createProjectAuth = <TProject extends Realm>(
 
   return {
     handler: (request) => auth.handler(request),
+    oauthClientManagement: {
+      list: () => auth.api.listOAuthClientsForManagement(),
+      get: (clientId) =>
+        auth.api.getOAuthClientForManagement({ query: { clientId } }),
+      create: (input) =>
+        auth.api.createOAuthClientForManagement({ body: input }),
+      update: (clientId, input) =>
+        auth.api.updateOAuthClientForManagement({
+          body: { clientId, update: input }
+        }),
+      setDisabled: (clientId, disabled) =>
+        auth.api.setOAuthClientDisabledForManagement({
+          body: { clientId, disabled }
+        }),
+      rotateSecret: (clientId) =>
+        auth.api.rotateOAuthClientSecretForManagement({
+          body: { clientId }
+        }),
+      delete: async (clientId) => {
+        await auth.api.deleteOAuthClientForManagement({ body: { clientId } });
+      }
+    },
     authorizationServerMetadata: async (request) =>
       oauthProviderAuthServerMetadata(auth)(request),
     openIdConfiguration: async (request) =>
@@ -110,10 +138,6 @@ export const createProjectAuth = <TProject extends Realm>(
       sendVerificationEmail: (input) =>
         auth.api.sendVerificationEmail(input),
       signInSocial: (input) => auth.api.signInSocial(input),
-      adminCreateOAuthClient: (input) =>
-        auth.api.adminCreateOAuthClient(input),
-      adminLinkClientResource: (input) =>
-        auth.api.adminLinkClientResource(input),
       enableTwoFactor: (input) => auth.api.enableTwoFactor(input),
       generateTOTP: (input) => auth.api.generateTOTP(input)
     },
@@ -164,6 +188,38 @@ const buildProjectAuthOptions = <TProject extends Realm>(options: {
   const publicHostname = new URL(publicBaseUrl).hostname;
   const emailHandlers = options.emailContribution?.(project) ?? {};
   const oauthConfig = options.protocol.oauthProvider;
+  const oauthProviderOptions: OAuthOptions<Scope[]> = {
+    loginPage: `/login/${project.slug}`,
+    consentPage: `/login/${project.slug}/oauth/consent`,
+    postLogin: {
+      page: `/login/${project.slug}`,
+      shouldRedirect: ({ user }) => {
+        return mustEnrollTwoFactor(project.features.twoFactor, user);
+      },
+      consentReferenceId: () => undefined
+    },
+    allowDynamicClientRegistration:
+      project.features.oauthProvider.dynamicClientRegistration,
+    allowUnauthenticatedClientRegistration: false,
+    scopes: oauthConfig.scopes,
+    resources: project.features.oauthProvider.enabled
+      ? oauthConfig.resources(project)
+      : [],
+    customAccessTokenClaims: ({ user }) => ({
+      ...(user === undefined
+        ? oauthConfig.serviceAccessTokenClaims
+        : oauthConfig.userAccessTokenClaims)
+    }),
+    resourceSeedMode: "overwrite",
+    enforcePerClientResources: true,
+    clientRegistrationDefaultScopes: oauthConfig.dynamicClientScopes,
+    clientRegistrationAllowedScopes: oauthConfig.dynamicClientScopes,
+    storeClientSecret: oauthClientSecretStorage,
+    silenceWarnings: {
+      oauthAuthServerConfig: true,
+      openidConfig: true
+    }
+  };
 
   return {
     appName: project.name,
@@ -225,37 +281,8 @@ const buildProjectAuthOptions = <TProject extends Realm>(options: {
         trustProxy: options.trustProxyHeaders
       }),
       ...buildTelegramOidcPlugins(project),
-      oauthProvider({
-        loginPage: `/login/${project.slug}`,
-        consentPage: `/login/${project.slug}/oauth/consent`,
-        postLogin: {
-          page: `/login/${project.slug}`,
-          shouldRedirect: ({ user }) => {
-            return mustEnrollTwoFactor(project.features.twoFactor, user);
-          },
-          consentReferenceId: () => undefined
-        },
-        allowDynamicClientRegistration:
-          project.features.oauthProvider.dynamicClientRegistration,
-        allowUnauthenticatedClientRegistration: false,
-        scopes: oauthConfig.scopes,
-        resources: project.features.oauthProvider.enabled
-          ? oauthConfig.resources(project)
-          : [],
-        customAccessTokenClaims: ({ user }) => ({
-          ...(user === undefined
-            ? oauthConfig.serviceAccessTokenClaims
-            : oauthConfig.userAccessTokenClaims)
-        }),
-        resourceSeedMode: "overwrite",
-        enforcePerClientResources: true,
-        clientRegistrationDefaultScopes: oauthConfig.dynamicClientScopes,
-        clientRegistrationAllowedScopes: oauthConfig.dynamicClientScopes,
-        silenceWarnings: {
-          oauthAuthServerConfig: true,
-          openidConfig: true
-        }
-      }),
+      oauthProvider(oauthProviderOptions),
+      oauthClientManagement(oauthProviderOptions),
       lastLoginMethod({
         customResolveMethod: (ctx) => {
           if (ctx.path === "/passkey/verify-authentication") {

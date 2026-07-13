@@ -22,6 +22,7 @@
     "@nezdemkovski/auth-delivery": "workspace:*",
     "@nezdemkovski/auth-identity": "workspace:*",
     "@nezdemkovski/auth-observability": "workspace:*",
+    "@nezdemkovski/auth-oauth-client-management": "workspace:*",
     "@nezdemkovski/auth-oauth-resource": "workspace:*",
     "@nezdemkovski/auth-platform-crypto": "workspace:*",
     "@nezdemkovski/auth-platform-database": "workspace:*",

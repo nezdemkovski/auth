@@ -671,7 +671,6 @@ describe("billing usage integration", () => {
         app,
         registry,
         projectSlug: project.slug,
-        ownerCookie: cookie,
         resource: billingResource,
         scopes: [OAuthScope.BillingUsageRead, OAuthScope.BillingUsageWrite]
       });
@@ -679,7 +678,6 @@ describe("billing usage integration", () => {
         app,
         registry,
         projectSlug: project.slug,
-        ownerCookie: cookie,
         resource: billingResource,
         scopes: [OAuthScope.BillingUsageRead]
       });
@@ -687,7 +685,6 @@ describe("billing usage integration", () => {
         app,
         registry,
         projectSlug: project.slug,
-        ownerCookie: cookie,
         resource: oauthResourceIdentifier(
           integrationPublicBaseUrl,
           project.slug,

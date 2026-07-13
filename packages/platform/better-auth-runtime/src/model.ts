@@ -1,4 +1,5 @@
 import type { ResourceServerMetadata } from "@better-auth/oauth-provider";
+import type { OAuthClientManagement } from "@nezdemkovski/auth-oauth-client-management";
 import type { Realm } from "@nezdemkovski/auth-realm";
 import type { BetterAuthOptions } from "better-auth";
 import type { ResourceRequestInput } from "better-auth/oauth2";
@@ -59,6 +60,7 @@ export type ProjectAuthSession = {
 
 export type ProjectAuth = {
   handler(request: Request): Promise<Response>;
+  oauthClientManagement: OAuthClientManagement;
   authorizationServerMetadata(request: Request): Promise<Response>;
   openIdConfiguration(request: Request): Promise<Response>;
   getProtectedResourceMetadata(
@@ -120,30 +122,6 @@ export type ProjectAuth = {
         disableRedirect: boolean;
       };
     }): Promise<{ url?: string | null }>;
-    adminCreateOAuthClient(input: {
-      headers: Headers;
-      body: {
-        client_name?: string;
-        redirect_uris?: string[];
-        token_endpoint_auth_method?: string;
-        grant_types?: string[];
-        response_types?: "code"[];
-        scope?: string;
-        type?: "web" | "native" | "user-agent-based";
-        skip_consent?: boolean;
-        require_pkce?: boolean;
-      };
-    }): Promise<{
-      client_id: string;
-      client_secret?: string | null;
-    }>;
-    adminLinkClientResource(input: {
-      headers: Headers;
-      params: {
-        identifier: string;
-        client_id: string;
-      };
-    }): Promise<{ linked: boolean }>;
     enableTwoFactor(input: {
       headers: Headers;
       body: {

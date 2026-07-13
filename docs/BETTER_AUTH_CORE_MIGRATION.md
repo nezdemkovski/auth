@@ -35,7 +35,10 @@ Custom code is appropriate for:
 - hosted login, consent, reset, passkey, and 2FA presentation;
 - mapping the central `issuer + sub` identity into a product application;
 - billing entitlements, storage, delivery, and other platform business APIs;
-- admin workflows that call typed Better Auth server APIs.
+- admin workflows that call typed Better Auth server APIs;
+- a replaceable Better Auth server plugin for management commands that the
+  pinned OAuth Provider does not expose, using only the plugin adapter model
+  boundary and never physical tables or protocol reimplementation.
 
 Custom code is not appropriate for:
 
@@ -122,7 +125,7 @@ the immutable `issuer + sub` pair.
 | `packages/auth-server` direct `jose` verifier | Replace | Better Auth provides a resource client and `verifyAccessToken` behavior. |
 | Hosted login React application | Keep and simplify | UI is ours; protocol transitions must be delegated to Better Auth client plugins. |
 | Manual OAuth/OIDC metadata aliases | Keep only if routing requires them | A routing adapter is acceptable; metadata content must come from Better Auth helpers. |
-| Admin OAuth-client UI/API | Keep as a thin facade | It may call `auth.api.adminCreateOAuthClient` and related Better Auth APIs but must not write OAuth tables itself. |
+| Admin OAuth-client UI/API | Keep as a thin facade | The app calls the typed `OAuthClientManagement` port. Its isolated Better Auth plugin uses `ctx.context.adapter` with OAuth Provider model names; it does not use raw SQL, physical table names, or implement OAuth behavior. Replace the plugin with native provider management APIs when upstream closes the lifecycle gap. |
 | Billing, entitlement, profile, and storage APIs | Keep as business resources | They are platform capabilities, but their authorization must use Better Auth sessions or OAuth resource tokens at the correct boundary. |
 
 ## Phase 0: Freeze and Prove the Direction
@@ -167,26 +170,25 @@ the immutable `issuer + sub` pair.
   from every trusted origin.
 - [x] Define explicit scopes for each current platform resource.
 - [x] Keep OIDC identity scopes separate from platform business scopes.
-- [ ] Define distinct client profiles:
+- [x] Define distinct client profiles:
   - confidential product web/BFF client: `authorization_code` and
     `refresh_token`;
   - public native/browser client: `authorization_code` with mandatory PKCE and
     no client secret;
   - MCP client: dynamic/public behavior required by the MCP integration;
   - service client: `client_credentials` and no user grants.
-- [ ] Provision all clients through Better Auth server APIs.
-- [ ] Link clients to resources through Better Auth resource APIs when
-  per-client resource enforcement is enabled.
-- [ ] Add admin operations for list, create, rotate, disable/delete, and inspect
+- [x] Provision admin-created realm clients through the isolated Better Auth
+  server plugin and its typed management port.
+- [x] Link clients to Better Auth resources through the OAuth Provider adapter
+  model boundary when per-client resource enforcement is enabled.
+- [x] Add admin operations for list, create, rotate, disable/delete, and inspect
   client metadata without ever returning a stored client secret.
-  - Blocked with the pinned OAuth Provider API: server-only create, update, and
-    resource linking are available, while list/get, secret rotation, and delete
-    require an owning user session; a server-only disable operation is not
-    exposed.
-  - Do not work around the missing lifecycle by reading or writing Better Auth
-    plugin tables directly or by inventing a technical owner session. Upgrade
-    Better Auth or contribute the missing server APIs upstream first.
-- [ ] Show a newly generated client secret only in the Better Auth creation or
+  - Better Auth remains the only OAuth engine and source of truth. The local
+    plugin adds management commands only; it does not create a technical owner
+    session, mint tokens, authenticate clients, or own OAuth persistence.
+  - Track native ownerless lifecycle APIs upstream and remove the plugin behind
+    the unchanged management port when they become available.
+- [x] Show a newly generated client secret only in the management creation or
   rotation response.
 - [ ] Ensure Better Auth-generated migrations include all enabled plugin tables
   for every realm schema.

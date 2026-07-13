@@ -2,6 +2,10 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { EmailProvider } from "@nezdemkovski/auth-delivery";
+import {
+  OAuthClientProfile,
+  type ManagedOAuthClientCredential
+} from "@nezdemkovski/auth-oauth-client-management";
 import type { OAuthScope } from "@nezdemkovski/auth-oauth-resource";
 import {
   DEFAULT_PROJECT_STORAGE,
@@ -237,13 +241,9 @@ export const createIntegrationUserResourceToken = async (options: {
   const scope = options.scopes.join(" ");
   const client = await createIntegrationResourceClient({
     ...options,
-    ownerCookie: options.userCookie,
     profile: IntegrationResourceClientProfile.User,
     callbackUrl
   });
-  if (!client.client_secret) {
-    throw new Error("Expected a confidential OAuth client secret");
-  }
 
   const codeVerifier =
     "integration-resource-code-verifier-with-more-than-forty-three-characters";
@@ -258,7 +258,7 @@ export const createIntegrationUserResourceToken = async (options: {
     integrationPublicBaseUrl
   );
   authorizeUrl.searchParams.set("response_type", "code");
-  authorizeUrl.searchParams.set("client_id", client.client_id);
+  authorizeUrl.searchParams.set("client_id", client.clientId);
   authorizeUrl.searchParams.set("redirect_uri", callbackUrl);
   authorizeUrl.searchParams.set("scope", scope);
   authorizeUrl.searchParams.set("resource", options.resource);
@@ -291,7 +291,7 @@ export const createIntegrationUserResourceToken = async (options: {
     grant_type: "authorization_code",
     code,
     redirect_uri: callbackUrl,
-    client_id: client.client_id,
+    client_id: client.clientId,
     code_verifier: codeVerifier,
     resource: options.resource
   });
@@ -300,7 +300,7 @@ export const createIntegrationUserResourceToken = async (options: {
     {
       method: "POST",
       headers: {
-        Authorization: `Basic ${Buffer.from(`${client.client_id}:${client.client_secret}`).toString("base64")}`,
+        Authorization: `Basic ${Buffer.from(`${client.clientId}:${client.clientSecret}`).toString("base64")}`,
         "Content-Type": "application/x-www-form-urlencoded",
         [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
       },
@@ -321,7 +321,6 @@ export const createIntegrationServiceResourceToken = async (options: {
   app: Awaited<ReturnType<typeof createIntegrationApp>>["app"];
   registry: Awaited<ReturnType<typeof createIntegrationApp>>["registry"];
   projectSlug: string;
-  ownerCookie: string;
   resource: string;
   scopes: OAuthScope[];
 }) => {
@@ -330,16 +329,12 @@ export const createIntegrationServiceResourceToken = async (options: {
     ...options,
     profile: IntegrationResourceClientProfile.Service
   });
-  if (!client.client_secret) {
-    throw new Error("Expected a confidential service client secret");
-  }
-
   const tokenResponse = await options.app.request(
     `/api/${options.projectSlug}/auth/oauth2/token`,
     {
       method: "POST",
       headers: {
-        Authorization: `Basic ${Buffer.from(`${client.client_id}:${client.client_secret}`).toString("base64")}`,
+        Authorization: `Basic ${Buffer.from(`${client.clientId}:${client.clientSecret}`).toString("base64")}`,
         "Content-Type": "application/x-www-form-urlencoded",
         [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
       },
@@ -359,7 +354,7 @@ export const createIntegrationServiceResourceToken = async (options: {
 
   return {
     accessToken: token.access_token,
-    clientId: client.client_id
+    clientId: client.clientId
   };
 };
 
@@ -371,7 +366,6 @@ enum IntegrationResourceClientProfile {
 const createIntegrationResourceClient = async (options: {
   registry: Awaited<ReturnType<typeof createIntegrationApp>>["registry"];
   projectSlug: string;
-  ownerCookie: string;
   resource: string;
   scopes: OAuthScope[];
   profile: IntegrationResourceClientProfile;
@@ -382,41 +376,35 @@ const createIntegrationResourceClient = async (options: {
     throw new Error("Expected the OAuth realm to be registered");
   }
 
-  const sessionHeaders = new Headers({ Cookie: options.ownerCookie });
-  const client = await registered.auth.api.adminCreateOAuthClient({
-    headers: sessionHeaders,
-    body:
+  const created = await registered.auth.oauthClientManagement.create({
+    name:
       options.profile === IntegrationResourceClientProfile.User
-        ? {
-            client_name: "Integration User Resource Client",
-            redirect_uris: options.callbackUrl ? [options.callbackUrl] : [],
-            token_endpoint_auth_method: "client_secret_basic",
-            grant_types: ["authorization_code"],
-            response_types: ["code"],
-            scope: options.scopes.join(" "),
-            type: "web",
-            skip_consent: true,
-            require_pkce: true
-          }
-        : {
-            client_name: "Integration Service Resource Client",
-            token_endpoint_auth_method: "client_secret_basic",
-            grant_types: ["client_credentials"],
-            scope: options.scopes.join(" "),
-            skip_consent: true,
-            require_pkce: false
-          }
+        ? "Integration User Resource Client"
+        : "Integration Service Resource Client",
+    profile:
+      options.profile === IntegrationResourceClientProfile.User
+        ? OAuthClientProfile.Web
+        : OAuthClientProfile.Service,
+    redirectUris: options.callbackUrl ? [options.callbackUrl] : [],
+    postLogoutRedirectUris: [],
+    scopes: options.scopes,
+    resources: [options.resource],
+    skipConsent: true
   });
+  return requireConfidentialCredential(created.credential);
+};
 
-  await registered.auth.api.adminLinkClientResource({
-    headers: sessionHeaders,
-    params: {
-      identifier: options.resource,
-      client_id: client.client_id
-    }
-  });
+const requireConfidentialCredential = (
+  credential: ManagedOAuthClientCredential
+) => {
+  if (!credential.clientSecret) {
+    throw new Error("Expected a confidential OAuth client secret");
+  }
 
-  return client;
+  return {
+    clientId: credential.clientId,
+    clientSecret: credential.clientSecret
+  };
 };
 
 export const createIntegrationAdminSession = async (options: {

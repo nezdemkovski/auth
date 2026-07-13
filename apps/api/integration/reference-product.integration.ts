@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { OAuthClientProfile } from "@nezdemkovski/auth-oauth-client-management";
 import { createReferenceProductApp } from "@nezdemkovski/auth-reference-product";
 import { RealmTwoFactorRequirement } from "@nezdemkovski/auth-realm";
 
@@ -9,8 +10,7 @@ import {
   createIntegrationApp,
   integrationPublicBaseUrl,
   installIntegrationAppFetch,
-  resetAndBootstrapIntegrationDatabase,
-  signUpIntegrationUser
+  resetAndBootstrapIntegrationDatabase
 } from "./setup";
 
 const PRODUCT_ORIGIN = "http://127.0.0.1:3010";
@@ -44,31 +44,16 @@ describe("reference product OAuth integration", () => {
         throw new Error("Expected the OAuth realm to be registered");
       }
 
-      const clientOwner = await signUpIntegrationUser({
-        app: central.app,
-        projectSlug: project.slug,
-        origin: project.appUrl,
-        email: "owner@example.com",
-        password: "correct horse battery staple",
-        name: "Client Owner"
+      const client = await registered.auth.oauthClientManagement.create({
+        name: "Reference Product",
+        profile: OAuthClientProfile.Web,
+        redirectUris: [PRODUCT_CALLBACK],
+        postLogoutRedirectUris: [],
+        scopes: ["openid", "profile", "email", "offline_access"],
+        resources: [],
+        skipConsent: true
       });
-      const client = await registered.auth.api.adminCreateOAuthClient({
-        headers: new Headers({
-          Cookie: clientOwner.cookie
-        }),
-        body: {
-          client_name: "Reference Product",
-          redirect_uris: [PRODUCT_CALLBACK],
-          token_endpoint_auth_method: "client_secret_basic",
-          grant_types: ["authorization_code", "refresh_token"],
-          response_types: ["code"],
-          scope: "openid profile email offline_access",
-          type: "web",
-          skip_consent: true,
-          require_pkce: true
-        }
-      });
-      if (!client.client_secret) {
+      if (!client.credential.clientSecret) {
         throw new Error("Expected a confidential OAuth client secret");
       }
 
@@ -77,8 +62,8 @@ describe("reference product OAuth integration", () => {
         origin: PRODUCT_ORIGIN,
         secret: PRODUCT_SECRET,
         authIssuer: issuer,
-        authClientId: client.client_id,
-        authClientSecret: client.client_secret
+        authClientId: client.credential.clientId,
+        authClientSecret: client.credential.clientSecret
       });
 
       const signIn = await product.app.request("/api/auth/sign-in/social", {
@@ -345,8 +330,8 @@ describe("reference product OAuth integration", () => {
         origin: PRODUCT_ORIGIN,
         secret: PRODUCT_SECRET,
         authIssuer: issuer,
-        authClientId: client.client_id,
-        authClientSecret: client.client_secret
+        authClientId: client.credential.clientId,
+        authClientSecret: client.credential.clientSecret
       });
       const mismatchSignIn = await mismatchProduct.app.request(
         "/api/auth/sign-in/social",

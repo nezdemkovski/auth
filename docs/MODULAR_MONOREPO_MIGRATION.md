@@ -107,8 +107,10 @@ Modularization must not recreate auth protocol logic in a new package.
 - The OAuth resource package may expose verification policy and Better Auth
   resource-client composition, but it must not mint, refresh, cache, or persist
   its own tokens.
-- The known server-admin OAuth client lifecycle gap remains in `TODO.md`; moving
-  files does not solve it and direct plugin-table access remains forbidden.
+- The known server-admin OAuth client lifecycle gap is isolated behind the
+  private `oauth-client-management` Better Auth plugin. It uses Better Auth's
+  plugin adapter model boundary, never raw SQL or physical plugin tables, and
+  must be replaced by native provider APIs when upstream closes the gap.
 
 ## Proposed Workspace Shape
 
@@ -146,6 +148,7 @@ packages/
     observability/
   platform/
     better-auth-runtime/       # per-realm Better Auth construction and registry
+    oauth-client-management/   # replaceable Better Auth client control plane
     oauth-resource/            # Better Auth resource verification and metadata
   frontend/
     ui/
