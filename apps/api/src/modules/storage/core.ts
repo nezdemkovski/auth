@@ -99,10 +99,7 @@ export class StorageService {
     return listStorageObjects(registered.projectDb.pool);
   }
 
-  async updateSettings(
-    registered: RegisteredProject,
-    patch: StorageSettingsPatch
-  ) {
+  async updateSettings(registered: RegisteredProject, patch: StorageSettingsPatch) {
     const storage = await updateStorageSettings({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
@@ -113,7 +110,9 @@ export class StorageService {
       patch
     });
 
-    await this.options.registry.patchProject(registered.project.slug, { storage });
+    await this.options.registry.patchProject(registered.project.slug, {
+      storage
+    });
 
     return this.readSettings(registered.project);
   }
@@ -150,17 +149,10 @@ export class StorageService {
       throw new Error("ownerUserId is required for user avatar uploads");
     }
     const ownerUserId = input.ownerUserId;
-    const previousUrl = await readUserImage(
-      input.registered.projectDb.pool,
-      ownerUserId
-    );
+    const previousUrl = await readUserImage(input.registered.projectDb.pool, ownerUserId);
 
     return this.withUploadedMedia(input, previousUrl, async (uploaded) => {
-      await updateUserImage(
-        input.registered.projectDb.pool,
-        ownerUserId,
-        uploaded.publicUrl
-      );
+      await updateUserImage(input.registered.projectDb.pool, ownerUserId, uploaded.publicUrl);
 
       return {
         upload: uploaded,
@@ -170,6 +162,18 @@ export class StorageService {
         }
       };
     });
+  }
+
+  async deleteUserAvatar(input: { registered: RegisteredProject; ownerUserId: string }) {
+    const previousUrl = await readUserImage(input.registered.projectDb.pool, input.ownerUserId);
+    await updateUserImage(input.registered.projectDb.pool, input.ownerUserId, "");
+    await retireReplacedMedia({
+      pool: input.registered.projectDb.pool,
+      storage: input.registered.project.storage,
+      previousUrl,
+      nextUrl: ""
+    });
+    return { user: { id: input.ownerUserId, image: null } };
   }
 
   private async withUploadedMedia<T>(
@@ -237,41 +241,28 @@ const cleanupUploadedMedia = async (
       });
       return;
     } catch (cleanupError) {
-      throw new StorageCleanupError(
-        "Storage upload and untracked object cleanup both failed",
-        {
-          originalError: context.originalError,
-          cleanupError
-        }
-      );
+      throw new StorageCleanupError("Storage upload and untracked object cleanup both failed", {
+        originalError: context.originalError,
+        cleanupError
+      });
     }
   }
 
   try {
     await markStorageObjectPendingDeletion(pool, uploaded.objectKey);
   } catch (cleanupError) {
-    throw new StorageCleanupError(
-      "Storage upload persistence and cleanup scheduling both failed",
-      {
-        originalError: context.originalError,
-        cleanupError
-      }
-    );
+    throw new StorageCleanupError("Storage upload persistence and cleanup scheduling both failed", {
+      originalError: context.originalError,
+      cleanupError
+    });
   }
 
-  const cleanupError = await deletePendingStorageObject(
-    pool,
-    storage,
-    uploaded.objectKey
-  );
+  const cleanupError = await deletePendingStorageObject(pool, storage, uploaded.objectKey);
   if (cleanupError) {
-    throw new StorageCleanupError(
-      "Storage upload persistence and deferred cleanup both failed",
-      {
-        originalError: context.originalError,
-        cleanupError
-      }
-    );
+    throw new StorageCleanupError("Storage upload persistence and deferred cleanup both failed", {
+      originalError: context.originalError,
+      cleanupError
+    });
   }
 };
 
@@ -285,20 +276,13 @@ const retireReplacedMedia = async (options: {
     return;
   }
 
-  const previous = await findStorageObjectByPublicUrl(
-    options.pool,
-    options.previousUrl
-  );
+  const previous = await findStorageObjectByPublicUrl(options.pool, options.previousUrl);
   if (!previous) {
     return;
   }
 
   await markStorageObjectPendingDeletion(options.pool, previous.objectKey);
-  await deletePendingStorageObject(
-    options.pool,
-    options.storage,
-    previous.objectKey
-  );
+  await deletePendingStorageObject(options.pool, options.storage, previous.objectKey);
 };
 
 const retryPendingStorageCleanup = async (

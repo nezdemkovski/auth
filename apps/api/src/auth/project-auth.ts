@@ -8,11 +8,7 @@ import { telegram } from "@nezdemkovski/better-auth-telegram";
 import { checkout, polar, portal, usage, webhooks } from "@polar-sh/better-auth";
 import { Polar } from "@polar-sh/sdk";
 
-import {
-  AuthUserRole,
-  BillingProvider,
-  type AuthProject
-} from "../config/projects";
+import { AuthUserRole, BillingProvider, type AuthProject } from "../config/projects";
 import {
   isSocialProviderConfigured,
   isOAuthSocialProvider,
@@ -153,8 +149,7 @@ export const createBaseProjectAuthOptions = (options: {
       oauthProvider({
         loginPage: `/login/${project.slug}`,
         consentPage: `/login/${project.slug}/oauth/consent`,
-        allowDynamicClientRegistration:
-          project.features.oauthProvider.dynamicClientRegistration,
+        allowDynamicClientRegistration: project.features.oauthProvider.dynamicClientRegistration,
         allowUnauthenticatedClientRegistration: false,
         validAudiences: buildOAuthValidAudiences(project, publicBaseUrl),
         silenceWarnings: {
@@ -188,6 +183,8 @@ export const createBaseProjectAuthOptions = (options: {
           expirationTime: "15 minutes",
           definePayload: ({ user }) => ({
             sub: user.id,
+            name: user.name,
+            image: user.image,
             email: user.email,
             email_verified: user.emailVerified === true,
             project: project.slug,

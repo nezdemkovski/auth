@@ -7,21 +7,20 @@ import { isTrustedProjectMutation } from "../../http/project-csrf";
 import { requireProjectSession } from "../../http/project-session";
 import { ErrorCode } from "../../runtime/error-codes";
 import { StorageService } from "./core";
-import {
-  mediaUploadBodyError,
-  MediaUploadBodyError,
-  MediaUploadPurpose
-} from "./media";
+import { mediaUploadBodyError, MediaUploadBodyError, MediaUploadPurpose } from "./media";
 import { parseMediaUploadRequest } from "./validator";
 
 type PublicStorageVariables = {
   registry: AuthRegistry;
 };
 
-export const registerPublicStorageRoutes = (app: Hono<{ Variables: PublicStorageVariables }>, options: {
+export const registerPublicStorageRoutes = (
+  app: Hono<{ Variables: PublicStorageVariables }>,
+  options: {
     registry: AuthRegistry;
     storageService: StorageService;
-  }) => {
+  }
+) => {
   app.use(
     "/api/:project/upload",
     cors({
@@ -34,7 +33,7 @@ export const registerPublicStorageRoutes = (app: Hono<{ Variables: PublicStorage
         return options.registry.isTrustedOrigin(project, origin) ? origin : "";
       },
       allowHeaders: ["Content-Type", "Authorization"],
-      allowMethods: ["POST", "OPTIONS"],
+      allowMethods: ["POST", "DELETE", "OPTIONS"],
       credentials: true,
       maxAge: 600
     })
@@ -77,6 +76,30 @@ export const registerPublicStorageRoutes = (app: Hono<{ Variables: PublicStorage
       });
 
       return c.json(result);
+    } catch (error) {
+      return mediaUploadError(error);
+    }
+  });
+
+  app.delete("/api/:project/upload", async (c) => {
+    if (!isTrustedProjectMutation(options.registry, c.req.param("project"), c.req.raw.headers)) {
+      return c.json({ error: ErrorCode.ForbiddenOrigin }, 403);
+    }
+    const access = await requireProjectSession(
+      options.registry,
+      c.req.param("project"),
+      c.req.raw.headers
+    );
+    if (!access.ok) {
+      return c.json({ error: access.error }, access.status);
+    }
+    try {
+      return c.json(
+        await options.storageService.deleteUserAvatar({
+          registered: access.registered,
+          ownerUserId: access.session.user.id
+        })
+      );
     } catch (error) {
       return mediaUploadError(error);
     }

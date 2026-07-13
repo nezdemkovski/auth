@@ -46,17 +46,14 @@ describe("storage upload integration", () => {
         registry,
         email: "upload-admin@integration.test"
       });
-      const projectIcon = await app.request(
-        `/admin/api/projects/${project.slug}/upload`,
-        {
-          method: "POST",
-          headers: uploadHeaders({
-            cookie: admin.cookie,
-            origin: "http://127.0.0.1:3000"
-          }),
-          body: uploadForm("project_icon", "realm-icon.png")
-        }
-      );
+      const projectIcon = await app.request(`/admin/api/projects/${project.slug}/upload`, {
+        method: "POST",
+        headers: uploadHeaders({
+          cookie: admin.cookie,
+          origin: "http://127.0.0.1:3000"
+        }),
+        body: uploadForm("project_icon", "realm-icon.png")
+      });
       expect(projectIcon.status).toBe(200);
       expect(await readIntegrationJson(projectIcon)).toMatchObject({
         upload: {
@@ -93,23 +90,18 @@ describe("storage upload integration", () => {
         },
         user: {
           id: user.userId,
-          image: expect.stringContaining(
-            `/realms/${project.slug}/images/${user.userId}/`
-          )
+          image: expect.stringContaining(`/realms/${project.slug}/images/${user.userId}/`)
         }
       });
 
-      const replacementIcon = await app.request(
-        `/admin/api/projects/${project.slug}/upload`,
-        {
-          method: "POST",
-          headers: uploadHeaders({
-            cookie: admin.cookie,
-            origin: "http://127.0.0.1:3000"
-          }),
-          body: uploadForm("project_icon", "replacement-icon.png")
-        }
-      );
+      const replacementIcon = await app.request(`/admin/api/projects/${project.slug}/upload`, {
+        method: "POST",
+        headers: uploadHeaders({
+          cookie: admin.cookie,
+          origin: "http://127.0.0.1:3000"
+        }),
+        body: uploadForm("project_icon", "replacement-icon.png")
+      });
       const replacementAvatar = await app.request(`/api/${project.slug}/upload`, {
         method: "POST",
         headers: uploadHeaders({
@@ -121,15 +113,24 @@ describe("storage upload integration", () => {
       expect(replacementIcon.status).toBe(200);
       expect(replacementAvatar.status).toBe(200);
 
-      const objects = await app.request(
-        `/admin/api/projects/${project.slug}/storage/objects`,
-        {
-          headers: {
-            Cookie: admin.cookie,
-            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
-          }
+      const deletedAvatar = await app.request(`/api/${project.slug}/upload`, {
+        method: "DELETE",
+        headers: uploadHeaders({
+          cookie: user.cookie,
+          origin: project.appUrl
+        })
+      });
+      expect(deletedAvatar.status).toBe(200);
+      expect(await readIntegrationJson(deletedAvatar)).toMatchObject({
+        user: { id: user.userId, image: null }
+      });
+
+      const objects = await app.request(`/admin/api/projects/${project.slug}/storage/objects`, {
+        headers: {
+          Cookie: admin.cookie,
+          [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
         }
-      );
+      });
       expect(objects.status).toBe(200);
       const objectsBody = await readIntegrationJson(objects);
       expect(objectsBody).toMatchObject({
@@ -137,16 +138,12 @@ describe("storage upload integration", () => {
           expect.objectContaining({
             originalFileName: "replacement-icon.png",
             mimeType: "image/png"
-          }),
-          expect.objectContaining({
-            originalFileName: "replacement-avatar.png",
-            ownerUserId: user.userId,
-            mimeType: "image/png"
           })
         ])
       });
       expect(JSON.stringify(objectsBody)).not.toContain("realm-icon.png");
       expect(JSON.stringify(objectsBody)).not.toContain('"avatar.png"');
+      expect(JSON.stringify(objectsBody)).not.toContain("replacement-avatar.png");
     } finally {
       await close();
     }
@@ -212,9 +209,8 @@ const uploadForm = (purpose: string, fileName: string) => {
 
 const pngBytes = () => {
   return Uint8Array.from([
-    137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1,
-    0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 10, 73, 68, 65, 84,
-    120, 156, 99, 0, 1, 0, 0, 5, 0, 1, 13, 10, 42, 188, 0, 0, 0, 0, 73, 69,
-    78, 68, 174, 66, 96, 130
+    137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0,
+    0, 0, 31, 21, 196, 137, 0, 0, 0, 10, 73, 68, 65, 84, 120, 156, 99, 0, 1, 0, 0, 5, 0, 1, 13, 10,
+    42, 188, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130
   ]);
 };
