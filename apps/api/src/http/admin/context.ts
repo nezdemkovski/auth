@@ -1,14 +1,18 @@
 import type { Hono } from "hono";
+import type {
+  DeliveryService,
+  EmailConfig
+} from "@nezdemkovski/auth-delivery";
+import type {
+  ObservabilityReporter,
+  ObservabilityService
+} from "@nezdemkovski/auth-observability";
 
 import type { AuthRegistry } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import type { AdminDatabase } from "../../db/admin-pool";
-import type { EmailConfig } from "../../email/sender";
 import type { AdminAccountService } from "../../modules/admin-account/core";
 import type { BillingService } from "../../modules/billing/core";
-import type { DeliveryService } from "../../modules/delivery/core";
-import type { ObservabilityService } from "../../modules/observability/core";
-import type { ObservabilityReporter } from "../../modules/observability/core";
 import type { ProjectService } from "../../modules/projects/core";
 import type { StorageService } from "../../modules/storage/core";
 import type { UsersService } from "../../modules/users/core";
@@ -36,8 +40,6 @@ export type AdminRouteContext = {
   projectService: ProjectService;
   storageService: StorageService;
   usersService: UsersService;
-  getDeliverySettings(): EmailConfig;
-  setDeliverySettings(settings: EmailConfig): void;
 };
 
 export type AdminRouteRegistration = (context: AdminRouteContext) => void;

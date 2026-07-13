@@ -1,4 +1,3 @@
-import type { ObservabilityReporter } from "../observability/core";
 import type { Env, Hono } from "hono";
 import { ErrorCode } from "../../runtime/error-codes";
 import {
@@ -14,7 +13,13 @@ import {
   resetPasswordConfigResponse
 } from "./translator";
 
-type PublicObservabilityReporter = Pick<ObservabilityReporter, "publicConfig">;
+type PublicObservabilityReporter = {
+  publicConfig(): {
+    enabled: boolean;
+    dsn: string;
+    environment: string;
+  };
+};
 
 export type LoginOptions = {
   registry: LoginProjectRegistry;

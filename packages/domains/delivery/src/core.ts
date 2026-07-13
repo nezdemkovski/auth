@@ -1,11 +1,16 @@
-import type { AuthRegistry } from "../../auth/registry";
-import type { AuthProject } from "../../config/projects";
-import type { AdminDatabase } from "../../db/admin-pool";
-import { createEmailSender, type EmailConfig } from "../../email/sender";
+import type {
+  AdminDatabase,
+  AdminSchema
+} from "@nezdemkovski/auth-platform-database";
+
+import {
+  createEmailSender,
+  type EmailConfig,
+  type EmailSender
+} from "./sender";
 import {
   deliverySettingsResponse,
-  toRuntimeEmailConfig,
-  type PublicDeliverySettings
+  toRuntimeEmailConfig
 } from "./translator";
 import {
   readDeliverySettings,
@@ -35,12 +40,14 @@ export class DeliveryServiceError extends Error {
 export class DeliveryService {
   constructor(
     private readonly options: {
-      registry: AuthRegistry;
       databaseUrl: string;
-      adminProject: AuthProject;
+      adminProject: AdminSchema;
       adminDb?: AdminDatabase;
       encryptionSecret: string;
-      setDeliverySettings(settings: EmailConfig): void;
+      applyRuntimeSettings(
+        settings: EmailConfig,
+        sender: EmailSender | null
+      ): Promise<void>;
     }
   ) {}
 
@@ -66,8 +73,10 @@ export class DeliveryService {
     });
     const deliverySettings = toRuntimeEmailConfig(settings);
 
-    this.options.setDeliverySettings(deliverySettings);
-    await this.options.registry.updateEmailSender(createEmailSender(deliverySettings));
+    await this.options.applyRuntimeSettings(
+      deliverySettings,
+      createEmailSender(deliverySettings)
+    );
 
     return deliverySettingsResponse(settings);
   }

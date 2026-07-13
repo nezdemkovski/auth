@@ -1,9 +1,16 @@
 import { eq, sql } from "drizzle-orm";
+import {
+  decryptSecretValue,
+  encryptSecretValue,
+  type AdminDatabaseOptions,
+  withAdminDb
+} from "@nezdemkovski/auth-platform-database";
 
-import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
-import { EmailProvider, type EmailConfig } from "../../email/sender";
-import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
-import { isEnumValue } from "../../runtime/enums";
+import {
+  EmailProvider,
+  isEmailProvider,
+  type EmailConfig
+} from "./sender";
 import { deliverySettings } from "./tables";
 import type { DeliverySettingsPatch } from "./validator";
 
@@ -199,7 +206,7 @@ const rowToDeliverySettings = async (
 };
 
 const isDeliveryProvider = (value: string): value is EmailConfig["provider"] => {
-  return isEnumValue(EmailProvider, value);
+  return isEmailProvider(value);
 };
 
 const normalizeDate = (value: Date | string | null | undefined) => {

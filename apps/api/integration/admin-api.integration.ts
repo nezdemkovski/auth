@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { EmailProvider } from "@nezdemkovski/auth-delivery";
+import { ObservabilityProvider } from "@nezdemkovski/auth-observability";
 
 import {
   bootstrapIntegrationDatabase,
@@ -12,10 +14,8 @@ import {
 import { DIRECT_CLIENT_IP_HEADER } from "../src/http/security";
 import {
   ProjectAgentAuthMode,
-  ProjectTwoFactorRequirement,
-  ObservabilityProvider
+  ProjectTwoFactorRequirement
 } from "../src/config/projects";
-import { EmailProvider } from "../src/email/sender";
 
 describe("admin API integration", () => {
   beforeEach(async () => {

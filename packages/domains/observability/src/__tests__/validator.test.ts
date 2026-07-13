@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { ObservabilityProvider } from "../../../config/projects";
+import { ObservabilityProvider } from "../model";
 import {
   parseObservabilitySettingsPatch,
   validateObservabilitySettingsPatch

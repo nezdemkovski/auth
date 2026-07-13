@@ -1,4 +1,3 @@
-import { EmailProvider, type EmailConfig } from "../../email/sender";
 import {
   markPasswordChanged,
   mustChangePassword,
@@ -72,7 +71,7 @@ export class AdminAccountService {
   constructor(
     private readonly options: {
       publicBaseUrl: string;
-      getDeliverySettings(): EmailConfig;
+      isDeliveryEnabled(): boolean;
       store?: AdminAccountStore;
     }
   ) {
@@ -91,7 +90,7 @@ export class AdminAccountService {
         input.projectDb.pool,
         input.session.user.id
       ),
-      emailServiceEnabled: this.options.getDeliverySettings().provider !== EmailProvider.None
+      emailServiceEnabled: this.options.isDeliveryEnabled()
     };
   }
 
@@ -118,7 +117,7 @@ export class AdminAccountService {
       nextEmail !== undefined && nextEmail !== input.session.user.email.toLowerCase();
 
     if (emailChanged) {
-      if (this.options.getDeliverySettings().provider === EmailProvider.None) {
+      if (!this.options.isDeliveryEnabled()) {
         throw new AdminAccountServiceError(
           "email_service_disabled",
           409,

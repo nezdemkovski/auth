@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { EmailSender } from "@nezdemkovski/auth-delivery";
 
 import {
   createBaseProjectAuthOptions,
@@ -19,7 +20,6 @@ import {
   OAUTH_SCOPES,
   oauthResourceDefinitions
 } from "../../config/oauth-resources";
-import type { EmailSender } from "../../email/sender";
 
 const baseProject: AuthProject = {
   slug: "demo",

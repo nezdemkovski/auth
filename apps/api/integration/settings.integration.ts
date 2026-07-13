@@ -1,20 +1,20 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-
 import {
-  ObservabilityProvider,
-  StorageProvider
-} from "../src/config/projects";
-import { SocialProvider } from "../src/config/social-providers";
-import { EmailProvider } from "../src/email/sender";
-import {
+  EmailProvider,
   readDeliverySettings,
   updateDeliverySettings
-} from "../src/modules/delivery/store";
+} from "@nezdemkovski/auth-delivery";
+
 import {
+  StorageProvider
+} from "../src/config/projects";
+import {
+  ObservabilityProvider,
   readObservabilitySettings,
   readObservabilitySettingsState,
   updateObservabilitySettings
-} from "../src/modules/observability/store";
+} from "@nezdemkovski/auth-observability";
+import { SocialProvider } from "../src/config/social-providers";
 import {
   markSocialProviderVerified,
   readProjectSocialProviders,

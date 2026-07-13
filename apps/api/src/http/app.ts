@@ -1,11 +1,16 @@
 import { Hono } from "hono";
+import {
+  createObservabilityReporter
+} from "@nezdemkovski/auth-observability";
+import {
+  createEmailSender,
+  readDeliverySettings,
+  toRuntimeEmailConfig
+} from "@nezdemkovski/auth-delivery";
 
 import { registerLoginRoutes } from "../modules/login/http";
 import { registerAuthProxyRoutes } from "../modules/auth-proxy/http";
-import {
-  createObservabilityReporter,
-  inferObservabilityContext
-} from "../modules/observability/core";
+import { inferObservabilityContext } from "../modules/observability/http";
 import { StorageService } from "../modules/storage/core";
 import { registerPublicStorageRoutes } from "../modules/storage/public-http";
 import type { Env } from "../config/env";
@@ -17,11 +22,9 @@ import { registerBillingUsageRoutes } from "../modules/billing-usage/http";
 import { registerOAuthResourceRoutes } from "../modules/oauth-resource/http";
 import { createPolarEntitlementGrantStore } from "../modules/billing/usage-store";
 import { createPolarWebhookStore } from "../modules/billing/webhook-store";
-import { toRuntimeEmailConfig } from "../modules/delivery/translator";
-import { readDeliverySettings } from "../modules/delivery/store";
 import { loadEffectiveProjects } from "../modules/projects/store";
-import { createEmailSender } from "../email/sender";
 import { ErrorCode } from "../runtime/error-codes";
+import { logError } from "../runtime/logger";
 import { createAdminApi } from "./admin";
 import { createRateLimiter, rateLimit, securityHeaders } from "./security";
 
@@ -44,7 +47,12 @@ export const createApp = async (env: Env) => {
     databaseUrl: env.databaseUrl,
     adminProject,
     adminDb,
-    encryptionSecret: env.secretEncryptionKey
+    encryptionSecret: env.secretEncryptionKey,
+    onSettingsLoadError: (error) => {
+      logError("observability_settings_load_failed", {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
   });
   const deliverySettings = await readDeliverySettings({
     databaseUrl: env.databaseUrl,

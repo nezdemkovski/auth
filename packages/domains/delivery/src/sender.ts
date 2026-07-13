@@ -29,6 +29,10 @@ export type EmailSender = {
   }): Promise<void>;
 };
 
+export function isEmailProvider(value: string): value is EmailProvider {
+  return Object.values(EmailProvider).some((provider) => provider === value);
+}
+
 export const createEmailSender = (config: EmailConfig) => {
   if (config.provider === EmailProvider.None) {
     return null;

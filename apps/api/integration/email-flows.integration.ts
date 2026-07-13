@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { EmailProvider } from "@nezdemkovski/auth-delivery";
 
-import { EmailProvider } from "../src/email/sender";
 import { DIRECT_CLIENT_IP_HEADER } from "../src/http/security";
 import {
   createIntegrationApp,

@@ -12,7 +12,6 @@ import {
 import { render } from "@react-email/render";
 import type { CSSProperties } from "react";
 
-import type { AuthProject } from "../config/projects";
 import type { EmailSender } from "./sender";
 
 export const VERIFICATION_EXPIRY_HOURS = 24;
@@ -38,7 +37,9 @@ type ActionEmailProps = {
 
 export const createProjectEmailHandlers = (options: {
   sender: EmailSender | null;
-  project: AuthProject;
+  project: {
+    name: string;
+  };
 }) => {
   const { sender, project } = options;
 

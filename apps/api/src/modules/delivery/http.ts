@@ -1,4 +1,9 @@
 import {
+  DeliveryServiceError,
+  parseDeliverySettingsPatch
+} from "@nezdemkovski/auth-delivery";
+
+import {
   auditLog,
   domainErrorResponse,
   parseJson,
@@ -6,8 +11,6 @@ import {
   type AdminRouteRegistration
 } from "../../http/admin/shared";
 import { ErrorCode } from "../../runtime/error-codes";
-import { DeliveryServiceError } from "./core";
-import { parseDeliverySettingsPatch } from "./validator";
 
 export const registerDeliveryRoutes: AdminRouteRegistration = ({
   app,

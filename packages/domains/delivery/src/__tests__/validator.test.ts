@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { EmailProvider } from "../../../email/sender";
+import { EmailProvider } from "../sender";
 import { parseDeliverySettingsPatch } from "../validator";
 
 describe("delivery validator", () => {

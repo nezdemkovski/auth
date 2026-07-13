@@ -1,5 +1,8 @@
-import { EmailProvider, type EmailConfig } from "../../email/sender";
-import { isEnumValue } from "../../runtime/enums";
+import {
+  EmailProvider,
+  isEmailProvider,
+  type EmailConfig
+} from "./sender";
 
 export type DeliverySettingsPatch = {
   provider: EmailConfig["provider"];
@@ -14,7 +17,7 @@ type DeliverySettingsBody = Partial<Record<keyof DeliverySettingsPatch, unknown>
 export const parseDeliverySettingsPatch = (body: DeliverySettingsBody) => {
   if (
     typeof body.provider !== "string" ||
-    !isEnumValue(EmailProvider, body.provider) ||
+    !isEmailProvider(body.provider) ||
     typeof body.from !== "string" ||
     typeof body.cloudflareAccountId !== "string"
   ) {
@@ -38,9 +41,7 @@ export const parseDeliverySettingsPatch = (body: DeliverySettingsBody) => {
 };
 
 export const validateDeliverySettingsPatch = (patch: DeliverySettingsPatch) => {
-  if (
-    !isEnumValue(EmailProvider, patch.provider)
-  ) {
+  if (!isEmailProvider(patch.provider)) {
     throw new Error("Invalid delivery provider");
   }
 

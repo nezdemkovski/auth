@@ -1,4 +1,7 @@
-import { ActionEmail, RESET_EXPIRY_HOURS } from "../templates";
+import {
+  ActionEmail,
+  RESET_EXPIRY_HOURS
+} from "@nezdemkovski/auth-delivery";
 
 export const PasswordResetEmailPreview = () => {
   return (

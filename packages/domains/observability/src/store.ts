@@ -1,13 +1,17 @@
 import { eq, sql } from "drizzle-orm";
+import {
+  decryptSecretValue,
+  encryptSecretValue,
+  type AdminDatabaseOptions,
+  withAdminDb
+} from "@nezdemkovski/auth-platform-database";
 
 import {
   DEFAULT_PLATFORM_OBSERVABILITY,
+  isObservabilityProvider,
   ObservabilityProvider,
   type PlatformObservabilitySettings
-} from "../../config/projects";
-import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
-import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
-import { isEnumValue } from "../../runtime/enums";
+} from "./model";
 import { observabilitySettings } from "./tables";
 import {
   validateObservabilitySettingsPatch,
@@ -174,12 +178,6 @@ const decryptSecret = (value: string, secret: string, key: string) => {
 
 const encryptionContext = (key: string) => {
   return `observability:${key}`;
-};
-
-const isObservabilityProvider = (
-  value: string
-): value is PlatformObservabilitySettings["provider"] => {
-  return isEnumValue(ObservabilityProvider, value);
 };
 
 const normalizeDate = (value: Date | string | null | undefined) => {

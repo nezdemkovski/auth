@@ -13,7 +13,9 @@ describe("repository security controls", () => {
     expect(rootManifest.overrides["drizzle-orm"]).toBe("1.0.0-rc.4");
     expect(rootManifest.devDependencies["drizzle-kit"]).toBe("1.0.0-rc.4");
     expect(apiManifest.dependencies["drizzle-orm"]).toBe("1.0.0-rc.4");
-    expect(await read("apps/api/Dockerfile")).toContain("COPY package.json bun.lock ./");
+    expect(await read("apps/api/Dockerfile")).toContain(
+      "turbo@2.10.4 prune @nezdemkovski/auth-api --docker"
+    );
   });
 
   test("pins external build inputs to immutable revisions", async () => {
@@ -41,8 +43,18 @@ describe("repository security controls", () => {
     for (const path of dockerfilePaths) {
       const dockerfile = await read(path);
       const fromLines = dockerfile.split("\n").filter((line) => line.startsWith("FROM "));
+      const localStages = new Set<string>();
       for (const line of fromLines) {
-        expect(line).toContain("@sha256:");
+        const [, source, stageKeyword, stageName] = line.split(/\s+/);
+        if (!source) {
+          throw new Error(`Invalid FROM line in ${path}`);
+        }
+        if (!localStages.has(source)) {
+          expect(source).toContain("@sha256:");
+        }
+        if (stageKeyword === "AS" && stageName) {
+          localStages.add(stageName);
+        }
       }
     }
 
@@ -83,6 +95,49 @@ describe("repository security controls", () => {
     expect(workflow).toContain("auth-integration-v*");
     expect(workflow).not.toContain("packages/auth-client");
     expect(workflow).not.toContain("packages/auth-server");
+  });
+
+  test("enforces an acyclic modular workspace dependency policy", async () => {
+    const rootManifest = await Bun.file(rootFile("package.json")).json();
+    const turbo = await Bun.file(rootFile("turbo.json")).json();
+    const packageTags = new Map([
+      ["apps/admin", "app"],
+      ["apps/api", "app"],
+      ["apps/login", "app"],
+      ["apps/reference-product", "app"],
+      ["packages/auth-contracts", "public"],
+      ["packages/auth-integration", "public"],
+      ["packages/client-shared", "frontend"],
+      ["packages/domains/delivery", "domain"],
+      ["packages/domains/observability", "domain"],
+      ["packages/foundation/platform-database", "foundation"],
+      ["packages/ui", "frontend"]
+    ]);
+
+    expect(rootManifest.scripts.boundaries).toBe("turbo boundaries");
+    expect(rootManifest.scripts.test).toContain("turbo boundaries");
+    expect(rootManifest.workspaces).toContain("packages/domains/*");
+    expect(rootManifest.workspaces).toContain("packages/foundation/*");
+    expect(turbo.boundaries.tags.domain.dependencies.allow).toEqual([
+      "foundation",
+      "public"
+    ]);
+    expect(turbo.boundaries.tags.public.dependencies.allow).toEqual(["public"]);
+
+    for (const [path, tag] of packageTags) {
+      const packageTurbo = await Bun.file(rootFile(`${path}/turbo.json`)).json();
+      expect(packageTurbo.extends).toEqual(["//"]);
+      expect(packageTurbo.tags).toEqual([tag]);
+    }
+
+    for (const path of [
+      "packages/domains/delivery",
+      "packages/domains/observability",
+      "packages/foundation/platform-database"
+    ]) {
+      const manifest = await Bun.file(rootFile(`${path}/package.json`)).json();
+      expect(manifest.private).toBe(true);
+    }
   });
 
   test("does not mask integration dependency health failures", async () => {

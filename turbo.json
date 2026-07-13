@@ -14,16 +14,53 @@
       "outputs": []
     },
     "dev": {
+      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
     },
     "email:dev": {
+      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
     },
     "start": {
+      "dependsOn": ["^build"],
       "cache": false,
       "persistent": true
+    }
+  },
+  "boundaries": {
+    "tags": {
+      "app": {
+        "dependencies": {
+          "allow": ["app", "domain", "foundation", "platform", "public", "frontend"]
+        }
+      },
+      "domain": {
+        "dependencies": {
+          "allow": ["foundation", "public"]
+        }
+      },
+      "foundation": {
+        "dependencies": {
+          "allow": ["foundation", "public"]
+        }
+      },
+      "platform": {
+        "dependencies": {
+          "allow": ["foundation", "public"]
+        }
+      },
+      "public": {
+        "dependencies": {
+          "allow": ["public"]
+        }
+      },
+      "frontend": {
+        "dependencies": {
+          "allow": ["frontend", "public"]
+        }
+      }
     }
   }
 }

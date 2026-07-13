@@ -1,7 +1,5 @@
-import { ObservabilityProvider } from "../../config/projects";
-import type {
-  ObservabilitySettingsState
-} from "./store";
+import { ObservabilityProvider } from "./model";
+import type { ObservabilitySettingsState } from "./store";
 
 export const observabilitySettingsResponse = (
   settings: ObservabilitySettingsState

@@ -2,9 +2,14 @@ import { getMigrations } from "better-auth/db/migration";
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, type PoolClient } from "pg";
+import {
+  ensureDeliverySettingsTable,
+  seedDeliverySettingsFromEnv,
+  type EmailConfig
+} from "@nezdemkovski/auth-delivery";
+import { ensureObservabilitySettingsTable } from "@nezdemkovski/auth-observability";
 
 import { AuthUserRole, type AuthProject } from "../config/projects";
-import type { EmailConfig } from "../email/sender";
 import { randomBase64Url } from "../runtime/crypto";
 import { logError } from "../runtime/logger";
 import { authBootstrapState, authUsers } from "./auth-tables";
@@ -17,14 +22,9 @@ import { ensureBillingSettingsTable } from "../modules/billing/store";
 import { ensureBillingUsageTables } from "../modules/billing/usage-store";
 import { ensureBillingWebhookTables } from "../modules/billing/webhook-store";
 import {
-  ensureDeliverySettingsTable,
-  seedDeliverySettingsFromEnv
-} from "../modules/delivery/store";
-import {
   ensureProjectSettingsTable,
   seedAdminProjectSettings
 } from "../modules/projects/store";
-import { ensureObservabilitySettingsTable } from "../modules/observability/store";
 import { ensureSocialProviderSettingsTable } from "../modules/projects/social-provider-store";
 import { ensureStorageObjectsTable } from "../modules/storage/objects-store";
 import { ensureStorageSettingsTable } from "../modules/storage/settings-store";

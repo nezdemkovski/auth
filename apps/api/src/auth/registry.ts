@@ -1,6 +1,7 @@
+import type { EmailSender } from "@nezdemkovski/auth-delivery";
+
 import type { AuthProject } from "../config/projects";
 import { createProjectDatabase, type ProjectDatabase } from "../db/project-db";
-import type { EmailSender } from "../email/sender";
 import {
   createPolarWebhookHandlers,
   type PolarWebhookHandlers

@@ -6,6 +6,10 @@ import { oauthProvider } from "@better-auth/oauth-provider";
 import { passkey } from "@better-auth/passkey";
 import { checkout, polar, portal, usage, webhooks } from "@polar-sh/better-auth";
 import { Polar } from "@polar-sh/sdk";
+import {
+  createProjectEmailHandlers,
+  type EmailSender
+} from "@nezdemkovski/auth-delivery";
 
 import {
   OAUTH_DYNAMIC_CLIENT_SCOPES,
@@ -23,8 +27,6 @@ import {
 import { TRUSTED_CLIENT_IP_HEADER } from "../config/proxy";
 import { SOCIAL_PROVIDER_IDS } from "../config/social-providers";
 import type { ProjectDatabase } from "../db/project-db";
-import type { EmailSender } from "../email/sender";
-import { createProjectEmailHandlers } from "../email/templates";
 import { sha256Hex } from "../runtime/crypto";
 import { logInfo } from "../runtime/logger";
 import type { PolarWebhookHandlers } from "../modules/billing/webhooks";

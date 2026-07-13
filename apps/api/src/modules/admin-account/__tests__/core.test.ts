@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { Pool } from "pg";
 
 import { AuthUserRole } from "../../../config/projects";
-import { EmailProvider } from "../../../email/sender";
 import {
   AdminAccountService,
   AdminAccountServiceError
@@ -88,7 +87,7 @@ describe("admin account service", () => {
     const { auth, verifiedPasswords, emailChanges } = createAuth(true);
     const service = new AdminAccountService({
       publicBaseUrl: "https://auth.example.com",
-      getDeliverySettings: () => ({ provider: EmailProvider.None }),
+      isDeliveryEnabled: () => false,
       store
     });
 
@@ -113,11 +112,7 @@ describe("admin account service", () => {
     const { auth, verifiedPasswords, emailChanges } = createAuth(true);
     const service = new AdminAccountService({
       publicBaseUrl: "https://auth.example.com",
-      getDeliverySettings: () => ({
-        provider: EmailProvider.Resend,
-        from: "Auth <auth@example.com>",
-        apiKey: "re_test"
-      }),
+      isDeliveryEnabled: () => true,
       store
     });
 
@@ -155,11 +150,7 @@ describe("admin account service", () => {
     const { auth, verifiedPasswords, emailChanges } = createAuth(false);
     const service = new AdminAccountService({
       publicBaseUrl: "https://auth.example.com",
-      getDeliverySettings: () => ({
-        provider: EmailProvider.Resend,
-        from: "Auth <auth@example.com>",
-        apiKey: "re_test"
-      }),
+      isDeliveryEnabled: () => true,
       store
     });
 
@@ -190,7 +181,7 @@ describe("admin account service", () => {
     const { auth, passwordChanges } = createAuth(true);
     const service = new AdminAccountService({
       publicBaseUrl: "https://auth.example.com",
-      getDeliverySettings: () => ({ provider: EmailProvider.None }),
+      isDeliveryEnabled: () => false,
       store
     });
 

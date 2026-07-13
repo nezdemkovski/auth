@@ -1,15 +1,18 @@
 import { describe, expect, test } from "bun:test";
 
-import { ADMIN_PROJECT } from "../../config/projects";
 import { createProjectEmailHandlers } from "../templates";
 import type { EmailSender } from "../sender";
+
+const project = {
+  name: "Demo App"
+};
 
 describe("project email handlers", () => {
   test("are disabled when no sender is configured", () => {
     expect(
       createProjectEmailHandlers({
         sender: null,
-        project: ADMIN_PROJECT
+        project
       })
     ).toEqual({});
   });
@@ -23,10 +26,7 @@ describe("project email handlers", () => {
     };
     const handlers = createProjectEmailHandlers({
       sender,
-      project: {
-        ...ADMIN_PROJECT,
-        name: "Demo App"
-      }
+      project
     });
 
     expect(handlers.emailAndPassword?.requireEmailVerification).toBe(true);
@@ -54,10 +54,7 @@ describe("project email handlers", () => {
     };
     const handlers = createProjectEmailHandlers({
       sender,
-      project: {
-        ...ADMIN_PROJECT,
-        name: "Demo App"
-      }
+      project
     });
 
     await handlers.emailAndPassword?.sendResetPassword({

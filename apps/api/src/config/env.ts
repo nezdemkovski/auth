@@ -5,7 +5,10 @@ import {
   type AuthProject,
   type ProjectStorageSettings
 } from "./projects";
-import { EmailProvider, type EmailConfig } from "../email/sender";
+import {
+  EmailProvider,
+  type EmailConfig
+} from "@nezdemkovski/auth-delivery";
 
 export type Env = {
   port: number;

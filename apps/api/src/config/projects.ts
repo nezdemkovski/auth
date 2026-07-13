@@ -18,13 +18,6 @@ export type AuthProject = {
   storage: ProjectStorageSettings;
 };
 
-export type PlatformObservabilitySettings = {
-  provider: ObservabilityProvider;
-  enabled: boolean;
-  dsn: string;
-  environment: string;
-};
-
 export type ProjectFeatures = {
   passkey: {
     enabled: boolean;
@@ -139,11 +132,6 @@ export enum StorageProvider {
   S3 = "s3"
 }
 
-export enum ObservabilityProvider {
-  None = "none",
-  Sentry = "sentry"
-}
-
 export type ProjectStorageSettings = {
   provider: StorageProvider;
   enabled: boolean;
@@ -177,13 +165,6 @@ export const DEFAULT_PROJECT_STORAGE: ProjectStorageSettings = {
   publicBaseUrl: "",
   accessKeyId: "",
   secretAccessKey: ""
-};
-
-export const DEFAULT_PLATFORM_OBSERVABILITY: PlatformObservabilitySettings = {
-  provider: ObservabilityProvider.None,
-  enabled: false,
-  dsn: "",
-  environment: "production"
 };
 
 export const DEFAULT_PROJECT_FEATURES: ProjectFeatures = {

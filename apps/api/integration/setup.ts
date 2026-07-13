@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+import { EmailProvider } from "@nezdemkovski/auth-delivery";
 
 import { ADMIN_PROJECT, DEFAULT_PROJECT_STORAGE } from "../src/config/projects";
 import { StorageProvider } from "../src/config/projects";
@@ -8,7 +9,6 @@ import type { OAuthScope } from "../src/config/oauth-resources";
 import type { Env } from "../src/config/env";
 import { bootstrapProjects } from "../src/db/bootstrap";
 import { createApp } from "../src/http/app";
-import { EmailProvider } from "../src/email/sender";
 import { DIRECT_CLIENT_IP_HEADER } from "../src/http/security";
 import { isRecord } from "../src/runtime/type-guards";
 

@@ -1,4 +1,4 @@
-import { EmailProvider, type EmailConfig } from "../../email/sender";
+import { EmailProvider, type EmailConfig } from "./sender";
 import type { DeliverySettings } from "./store";
 
 export type PublicDeliverySettings = {

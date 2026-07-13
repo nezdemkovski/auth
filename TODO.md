@@ -2,6 +2,11 @@
 
 ## Now
 
+- Execute the behavior-preserving modular monorepo migration in
+  [`docs/MODULAR_MONOREPO_MIGRATION.md`](docs/MODULAR_MONOREPO_MIGRATION.md):
+  extract stable backend capabilities into isolated workspace packages, keep
+  app-only presentation and composition as feature modules, and enforce a
+  domain-acyclic dependency graph.
 - Extend the existing Postgres/Redis/S3 and browser suites with real passkey,
   2FA enrollment, email-delivery, and Polar checkout sandbox scenarios.
 - Add admin-managed Better Auth client lifecycle for product web, public/MCP,

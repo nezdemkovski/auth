@@ -1,13 +1,16 @@
 import * as Sentry from "@sentry/bun";
+import type {
+  AdminDatabase,
+  AdminSchema
+} from "@nezdemkovski/auth-platform-database";
 
 import {
   DEFAULT_PLATFORM_OBSERVABILITY,
+  ObservabilityComponent,
   ObservabilityProvider,
-  type AuthProject,
+  type ObservabilityCaptureContext,
   type PlatformObservabilitySettings
-} from "../../config/projects";
-import type { AdminDatabase } from "../../db/admin-pool";
-import { logError } from "../../runtime/logger";
+} from "./model";
 import {
   observabilitySettingsResponse,
   publicObservabilityConfig
@@ -18,21 +21,6 @@ import {
   updateObservabilitySettings
 } from "./store";
 import type { ObservabilitySettingsPatch } from "./validator";
-
-export enum ObservabilityComponent {
-  Api = "api",
-  Admin = "admin",
-  Login = "login"
-}
-
-export type ObservabilityCaptureContext = {
-  component: ObservabilityComponent;
-  projectSlug?: string;
-  routeArea?: string;
-  method?: string;
-  path?: string;
-  status?: number;
-};
 
 export class ObservabilityServiceError extends Error {
   constructor(
@@ -117,19 +105,22 @@ export class ObservabilityReporter {
     if (context.status) scope.setTag("status", String(context.status));
     if (context.path) {
       scope.setContext("request", {
-        path: normalizePath(context.path)
+        path: context.path
       });
     }
   }
 }
 
+type ObservabilityDatabaseOptions = {
+  databaseUrl: string;
+  adminProject: AdminSchema;
+  adminDb?: AdminDatabase;
+  encryptionSecret: string;
+};
+
 export class ObservabilityService {
   constructor(
-    private readonly options: {
-      databaseUrl: string;
-      adminProject: AuthProject;
-      adminDb?: AdminDatabase;
-      encryptionSecret: string;
+    private readonly options: ObservabilityDatabaseOptions & {
       reporter: ObservabilityReporter;
     }
   ) {}
@@ -168,47 +159,15 @@ export class ObservabilityService {
   }
 }
 
-export const createObservabilityReporter = async (options: {
-  databaseUrl: string;
-  adminProject: AuthProject;
-  adminDb?: AdminDatabase;
-  encryptionSecret: string;
-}) => {
+export const createObservabilityReporter = async (
+  options: ObservabilityDatabaseOptions & {
+    onSettingsLoadError?: (error: unknown) => void;
+  }
+) => {
   try {
     return new ObservabilityReporter(await readObservabilitySettings(options));
   } catch (error) {
-    logError("observability_settings_load_failed", {
-      error: error instanceof Error ? error.message : String(error)
-    });
+    options.onSettingsLoadError?.(error);
     return new ObservabilityReporter(DEFAULT_PLATFORM_OBSERVABILITY);
   }
-};
-
-export const inferObservabilityContext = (request: Request) => {
-  const url = new URL(request.url);
-  const path = url.pathname;
-  return {
-    component: ObservabilityComponent.Api,
-    method: request.method,
-    path,
-    projectSlug: projectSlugFromPath(path),
-    routeArea: routeAreaFromPath(path)
-  };
-};
-
-const projectSlugFromPath = (path: string) => {
-  const match = path.match(/^\/api\/([^/]+)\//);
-  return match?.[1];
-};
-
-const routeAreaFromPath = (path: string) => {
-  if (path.startsWith("/admin/api")) return "admin";
-  if (/^\/api\/[^/]+\/login\//.test(path)) return "login";
-  if (/^\/api\/[^/]+\/auth\//.test(path)) return "auth-proxy";
-  if (/^\/api\/[^/]+\/storage\//.test(path)) return "storage";
-  return "platform";
-};
-
-const normalizePath = (path: string) => {
-  return path.replace(/^\/api\/[^/]+\//, "/api/:project/");
 };

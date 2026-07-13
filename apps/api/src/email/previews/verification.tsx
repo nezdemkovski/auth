@@ -1,4 +1,7 @@
-import { ActionEmail, VERIFICATION_EXPIRY_HOURS } from "../templates";
+import {
+  ActionEmail,
+  VERIFICATION_EXPIRY_HOURS
+} from "@nezdemkovski/auth-delivery";
 
 export const VerificationEmailPreview = () => {
   return (

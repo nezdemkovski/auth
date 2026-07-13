@@ -9,7 +9,6 @@ import {
   DEFAULT_PROJECT_STORAGE,
   type AuthProject
 } from "../../../config/projects";
-import { EmailProvider } from "../../../email/sender";
 import { UsersService } from "../core";
 
 const project: AuthProject = {
@@ -84,7 +83,7 @@ describe("users core", () => {
     const { registered, verificationEmails } = createRegistered();
     const service = new UsersService({
       adminProject: registered.project,
-      getDeliverySettings: () => ({ provider: EmailProvider.None }),
+      isDeliveryEnabled: () => false,
       store: createStore().store
     });
 
@@ -101,11 +100,7 @@ describe("users core", () => {
     const { registered, verificationEmails } = createRegistered();
     const service = new UsersService({
       adminProject: registered.project,
-      getDeliverySettings: () => ({
-        provider: EmailProvider.Resend,
-        from: "Auth <auth@example.com>",
-        apiKey: "re_test"
-      }),
+      isDeliveryEnabled: () => true,
       store: createStore().store
     });
 
@@ -124,7 +119,7 @@ describe("users core", () => {
     const { store, terminatedUsers } = createStore();
     const service = new UsersService({
       adminProject: ADMIN_PROJECT,
-      getDeliverySettings: () => ({ provider: EmailProvider.None }),
+      isDeliveryEnabled: () => false,
       store
     });
 

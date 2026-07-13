@@ -1,12 +1,14 @@
 import { Hono } from "hono";
+import {
+  DeliveryService,
+  EmailProvider
+} from "@nezdemkovski/auth-delivery";
+import { ObservabilityService } from "@nezdemkovski/auth-observability";
 
-import type { EmailConfig } from "../email/sender";
 import { ErrorCode } from "../runtime/error-codes";
 import { AdminAccountService } from "../modules/admin-account/core";
 import { registerAdminAccountRoutes } from "../modules/admin-account/http";
 import { BillingService } from "../modules/billing/core";
-import { DeliveryService } from "../modules/delivery/core";
-import { ObservabilityService } from "../modules/observability/core";
 import { StorageService } from "../modules/storage/core";
 import { registerBillingRoutes } from "../modules/billing/http";
 import { registerDeliveryRoutes } from "../modules/delivery/http";
@@ -43,13 +45,13 @@ export const createAdminApi = (options: AdminApiOptions) => {
     managedStorage: options.managedStorage
   });
   const deliveryService = new DeliveryService({
-    registry: options.registry,
     databaseUrl: options.databaseUrl,
     adminProject: options.adminProject,
     adminDb: options.adminDb,
     encryptionSecret: options.encryptionSecret,
-    setDeliverySettings: (settings: EmailConfig) => {
+    applyRuntimeSettings: async (settings, sender) => {
       currentDeliverySettings = settings;
+      await options.registry.updateEmailSender(sender);
     }
   });
   const observabilityService = new ObservabilityService({
@@ -61,7 +63,8 @@ export const createAdminApi = (options: AdminApiOptions) => {
   });
   const adminAccountService = new AdminAccountService({
     publicBaseUrl: options.publicBaseUrl,
-    getDeliverySettings: () => currentDeliverySettings
+    isDeliveryEnabled: () =>
+      currentDeliverySettings.provider !== EmailProvider.None
   });
   const projectService = new ProjectService({
     registry: options.registry,
@@ -75,7 +78,8 @@ export const createAdminApi = (options: AdminApiOptions) => {
   });
   const usersService = new UsersService({
     adminProject: options.adminProject,
-    getDeliverySettings: () => currentDeliverySettings
+    isDeliveryEnabled: () =>
+      currentDeliverySettings.provider !== EmailProvider.None
   });
   const routeContext = {
     app,
@@ -86,11 +90,7 @@ export const createAdminApi = (options: AdminApiOptions) => {
     observabilityService,
     projectService,
     storageService,
-    usersService,
-    getDeliverySettings: () => currentDeliverySettings,
-    setDeliverySettings: (settings: EmailConfig) => {
-      currentDeliverySettings = settings;
-    }
+    usersService
   };
 
   app.use("*", async (c, next) => {

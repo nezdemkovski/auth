@@ -1,8 +1,8 @@
 import {
+  isObservabilityProvider,
   ObservabilityProvider,
   type PlatformObservabilitySettings
-} from "../../config/projects";
-import { isEnumValue } from "../../runtime/enums";
+} from "./model";
 
 export type ObservabilitySettingsPatch = {
   provider: PlatformObservabilitySettings["provider"];
@@ -20,7 +20,7 @@ export const parseObservabilitySettingsPatch = (
 ) => {
   if (
     typeof body.provider !== "string" ||
-    !isEnumValue(ObservabilityProvider, body.provider) ||
+    !isObservabilityProvider(body.provider) ||
     typeof body.enabled !== "boolean"
   ) {
     return null;
@@ -46,7 +46,7 @@ export const validateObservabilitySettingsPatch = (
   patch: ObservabilitySettingsPatch,
   currentDsnConfigured: boolean
 ) => {
-  if (!isEnumValue(ObservabilityProvider, patch.provider)) {
+  if (!isObservabilityProvider(patch.provider)) {
     throw new Error("Invalid observability provider");
   }
 

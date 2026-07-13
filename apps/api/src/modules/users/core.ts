@@ -1,5 +1,4 @@
 import type { AuthProject } from "../../config/projects";
-import { EmailProvider, type EmailConfig } from "../../email/sender";
 import {
   readProjectUsers,
   terminateUserSessions
@@ -51,7 +50,7 @@ export class UsersService {
   constructor(
     private readonly options: {
       adminProject: AuthProject;
-      getDeliverySettings(): EmailConfig;
+      isDeliveryEnabled(): boolean;
       store?: UsersStore;
     }
   ) {
@@ -74,7 +73,7 @@ export class UsersService {
   }
 
   async resendVerification(registered: UsersRegisteredProject, email: string) {
-    if (this.options.getDeliverySettings().provider === EmailProvider.None) {
+    if (!this.options.isDeliveryEnabled()) {
       throw new UsersServiceError(
         "email_service_disabled",
         409,
