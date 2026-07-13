@@ -10,7 +10,7 @@ RUN bun install --frozen-lockfile --production --omit optional --omit peer
 
 FROM install AS build
 COPY --from=prune /app/out/full/ ./
-RUN bun build packages/auth-contracts/src/index.ts --outdir packages/auth-contracts/dist --target browser --packages external
+RUN bun build packages/auth-contracts/src/billing/contract.ts packages/auth-contracts/src/storage/contract.ts --outdir packages/auth-contracts/dist --root packages/auth-contracts/src --target browser --packages external
 RUN bun build packages/foundation/platform-crypto/src/index.ts --outdir packages/foundation/platform-crypto/dist --target bun --packages external
 RUN bun build packages/foundation/platform-database/src/index.ts --outdir packages/foundation/platform-database/dist --target bun --packages external
 RUN bun build packages/domains/delivery/src/index.ts --outdir packages/domains/delivery/dist --target bun --packages external
@@ -20,6 +20,7 @@ RUN bun build packages/domains/billing/src/index.ts --outdir packages/domains/bi
 RUN bun build packages/domains/realm/src/index.ts --outdir packages/domains/realm/dist --target bun --packages external
 RUN bun build packages/domains/identity/src/index.ts --outdir packages/domains/identity/dist --target bun --packages external
 RUN bun build packages/platform/oauth-resource/src/index.ts --outdir packages/platform/oauth-resource/dist --target bun --packages external
+RUN bun build packages/platform/oauth-client-management/src/index.ts --outdir packages/platform/oauth-client-management/dist --target bun --packages external
 RUN bun build packages/platform/better-auth-runtime/src/index.ts --outdir packages/platform/better-auth-runtime/dist --target bun --packages external
 
 FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS runtime
@@ -35,6 +36,7 @@ COPY --from=install /app/packages/domains/billing/node_modules ./packages/domain
 COPY --from=install /app/packages/domains/realm/node_modules ./packages/domains/realm/node_modules
 COPY --from=install /app/packages/domains/identity/node_modules ./packages/domains/identity/node_modules
 COPY --from=install /app/packages/platform/oauth-resource/node_modules ./packages/platform/oauth-resource/node_modules
+COPY --from=install /app/packages/platform/oauth-client-management/node_modules ./packages/platform/oauth-client-management/node_modules
 COPY --from=install /app/packages/platform/better-auth-runtime/node_modules ./packages/platform/better-auth-runtime/node_modules
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build /app/apps/api/src ./apps/api/src
@@ -58,6 +60,8 @@ COPY --from=build /app/packages/domains/identity/package.json ./packages/domains
 COPY --from=build /app/packages/domains/identity/dist ./packages/domains/identity/dist
 COPY --from=build /app/packages/platform/oauth-resource/package.json ./packages/platform/oauth-resource/package.json
 COPY --from=build /app/packages/platform/oauth-resource/dist ./packages/platform/oauth-resource/dist
+COPY --from=build /app/packages/platform/oauth-client-management/package.json ./packages/platform/oauth-client-management/package.json
+COPY --from=build /app/packages/platform/oauth-client-management/dist ./packages/platform/oauth-client-management/dist
 COPY --from=build /app/packages/platform/better-auth-runtime/package.json ./packages/platform/better-auth-runtime/package.json
 COPY --from=build /app/packages/platform/better-auth-runtime/dist ./packages/platform/better-auth-runtime/dist
 WORKDIR /app/apps/api
