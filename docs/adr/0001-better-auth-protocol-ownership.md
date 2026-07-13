@@ -77,12 +77,12 @@ the official Better Auth implementation.
 
 ## Consequences
 
-- The existing `@nezdemkovski/auth-client` state machine and login handoff are
-  transitional and will be removed after the Better Auth reference flow works.
+- The existing `@nezdemkovski/auth-client` state machine and login handoff must
+  be removed once the Better Auth reference flow works. This removal is now
+  complete in the repository.
 - Product applications need a small Better Auth server/BFF even when their UI
   is a browser application.
 - A thin integration package is allowed only when it returns Better Auth
   configuration and platform identity types.
-- Compatibility endpoints remain temporarily available, but no new consumer
-  may adopt them.
+- The deleted compatibility endpoints must not be restored for new consumers.
 - Amela migrates only after the reference flow passes the protocol test matrix.

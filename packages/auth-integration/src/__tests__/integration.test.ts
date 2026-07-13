@@ -9,7 +9,7 @@ import {
 describe("Better Auth platform integration", () => {
   test("creates a strict confidential Generic OAuth provider configuration", () => {
     const provider = createAuthPlatformProvider({
-      issuer: "https://auth.example.com/api/demo/auth/",
+      issuer: "https://auth.example.com/api/demo/",
       clientId: "demo-client",
       clientSecret: "demo-secret",
       resource: "https://api.demo.example.com/"
@@ -18,12 +18,10 @@ describe("Better Auth platform integration", () => {
     expect(provider).toMatchObject({
       providerId: "auth-platform",
       discoveryUrl:
-        "https://auth.example.com/api/demo/auth/.well-known/openid-configuration",
+        "https://auth.example.com/api/demo/.well-known/openid-configuration",
       clientId: "demo-client",
       clientSecret: "demo-secret",
-      tokenEndpointAuth: {
-        method: "client_secret_basic"
-      },
+      authentication: "basic",
       scopes: [
         AuthPlatformScope.OpenId,
         AuthPlatformScope.Profile,
@@ -36,16 +34,13 @@ describe("Better Auth platform integration", () => {
       },
       tokenUrlParams: {
         resource: "https://api.demo.example.com"
-      },
-      refreshTokenParams: {
-        resource: "https://api.demo.example.com"
       }
     });
   });
 
   test("keeps OpenID identity scope when product scopes are customized", () => {
     const provider = createAuthPlatformProvider({
-      issuer: "https://auth.example.com/api/demo/auth",
+      issuer: "https://auth.example.com/api/demo",
       clientId: "demo-client",
       clientSecret: "demo-secret",
       scopes: ["profile", "demo:read", "profile"]
@@ -69,7 +64,7 @@ describe("Better Auth platform integration", () => {
 
     expect(() =>
       createAuthPlatformProvider({
-        issuer: "https://auth.example.com/api/demo/auth",
+        issuer: "https://auth.example.com/api/demo",
         clientId: "",
         clientSecret: "demo-secret"
       })
@@ -86,11 +81,11 @@ describe("Better Auth platform integration", () => {
           }
         ],
         {
-          issuer: "https://auth.example.com/api/demo/auth/"
+          issuer: "https://auth.example.com/api/demo/"
         }
       )
     ).toEqual({
-      issuer: "https://auth.example.com/api/demo/auth",
+      issuer: "https://auth.example.com/api/demo",
       subject: "central-user-123"
     });
   });
@@ -106,7 +101,7 @@ describe("Better Auth platform integration", () => {
           }
         ],
         {
-          issuer: "https://auth.example.com/api/demo/auth"
+          issuer: "https://auth.example.com/api/demo"
         }
       )
     ).toBeNull();

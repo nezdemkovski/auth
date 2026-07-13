@@ -70,6 +70,17 @@ await authClient.signIn.social({
 Do not store or relay central access tokens, refresh tokens, session cookies, or
 PKCE state in product browser code.
 
+Telegram is configured once on the central realm as an OIDC social provider.
+Products do not install a Telegram auth SDK or handle Mini App `initData`.
+Starting Telegram from the hosted login page uses the same
+`signIn.social({ provider: "telegram" })` Better Auth flow as every other
+central provider, including when the product is open inside a Mini App webview.
+The realm callback registered with Telegram is:
+
+```text
+https://auth.example.com/api/<realm>/auth/oauth2/callback/telegram
+```
+
 ## Stable central identity
 
 On the product server, read the linked provider account and extract its stable

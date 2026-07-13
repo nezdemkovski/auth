@@ -1,7 +1,6 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import {
   isSocialProviderConfigured,
-  isOAuthSocialProvider,
   SOCIAL_PROVIDER_CATALOG,
   SOCIAL_PROVIDER_IDS
 } from "../../config/social-providers";
@@ -129,7 +128,6 @@ export const enabledSocialProviders = (registered: Pick<NonNullable<ReturnType<A
     .filter((provider) => {
       const settings = registered.project.socialProviders[provider];
       return (
-        isOAuthSocialProvider(provider) &&
         settings.enabled &&
         isSocialProviderConfigured(provider, settings)
       );

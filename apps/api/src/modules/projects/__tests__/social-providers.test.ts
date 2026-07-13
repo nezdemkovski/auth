@@ -13,9 +13,9 @@ import {
 import {
   cloneDefaultSocialProviders,
   decryptSocialProviderSecret,
-  encryptSocialProviderSecret,
-  socialProviderCallbackUrl
+  encryptSocialProviderSecret
 } from "../social-provider-store";
+import { socialProviderCallbackUrl } from "../translator";
 
 describe("social provider settings", () => {
   test("catalog and default settings stay in sync", () => {
@@ -94,5 +94,14 @@ describe("social provider settings", () => {
         SocialProvider.GitHub
       )
     ).toBe("https://auth.example.com/api/admin/auth/callback/github");
+    expect(
+      socialProviderCallbackUrl(
+        "https://auth.example.com",
+        ADMIN_PROJECT,
+        SocialProvider.Telegram
+      )
+    ).toBe(
+      "https://auth.example.com/api/admin/auth/oauth2/callback/telegram"
+    );
   });
 });

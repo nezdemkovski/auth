@@ -139,27 +139,45 @@ describe("project auth options", () => {
     expect(enabledPluginIds).toContain("polar");
   });
 
-  test("adds the Telegram Mini App plugin only when the realm enables it", () => {
+  test("configures Telegram through Better Auth Generic OAuth with OIDC and PKCE", () => {
     const disabledPluginIds = (createOptions(baseProject).plugins ?? []).map(
       (plugin) => plugin.id
     );
-    const enabledPluginIds = (
+    const enabledPlugins =
       createOptions({
         ...baseProject,
         socialProviders: {
           ...DEFAULT_PROJECT_SOCIAL_PROVIDERS,
           telegram: {
             enabled: true,
-            clientId: "demo_bot",
-            clientSecret: "telegram-bot-token",
+            clientId: "telegram-client",
+            clientSecret: "telegram-oidc-secret",
             verifiedAt: null
           }
         }
-      }).plugins ?? []
-    ).map((plugin) => plugin.id);
+      }).plugins ?? [];
+    const telegramPlugin = enabledPlugins.find(
+      (plugin) => plugin.id === "generic-oauth"
+    );
+    const telegramOptions = telegramPlugin
+      ? Reflect.get(telegramPlugin, "options")
+      : null;
 
-    expect(disabledPluginIds).not.toContain("telegram");
-    expect(enabledPluginIds).toContain("telegram");
+    expect(disabledPluginIds).not.toContain("generic-oauth");
+    expect(telegramOptions).toMatchObject({
+      config: [
+        {
+          providerId: "telegram",
+          discoveryUrl:
+            "https://oauth.telegram.org/.well-known/openid-configuration",
+          clientId: "telegram-client",
+          clientSecret: "telegram-oidc-secret",
+          authentication: "basic",
+          scopes: ["openid", "profile"],
+          pkce: true
+        }
+      ]
+    });
   });
 
   test("trusts proxy IP headers only when explicitly enabled", () => {

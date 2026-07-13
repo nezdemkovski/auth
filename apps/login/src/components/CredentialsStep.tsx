@@ -1,5 +1,5 @@
 import type { ComponentType, FormEvent } from "react";
-import { SiFacebook, SiX } from "@icons-pack/react-simple-icons";
+import { SiFacebook, SiTelegram, SiX } from "@icons-pack/react-simple-icons";
 import Github from "@lobehub/icons/es/Github";
 import Google from "@lobehub/icons/es/Google";
 
@@ -168,6 +168,10 @@ const socialProviderMeta: Record<
     icon: ComponentType<{ size?: number }>;
   }
 > = {
+  telegram: {
+    label: "Telegram",
+    icon: SiTelegram
+  },
   github: {
     label: "GitHub",
     icon: Github

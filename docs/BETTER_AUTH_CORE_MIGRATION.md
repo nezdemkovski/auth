@@ -206,8 +206,9 @@ the immutable `issuer + sub` pair.
 - [x] Keep required 2FA enrollment in the Better Auth `postLogin` hook and
   signed continuation flow; optional passkey enrollment must not block OAuth
   authorization.
-- [ ] Integrate Telegram Mini App sign-in into the hosted Better Auth flow so
-  the resulting central session remains on the auth origin.
+- [x] Configure Telegram as a standard OIDC provider in Better Auth's hosted
+  social-login flow. A Mini App webview follows Telegram's authorization-code
+  redirect; raw `initData` is never relayed into a platform protocol.
 - [x] Remove `createLoginSessionRedirect` from
   `apps/login/src/auth-client.ts`.
 - [x] Remove custom session-code and token exchange request validators.
@@ -400,7 +401,8 @@ Expected obsolete files:
   request headers, and WebSocket query parameters.
 - [ ] Replace custom frontend auth bootstrap with the local Better Auth client.
 - [ ] Move billing consumption to the service client with a service-only scope.
-- [ ] Verify email/password, social login, Telegram Mini App, passkey, 2FA,
+- [ ] Verify email/password, social login, Telegram OIDC from the Mini App
+  webview, passkey, 2FA,
   refresh, logout, billing checkout, usage consumption, and WebSocket auth.
 - [ ] Add rollback instructions that revert the deployment, not the protocol
   invariants.
@@ -445,8 +447,8 @@ Expected obsolete files:
 - [ ] Service token with wrong audience, scope, client, or realm.
 - [ ] User token rejected by service-only endpoints.
 - [ ] Service token rejected by user-delegated endpoints.
-- [ ] Telegram, email/password, social, passkey, 2FA, verification, and reset
-  flows continue through Better Auth.
+- [ ] Telegram OIDC, email/password, social, passkey, 2FA, verification, and
+  reset flows continue through Better Auth.
 - [ ] Multi-replica production topology without process-local protocol state.
 - [ ] No credentials, tokens, cookies, or authorization codes appear in logs,
   audit payloads, URLs, frontend storage, or error responses.
@@ -494,3 +496,4 @@ Additional checks:
 - [JWT plugin and OAuth Provider mode](https://better-auth.com/docs/plugins/jwt)
 - [Generic OAuth client](https://better-auth.com/docs/plugins/generic-oauth)
 - [Better Auth client](https://better-auth.com/docs/concepts/client)
+- [Telegram OIDC login](https://core.telegram.org/bots/telegram-login)

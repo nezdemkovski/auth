@@ -1,6 +1,7 @@
 import type { AuthStep, ScopeDescription, SocialProviderId } from "./types";
 
 export const SOCIAL_PROVIDER_LABELS: Record<SocialProviderId, string> = {
+  telegram: "Telegram",
   github: "GitHub",
   google: "Google",
   twitter: "X",
@@ -51,7 +52,13 @@ export const loginMethodLabel = (method: string | null) => {
   if (!method) return "your previous method";
   if (method === "email") return "email and password";
   if (method === "passkey") return "passkey";
-  if (method === "github" || method === "google" || method === "twitter" || method === "facebook") {
+  if (
+    method === "telegram" ||
+    method === "github" ||
+    method === "google" ||
+    method === "twitter" ||
+    method === "facebook"
+  ) {
     return SOCIAL_PROVIDER_LABELS[method];
   }
 

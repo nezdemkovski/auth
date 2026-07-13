@@ -6,11 +6,7 @@ import {
   validateProjectSlug,
   type AuthProject
 } from "../../config/projects";
-import {
-  SOCIAL_PROVIDER_CATALOG,
-  supportsSocialProviderCredentialCheck,
-  type SocialProviderId
-} from "../../config/social-providers";
+import type { SocialProviderId } from "../../config/social-providers";
 import { ErrorCode } from "../../runtime/error-codes";
 import { prepareProjectSchema } from "../../db/bootstrap";
 import type { AdminDatabase } from "../../db/admin-pool";
@@ -32,7 +28,7 @@ import {
   projectSettingsExists,
   updateProjectSettings
 } from "./store";
-import { projectResponse } from "./translator";
+import { projectResponse, socialProvidersResponse } from "./translator";
 import {
   cloneDefaultStorage,
   loadProjectStorageSettings
@@ -237,16 +233,13 @@ export class ProjectService {
   }
 
   async readSocialProviders(project: AuthProject) {
-    return {
-      providers: await readProjectSocialProviders({
-        databaseUrl: this.options.databaseUrl,
-        adminProject: this.options.adminProject,
-        adminDb: this.options.adminDb,
-        project,
-        publicBaseUrl: this.options.publicBaseUrl
-      }),
-      catalog: Object.values(SOCIAL_PROVIDER_CATALOG)
-    };
+    const providers = await readProjectSocialProviders({
+      databaseUrl: this.options.databaseUrl,
+      adminProject: this.options.adminProject,
+      adminDb: this.options.adminDb,
+      project
+    });
+    return socialProvidersResponse(project, providers, this.options.publicBaseUrl);
   }
 
   async updateSocialProvider(
@@ -283,13 +276,6 @@ export class ProjectService {
     provider: SocialProviderId,
     headers: Headers
   ) {
-    if (!supportsSocialProviderCredentialCheck(provider)) {
-      throw new ProjectServiceError(
-        "provider_check_not_supported",
-        409,
-        "Telegram credentials are verified during Mini App sign-in"
-      );
-    }
     const settings = registered.project.socialProviders[provider];
     if (!settings.enabled || !settings.clientId || !settings.clientSecret) {
       throw new ProjectServiceError(

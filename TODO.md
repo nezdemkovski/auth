@@ -4,9 +4,8 @@
 
 - Extend the existing Postgres/Redis/S3 and browser suites with real passkey,
   2FA enrollment, email-delivery, and Polar checkout sandbox scenarios.
-- Add a small example client showing how a product app should integrate with:
-  project-scoped auth endpoints, hosted login, JWT/session validation, OAuth MCP
-  clients, and billing entitlement checks.
+- Extend the reference product with OAuth MCP and platform billing-resource
+  examples after their explicit resources and scopes are registered.
 - Expand structured request logging to cover request/response metadata without
   leaking credentials, tokens, cookies, or PII.
 - Expand audit events to cover successful email verification/reset flows. Failed
@@ -31,8 +30,6 @@
 ## Security and Operations
 
 - Audit follow-up checklist:
-  - [x] Use Redis-backed atomic login code consume for production PKCE exchange.
-  - [x] Make the in-memory login code store consume codes atomically as well.
   - [x] Use real direct client IPs for rate-limit keys when proxy headers are
     not trusted.
   - [x] Use atomic Redis `INCR` + `EXPIRE` for rate limiting.
@@ -141,12 +138,12 @@
   verification.
 - Basic security headers for all frontend and router responses.
 - CSRF origin checks for admin state-changing requests.
-- JWT payload includes project and `email_verified`.
-- Rate limiting for signin, signup, login, login token exchange, password reset,
-  and verification flows.
+- OAuth Provider tokens include the realm project and `email_verified` claims.
+- Rate limiting for sign-in, sign-up, password reset, and verification flows.
 - Redis-backed rate limiter through `REDIS_URL`, with in-memory fallback for
   local development.
-- Redis-backed hosted login auth code store for multi-replica deployments.
+- Hosted OAuth login delegates authorization codes, PKCE, sessions, and token
+  lifecycle to Better Auth without a platform login-code store.
 - Polar billing provider support:
   encrypted provider settings, connection verification, product listing,
   product creation, product/price/benefit mapping, and Better Auth Polar plugin

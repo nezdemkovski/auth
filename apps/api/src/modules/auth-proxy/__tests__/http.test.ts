@@ -123,7 +123,7 @@ describe("auth route feature gates", () => {
     ).toBe(false);
   });
 
-  test("opens Telegram Mini App sign-in only for configured realms", () => {
+  test("keeps the removed Telegram Mini App endpoint closed", () => {
     expect(
       isEnabledAuthFeaturePath(project, "/api/demo/auth/telegram/miniapp/signin")
     ).toBe(false);
@@ -146,7 +146,7 @@ describe("auth route feature gates", () => {
         telegramProject,
         "/api/demo/auth/telegram/miniapp/signin"
       )
-    ).toBe(true);
+    ).toBe(false);
   });
 
   test("keeps disabled feature endpoints closed", () => {

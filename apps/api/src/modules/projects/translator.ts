@@ -1,9 +1,11 @@
 import { ADMIN_PROJECT_SLUG, type AuthProject } from "../../config/projects";
 import {
   isSocialProviderConfigured,
-  SOCIAL_PROVIDER_CATALOG
+  SOCIAL_PROVIDER_CATALOG,
+  SocialProvider,
+  type SocialProviderId
 } from "../../config/social-providers";
-import { socialProviderCallbackUrl } from "./social-provider-store";
+import type { SocialProviderSummary } from "./social-provider-store";
 
 export type ProjectCounts = {
   userCount: number;
@@ -39,4 +41,33 @@ export const projectResponse = (project: AuthProject, counts: ProjectCounts = EM
     system: project.slug === ADMIN_PROJECT_SLUG,
     ...counts
   };
+};
+
+export const socialProvidersResponse = (
+  project: AuthProject,
+  providers: SocialProviderSummary[],
+  publicBaseUrl: string
+) => {
+  return {
+    providers: providers.map((provider) => ({
+      ...provider,
+      callbackUrl: socialProviderCallbackUrl(
+        publicBaseUrl,
+        project,
+        provider.provider
+      )
+    })),
+    catalog: Object.values(SOCIAL_PROVIDER_CATALOG)
+  };
+};
+
+export const socialProviderCallbackUrl = (
+  publicBaseUrl: string,
+  project: AuthProject,
+  provider: SocialProviderId
+) => {
+  const callbackPath = provider === SocialProvider.Telegram
+    ? `/oauth2/callback/${provider}`
+    : `/callback/${provider}`;
+  return `${publicBaseUrl}/api/${project.slug}/auth${callbackPath}`;
 };

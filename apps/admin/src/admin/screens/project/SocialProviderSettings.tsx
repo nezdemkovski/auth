@@ -251,17 +251,15 @@ function SocialProviderEditor({
       </div>
 
       <div className="flex flex-wrap justify-end gap-2">
-        {item.supportsCredentialCheck ? (
-          <Button
-            type="button"
-            disabled={disabled || verifyPending || !provider.configured || !enabled}
-            onClick={() => onVerify(item.id)}
-            loading={verifyPending}
-            size="sm"
-          >
-            {verifyPending ? "Checking…" : "Check"}
-          </Button>
-        ) : null}
+        <Button
+          type="button"
+          disabled={disabled || verifyPending || !provider.configured || !enabled}
+          onClick={() => onVerify(item.id)}
+          loading={verifyPending}
+          size="sm"
+        >
+          {verifyPending ? "Checking…" : "Check"}
+        </Button>
         <Button
           type="submit"
           disabled={disabled || pending}

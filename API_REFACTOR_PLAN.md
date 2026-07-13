@@ -231,51 +231,16 @@ Progress:
 
 ## Priority 5: Login Module
 
-Current problem:
+Completed under the Better Auth protocol-ownership migration:
 
-- `login/http.ts` is not Hono-specific, but it still mixes config DTO building,
-  response helpers, feature exposure, and flow endpoints.
-- `LoginFlowService` internally calls `registered.auth.handler` using synthetic
-  requests. That is pragmatic, but it should be isolated and documented.
-- `validator.ts` always returns strings, even for invalid bodies, so core owns
-  more invalid input handling than needed.
-- `store.ts` imports `ReconnectingRedisClient` from `http/security`, creating an
-  odd dependency from a module store to HTTP security code.
-
-Plan:
-
-- Move shared Redis client out of `http/security.ts` into infra, for example:
-  `infra/redis.ts`.
-- Add login `translator.ts` for:
-  - login config.
-  - reset password config.
-  - OAuth consent config.
-- Make validator return `null` for malformed login/token bodies and have
-  `http.ts` return `invalid_body`.
-- Extract Better Auth session-code issuing into a small adapter:
-  `better-auth-session.ts` or a private class inside `core.ts`.
-- Document the synthetic internal request boundary in code, because this is a
-  security-sensitive path.
-
-Tests to add:
-
-- invalid token/session-code bodies return `invalid_body`.
-- login config hides disabled providers.
-- code exchange is single-use and validates PKCE before delete.
-- Redis store and memory store behavior share the same contract tests.
-
-Done when:
-
-- `login/http.ts` only maps URL/query/body to service calls and responses.
-- Redis dependency is not imported from `http/security`.
-
-Progress:
-
-- Shared Redis reconnect wrapper lives in `db/redis.ts`; login store and rate
-  limiter both depend on it.
-- Login config/reset/consent DTOs now live in `translator.ts`.
-- Malformed login/token request bodies now return `invalid_body`.
-- Remaining work: isolate/document synthetic Better Auth session requests.
+- `login/http.ts` exposes only hosted-login configuration boundaries.
+- `login/translator.ts` owns login, reset-password, and consent DTOs.
+- Custom session-code issuing, exchange endpoints, validators, persistence, and
+  tests were deleted instead of being wrapped in another adapter.
+- Authorization codes, PKCE validation, sessions, and token issuance now remain
+  inside Better Auth's OAuth Provider implementation.
+- The shared Redis wrapper remains in `db/redis.ts` for rate limiting; the login
+  module no longer owns protocol state.
 
 ## Priority 6: Delivery Module
 

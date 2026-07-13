@@ -45,7 +45,6 @@
         "@better-auth/oauth-provider": "1.7.0-rc.1",
         "@better-auth/passkey": "1.7.0-rc.1",
         "@nezdemkovski/auth-contracts": "workspace:*",
-        "@nezdemkovski/better-auth-telegram": "1.5.1",
         "@polar-sh/better-auth": "1.8.4",
         "@polar-sh/sdk": "0.48.1",
         "@react-email/components": "1.0.12",
@@ -54,6 +53,7 @@
         "better-auth": "1.7.0-rc.1",
         "drizzle-orm": "1.0.0-rc.4",
         "hono": "4.12.27",
+        "jose": "6.2.3",
         "pg": "8.21.0",
         "react": "19.2.7",
         "react-dom": "19.2.7",
@@ -447,8 +447,6 @@
     "@nezdemkovski/auth-reference-product": ["@nezdemkovski/auth-reference-product@workspace:apps/reference-product"],
 
     "@nezdemkovski/auth-ui": ["@nezdemkovski/auth-ui@workspace:packages/ui"],
-
-    "@nezdemkovski/better-auth-telegram": ["@nezdemkovski/better-auth-telegram@1.5.1", "", { "peerDependencies": { "@better-auth/core": "^1.7.0-rc.1", "better-auth": "^1.7.0-rc.1" } }, "sha512-8A6OTf78P1rQOnzySXg86Vk/o8DFZqLqOMYJ15jKDfARtrEKa9UjvZDK5CTbKBu85qsUYYdY6/TQ3yrZFf8cjw=="],
 
     "@noble/ciphers": ["@noble/ciphers@2.2.0", "", {}, "sha512-Z6pjIZ/8IJcCGzb2S/0Px5J81yij85xASuk1teLNeg75bfT07MV3a/O2Mtn1I2se43k3lkVEcFaR10N4cgQcZA=="],
 

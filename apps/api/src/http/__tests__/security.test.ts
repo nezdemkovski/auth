@@ -59,12 +59,10 @@ describe("http security helpers", () => {
     expect(normalizeRateLimitPath("/admin/login")).toBe("/admin/login");
   });
 
-  test("matches realm sign-in, signup, Telegram, reset, and verification routes", () => {
+  test("matches realm sign-in, signup, reset, and verification routes", () => {
     expect(rateLimitRuleName("POST", "/api/demo/auth/sign-in/email")).toBe("project-signin");
     expect(rateLimitRuleName("POST", "/api/demo/auth/sign-up/email")).toBe("project-signup");
-    expect(rateLimitRuleName("POST", "/api/demo/auth/telegram/miniapp/signin")).toBe(
-      "telegram-miniapp-signin"
-    );
+    expect(rateLimitRuleName("POST", "/api/demo/auth/telegram/miniapp/signin")).toBeNull();
     expect(rateLimitRuleName("POST", "/api/demo/auth/forget-password")).toBe("password-reset");
     expect(rateLimitRuleName("POST", "/api/demo/auth/send-verification-email")).toBe("email-verification");
   });

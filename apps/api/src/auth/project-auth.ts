@@ -4,14 +4,13 @@ import { admin, bearer, jwt, lastLoginMethod, twoFactor } from "better-auth/plug
 import { agentAuth } from "@better-auth/agent-auth";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { passkey } from "@better-auth/passkey";
-import { telegram } from "@nezdemkovski/better-auth-telegram";
 import { checkout, polar, portal, usage, webhooks } from "@polar-sh/better-auth";
 import { Polar } from "@polar-sh/sdk";
 
 import { AuthUserRole, BillingProvider, type AuthProject } from "../config/projects";
 import {
   isSocialProviderConfigured,
-  isOAuthSocialProvider,
+  isBuiltInSocialProvider,
   SocialProvider
 } from "../config/social-providers";
 import { TRUSTED_CLIENT_IP_HEADER } from "../config/proxy";
@@ -23,6 +22,7 @@ import { sha256Hex } from "../runtime/crypto";
 import { logInfo } from "../runtime/logger";
 import type { PolarWebhookHandlers } from "../modules/billing/webhooks";
 import { mustEnrollTwoFactor } from "./policy";
+import { createTelegramOidcPlugin } from "./telegram";
 
 type ProjectAuthOptions = {
   project: AuthProject;
@@ -148,6 +148,7 @@ export const createBaseProjectAuthOptions = (options: {
         },
         trustProxy: options.trustProxyHeaders
       }),
+      ...buildTelegramOidcPlugins(project),
       oauthProvider({
         loginPage: `/login/${project.slug}`,
         consentPage: `/login/${project.slug}/oauth/consent`,
@@ -166,7 +167,6 @@ export const createBaseProjectAuthOptions = (options: {
           openidConfig: true
         }
       }),
-      ...buildTelegramPlugin(project),
       lastLoginMethod({
         customResolveMethod: (ctx) => {
           if (ctx.path === "/passkey/verify-authentication") {
@@ -197,8 +197,7 @@ export const createBaseProjectAuthOptions = (options: {
             image: user.image,
             email: user.email,
             email_verified: user.emailVerified === true,
-            project: project.slug,
-            telegram_id: user.telegramId
+            project: project.slug
           })
         }
       })
@@ -291,7 +290,7 @@ const buildSocialProviders = (project: AuthProject) => {
   const socialProviders: NonNullable<BetterAuthOptions["socialProviders"]> = {};
 
   for (const provider of SOCIAL_PROVIDER_IDS) {
-    if (!isOAuthSocialProvider(provider)) {
+    if (!isBuiltInSocialProvider(provider)) {
       continue;
     }
     const settings = project.socialProviders[provider];
@@ -305,27 +304,13 @@ const buildSocialProviders = (project: AuthProject) => {
   return socialProviders;
 };
 
-const buildTelegramPlugin = (project: AuthProject) => {
+const buildTelegramOidcPlugins = (project: AuthProject) => {
   const settings = project.socialProviders[SocialProvider.Telegram];
   if (!settings.enabled || !isSocialProviderConfigured(SocialProvider.Telegram, settings)) {
     return [];
   }
 
   return [
-    telegram({
-      botToken: settings.clientSecret,
-      botUsername: settings.clientId,
-      loginWidget: false,
-      miniApp: {
-        enabled: true,
-        validateInitData: true,
-        allowAutoSignin: true,
-        mapMiniAppDataToUser: (user) => ({
-          name: user.last_name ? `${user.first_name} ${user.last_name}` : user.first_name,
-          email: `telegram-${user.id}@telegram.invalid`,
-          image: user.photo_url
-        })
-      }
-    })
+    createTelegramOidcPlugin(settings)
   ];
 };

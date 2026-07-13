@@ -15,13 +15,12 @@ import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
 import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
 import { socialProviderSettings } from "./social-provider-tables";
 
-export type PublicSocialProviderSettings = {
+export type SocialProviderSummary = {
   provider: SocialProviderId;
   enabled: boolean;
   clientId: string;
   configured: boolean;
   verifiedAt: string | null;
-  callbackUrl: string;
 };
 
 export type SocialProviderPatch = {
@@ -81,7 +80,6 @@ export const loadSocialProviderSettings = async (options: AdminDatabaseOptions &
 
 export const readProjectSocialProviders = async (options: AdminDatabaseOptions & {
   project: AuthProject;
-  publicBaseUrl: string;
 }) => {
   return withAdminDb(options, async ({ db }) => {
     const result = await db
@@ -101,8 +99,7 @@ export const readProjectSocialProviders = async (options: AdminDatabaseOptions &
           clientId,
           clientSecret: row?.clientSecretCipher ?? ""
         }),
-        verifiedAt: normalizeDate(row?.verifiedAt ?? null),
-        callbackUrl: socialProviderCallbackUrl(options.publicBaseUrl, options.project, provider)
+        verifiedAt: normalizeDate(row?.verifiedAt ?? null)
       };
     });
   });
@@ -220,10 +217,6 @@ export const loadProjectSocialProviders = async (options: AdminDatabaseOptions &
 }) => {
   const all = await loadSocialProviderSettings(options);
   return all.get(options.project.slug) ?? cloneDefaultSocialProviders();
-};
-
-export const socialProviderCallbackUrl = (publicBaseUrl: string, project: AuthProject, provider: SocialProviderId) => {
-  return `${publicBaseUrl}/api/${project.slug}/auth/callback/${provider}`;
 };
 
 export const cloneDefaultSocialProviders = () => {

@@ -19,7 +19,6 @@ export type AuthPlatformProviderOptions = {
   clientId: string;
   clientSecret: string;
   providerId?: string;
-  name?: string;
   resource?: string;
   scopes?: string[];
 };
@@ -37,20 +36,16 @@ export const createAuthPlatformProvider = (
 
   return {
     providerId,
-    name: options.name?.trim() || "Auth Platform",
     discoveryUrl: `${issuer}/.well-known/openid-configuration`,
     clientId,
     clientSecret,
-    tokenEndpointAuth: {
-      method: "client_secret_basic"
-    },
+    authentication: "basic",
     scopes,
     pkce: true,
     ...(resource
       ? {
           authorizationUrlParams: { resource },
-          tokenUrlParams: { resource },
-          refreshTokenParams: { resource }
+          tokenUrlParams: { resource }
         }
       : {})
   };

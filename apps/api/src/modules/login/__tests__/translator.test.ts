@@ -75,6 +75,11 @@ describe("login translator", () => {
 
     expect(response.socialProviders).toEqual([
       {
+        id: SocialProvider.Telegram,
+        label: "Telegram",
+        shortLabel: "Telegram"
+      },
+      {
         id: SocialProvider.GitHub,
         label: "GitHub",
         shortLabel: "GitHub"

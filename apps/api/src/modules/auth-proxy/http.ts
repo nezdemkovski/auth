@@ -7,8 +7,6 @@ import { cors } from "hono/cors";
 
 import { ADMIN_PROJECT_SLUG, type AuthProject } from "../../config/projects";
 import { BillingProvider } from "../../config/projects";
-import { SocialProvider } from "../../config/social-providers";
-import { isSocialProviderConfigured } from "../../config/social-providers";
 import { ErrorCode } from "../../runtime/error-codes";
 import { auditLog } from "../../runtime/logger";
 import { isRecord } from "../../runtime/type-guards";
@@ -193,12 +191,7 @@ export const isEnabledAuthFeaturePath = (project: AuthProject, path: string) => 
   }
 
   if (authPath.startsWith("/telegram/")) {
-    const telegram = project.socialProviders[SocialProvider.Telegram];
-    return (
-      socialSignInAllowed(project) &&
-      telegram.enabled &&
-      isSocialProviderConfigured(SocialProvider.Telegram, telegram)
-    );
+    return false;
   }
 
   if (authPath.startsWith("/passkey/") && !project.features.passkey.enabled) {

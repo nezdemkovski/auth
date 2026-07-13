@@ -34,7 +34,7 @@ export type LoginAuthConfig =
   | LoginOAuthConsentConfig
   | LoginPasswordResetConfig;
 
-export type SocialProviderId = "github" | "google" | "twitter" | "facebook";
+export type SocialProviderId = "telegram" | "github" | "google" | "twitter" | "facebook";
 
 export type SocialProviderConfig = {
   id: SocialProviderId;

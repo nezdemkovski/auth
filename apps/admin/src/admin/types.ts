@@ -56,8 +56,6 @@ export type SocialProviderCatalogItem = {
   clientSecretLabel: string;
   defaultScopes: string[];
   docsUrl: string;
-  flow: "oauth" | "mini-app";
-  supportsCredentialCheck: boolean;
   requiresClientId: boolean;
 };
 

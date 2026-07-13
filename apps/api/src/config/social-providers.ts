@@ -10,11 +10,6 @@ export enum SocialProvider {
 
 export type SocialProviderId = SocialProvider;
 
-export enum SocialProviderFlow {
-  OAuth = "oauth",
-  MiniApp = "mini-app"
-}
-
 export type SocialProviderCatalogItem = {
   id: SocialProviderId;
   label: string;
@@ -23,8 +18,6 @@ export type SocialProviderCatalogItem = {
   clientSecretLabel: string;
   defaultScopes: string[];
   docsUrl: string;
-  flow: SocialProviderFlow;
-  supportsCredentialCheck: boolean;
   requiresClientId: boolean;
 };
 
@@ -36,12 +29,10 @@ export const SOCIAL_PROVIDER_CATALOG: Record<
     id: SocialProvider.Telegram,
     label: "Telegram",
     shortLabel: "Telegram",
-    clientIdLabel: "Bot username",
-    clientSecretLabel: "Bot token",
-    defaultScopes: [],
-    docsUrl: "https://core.telegram.org/bots/webapps",
-    flow: SocialProviderFlow.MiniApp,
-    supportsCredentialCheck: false,
+    clientIdLabel: "OIDC client ID",
+    clientSecretLabel: "OIDC client secret",
+    defaultScopes: ["openid", "profile"],
+    docsUrl: "https://core.telegram.org/bots/telegram-login",
     requiresClientId: true
   },
   [SocialProvider.GitHub]: {
@@ -52,8 +43,6 @@ export const SOCIAL_PROVIDER_CATALOG: Record<
     clientSecretLabel: "Client secret",
     defaultScopes: ["read:user", "user:email"],
     docsUrl: "https://better-auth.com/docs/authentication/github",
-    flow: SocialProviderFlow.OAuth,
-    supportsCredentialCheck: true,
     requiresClientId: true
   },
   [SocialProvider.Google]: {
@@ -64,8 +53,6 @@ export const SOCIAL_PROVIDER_CATALOG: Record<
     clientSecretLabel: "Client secret",
     defaultScopes: ["openid", "profile", "email"],
     docsUrl: "https://better-auth.com/docs/authentication/google",
-    flow: SocialProviderFlow.OAuth,
-    supportsCredentialCheck: true,
     requiresClientId: true
   },
   [SocialProvider.Twitter]: {
@@ -76,8 +63,6 @@ export const SOCIAL_PROVIDER_CATALOG: Record<
     clientSecretLabel: "Client secret",
     defaultScopes: ["users.read", "tweet.read", "offline.access", "users.email"],
     docsUrl: "https://better-auth.com/docs/authentication/twitter",
-    flow: SocialProviderFlow.OAuth,
-    supportsCredentialCheck: true,
     requiresClientId: true
   },
   [SocialProvider.Facebook]: {
@@ -88,8 +73,6 @@ export const SOCIAL_PROVIDER_CATALOG: Record<
     clientSecretLabel: "App secret",
     defaultScopes: ["email", "public_profile"],
     docsUrl: "https://better-auth.com/docs/authentication/facebook",
-    flow: SocialProviderFlow.OAuth,
-    supportsCredentialCheck: true,
     requiresClientId: true
   }
 };
@@ -100,14 +83,10 @@ export const isSocialProviderId = (value: string): value is SocialProviderId => 
   return isEnumValue(SocialProvider, value);
 };
 
-export const isOAuthSocialProvider = (
+export const isBuiltInSocialProvider = (
   provider: SocialProviderId
 ): provider is Exclude<SocialProviderId, SocialProvider.Telegram> => {
-  return SOCIAL_PROVIDER_CATALOG[provider].flow === SocialProviderFlow.OAuth;
-};
-
-export const supportsSocialProviderCredentialCheck = (provider: SocialProviderId) => {
-  return SOCIAL_PROVIDER_CATALOG[provider].supportsCredentialCheck;
+  return provider !== SocialProvider.Telegram;
 };
 
 export const isSocialProviderConfigured = (
