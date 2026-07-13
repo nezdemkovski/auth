@@ -9,11 +9,10 @@ import {
 } from "@nezdemkovski/auth-storage";
 import { Pool } from "pg";
 import { DEFAULT_PROJECT_BILLING } from "@nezdemkovski/auth-billing";
-
 import {
-  DEFAULT_PROJECT_FEATURES,
-  DEFAULT_PROJECT_SOCIAL_PROVIDERS
-} from "../../../config/projects";
+  DEFAULT_REALM_FEATURES,
+  DEFAULT_REALM_SOCIAL_PROVIDERS
+} from "@nezdemkovski/auth-realm";
 import { MediaService } from "../core";
 
 const project = {
@@ -24,8 +23,8 @@ const project = {
   iconUrl: "https://cdn.example/old.png",
   appUrl: "https://demo.example.com",
   trustedOrigins: ["https://demo.example.com"],
-  features: DEFAULT_PROJECT_FEATURES,
-  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
+  features: DEFAULT_REALM_FEATURES,
+  socialProviders: DEFAULT_REALM_SOCIAL_PROVIDERS,
   billing: DEFAULT_PROJECT_BILLING,
   storage: {
     ...DEFAULT_PROJECT_STORAGE,

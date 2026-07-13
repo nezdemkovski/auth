@@ -5,10 +5,10 @@ import {
   parseChangePasswordInput,
   type AdminAccountService
 } from "@nezdemkovski/auth-identity";
+import { ADMIN_REALM_SLUG } from "@nezdemkovski/auth-realm";
 import type { Hono } from "hono";
 
 import type { RegisteredProject } from "../../auth/registry";
-import { ADMIN_PROJECT_SLUG } from "../../config/projects";
 import {
   auditLog,
   domainErrorResponse,
@@ -32,7 +32,7 @@ export const registerAdminAccountRoutes = ({
 }: AdminAccountRouteContext) => {
   app.get("/me", async (c) => {
     const admin = await requireAdminAccount(
-      options.registry.get(ADMIN_PROJECT_SLUG),
+      options.registry.get(ADMIN_REALM_SLUG),
       c.req.raw.headers
     );
     if (admin.error) {
@@ -49,7 +49,7 @@ export const registerAdminAccountRoutes = ({
 
   app.patch("/profile", async (c) => {
     const admin = await requireAdminAccount(
-      options.registry.get(ADMIN_PROJECT_SLUG),
+      options.registry.get(ADMIN_REALM_SLUG),
       c.req.raw.headers
     );
     if (admin.error) {
@@ -92,7 +92,7 @@ export const registerAdminAccountRoutes = ({
 
   app.post("/change-password", async (c) => {
     const admin = await requireAdminAccount(
-      options.registry.get(ADMIN_PROJECT_SLUG),
+      options.registry.get(ADMIN_REALM_SLUG),
       c.req.raw.headers
     );
     if (admin.error) {

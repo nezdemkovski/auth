@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { createReferenceProductApp } from "@nezdemkovski/auth-reference-product";
+import { RealmTwoFactorRequirement } from "@nezdemkovski/auth-realm";
 
-import { ProjectTwoFactorRequirement } from "../src/config/projects";
 import { DIRECT_CLIENT_IP_HEADER } from "../src/http/security";
 import { isRecord } from "../src/runtime/type-guards";
 import { seedIntegrationRealm } from "./seed";
@@ -32,7 +32,7 @@ describe("reference product OAuth integration", () => {
       },
       twoFactor: {
         enabled: true,
-        required: ProjectTwoFactorRequirement.Everyone
+        required: RealmTwoFactorRequirement.Everyone
       }
     });
     const central = await createIntegrationApp();

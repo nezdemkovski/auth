@@ -2,7 +2,10 @@ import { getMigrations } from "better-auth/db/migration";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, type PoolClient } from "pg";
-import { createProjectDatabase } from "@nezdemkovski/auth-better-auth-runtime";
+import {
+  AuthUserRole,
+  createProjectDatabase
+} from "@nezdemkovski/auth-better-auth-runtime";
 import {
   ensureDeliverySettingsTable,
   seedDeliverySettingsFromEnv,
@@ -28,7 +31,7 @@ import {
   seedAdminRealmSettings
 } from "@nezdemkovski/auth-realm";
 
-import { AuthUserRole, type AuthProject } from "../config/projects";
+import type { AuthProject } from "../config/projects";
 import { randomBase64Url } from "../runtime/crypto";
 import { logError } from "../runtime/logger";
 import {

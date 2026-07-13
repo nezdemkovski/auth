@@ -6,14 +6,16 @@ import {
   BillingProvider,
   DEFAULT_PROJECT_BILLING
 } from "@nezdemkovski/auth-billing";
-import { SocialProvider } from "@nezdemkovski/auth-realm";
+import {
+  DEFAULT_REALM_FEATURES,
+  DEFAULT_REALM_SOCIAL_PROVIDERS,
+  RealmAgentAuthMode,
+  RealmTwoFactorRequirement,
+  SocialProvider
+} from "@nezdemkovski/auth-realm";
 
 import {
   ADMIN_PROJECT,
-  DEFAULT_PROJECT_FEATURES,
-  DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  ProjectAgentAuthMode,
-  ProjectTwoFactorRequirement,
   type AuthProject
 } from "../../../config/projects";
 import { ErrorCode } from "../../../runtime/error-codes";
@@ -33,8 +35,8 @@ const project: AuthProject = {
   iconUrl: "",
   appUrl: "",
   trustedOrigins: ["https://demo.example.com"],
-  features: DEFAULT_PROJECT_FEATURES,
-  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
+  features: DEFAULT_REALM_FEATURES,
+  socialProviders: DEFAULT_REALM_SOCIAL_PROVIDERS,
   billing: DEFAULT_PROJECT_BILLING,
   storage: DEFAULT_PROJECT_STORAGE
 };
@@ -106,7 +108,7 @@ describe("auth route feature gates", () => {
         ...project.features,
         twoFactor: {
           enabled: true,
-          required: ProjectTwoFactorRequirement.Everyone
+          required: RealmTwoFactorRequirement.Everyone
         }
       }
     };
@@ -179,11 +181,11 @@ describe("auth route feature gates", () => {
         passkey: { enabled: true },
         twoFactor: {
           enabled: true,
-          required: ProjectTwoFactorRequirement.Optional
+          required: RealmTwoFactorRequirement.Optional
         },
         agentAuth: {
           enabled: true,
-          mode: ProjectAgentAuthMode.ReadOnly
+          mode: RealmAgentAuthMode.ReadOnly
         },
         oauthProvider: {
           enabled: true,
@@ -292,7 +294,7 @@ describe("auth proxy HTTP boundary", () => {
         ...project.features,
         twoFactor: {
           enabled: true,
-          required: ProjectTwoFactorRequirement.Everyone
+          required: RealmTwoFactorRequirement.Everyone
         },
         oauthProvider: {
           enabled: true,
@@ -328,7 +330,7 @@ describe("auth proxy HTTP boundary", () => {
         ...project.features,
         twoFactor: {
           enabled: true,
-          required: ProjectTwoFactorRequirement.Everyone
+          required: RealmTwoFactorRequirement.Everyone
         }
       }
     };
@@ -367,7 +369,7 @@ describe("auth proxy HTTP boundary", () => {
         ...project.features,
         twoFactor: {
           enabled: true,
-          required: ProjectTwoFactorRequirement.Everyone
+          required: RealmTwoFactorRequirement.Everyone
         }
       }
     };

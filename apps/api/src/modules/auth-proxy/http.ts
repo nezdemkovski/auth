@@ -1,8 +1,9 @@
 import type { Env, Hono } from "hono";
 import { cors } from "hono/cors";
 import { BillingProvider } from "@nezdemkovski/auth-billing";
+import { ADMIN_REALM_SLUG } from "@nezdemkovski/auth-realm";
 
-import { ADMIN_PROJECT_SLUG, type AuthProject } from "../../config/projects";
+import type { AuthProject } from "../../config/projects";
 import { ErrorCode } from "../../runtime/error-codes";
 import { auditLog } from "../../runtime/logger";
 import { isRecord } from "../../runtime/type-guards";
@@ -175,7 +176,7 @@ const policyUserFromSession = (session: unknown) => {
 export const isEnabledAuthFeaturePath = (project: AuthProject, path: string) => {
   const authPath = projectAuthPath(path, project.slug);
 
-  if (project.slug === ADMIN_PROJECT_SLUG && authPath.startsWith("/sign-up/")) {
+  if (project.slug === ADMIN_REALM_SLUG && authPath.startsWith("/sign-up/")) {
     return false;
   }
 

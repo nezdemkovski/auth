@@ -1,9 +1,10 @@
 import {
+  ADMIN_REALM_SLUG,
   isSocialProviderConfigured,
   SOCIAL_PROVIDER_CATALOG
 } from "@nezdemkovski/auth-realm";
 
-import { ADMIN_PROJECT_SLUG, type AuthProject } from "../config/projects";
+import type { AuthProject } from "../config/projects";
 import { socialProviderCallbackUrl } from "../modules/projects/translator";
 
 export type AdminProjectIdentityCounts = {
@@ -45,7 +46,7 @@ export const adminProjectResponse = (
         )
       };
     }),
-    system: project.slug === ADMIN_PROJECT_SLUG,
+    system: project.slug === ADMIN_REALM_SLUG,
     ...identityCounts
   };
 };

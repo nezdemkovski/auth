@@ -2,12 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 import { DEFAULT_PROJECT_BILLING } from "@nezdemkovski/auth-billing";
-
 import {
-  DEFAULT_PROJECT_FEATURES,
-  DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  type AuthProject
-} from "../../../config/projects";
+  DEFAULT_REALM_FEATURES,
+  DEFAULT_REALM_SOCIAL_PROVIDERS
+} from "@nezdemkovski/auth-realm";
+
+import type { AuthProject } from "../../../config/projects";
 import { ErrorCode } from "../../../runtime/error-codes";
 import {
   getLoginConfig,
@@ -23,8 +23,8 @@ const project: AuthProject = {
   iconUrl: "",
   appUrl: "https://demo.example.com",
   trustedOrigins: ["https://demo.example.com"],
-  features: DEFAULT_PROJECT_FEATURES,
-  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
+  features: DEFAULT_REALM_FEATURES,
+  socialProviders: DEFAULT_REALM_SOCIAL_PROVIDERS,
   billing: DEFAULT_PROJECT_BILLING,
   storage: DEFAULT_PROJECT_STORAGE
 };

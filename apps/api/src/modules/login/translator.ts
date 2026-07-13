@@ -1,12 +1,10 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import {
   isSocialProviderConfigured,
+  RealmTwoFactorRequirement,
   SOCIAL_PROVIDER_CATALOG,
   SOCIAL_PROVIDER_IDS
 } from "@nezdemkovski/auth-realm";
-import {
-  ProjectTwoFactorRequirement
-} from "../../config/projects";
 import {
   mustEnrollTwoFactor,
   socialSignInAllowed

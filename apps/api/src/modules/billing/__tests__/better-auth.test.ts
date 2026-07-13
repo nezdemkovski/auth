@@ -6,13 +6,13 @@ import {
   type PolarEntitlementGrantStore,
   type PolarWebhookStore
 } from "@nezdemkovski/auth-billing";
+import {
+  DEFAULT_REALM_FEATURES,
+  DEFAULT_REALM_SOCIAL_PROVIDERS
+} from "@nezdemkovski/auth-realm";
 import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 
-import {
-  DEFAULT_PROJECT_FEATURES,
-  DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  type AuthProject
-} from "../../../config/projects";
+import type { AuthProject } from "../../../config/projects";
 import { createBillingAuthPluginContribution } from "../better-auth";
 
 const project: AuthProject = {
@@ -23,8 +23,8 @@ const project: AuthProject = {
   iconUrl: "",
   appUrl: "https://demo.example.com",
   trustedOrigins: ["https://demo.example.com"],
-  features: DEFAULT_PROJECT_FEATURES,
-  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
+  features: DEFAULT_REALM_FEATURES,
+  socialProviders: DEFAULT_REALM_SOCIAL_PROVIDERS,
   billing: DEFAULT_PROJECT_BILLING,
   storage: DEFAULT_PROJECT_STORAGE
 };

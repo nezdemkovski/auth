@@ -212,6 +212,28 @@ describe("repository security controls", () => {
     ).toBe(true);
   });
 
+  test("imports closed domain values from their owning backend packages", async () => {
+    const projectConfig = await read("apps/api/src/config/projects.ts");
+
+    for (const legacyAlias of [
+      "ProjectAgentAuthMode",
+      "ProjectTwoFactorRequirement",
+      "DEFAULT_PROJECT_FEATURES",
+      "DEFAULT_PROJECT_SOCIAL_PROVIDERS",
+      "ADMIN_PROJECT_SLUG",
+      "MAX_PROJECT_SLUG_LENGTH",
+      "normalizeProjectSlug",
+      "projectSchemaFromSlug",
+      "validateProjectSlug",
+      "validateProjectSchema"
+    ]) {
+      expect(projectConfig).not.toContain(legacyAlias);
+    }
+
+    expect(projectConfig).not.toContain("AuthUserRole");
+    expect(projectConfig).toContain("type AuthProject = Realm &");
+  });
+
   test("does not mask integration dependency health failures", async () => {
     const compose = await read("dev/docker-compose.integration.yml");
 

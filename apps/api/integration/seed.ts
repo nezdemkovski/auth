@@ -5,14 +5,14 @@ import {
   type BillingEntitlement,
   type BillingProductMapping
 } from "@nezdemkovski/auth-billing";
-import { createRealmSettings } from "@nezdemkovski/auth-realm";
+import {
+  createRealmSettings,
+  DEFAULT_REALM_FEATURES,
+  DEFAULT_REALM_SOCIAL_PROVIDERS
+} from "@nezdemkovski/auth-realm";
 import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 
-import {
-  DEFAULT_PROJECT_FEATURES,
-  DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  type AuthProject
-} from "../src/config/projects";
+import type { AuthProject } from "../src/config/projects";
 import { integrationAdminDbOptions, integrationEncryptionSecret } from "./setup";
 
 export const seedIntegrationRealm = async (options: {
@@ -36,17 +36,17 @@ export const seedIntegrationRealm = async (options: {
     appUrl: `https://${options.slug}.integration.test`,
     trustedOrigins: [`https://${options.slug}.integration.test`],
     features: {
-      ...DEFAULT_PROJECT_FEATURES,
-      twoFactor: options.twoFactor ?? DEFAULT_PROJECT_FEATURES.twoFactor,
+      ...DEFAULT_REALM_FEATURES,
+      twoFactor: options.twoFactor ?? DEFAULT_REALM_FEATURES.twoFactor,
       oauthProvider: options.oauthProvider
         ? {
             enabled: options.oauthProvider.enabled,
             dynamicClientRegistration:
               options.oauthProvider.dynamicClientRegistration ?? false
           }
-        : DEFAULT_PROJECT_FEATURES.oauthProvider
+        : DEFAULT_REALM_FEATURES.oauthProvider
     },
-    socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
+    socialProviders: DEFAULT_REALM_SOCIAL_PROVIDERS,
     billing: {
       provider: BillingProvider.Polar,
       enabled: true,

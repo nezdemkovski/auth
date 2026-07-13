@@ -1,12 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 import { DEFAULT_PROJECT_BILLING } from "@nezdemkovski/auth-billing";
-import { SocialProvider } from "@nezdemkovski/auth-realm";
-
 import {
-  DEFAULT_PROJECT_FEATURES,
-  DEFAULT_PROJECT_SOCIAL_PROVIDERS
-} from "../../../config/projects";
+  DEFAULT_REALM_FEATURES,
+  DEFAULT_REALM_SOCIAL_PROVIDERS,
+  SocialProvider
+} from "@nezdemkovski/auth-realm";
 import {
   LoginMode,
   LoginNextAction,
@@ -34,7 +33,7 @@ describe("login translator", () => {
           iconUrl: "",
           appUrl: "",
           trustedOrigins: [],
-          features: DEFAULT_PROJECT_FEATURES,
+          features: DEFAULT_REALM_FEATURES,
           billing: DEFAULT_PROJECT_BILLING,
           storage: DEFAULT_PROJECT_STORAGE,
           socialProviders: {
@@ -106,10 +105,10 @@ describe("login translator", () => {
           iconUrl: "",
           appUrl: "",
           trustedOrigins: [],
-          features: DEFAULT_PROJECT_FEATURES,
+          features: DEFAULT_REALM_FEATURES,
           billing: DEFAULT_PROJECT_BILLING,
           storage: DEFAULT_PROJECT_STORAGE,
-          socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS
+          socialProviders: DEFAULT_REALM_SOCIAL_PROVIDERS
         }
       }
     });
@@ -126,7 +125,7 @@ describe("login translator", () => {
       loginNextActionResponse({
         project: {
           features: {
-            ...DEFAULT_PROJECT_FEATURES,
+            ...DEFAULT_REALM_FEATURES,
             passkey: { enabled: true }
           }
         },

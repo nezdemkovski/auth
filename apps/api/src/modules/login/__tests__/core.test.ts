@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 import { DEFAULT_PROJECT_BILLING } from "@nezdemkovski/auth-billing";
-
+import { AuthUserRole } from "@nezdemkovski/auth-better-auth-runtime";
 import {
-  AuthUserRole,
-  DEFAULT_PROJECT_FEATURES,
-  DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  ProjectTwoFactorRequirement,
-  type AuthProject
-} from "../../../config/projects";
+  DEFAULT_REALM_FEATURES,
+  DEFAULT_REALM_SOCIAL_PROVIDERS,
+  RealmTwoFactorRequirement
+} from "@nezdemkovski/auth-realm";
+
+import type { AuthProject } from "../../../config/projects";
 import {
   internalAuthHeaders,
   type LoginRegisteredProject,
@@ -24,14 +24,14 @@ const project: AuthProject = {
   appUrl: "https://demo.example.com",
   trustedOrigins: ["https://demo.example.com"],
   features: {
-    ...DEFAULT_PROJECT_FEATURES,
+    ...DEFAULT_REALM_FEATURES,
     passkey: { enabled: true },
     twoFactor: {
       enabled: true,
-      required: ProjectTwoFactorRequirement.Admins
+      required: RealmTwoFactorRequirement.Admins
     }
   },
-  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
+  socialProviders: DEFAULT_REALM_SOCIAL_PROVIDERS,
   billing: DEFAULT_PROJECT_BILLING,
   storage: DEFAULT_PROJECT_STORAGE
 };

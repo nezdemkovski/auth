@@ -1,12 +1,12 @@
-import { projectSessionSatisfiesPolicy } from "@nezdemkovski/auth-better-auth-runtime";
+import {
+  AuthUserRole,
+  projectSessionSatisfiesPolicy
+} from "@nezdemkovski/auth-better-auth-runtime";
 import { mustChangePassword } from "@nezdemkovski/auth-identity";
+import { ADMIN_REALM_SLUG } from "@nezdemkovski/auth-realm";
 
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
-import {
-  ADMIN_PROJECT_SLUG,
-  AuthUserRole,
-  type AuthProject
-} from "../../config/projects";
+import type { AuthProject } from "../../config/projects";
 
 export type AdminRegistryOptions = {
   registry: AuthRegistry;
@@ -26,7 +26,7 @@ export type AdminSession = {
 };
 
 export const requireAdmin = async (registry: AuthRegistry, headers: Headers) => {
-  const registered = registry.get(ADMIN_PROJECT_SLUG);
+  const registered = registry.get(ADMIN_REALM_SLUG);
   if (!registered) {
     return null;
   }

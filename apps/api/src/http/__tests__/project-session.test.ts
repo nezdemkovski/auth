@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
-
 import {
-  DEFAULT_PROJECT_FEATURES,
-  ProjectTwoFactorRequirement
-} from "../../config/projects";
+  DEFAULT_REALM_FEATURES,
+  RealmTwoFactorRequirement
+} from "@nezdemkovski/auth-realm";
 import { ErrorCode } from "../../runtime/error-codes";
 import { requireProjectSession } from "../project-session";
 
@@ -19,10 +18,10 @@ const createRegistry = (session: {
       ? {
           project: {
             features: {
-              ...DEFAULT_PROJECT_FEATURES,
+              ...DEFAULT_REALM_FEATURES,
               twoFactor: {
                 enabled: true,
-                required: ProjectTwoFactorRequirement.Everyone
+                required: RealmTwoFactorRequirement.Everyone
               }
             }
           },

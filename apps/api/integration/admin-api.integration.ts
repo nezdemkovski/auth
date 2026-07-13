@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { EmailProvider } from "@nezdemkovski/auth-delivery";
 import { ObservabilityProvider } from "@nezdemkovski/auth-observability";
+import {
+  RealmAgentAuthMode,
+  RealmTwoFactorRequirement
+} from "@nezdemkovski/auth-realm";
 
 import {
   bootstrapIntegrationDatabase,
@@ -12,10 +16,6 @@ import {
   resetIntegrationDatabase
 } from "./setup";
 import { DIRECT_CLIENT_IP_HEADER } from "../src/http/security";
-import {
-  ProjectAgentAuthMode,
-  ProjectTwoFactorRequirement
-} from "../src/config/projects";
 
 describe("admin API integration", () => {
   beforeEach(async () => {
@@ -134,11 +134,11 @@ describe("admin API integration", () => {
               passkey: { enabled: true },
               twoFactor: {
                 enabled: true,
-                required: ProjectTwoFactorRequirement.Optional
+                required: RealmTwoFactorRequirement.Optional
               },
               agentAuth: {
                 enabled: true,
-                mode: ProjectAgentAuthMode.ReadOnly
+                mode: RealmAgentAuthMode.ReadOnly
               },
               oauthProvider: {
                 enabled: true,

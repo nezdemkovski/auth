@@ -1,10 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { AuthUserRole } from "@nezdemkovski/auth-better-auth-runtime";
+import { RealmTwoFactorRequirement } from "@nezdemkovski/auth-realm";
 
-import {
-  ADMIN_PROJECT,
-  AuthUserRole,
-  ProjectTwoFactorRequirement
-} from "../../../config/projects";
+import { ADMIN_PROJECT } from "../../../config/projects";
 import { adminSessionAllowed } from "../session";
 
 describe("admin session authorization", () => {
@@ -35,7 +33,7 @@ describe("admin session authorization", () => {
         ...ADMIN_PROJECT.features,
         twoFactor: {
           enabled: true,
-          required: ProjectTwoFactorRequirement.Everyone
+          required: RealmTwoFactorRequirement.Everyone
         }
       }
     };

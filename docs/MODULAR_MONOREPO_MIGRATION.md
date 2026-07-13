@@ -273,7 +273,7 @@ Package API rules:
   any domain table or query there.
 - [x] Keep crypto, logging, and generic parsing app-local unless at least two
   packages need the same invariant.
-- [ ] Split closed domain enums out of the current project configuration and
+- [x] Split closed domain enums out of the current project configuration and
   move them to their owning packages.
 - [x] Prevent `platform-core` from becoming a `shared` package for unrelated
   helpers.
