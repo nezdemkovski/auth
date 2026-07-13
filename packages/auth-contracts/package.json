@@ -1,0 +1,30 @@
+{
+  "name": "@nezdemkovski/auth-contracts",
+  "version": "0.1.0",
+  "description": "Public contracts for the Nezdemkovski auth platform",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nezdemkovski/auth.git",
+    "directory": "packages/auth-contracts"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "src", "README.md"],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "bun": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target browser --packages external --sourcemap=external && tsc -p tsconfig.build.json",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

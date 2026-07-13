@@ -44,6 +44,7 @@
         "@better-auth/drizzle-adapter": "1.7.0-rc.1",
         "@better-auth/oauth-provider": "1.7.0-rc.1",
         "@better-auth/passkey": "1.7.0-rc.1",
+        "@nezdemkovski/auth-contracts": "workspace:*",
         "@nezdemkovski/better-auth-telegram": "1.5.1",
         "@polar-sh/better-auth": "1.8.4",
         "@polar-sh/sdk": "0.48.1",
@@ -71,6 +72,25 @@
         "lucide-react": "1.23.0",
         "react": "19.2.7",
         "react-dom": "19.2.7",
+      },
+    },
+    "packages/auth-client": {
+      "name": "@nezdemkovski/auth-client",
+      "version": "0.1.0",
+      "dependencies": {
+        "@nezdemkovski/auth-contracts": "workspace:*",
+      },
+    },
+    "packages/auth-contracts": {
+      "name": "@nezdemkovski/auth-contracts",
+      "version": "0.1.0",
+    },
+    "packages/auth-server": {
+      "name": "@nezdemkovski/auth-server",
+      "version": "0.1.0",
+      "dependencies": {
+        "@nezdemkovski/auth-contracts": "workspace:*",
+        "jose": "6.2.3",
       },
     },
     "packages/client-shared": {
@@ -407,9 +427,15 @@
 
     "@nezdemkovski/auth-api": ["@nezdemkovski/auth-api@workspace:apps/api"],
 
+    "@nezdemkovski/auth-client": ["@nezdemkovski/auth-client@workspace:packages/auth-client"],
+
     "@nezdemkovski/auth-client-shared": ["@nezdemkovski/auth-client-shared@workspace:packages/client-shared"],
 
+    "@nezdemkovski/auth-contracts": ["@nezdemkovski/auth-contracts@workspace:packages/auth-contracts"],
+
     "@nezdemkovski/auth-login": ["@nezdemkovski/auth-login@workspace:apps/login"],
+
+    "@nezdemkovski/auth-server": ["@nezdemkovski/auth-server@workspace:packages/auth-server"],
 
     "@nezdemkovski/auth-ui": ["@nezdemkovski/auth-ui@workspace:packages/ui"],
 

@@ -1,4 +1,5 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
+import { LoginMode, PkceChallengeMethod } from "@nezdemkovski/auth-contracts";
 import {
   isSocialProviderConfigured,
   isOAuthSocialProvider,
@@ -19,20 +20,13 @@ export enum LoginPage {
   OAuthConsent = "oauth-consent"
 }
 
-export enum LoginMode {
-  Login = "login",
-  Signup = "signup"
-}
-
 export enum LoginNextAction {
   Redirect = "redirect",
   EnrollTwoFactor = "enroll_2fa",
   OfferPasskey = "offer_passkey"
 }
 
-export enum PkceChallengeMethod {
-  S256 = "S256"
-}
+export { LoginMode, PkceChallengeMethod } from "@nezdemkovski/auth-contracts";
 
 type LoginConfigInput = {
   registered: Pick<RegisteredProject, "project">;

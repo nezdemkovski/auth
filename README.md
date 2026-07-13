@@ -33,6 +33,9 @@ https://auth.nezdemkovski.cloud/api/<project>/.well-known/jwks.json
 apps/api                 Hono/Bun auth API
 apps/admin               Vite React admin dashboard
 apps/login               Vite React login experience
+packages/auth-contracts  Public API contracts and runtime parsers
+packages/auth-client     Headless browser/native auth client
+packages/auth-server     Server-side realm JWT verification
 packages/client-shared   Shared frontend theme and CSS
 packages/ui              Shared React UI primitives
 charts/auth              OCI Helm chart for the full runtime stack
@@ -41,6 +44,8 @@ charts/auth              OCI Helm chart for the full runtime stack
 The frontend apps build into their own `dist` directories and run as separate
 web images served by Caddy. The API server does not read or serve frontend
 assets.
+
+The public SDK packages are documented in [`docs/SDK.md`](docs/SDK.md).
 
 ## Local Development
 

@@ -4,6 +4,9 @@ COPY package.json bun.lock turbo.json tsconfig.base.json tsconfig.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/admin/package.json apps/admin/package.json
 COPY apps/login/package.json apps/login/package.json
+COPY packages/auth-client/package.json packages/auth-client/package.json
+COPY packages/auth-contracts/package.json packages/auth-contracts/package.json
+COPY packages/auth-server/package.json packages/auth-server/package.json
 COPY packages/client-shared/package.json packages/client-shared/package.json
 COPY packages/ui/package.json packages/ui/package.json
 RUN bun install --frozen-lockfile

@@ -1,4 +1,5 @@
 import { and, eq, gt, inArray, isNull, lt, notInArray, sql } from "drizzle-orm";
+import type { BillingUsageSummary } from "@nezdemkovski/auth-contracts";
 import type { NodePgTransaction } from "drizzle-orm/node-postgres";
 import type { AnyRelations } from "drizzle-orm/relations";
 
@@ -20,13 +21,7 @@ import {
   billingUsageReservations
 } from "./tables";
 
-export type BillingUsageSummary = {
-  key: string;
-  used: number;
-  limit: number;
-  remaining: number;
-  unlimited: boolean;
-};
+export type { BillingUsageSummary } from "@nezdemkovski/auth-contracts";
 
 export enum BillingUsageReservationStatus {
   Pending = "pending",

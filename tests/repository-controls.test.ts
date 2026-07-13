@@ -20,7 +20,8 @@ describe("repository security controls", () => {
     const workflowPaths = [
       ".github/workflows/integration-tests.yml",
       ".github/workflows/publish-helm-chart.yml",
-      ".github/workflows/publish-image.yml"
+      ".github/workflows/publish-image.yml",
+      ".github/workflows/publish-sdk.yml"
     ];
     const dockerfilePaths = [
       "apps/api/Dockerfile",
@@ -56,6 +57,23 @@ describe("repository security controls", () => {
     expect(await read(".github/workflows/publish-image.yml")).toContain(
       "Refuse mutable release tags"
     );
+  });
+
+  test("keeps public SDK package versions and release dependencies aligned", async () => {
+    const contractManifest = await Bun.file(rootFile("packages/auth-contracts/package.json")).json();
+    const clientManifest = await Bun.file(rootFile("packages/auth-client/package.json")).json();
+    const serverManifest = await Bun.file(rootFile("packages/auth-server/package.json")).json();
+
+    expect(clientManifest.version).toBe(contractManifest.version);
+    expect(serverManifest.version).toBe(contractManifest.version);
+    expect(clientManifest.dependencies["@nezdemkovski/auth-contracts"]).toBe(contractManifest.version);
+    expect(serverManifest.dependencies["@nezdemkovski/auth-contracts"]).toBe(contractManifest.version);
+
+    for (const manifest of [contractManifest, clientManifest, serverManifest]) {
+      expect(manifest.private).not.toBe(true);
+      expect(manifest.publishConfig.access).toBe("public");
+      expect(manifest.repository.url).toBe("git+https://github.com/nezdemkovski/auth.git");
+    }
   });
 
   test("does not mask integration dependency health failures", async () => {

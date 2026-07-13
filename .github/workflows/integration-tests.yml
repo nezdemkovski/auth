@@ -10,6 +10,7 @@ on:
       - apps/**
       - packages/**
       - .github/workflows/integration-tests.yml
+      - .github/workflows/publish-sdk.yml
       - playwright.config.ts
       - tests/browser/**
   push:
@@ -22,6 +23,7 @@ on:
       - apps/**
       - packages/**
       - .github/workflows/integration-tests.yml
+      - .github/workflows/publish-sdk.yml
       - playwright.config.ts
       - tests/browser/**
 
