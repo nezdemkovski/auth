@@ -179,6 +179,13 @@ the immutable `issuer + sub` pair.
   per-client resource enforcement is enabled.
 - [ ] Add admin operations for list, create, rotate, disable/delete, and inspect
   client metadata without ever returning a stored client secret.
+  - Blocked with the pinned OAuth Provider API: server-only create, update, and
+    resource linking are available, while list/get, secret rotation, and delete
+    require an owning user session; a server-only disable operation is not
+    exposed.
+  - Do not work around the missing lifecycle by reading or writing Better Auth
+    plugin tables directly or by inventing a technical owner session. Upgrade
+    Better Auth or contribute the missing server APIs upstream first.
 - [ ] Show a newly generated client secret only in the Better Auth creation or
   rotation response.
 - [ ] Ensure Better Auth-generated migrations include all enabled plugin tables

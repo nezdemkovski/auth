@@ -5,8 +5,11 @@
 - Extend the existing Postgres/Redis/S3 and browser suites with real passkey,
   2FA enrollment, email-delivery, and Polar checkout sandbox scenarios.
 - Add admin-managed Better Auth client lifecycle for product web, public/MCP,
-  and service profiles: create, list, rotate, disable, delete, and resource
-  linking without exposing stored secrets.
+  and service profiles without exposing stored secrets. This is blocked on
+  Better Auth exposing server-only list/get, secret rotation, disable, and
+  delete operations for unowned service clients. Do not bypass that boundary by
+  reading or writing OAuth Provider tables directly. Create/update and resource
+  linking can already use the official server APIs.
 - Migrate Amela to the reference-product pattern and the service-only billing
   contract, then remove its legacy auth SDK usage.
 - Expand structured request logging to cover request/response metadata without
