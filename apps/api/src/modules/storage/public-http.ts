@@ -6,12 +6,15 @@ import {
   MediaUploadPurpose,
   parseMediaUploadRequest
 } from "@nezdemkovski/auth-storage";
+import {
+  OAuthResource,
+  OAuthScope,
+  type OAuthResourceAuthorizer
+} from "@nezdemkovski/auth-oauth-resource";
 
-import type { AuthRegistry } from "../../auth/registry";
-import { OAuthResource, OAuthScope } from "../../config/oauth-resources";
+import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import { mediaUploadError } from "../../http/admin/shared";
 import { ErrorCode } from "../../runtime/error-codes";
-import type { OAuthResourceAuthorizer } from "../oauth-resource/authorizer";
 import type { MediaService } from "../media/core";
 
 type PublicStorageVariables = {
@@ -22,7 +25,7 @@ export const registerPublicStorageRoutes = (
   app: Hono<{ Variables: PublicStorageVariables }>,
   options: {
     registry: AuthRegistry;
-    authorizer: OAuthResourceAuthorizer;
+    authorizer: OAuthResourceAuthorizer<RegisteredProject>;
     mediaService: MediaService;
   }
 ) => {

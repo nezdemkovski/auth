@@ -5,7 +5,7 @@ import {
   OAuthScope,
   oauthResourceIdentifier,
   oauthResourceMetadataUrl
-} from "../src/config/oauth-resources";
+} from "@nezdemkovski/auth-oauth-resource";
 import {
   StorageProvider,
   updateStorageSettings

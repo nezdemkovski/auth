@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  OAUTH_DYNAMIC_CLIENT_SCOPES,
   OAuthResource,
   OAuthScope,
   OAuthTokenKind,
@@ -9,10 +10,10 @@ import {
   oauthResourceMetadataUrl,
   oauthResourceScopes,
   oauthTokenKindClaim
-} from "../oauth-resources";
+} from "../index";
 
 describe("OAuth platform resources", () => {
-  test("defines the storage audience, scope, and metadata URL from the realm", () => {
+  test("defines isolated audiences and least-privilege scopes", () => {
     expect(
       oauthResourceIdentifier(
         "https://auth.example.com",
@@ -24,15 +25,10 @@ describe("OAuth platform resources", () => {
       OAuthScope.StorageAvatarWrite,
       OAuthScope.StorageAvatarDelete
     ]);
-    expect(
-      oauthResourceMetadataUrl(
-        "https://auth.example.com",
-        "demo",
-        OAuthResource.Storage
-      )
-    ).toBe(
-      "https://auth.example.com/.well-known/oauth-protected-resource/api/demo/upload"
-    );
+    expect(oauthResourceScopes(OAuthResource.Billing)).toEqual([
+      OAuthScope.BillingUsageRead,
+      OAuthScope.BillingUsageWrite
+    ]);
     expect(
       oauthResourceDefinitions("https://auth.example.com", "demo")
     ).toEqual([
@@ -53,18 +49,7 @@ describe("OAuth platform resources", () => {
     ]);
   });
 
-  test("defines billing usage as a separate least-privilege audience", () => {
-    expect(
-      oauthResourceIdentifier(
-        "https://auth.example.com",
-        "demo",
-        OAuthResource.Billing
-      )
-    ).toBe("https://auth.example.com/api/demo/billing");
-    expect(oauthResourceScopes(OAuthResource.Billing)).toEqual([
-      OAuthScope.BillingUsageRead,
-      OAuthScope.BillingUsageWrite
-    ]);
+  test("builds canonical metadata and token-kind claim URLs", () => {
     expect(
       oauthResourceMetadataUrl(
         "https://auth.example.com",
@@ -80,6 +65,12 @@ describe("OAuth platform resources", () => {
     expect(Object.values(OAuthTokenKind)).toEqual([
       OAuthTokenKind.User,
       OAuthTokenKind.Service
+    ]);
+    expect(OAUTH_DYNAMIC_CLIENT_SCOPES).toEqual([
+      OAuthScope.OpenId,
+      OAuthScope.Profile,
+      OAuthScope.Email,
+      OAuthScope.OfflineAccess
     ]);
   });
 });

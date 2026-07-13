@@ -103,6 +103,9 @@ describe("repository security controls", () => {
     const authRuntimeManifest = await Bun.file(
       rootFile("packages/platform/better-auth-runtime/package.json")
     ).json();
+    const oauthResourceManifest = await Bun.file(
+      rootFile("packages/platform/oauth-resource/package.json")
+    ).json();
     const packageTags = new Map([
       ["apps/admin", "app"],
       ["apps/api", "app"],
@@ -120,6 +123,7 @@ describe("repository security controls", () => {
       ["packages/foundation/platform-crypto", "foundation"],
       ["packages/foundation/platform-database", "foundation"],
       ["packages/platform/better-auth-runtime", "platform"],
+      ["packages/platform/oauth-resource", "platform"],
       ["packages/ui", "frontend"]
     ]);
 
@@ -148,6 +152,14 @@ describe("repository security controls", () => {
     ]) {
       expect(authRuntimeManifest.dependencies[capability]).toBeUndefined();
     }
+    expect(
+      authRuntimeManifest.dependencies["@nezdemkovski/auth-oauth-resource"]
+    ).toBeUndefined();
+    expect(
+      Object.keys(oauthResourceManifest.dependencies).filter((dependency) =>
+        dependency.startsWith("@nezdemkovski/")
+      )
+    ).toEqual([]);
 
     for (const [path, tag] of packageTags) {
       const packageTurbo = await Bun.file(rootFile(`${path}/turbo.json`)).json();
@@ -164,7 +176,8 @@ describe("repository security controls", () => {
       "packages/domains/storage",
       "packages/foundation/platform-crypto",
       "packages/foundation/platform-database",
-      "packages/platform/better-auth-runtime"
+      "packages/platform/better-auth-runtime",
+      "packages/platform/oauth-resource"
     ]) {
       const manifest = await Bun.file(rootFile(`${path}/package.json`)).json();
       expect(manifest.private).toBe(true);

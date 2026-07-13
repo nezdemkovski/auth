@@ -16,6 +16,7 @@ import {
   createPolarEntitlementGrantStore,
   createPolarWebhookStore
 } from "@nezdemkovski/auth-billing";
+import { createOAuthResourceAuthorizer } from "@nezdemkovski/auth-oauth-resource";
 import { updateRealmIconUrl } from "@nezdemkovski/auth-realm";
 import {
   readIdentityUserImage,
@@ -29,11 +30,11 @@ import { registerPublicStorageRoutes } from "../modules/storage/public-http";
 import type { Env } from "../config/env";
 import type { AuthProject } from "../config/projects";
 import { AuthRegistry } from "../auth/registry";
+import { createOAuthResourceRegistryPort } from "../auth/oauth-resource";
 import { migrateDatabase } from "../db/migrate";
 import { createAdminDatabase } from "../db/admin-pool";
 import { registerBillingUsageRoutes } from "../modules/billing-usage/http";
 import { registerOAuthResourceRoutes } from "../modules/oauth-resource/http";
-import { createOAuthResourceAuthorizer } from "../modules/oauth-resource/authorizer";
 import { createBillingAuthPluginContribution } from "../modules/billing/better-auth";
 import { loadEffectiveProjects } from "../application/project-catalog";
 import { MediaService } from "../modules/media/core";
@@ -119,8 +120,9 @@ export const createApp = async (env: Env) => {
     ]
   });
   await registry.ready();
+  const oauthResourceRegistry = createOAuthResourceRegistryPort(registry);
   const oauthResourceAuthorizer = createOAuthResourceAuthorizer({
-    registry,
+    registry: oauthResourceRegistry,
     publicBaseUrl: env.publicBaseUrl
   });
   const storageService = new StorageService({
@@ -219,7 +221,7 @@ export const createApp = async (env: Env) => {
     ...billingStoreOptions
   });
   registerOAuthResourceRoutes(app, {
-    registry,
+    resourceRegistry: oauthResourceRegistry,
     publicBaseUrl: env.publicBaseUrl
   });
   registerPublicStorageRoutes(app, {

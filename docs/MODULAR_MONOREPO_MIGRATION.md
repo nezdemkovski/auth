@@ -363,7 +363,7 @@ Migrate one domain at a time and keep every move behavior-preserving.
   package.
 - [x] Pass delivery, observability, billing, and storage contributions as ports
   or composition inputs; the runtime package must not import those domains.
-- [ ] Extract OAuth protected-resource verification and metadata into the
+- [x] Extract OAuth protected-resource verification and metadata into the
   platform OAuth resource package.
 - [x] Keep login, auth proxy, and consent Hono routes as API composition over
   official Better Auth handlers.

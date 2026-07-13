@@ -116,6 +116,11 @@
 
 ## Done
 
+- OAuth protected-resource audiences, scopes, user/service token policy,
+  metadata, request authorization, and challenge responses extracted into
+  private compiled `@nezdemkovski/auth-oauth-resource`; the per-realm runtime
+  exposes only narrow official Better Auth resource-client and verifier ports,
+  including DPoP replay protection.
 - Better Auth-owned user and session administration, initial-admin bootstrap
   state, identity validation, and response translation extracted into private
   compiled `@nezdemkovski/auth-identity`; realm composition and HTTP stay in

@@ -7,14 +7,17 @@ import {
   readUserBillingUsageSummary,
   validBenefitKey
 } from "@nezdemkovski/auth-billing";
+import {
+  OAuthResource,
+  OAuthScope,
+  type OAuthResourceAuthorizer,
+  type OAuthResourceFailureResponse
+} from "@nezdemkovski/auth-oauth-resource";
 
-import type { AuthRegistry } from "../../auth/registry";
-import { OAuthResource, OAuthScope } from "../../config/oauth-resources";
+import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import type { AdminDatabase } from "../../db/admin-pool";
 import { ErrorCode } from "../../runtime/error-codes";
-import type { OAuthResourceAuthorizer } from "../oauth-resource/authorizer";
-import type { OAuthResourceFailureResponse } from "../oauth-resource/translator";
 import {
   billingUsageFailureResponse,
   billingUsageMutationResponse
@@ -30,7 +33,7 @@ type PublicBillingOptions = {
   databaseUrl: string;
   adminProject: AuthProject;
   adminDb: AdminDatabase;
-  authorizer: OAuthResourceAuthorizer;
+  authorizer: OAuthResourceAuthorizer<RegisteredProject>;
 };
 
 type BillingContext = Context<{ Variables: BillingVariables }>;

@@ -50,6 +50,7 @@
         "@nezdemkovski/auth-contracts": "workspace:*",
         "@nezdemkovski/auth-delivery": "workspace:*",
         "@nezdemkovski/auth-identity": "workspace:*",
+        "@nezdemkovski/auth-oauth-resource": "workspace:*",
         "@nezdemkovski/auth-observability": "workspace:*",
         "@nezdemkovski/auth-platform-crypto": "workspace:*",
         "@nezdemkovski/auth-platform-database": "workspace:*",
@@ -211,6 +212,14 @@
         "drizzle-orm": "1.0.0-rc.4",
         "jose": "6.2.3",
         "pg": "8.21.0",
+      },
+    },
+    "packages/platform/oauth-resource": {
+      "name": "@nezdemkovski/auth-oauth-resource",
+      "version": "0.0.0",
+      "dependencies": {
+        "@better-auth/oauth-provider": "1.7.0-rc.1",
+        "better-auth": "1.7.0-rc.1",
       },
     },
     "packages/ui": {
@@ -555,6 +564,8 @@
     "@nezdemkovski/auth-integration": ["@nezdemkovski/auth-integration@workspace:packages/auth-integration"],
 
     "@nezdemkovski/auth-login": ["@nezdemkovski/auth-login@workspace:apps/login"],
+
+    "@nezdemkovski/auth-oauth-resource": ["@nezdemkovski/auth-oauth-resource@workspace:packages/platform/oauth-resource"],
 
     "@nezdemkovski/auth-observability": ["@nezdemkovski/auth-observability@workspace:packages/domains/observability"],
 

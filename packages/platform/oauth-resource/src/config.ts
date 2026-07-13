@@ -1,23 +1,7 @@
-export enum OAuthScope {
-  OpenId = "openid",
-  Profile = "profile",
-  Email = "email",
-  OfflineAccess = "offline_access",
-  StorageAvatarWrite = "storage:avatar:write",
-  StorageAvatarDelete = "storage:avatar:delete",
-  BillingUsageRead = "billing:usage:read",
-  BillingUsageWrite = "billing:usage:write"
-}
-
-export enum OAuthResource {
-  Storage = "storage",
-  Billing = "billing"
-}
-
-export enum OAuthTokenKind {
-  User = "user",
-  Service = "service"
-}
+import {
+  OAuthResource,
+  OAuthScope
+} from "./model";
 
 export const OAUTH_SCOPES = Object.values(OAuthScope);
 

@@ -1,16 +1,12 @@
+import { oauthResourceMetadataUrl } from "./config";
 import {
-  OAuthResource,
-  type OAuthScope,
-  oauthResourceMetadataUrl
-} from "../../config/oauth-resources";
-import { ErrorCode } from "../../runtime/error-codes";
-import { OAuthResourceError, OAuthResourceErrorKind } from "./core";
-
-export type OAuthResourceFailureResponse = {
-  error: ErrorCode;
-  status: 401 | 403 | 404;
-  wwwAuthenticate?: string;
-};
+  OAuthResourceError,
+  OAuthResourceErrorKind,
+  OAuthResourceFailureCode,
+  type OAuthResource,
+  type OAuthResourceFailureResponse,
+  type OAuthScope
+} from "./model";
 
 export const oauthResourceFailureResponse = (
   error: unknown,
@@ -27,7 +23,7 @@ export const oauthResourceFailureResponse = (
 
   if (error.kind === OAuthResourceErrorKind.UnknownProject) {
     return {
-      error: ErrorCode.UnknownProject,
+      error: OAuthResourceFailureCode.UnknownProject,
       status: 404
     };
   }
@@ -38,7 +34,7 @@ export const oauthResourceFailureResponse = (
   );
   if (error.kind === OAuthResourceErrorKind.InsufficientScope) {
     return {
-      error: ErrorCode.InsufficientScope,
+      error: OAuthResourceFailureCode.InsufficientScope,
       status: 403,
       wwwAuthenticate: [
         `Bearer resource_metadata="${metadataUrl}"`,
@@ -48,7 +44,7 @@ export const oauthResourceFailureResponse = (
   }
 
   return {
-    error: ErrorCode.Unauthorized,
+    error: OAuthResourceFailureCode.Unauthorized,
     status: 401,
     wwwAuthenticate: [
       `Bearer resource_metadata="${metadataUrl}"`,

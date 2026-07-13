@@ -1,35 +1,33 @@
 import { requestToResourceInput } from "better-auth/oauth2";
 
-import type { AuthRegistry } from "../../auth/registry";
-import {
-  type OAuthResource,
-  type OAuthScope
-} from "../../config/oauth-resources";
 import {
   requireServiceOAuthResource,
-  requireUserOAuthResource,
-  type ServiceOAuthResourceAccess,
-  type UserOAuthResourceAccess
+  requireUserOAuthResource
 } from "./core";
 import {
-  oauthResourceFailureResponse,
-  type OAuthResourceFailureResponse
-} from "./translator";
+  type OAuthResource,
+  type OAuthResourceFailureResponse,
+  type OAuthResourceRegistry,
+  type OAuthScope,
+  type ServiceOAuthResourceAccess,
+  type UserOAuthResourceAccess
+} from "./model";
+import { oauthResourceFailureResponse } from "./translator";
 
-export type UserOAuthResourceAuthorization =
+export type UserOAuthResourceAuthorization<TRegistered> =
   | {
       ok: true;
-      value: UserOAuthResourceAccess;
+      value: UserOAuthResourceAccess<TRegistered>;
     }
   | {
       ok: false;
       failure: OAuthResourceFailureResponse;
     };
 
-export type ServiceOAuthResourceAuthorization =
+export type ServiceOAuthResourceAuthorization<TRegistered> =
   | {
       ok: true;
-      value: ServiceOAuthResourceAccess;
+      value: ServiceOAuthResourceAccess<TRegistered>;
     }
   | {
       ok: false;
@@ -43,19 +41,19 @@ type ResourceAuthorizationInput = {
   scopes: OAuthScope[];
 };
 
-export type OAuthResourceAuthorizer = {
+export type OAuthResourceAuthorizer<TRegistered> = {
   authorizeUser(
     input: ResourceAuthorizationInput
-  ): Promise<UserOAuthResourceAuthorization>;
+  ): Promise<UserOAuthResourceAuthorization<TRegistered>>;
   authorizeService(
     input: ResourceAuthorizationInput
-  ): Promise<ServiceOAuthResourceAuthorization>;
+  ): Promise<ServiceOAuthResourceAuthorization<TRegistered>>;
 };
 
-export const createOAuthResourceAuthorizer = (options: {
-  registry: AuthRegistry;
+export const createOAuthResourceAuthorizer = <TRegistered>(options: {
+  registry: OAuthResourceRegistry<TRegistered>;
   publicBaseUrl: string;
-}): OAuthResourceAuthorizer => ({
+}): OAuthResourceAuthorizer<TRegistered> => ({
   authorizeUser: (input) =>
     authorizeUserOAuthResourceRequest({
       ...options,
@@ -68,14 +66,14 @@ export const createOAuthResourceAuthorizer = (options: {
     })
 });
 
-export const authorizeUserOAuthResourceRequest = async (options: {
-  registry: AuthRegistry;
+export const authorizeUserOAuthResourceRequest = async <TRegistered>(options: {
+  registry: OAuthResourceRegistry<TRegistered>;
   publicBaseUrl: string;
   projectSlug: string;
   request: Request;
   resource: OAuthResource;
   scopes: OAuthScope[];
-}): Promise<UserOAuthResourceAuthorization> => {
+}): Promise<UserOAuthResourceAuthorization<TRegistered>> => {
   try {
     return {
       ok: true,
@@ -97,14 +95,14 @@ export const authorizeUserOAuthResourceRequest = async (options: {
   }
 };
 
-export const authorizeServiceOAuthResourceRequest = async (options: {
-  registry: AuthRegistry;
+export const authorizeServiceOAuthResourceRequest = async <TRegistered>(options: {
+  registry: OAuthResourceRegistry<TRegistered>;
   publicBaseUrl: string;
   projectSlug: string;
   request: Request;
   resource: OAuthResource;
   scopes: OAuthScope[];
-}): Promise<ServiceOAuthResourceAuthorization> => {
+}): Promise<ServiceOAuthResourceAuthorization<TRegistered>> => {
   try {
     return {
       ok: true,

@@ -1,70 +1,49 @@
 import type { ResourceServerMetadata } from "@better-auth/oauth-provider";
-import {
-  type ResourceRequestInput
-} from "better-auth/oauth2";
+import type { ResourceRequestInput } from "better-auth/oauth2";
 
-import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import {
-  OAuthResource,
-  type OAuthScope,
-  OAuthTokenKind,
   oauthResourceIdentifier,
   oauthResourceScopes,
   oauthTokenKindClaim
-} from "../../config/oauth-resources";
-import { isRecord } from "../../runtime/type-guards";
+} from "./config";
+import {
+  OAuthResourceError,
+  OAuthResourceErrorKind,
+  OAuthTokenKind,
+  type OAuthResource,
+  type OAuthResourceRegistry,
+  type OAuthScope,
+  type ServiceOAuthResourceAccess,
+  type UserOAuthResourceAccess
+} from "./model";
 
-export enum OAuthResourceErrorKind {
-  UnknownProject = "unknown_project",
-  InvalidToken = "invalid_token",
-  InsufficientScope = "insufficient_scope"
-}
-
-export class OAuthResourceError extends Error {
-  constructor(readonly kind: OAuthResourceErrorKind) {
-    super(kind);
-    this.name = "OAuthResourceError";
-  }
-}
-
-export type UserOAuthResourceAccess = {
-  registered: RegisteredProject;
-  subject: string;
-  clientId: string;
-};
-
-export type ServiceOAuthResourceAccess = {
-  registered: RegisteredProject;
-  clientId: string;
-};
-
-type OAuthResourceOptions = {
-  registry: AuthRegistry;
+type OAuthResourceOptions<TRegistered> = {
+  registry: OAuthResourceRegistry<TRegistered>;
   publicBaseUrl: string;
   projectSlug: string;
   resource: OAuthResource;
 };
 
-export const readOAuthResourceMetadata = async (
-  options: OAuthResourceOptions
+export const readOAuthResourceMetadata = async <TRegistered>(
+  options: OAuthResourceOptions<TRegistered>
 ): Promise<ResourceServerMetadata> => {
-  const registered = requireOAuthProject(options);
-  return registered.auth.getProtectedResourceMetadata({
+  const registration = requireOAuthProject(options);
+  return registration.auth.getProtectedResourceMetadata({
     resource: oauthResourceIdentifier(
       options.publicBaseUrl,
-      registered.project.slug,
+      registration.projectSlug,
       options.resource
     ),
     scopes_supported: oauthResourceScopes(options.resource)
   });
 };
 
-export const requireUserOAuthResource = async (
-  options: OAuthResourceOptions & {
+export const requireUserOAuthResource = async <TRegistered>(
+  options: OAuthResourceOptions<TRegistered> & {
     request: ResourceRequestInput;
     scopes: OAuthScope[];
   }
-): Promise<UserOAuthResourceAccess> => {
+): Promise<UserOAuthResourceAccess<TRegistered>> => {
   const { registered, claims } = await verifyOAuthResource(options);
   const clientId = readClientId(claims);
   if (
@@ -84,12 +63,12 @@ export const requireUserOAuthResource = async (
   };
 };
 
-export const requireServiceOAuthResource = async (
-  options: OAuthResourceOptions & {
+export const requireServiceOAuthResource = async <TRegistered>(
+  options: OAuthResourceOptions<TRegistered> & {
     request: ResourceRequestInput;
     scopes: OAuthScope[];
   }
-): Promise<ServiceOAuthResourceAccess> => {
+): Promise<ServiceOAuthResourceAccess<TRegistered>> => {
   const { registered, claims } = await verifyOAuthResource(options);
   const clientId = readClientId(claims);
   if (
@@ -106,13 +85,13 @@ export const requireServiceOAuthResource = async (
   };
 };
 
-const verifyOAuthResource = async (
-  options: OAuthResourceOptions & {
+const verifyOAuthResource = async <TRegistered>(
+  options: OAuthResourceOptions<TRegistered> & {
     request: ResourceRequestInput;
     scopes: OAuthScope[];
   }
 ) => {
-  const registered = requireOAuthProject(options);
+  const registration = requireOAuthProject(options);
   const identifier = oauthResourceIdentifier(
     options.publicBaseUrl,
     options.projectSlug,
@@ -120,17 +99,17 @@ const verifyOAuthResource = async (
   );
 
   try {
-    const claims = await registered.auth.verifyAccessTokenRequest(
+    const claims = await registration.auth.verifyAccessTokenRequest(
       options.request,
       {
-      jwksUrl: `${options.publicBaseUrl}/api/${options.projectSlug}/.well-known/jwks.json`,
-      issuer: `${options.publicBaseUrl}/api/${options.projectSlug}`,
-      audience: identifier,
-      scopes: options.scopes
+        jwksUrl: `${options.publicBaseUrl}/api/${options.projectSlug}/.well-known/jwks.json`,
+        issuer: `${options.publicBaseUrl}/api/${options.projectSlug}`,
+        audience: identifier,
+        scopes: options.scopes
       }
     );
 
-    return { registered, claims };
+    return { registered: registration.registered, claims };
   } catch (error) {
     if (error instanceof OAuthResourceError) {
       throw error;
@@ -159,16 +138,16 @@ const readClientId = (claims: Record<string, unknown>) => {
   return claims.azp;
 };
 
-const requireOAuthProject = (options: {
-  registry: AuthRegistry;
+const requireOAuthProject = <TRegistered>(options: {
+  registry: OAuthResourceRegistry<TRegistered>;
   projectSlug: string;
 }) => {
-  const registered = options.registry.get(options.projectSlug);
-  if (!registered || !registered.project.features.oauthProvider.enabled) {
+  const registration = options.registry.get(options.projectSlug);
+  if (!registration || !registration.oauthProviderEnabled) {
     throw new OAuthResourceError(OAuthResourceErrorKind.UnknownProject);
   }
 
-  return registered;
+  return registration;
 };
 
 const oauthVerifierStatus = (error: unknown) => {
@@ -178,3 +157,7 @@ const oauthVerifierStatus = (error: unknown) => {
 
   return error.statusCode;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}

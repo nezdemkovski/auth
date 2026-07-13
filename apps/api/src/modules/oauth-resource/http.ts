@@ -1,17 +1,21 @@
 import type { Hono } from "hono";
+import {
+  OAuthResource,
+  oauthResourceFailureResponse,
+  oauthResourceScopes,
+  readOAuthResourceMetadata,
+  type OAuthResourceRegistry
+} from "@nezdemkovski/auth-oauth-resource";
 
-import type { AuthRegistry } from "../../auth/registry";
-import { OAuthResource, oauthResourceScopes } from "../../config/oauth-resources";
+import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import { ErrorCode } from "../../runtime/error-codes";
-import { readOAuthResourceMetadata } from "./core";
-import { oauthResourceFailureResponse } from "./translator";
 
 type OAuthResourceVariables = {
   registry: AuthRegistry;
 };
 
 type OAuthResourceOptions = {
-  registry: AuthRegistry;
+  resourceRegistry: OAuthResourceRegistry<RegisteredProject>;
   publicBaseUrl: string;
 };
 
@@ -41,7 +45,7 @@ export const registerOAuthResourceRoutes = (
       try {
         return c.json(
           await readOAuthResourceMetadata({
-            registry: options.registry,
+            registry: options.resourceRegistry,
             publicBaseUrl: options.publicBaseUrl,
             projectSlug,
             resource

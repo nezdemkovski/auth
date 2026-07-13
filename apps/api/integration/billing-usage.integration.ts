@@ -26,7 +26,7 @@ import {
   OAuthScope,
   oauthResourceIdentifier,
   oauthResourceMetadataUrl
-} from "../src/config/oauth-resources";
+} from "@nezdemkovski/auth-oauth-resource";
 import { seedIntegrationRealm } from "./seed";
 import {
   integrationAdminDbOptions,

@@ -3,17 +3,17 @@ import type {
   ProjectAuthProtocolOptions
 } from "@nezdemkovski/auth-better-auth-runtime";
 import {
-  createProjectEmailHandlers,
-  type EmailSender
-} from "@nezdemkovski/auth-delivery";
-
-import {
   OAUTH_DYNAMIC_CLIENT_SCOPES,
   OAUTH_SCOPES,
   OAuthTokenKind,
   oauthResourceDefinitions,
   oauthTokenKindClaim
-} from "../config/oauth-resources";
+} from "@nezdemkovski/auth-oauth-resource";
+import {
+  createProjectEmailHandlers,
+  type EmailSender
+} from "@nezdemkovski/auth-delivery";
+
 import type { AuthProject } from "../config/projects";
 
 export const createProjectAuthProtocolOptions = (

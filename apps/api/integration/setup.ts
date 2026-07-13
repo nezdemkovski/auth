@@ -2,13 +2,13 @@ import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { EmailProvider } from "@nezdemkovski/auth-delivery";
+import type { OAuthScope } from "@nezdemkovski/auth-oauth-resource";
 import {
   DEFAULT_PROJECT_STORAGE,
   StorageProvider
 } from "@nezdemkovski/auth-storage";
 
 import { ADMIN_PROJECT } from "../src/config/projects";
-import type { OAuthScope } from "../src/config/oauth-resources";
 import type { Env } from "../src/config/env";
 import { bootstrapProjects } from "../src/db/bootstrap";
 import { createApp } from "../src/http/app";

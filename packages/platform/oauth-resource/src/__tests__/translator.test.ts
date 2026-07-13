@@ -1,9 +1,13 @@
 import { describe, expect, test } from "bun:test";
 
-import { OAuthResource, OAuthScope } from "../../../config/oauth-resources";
-import { ErrorCode } from "../../../runtime/error-codes";
-import { OAuthResourceError, OAuthResourceErrorKind } from "../core";
-import { oauthResourceFailureResponse } from "../translator";
+import {
+  OAuthResource,
+  OAuthResourceError,
+  OAuthResourceErrorKind,
+  OAuthResourceFailureCode,
+  OAuthScope,
+  oauthResourceFailureResponse
+} from "../index";
 
 const responseOptions = {
   publicBaseUrl: "https://auth.example.com",
@@ -20,7 +24,7 @@ describe("OAuth resource response translator", () => {
         responseOptions
       )
     ).toEqual({
-      error: ErrorCode.Unauthorized,
+      error: OAuthResourceFailureCode.Unauthorized,
       status: 401,
       wwwAuthenticate:
         "Bearer resource_metadata=\"https://auth.example.com/.well-known/oauth-protected-resource/api/demo/upload\", error=\"invalid_token\""
@@ -34,7 +38,7 @@ describe("OAuth resource response translator", () => {
         responseOptions
       )
     ).toMatchObject({
-      error: ErrorCode.InsufficientScope,
+      error: OAuthResourceFailureCode.InsufficientScope,
       status: 403,
       wwwAuthenticate: expect.stringContaining(
         "error=\"insufficient_scope\", scope=\"storage:avatar:write\""
