@@ -60,6 +60,19 @@ describe("auth integration", () => {
           name: "Auth User"
         }
       });
+      expect(session.headers.get("set-auth-jwt")).toBeNull();
+
+      const legacyToken = await app.request(
+        `/api/${project.slug}/auth/token`,
+        {
+          headers: {
+            Cookie: signedIn.cookie,
+            Origin: project.appUrl,
+            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+          }
+        }
+      );
+      expect(legacyToken.status).toBe(404);
     } finally {
       await close();
     }

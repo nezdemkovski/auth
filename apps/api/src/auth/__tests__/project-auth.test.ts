@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  buildOAuthValidAudiences,
   createBaseProjectAuthOptions,
   createProjectMigrationAuthOptions,
   projectAuthSecret
@@ -95,10 +94,13 @@ describe("project auth options", () => {
   });
 
   test("wires security-sensitive plugins without test helpers in production options", () => {
-    const pluginIds = (createMigrationOptions(baseProject).plugins ?? []).map(
+    const options = createMigrationOptions(baseProject);
+    const plugins = options.plugins ?? [];
+    const pluginIds = plugins.map(
       (plugin) => plugin.id
     );
 
+    expect(options.disabledPaths).toEqual(["/token"]);
     expect(pluginIds).toContain("admin");
     expect(pluginIds).toContain("passkey");
     expect(pluginIds).toContain("two-factor");
@@ -109,6 +111,11 @@ describe("project auth options", () => {
     expect(pluginIds).toContain("jwt");
     expect(pluginIds).not.toContain("polar");
     expect(pluginIds).not.toContain("test-utils");
+
+    const jwtPlugin = plugins.find((plugin) => plugin.id === "jwt");
+    expect(jwtPlugin ? Reflect.get(jwtPlugin, "options") : null).toMatchObject({
+      disableSettingJwtHeader: true
+    });
   });
 
   test("adds Polar only when billing is enabled and configured", () => {
@@ -161,18 +168,20 @@ describe("project auth options", () => {
     });
   });
 
-  test("allows OAuth tokens for trusted app resources", () => {
-    expect(
-      buildOAuthValidAudiences(
-        baseProject,
-        "https://auth.example.com"
-      )
-    ).toEqual([
-      "https://auth.example.com/api/demo",
-      "https://auth.example.com/api/demo/auth",
-      "https://demo.example.com",
-      "https://demo.example.com/mcp"
-    ]);
+  test("does not derive OAuth resources from browser trust settings", () => {
+    const oauthPlugin = (createMigrationOptions(baseProject).plugins ?? [])
+      .find((plugin) => plugin.id === "oauth-provider");
+    const oauthOptions = oauthPlugin
+      ? Reflect.get(oauthPlugin, "options")
+      : null;
+
+    expect(oauthOptions).toMatchObject({
+      scopes: ["openid", "profile", "email", "offline_access"]
+    });
+    expect(oauthOptions ? Reflect.get(oauthOptions, "resources") : null)
+      .toBeUndefined();
+    expect(oauthOptions ? Reflect.get(oauthOptions, "validAudiences") : null)
+      .toBeUndefined();
   });
 
   test("enables social providers only when enabled and fully configured", () => {

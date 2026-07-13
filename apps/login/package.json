@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@better-auth/oauth-provider": "1.7.0-rc.1",
     "@better-auth/passkey": "1.7.0-rc.1",
     "@icons-pack/react-simple-icons": "13.13.0",
     "@lobehub/icons": "5.10.1",

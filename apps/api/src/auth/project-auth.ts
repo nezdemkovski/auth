@@ -89,6 +89,7 @@ export const createBaseProjectAuthOptions = (options: {
   return {
     appName: project.name,
     baseURL: `${publicBaseUrl}/api/${project.slug}/auth`,
+    disabledPaths: ["/token"],
     secret: realmSecret,
     trustedOrigins: project.trustedOrigins,
     socialProviders: buildSocialProviders(project),
@@ -151,7 +152,7 @@ export const createBaseProjectAuthOptions = (options: {
         consentPage: `/login/${project.slug}/oauth/consent`,
         allowDynamicClientRegistration: project.features.oauthProvider.dynamicClientRegistration,
         allowUnauthenticatedClientRegistration: false,
-        validAudiences: buildOAuthValidAudiences(project, publicBaseUrl),
+        scopes: ["openid", "profile", "email", "offline_access"],
         silenceWarnings: {
           oauthAuthServerConfig: true,
           openidConfig: true
@@ -170,6 +171,7 @@ export const createBaseProjectAuthOptions = (options: {
       ...buildPolarPlugins(project, options.polarWebhookHandlers?.(project)),
       bearer(),
       jwt({
+        disableSettingJwtHeader: true,
         jwks: {
           jwksPath: "/.well-known/jwks.json",
           keyPairConfig: {
@@ -318,31 +320,4 @@ const buildTelegramPlugin = (project: AuthProject) => {
       }
     })
   ];
-};
-
-export const buildOAuthValidAudiences = (project: AuthProject, publicBaseUrl: string) => {
-  const audiences = new Set([
-    `${publicBaseUrl}/api/${project.slug}`,
-    `${publicBaseUrl}/api/${project.slug}/auth`
-  ]);
-
-  for (const origin of [project.appUrl, ...project.trustedOrigins]) {
-    const normalizedOrigin = normalizeOrigin(origin);
-    if (!normalizedOrigin) {
-      continue;
-    }
-
-    audiences.add(normalizedOrigin);
-    audiences.add(`${normalizedOrigin}/mcp`);
-  }
-
-  return Array.from(audiences);
-};
-
-const normalizeOrigin = (value: string) => {
-  try {
-    return new URL(value).origin;
-  } catch {
-    return null;
-  }
 };

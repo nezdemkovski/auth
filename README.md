@@ -208,12 +208,7 @@ OAuth clients, including MCP clients, can register themselves and receive a
 client ID. Registration only creates client metadata; users still approve access
 through the consent screen.
 
-OAuth access tokens are audience-bound. The server accepts the realm auth URLs,
-the realm app URL, trusted origins, and each origin's `/mcp` resource URL as
-valid audiences. For example, an OpenMarkers MCP client can request:
-
-```text
-resource=https://openmarkers.app/mcp
-```
-
-and OpenMarkers can validate the token against the realm JWKS endpoint.
+OAuth resource identifiers are not inferred from browser trusted origins. A
+client may request `resource=` only after that exact Better Auth OAuth resource
+has been registered and linked to the client. Until the resource-management
+migration is complete, resource requests fail closed with `invalid_target`.

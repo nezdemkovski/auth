@@ -62,6 +62,7 @@
     "apps/login": {
       "name": "@nezdemkovski/auth-login",
       "dependencies": {
+        "@better-auth/oauth-provider": "1.7.0-rc.1",
         "@better-auth/passkey": "1.7.0-rc.1",
         "@icons-pack/react-simple-icons": "13.13.0",
         "@lobehub/icons": "5.10.1",
@@ -84,6 +85,16 @@
     "packages/auth-contracts": {
       "name": "@nezdemkovski/auth-contracts",
       "version": "0.1.0",
+    },
+    "packages/auth-integration": {
+      "name": "@nezdemkovski/auth-integration",
+      "version": "0.0.0",
+      "devDependencies": {
+        "better-auth": "1.7.0-rc.1",
+      },
+      "peerDependencies": {
+        "better-auth": "1.7.0-rc.1",
+      },
     },
     "packages/auth-server": {
       "name": "@nezdemkovski/auth-server",
@@ -432,6 +443,8 @@
     "@nezdemkovski/auth-client-shared": ["@nezdemkovski/auth-client-shared@workspace:packages/client-shared"],
 
     "@nezdemkovski/auth-contracts": ["@nezdemkovski/auth-contracts@workspace:packages/auth-contracts"],
+
+    "@nezdemkovski/auth-integration": ["@nezdemkovski/auth-integration@workspace:packages/auth-integration"],
 
     "@nezdemkovski/auth-login": ["@nezdemkovski/auth-login@workspace:apps/login"],
 

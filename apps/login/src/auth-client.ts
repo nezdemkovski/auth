@@ -1,15 +1,21 @@
 import { createAuthClient } from "better-auth/client";
 import { lastLoginMethodClient, twoFactorClient } from "better-auth/client/plugins";
+import { oauthProviderClient } from "@better-auth/oauth-provider/client";
 import { passkeyClient } from "@better-auth/passkey/client";
 
 export type LoginAuthClient = ReturnType<typeof createLoginAuthClient>;
 
-export function createLoginAuthClient(project: string) {
+export const createLoginAuthClient = (project: string) => {
   return createAuthClient({
     baseURL: `${window.location.origin}/api/${project}/auth`,
-    plugins: [passkeyClient(), twoFactorClient(), lastLoginMethodClient()]
+    plugins: [
+      oauthProviderClient(),
+      passkeyClient(),
+      twoFactorClient(),
+      lastLoginMethodClient()
+    ]
   });
-}
+};
 
 export enum LoginNextAction {
   Redirect = "redirect",
