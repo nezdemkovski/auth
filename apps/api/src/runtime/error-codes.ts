@@ -8,6 +8,7 @@ export enum ErrorCode {
   InvalidRedirectUri = "invalid_redirect_uri",
   InvalidStorageSettings = "invalid_storage_settings",
   InternalServerError = "internal_server_error",
+  InsufficientScope = "insufficient_scope",
   MissingClientId = "missing_client_id",
   NotFound = "not_found",
   PasswordChangeRequired = "password_change_required",

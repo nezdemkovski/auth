@@ -47,32 +47,47 @@ export class AuthRegistry {
     return [...this.projects.values()].map(({ project }) => project);
   }
 
-  updateProject(project: AuthProject) {
+  async ready(): Promise<void> {
+    await Promise.all(
+      [...this.projects.values()].map(({ auth }) => auth.$context)
+    );
+  }
+
+  async updateProject(project: AuthProject): Promise<void> {
     const current = this.projects.get(project.slug);
     if (current && current.project.schema !== project.schema) {
       throw new Error("Project schema cannot change at runtime");
     }
     const next = this.createRegisteredProject(project, current?.projectDb);
+    try {
+      await next.auth.$context;
+    } catch (error) {
+      if (!current) {
+        await next.projectDb.pool.end();
+      }
+      throw error;
+    }
 
     this.projects.set(project.slug, next);
   }
 
-  patchProject(
+  async patchProject(
     slug: string,
     patch: Partial<Omit<AuthProject, "slug" | "schema">>
-  ) {
+  ): Promise<void> {
     const current = this.projects.get(slug);
     if (!current) {
       throw new Error(`Unknown project: ${slug}`);
     }
 
-    this.updateProject({
+    await this.updateProject({
       ...current.project,
       ...patch
     });
   }
 
-  updateEmailSender(emailSender: EmailSender | null) {
+  async updateEmailSender(emailSender: EmailSender | null): Promise<void> {
+    const previousOptions = this.options;
     this.options = {
       ...this.options,
       emailSender
@@ -86,7 +101,15 @@ export class AuthRegistry {
       );
     }
 
-    this.projects = nextProjects;
+    try {
+      await Promise.all(
+        [...nextProjects.values()].map(({ auth }) => auth.$context)
+      );
+      this.projects = nextProjects;
+    } catch (error) {
+      this.options = previousOptions;
+      throw error;
+    }
   }
 
   isTrustedOrigin(slug: string, origin: string | undefined) {
@@ -104,6 +127,9 @@ export class AuthRegistry {
   }
 
   async close() {
+    await Promise.allSettled(
+      [...this.projects.values()].map(({ auth }) => auth.$context)
+    );
     await Promise.all(
       [...this.projects.values()].map(({ projectDb }) => projectDb.pool.end())
     );

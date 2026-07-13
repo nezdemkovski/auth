@@ -1,11 +1,19 @@
 import type { Hono } from "hono";
 import { cors } from "hono/cors";
+import { requestToResourceInput } from "better-auth/oauth2";
 
 import type { AuthRegistry } from "../../auth/registry";
+import { OAuthResource, OAuthScope } from "../../config/oauth-resources";
 import { mediaUploadError } from "../../http/admin/shared";
-import { isTrustedProjectMutation } from "../../http/project-csrf";
-import { requireProjectSession } from "../../http/project-session";
 import { ErrorCode } from "../../runtime/error-codes";
+import {
+  requireUserOAuthResource,
+  type UserOAuthResourceAccess
+} from "../oauth-resource/core";
+import {
+  oauthResourceFailureResponse,
+  type OAuthResourceFailureResponse
+} from "../oauth-resource/translator";
 import { StorageService } from "./core";
 import { mediaUploadBodyError, MediaUploadBodyError, MediaUploadPurpose } from "./media";
 import { parseMediaUploadRequest } from "./validator";
@@ -14,10 +22,21 @@ type PublicStorageVariables = {
   registry: AuthRegistry;
 };
 
+type StorageAuthorization =
+  | {
+      ok: true;
+      value: UserOAuthResourceAccess;
+    }
+  | {
+      ok: false;
+      failure: OAuthResourceFailureResponse;
+    };
+
 export const registerPublicStorageRoutes = (
   app: Hono<{ Variables: PublicStorageVariables }>,
   options: {
     registry: AuthRegistry;
+    publicBaseUrl: string;
     storageService: StorageService;
   }
 ) => {
@@ -34,22 +53,24 @@ export const registerPublicStorageRoutes = (
       },
       allowHeaders: ["Content-Type", "Authorization"],
       allowMethods: ["POST", "DELETE", "OPTIONS"],
-      credentials: true,
       maxAge: 600
     })
   );
 
   app.post("/api/:project/upload", async (c) => {
-    if (!isTrustedProjectMutation(options.registry, c.req.param("project"), c.req.raw.headers)) {
-      return c.json({ error: ErrorCode.ForbiddenOrigin }, 403);
-    }
-    const access = await requireProjectSession(
-      options.registry,
-      c.req.param("project"),
-      c.req.raw.headers
-    );
+    const access = await authorizeStorageRequest({
+      registry: options.registry,
+      publicBaseUrl: options.publicBaseUrl,
+      projectSlug: c.req.param("project"),
+      request: c.req.raw,
+      resource: OAuthResource.Storage,
+      scopes: [OAuthScope.StorageAvatarWrite]
+    });
     if (!access.ok) {
-      return c.json({ error: access.error }, access.status);
+      if (access.failure.wwwAuthenticate) {
+        c.header("WWW-Authenticate", access.failure.wwwAuthenticate);
+      }
+      return c.json({ error: access.failure.error }, access.failure.status);
     }
     const bodyError = mediaUploadBodyError(c.req.raw.headers.get("content-length"));
     if (bodyError) {
@@ -69,10 +90,10 @@ export const registerPublicStorageRoutes = (
 
     try {
       const result = await options.storageService.uploadUserAvatar({
-        registered: access.registered,
+        registered: access.value.registered,
         purpose: uploadRequest.purpose,
         file: uploadRequest.file,
-        ownerUserId: access.session.user.id
+        ownerUserId: access.value.subject
       });
 
       return c.json(result);
@@ -82,26 +103,58 @@ export const registerPublicStorageRoutes = (
   });
 
   app.delete("/api/:project/upload", async (c) => {
-    if (!isTrustedProjectMutation(options.registry, c.req.param("project"), c.req.raw.headers)) {
-      return c.json({ error: ErrorCode.ForbiddenOrigin }, 403);
-    }
-    const access = await requireProjectSession(
-      options.registry,
-      c.req.param("project"),
-      c.req.raw.headers
-    );
+    const access = await authorizeStorageRequest({
+      registry: options.registry,
+      publicBaseUrl: options.publicBaseUrl,
+      projectSlug: c.req.param("project"),
+      request: c.req.raw,
+      resource: OAuthResource.Storage,
+      scopes: [OAuthScope.StorageAvatarDelete]
+    });
     if (!access.ok) {
-      return c.json({ error: access.error }, access.status);
+      if (access.failure.wwwAuthenticate) {
+        c.header("WWW-Authenticate", access.failure.wwwAuthenticate);
+      }
+      return c.json({ error: access.failure.error }, access.failure.status);
     }
     try {
       return c.json(
         await options.storageService.deleteUserAvatar({
-          registered: access.registered,
-          ownerUserId: access.session.user.id
+          registered: access.value.registered,
+          ownerUserId: access.value.subject
         })
       );
     } catch (error) {
       return mediaUploadError(error);
     }
   });
+};
+
+const authorizeStorageRequest = async (options: {
+  registry: AuthRegistry;
+  publicBaseUrl: string;
+  projectSlug: string;
+  request: Request;
+  resource: OAuthResource;
+  scopes: OAuthScope[];
+}): Promise<StorageAuthorization> => {
+  try {
+    return {
+      ok: true,
+      value: await requireUserOAuthResource({
+        ...options,
+        request: requestToResourceInput(options.request)
+      })
+    };
+  } catch (error) {
+    const failure = oauthResourceFailureResponse(error, options);
+    if (!failure) {
+      throw error;
+    }
+
+    return {
+      ok: false,
+      failure
+    };
+  }
 };

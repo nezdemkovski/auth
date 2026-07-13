@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 
+import {
+  OAuthResource,
+  OAuthScope,
+  oauthResourceIdentifier,
+  oauthResourceMetadataUrl
+} from "../src/config/oauth-resources";
 import { StorageProvider } from "../src/config/projects";
 import { DIRECT_CLIENT_IP_HEADER } from "../src/http/security";
 import { updateStorageSettings } from "../src/modules/storage/settings-store";
@@ -7,9 +13,12 @@ import { seedIntegrationRealm } from "./seed";
 import {
   createIntegrationAdminSession,
   createIntegrationApp,
+  createIntegrationUserResourceToken,
   integrationAdminDbOptions,
   integrationEncryptionSecret,
+  integrationPublicBaseUrl,
   integrationStorage,
+  installIntegrationAppFetch,
   readIntegrationJson,
   resetAndBootstrapIntegrationDatabase,
   signUpIntegrationUser
@@ -24,7 +33,8 @@ describe("storage upload integration", () => {
     const project = await seedIntegrationRealm({
       slug: "integration-upload",
       schema: "integration_upload_auth",
-      name: "Integration Upload"
+      name: "Integration Upload",
+      oauthProvider: { enabled: true }
     });
     await updateStorageSettings({
       ...integrationAdminDbOptions,
@@ -39,6 +49,7 @@ describe("storage upload integration", () => {
     const { app, registry, close } = await createIntegrationApp({
       storage: integrationStorage
     });
+    const restoreFetch = installIntegrationAppFetch(app);
 
     try {
       const admin = await createIntegrationAdminSession({
@@ -48,7 +59,7 @@ describe("storage upload integration", () => {
       });
       const projectIcon = await app.request(`/admin/api/projects/${project.slug}/upload`, {
         method: "POST",
-        headers: uploadHeaders({
+        headers: adminUploadHeaders({
           cookie: admin.cookie,
           origin: "http://127.0.0.1:3000"
         }),
@@ -73,10 +84,26 @@ describe("storage upload integration", () => {
         email: "avatar-user@integration.test",
         password: "correct horse battery staple"
       });
+      const storageResource = oauthResourceIdentifier(
+        integrationPublicBaseUrl,
+        project.slug,
+        OAuthResource.Storage
+      );
+      const resourceToken = await createIntegrationUserResourceToken({
+        app,
+        registry,
+        projectSlug: project.slug,
+        userCookie: user.cookie,
+        resource: storageResource,
+        scopes: [
+          OAuthScope.StorageAvatarWrite,
+          OAuthScope.StorageAvatarDelete
+        ]
+      });
       const avatar = await app.request(`/api/${project.slug}/upload`, {
         method: "POST",
-        headers: uploadHeaders({
-          cookie: user.cookie,
+        headers: resourceUploadHeaders({
+          accessToken: resourceToken,
           origin: project.appUrl
         }),
         body: uploadForm("user_avatar", "avatar.png")
@@ -96,7 +123,7 @@ describe("storage upload integration", () => {
 
       const replacementIcon = await app.request(`/admin/api/projects/${project.slug}/upload`, {
         method: "POST",
-        headers: uploadHeaders({
+        headers: adminUploadHeaders({
           cookie: admin.cookie,
           origin: "http://127.0.0.1:3000"
         }),
@@ -104,8 +131,8 @@ describe("storage upload integration", () => {
       });
       const replacementAvatar = await app.request(`/api/${project.slug}/upload`, {
         method: "POST",
-        headers: uploadHeaders({
-          cookie: user.cookie,
+        headers: resourceUploadHeaders({
+          accessToken: resourceToken,
           origin: project.appUrl
         }),
         body: uploadForm("user_avatar", "replacement-avatar.png")
@@ -115,8 +142,8 @@ describe("storage upload integration", () => {
 
       const deletedAvatar = await app.request(`/api/${project.slug}/upload`, {
         method: "DELETE",
-        headers: uploadHeaders({
-          cookie: user.cookie,
+        headers: resourceUploadHeaders({
+          accessToken: resourceToken,
           origin: project.appUrl
         })
       });
@@ -145,6 +172,7 @@ describe("storage upload integration", () => {
       expect(JSON.stringify(objectsBody)).not.toContain('"avatar.png"');
       expect(JSON.stringify(objectsBody)).not.toContain("replacement-avatar.png");
     } finally {
+      restoreFetch();
       await close();
     }
   });
@@ -153,9 +181,11 @@ describe("storage upload integration", () => {
     const project = await seedIntegrationRealm({
       slug: "integration-upload-reject",
       schema: "integration_upload_reject_auth",
-      name: "Integration Upload Reject"
+      name: "Integration Upload Reject",
+      oauthProvider: { enabled: true }
     });
-    const { app, close } = await createIntegrationApp();
+    const { app, registry, close } = await createIntegrationApp();
+    const restoreFetch = installIntegrationAppFetch(app);
 
     try {
       const user = await signUpIntegrationUser({
@@ -165,10 +195,22 @@ describe("storage upload integration", () => {
         email: "upload-reject@integration.test",
         password: "correct horse battery staple"
       });
+      const resourceToken = await createIntegrationUserResourceToken({
+        app,
+        registry,
+        projectSlug: project.slug,
+        userCookie: user.cookie,
+        resource: oauthResourceIdentifier(
+          integrationPublicBaseUrl,
+          project.slug,
+          OAuthResource.Storage
+        ),
+        scopes: [OAuthScope.StorageAvatarWrite]
+      });
       const response = await app.request(`/api/${project.slug}/upload`, {
         method: "POST",
         headers: {
-          Cookie: user.cookie,
+          Authorization: `Bearer ${resourceToken}`,
           Origin: project.appUrl,
           [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
         },
@@ -180,14 +222,149 @@ describe("storage upload integration", () => {
         error: "length_required"
       });
     } finally {
+      restoreFetch();
+      await close();
+    }
+  });
+
+  test("requires an audience-bound token with the operation scope", async () => {
+    const project = await seedIntegrationRealm({
+      slug: "integration-resource",
+      schema: "integration_resource_auth",
+      name: "Integration Resource",
+      oauthProvider: { enabled: true }
+    });
+    const otherProject = await seedIntegrationRealm({
+      slug: "integration-other-resource",
+      schema: "integration_other_resource_auth",
+      name: "Integration Other Resource",
+      oauthProvider: { enabled: true }
+    });
+    const { app, registry, close } = await createIntegrationApp();
+    const restoreFetch = installIntegrationAppFetch(app);
+
+    try {
+      const user = await signUpIntegrationUser({
+        app,
+        projectSlug: project.slug,
+        origin: project.appUrl,
+        email: "resource-user@integration.test",
+        password: "correct horse battery staple"
+      });
+      const otherUser = await signUpIntegrationUser({
+        app,
+        projectSlug: otherProject.slug,
+        origin: otherProject.appUrl,
+        email: "other-resource-user@integration.test",
+        password: "correct horse battery staple"
+      });
+      const resource = oauthResourceIdentifier(
+        integrationPublicBaseUrl,
+        project.slug,
+        OAuthResource.Storage
+      );
+      const metadataUrl = oauthResourceMetadataUrl(
+        integrationPublicBaseUrl,
+        project.slug,
+        OAuthResource.Storage
+      );
+
+      const metadata = await app.request(metadataUrl);
+      expect(metadata.status).toBe(200);
+      expect(await readIntegrationJson(metadata)).toMatchObject({
+        resource,
+        authorization_servers: [
+          `${integrationPublicBaseUrl}/api/${project.slug}`
+        ],
+        scopes_supported: [
+          OAuthScope.StorageAvatarWrite,
+          OAuthScope.StorageAvatarDelete
+        ]
+      });
+
+      const sessionOnly = await app.request(`/api/${project.slug}/upload`, {
+        method: "POST",
+        headers: {
+          Cookie: user.cookie,
+          Origin: project.appUrl,
+          [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+        }
+      });
+      expect(sessionOnly.status).toBe(401);
+      expect(sessionOnly.headers.get("www-authenticate")).toContain(
+        `resource_metadata="${metadataUrl}"`
+      );
+
+      const deleteOnlyToken = await createIntegrationUserResourceToken({
+        app,
+        registry,
+        projectSlug: project.slug,
+        userCookie: user.cookie,
+        resource,
+        scopes: [OAuthScope.StorageAvatarDelete]
+      });
+      const insufficientScope = await app.request(
+        `/api/${project.slug}/upload`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${deleteOnlyToken}`,
+            Origin: project.appUrl,
+            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+          }
+        }
+      );
+      expect(insufficientScope.status).toBe(403);
+      expect(insufficientScope.headers.get("www-authenticate")).toContain(
+        "error=\"insufficient_scope\""
+      );
+
+      const wrongAudienceToken = await createIntegrationUserResourceToken({
+        app,
+        registry,
+        projectSlug: otherProject.slug,
+        userCookie: otherUser.cookie,
+        resource: oauthResourceIdentifier(
+          integrationPublicBaseUrl,
+          otherProject.slug,
+          OAuthResource.Storage
+        ),
+        scopes: [OAuthScope.StorageAvatarWrite]
+      });
+      const wrongAudience = await app.request(`/api/${project.slug}/upload`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${wrongAudienceToken}`,
+          Origin: project.appUrl,
+          [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+        }
+      });
+      expect(wrongAudience.status).toBe(401);
+      expect(wrongAudience.headers.get("www-authenticate")).toContain(
+        "error=\"invalid_token\""
+      );
+    } finally {
+      restoreFetch();
       await close();
     }
   });
 });
 
-const uploadHeaders = (input: { cookie: string; origin: string }) => {
+const adminUploadHeaders = (input: { cookie: string; origin: string }) => {
   return {
     Cookie: input.cookie,
+    Origin: input.origin,
+    "Content-Length": "512",
+    [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+  };
+};
+
+const resourceUploadHeaders = (input: {
+  accessToken: string;
+  origin: string;
+}) => {
+  return {
+    Authorization: `Bearer ${input.accessToken}`,
     Origin: input.origin,
     "Content-Length": "512",
     [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"

@@ -279,26 +279,29 @@ the immutable `issuer + sub` pair.
 
 ## Phase 4: Convert Platform Capabilities into OAuth Resources
 
-- [ ] Inventory every current platform endpoint that accepts a Better Auth
-  bearer session token outside the auth origin.
-- [ ] Classify each operation as:
+- [x] Inventory every current platform endpoint that accepts a Better Auth
+  bearer session token outside the auth origin in
+  [`OAUTH_RESOURCE_INVENTORY.md`](./OAUTH_RESOURCE_INVENTORY.md).
+- [x] Classify each operation as:
   - central hosted-session UI operation;
   - user-delegated platform resource operation;
   - service-only platform resource operation;
   - product-owned business operation that should leave the auth platform.
-- [ ] Define minimal user-delegated scopes for retained platform APIs, for
-  example billing summary/checkout or profile image mutation only if those
-  capabilities remain platform-owned.
+- [x] Define separate `storage:avatar:write` and
+  `storage:avatar:delete` user-delegated scopes for the retained avatar API.
+- [ ] Define the minimal read-only scope for the retained billing summary API.
 - [ ] Define separate service-only scopes for quota consumption or other
   backend operations.
-- [ ] Verify all resource requests with Better Auth's
-  `oauthProviderResourceClient` or the official `better-auth/oauth2` verifier.
-- [ ] Check issuer, audience, expiry, and endpoint scope through Better Auth.
+- [x] Verify avatar resource requests with the official
+  `better-auth/oauth2` request verifier and a database-backed DPoP replay
+  store.
+- [x] Check avatar issuer, audience, expiry, and operation scope through Better
+  Auth.
 - [ ] Keep only domain authorization after protocol verification, such as
   validating that a service may act on a subject in its realm.
-- [ ] Return standards-compliant resource challenges where applicable.
-- [ ] Publish OAuth Protected Resource Metadata for externally discoverable
-  resources such as MCP endpoints.
+- [x] Return standards-compliant `WWW-Authenticate` resource challenges from
+  the avatar resource.
+- [x] Publish OAuth Protected Resource Metadata for the avatar resource.
 - [ ] Ensure checkout, portal, avatar, and entitlement operations no longer
   require exporting or replaying the central Better Auth session credential.
 

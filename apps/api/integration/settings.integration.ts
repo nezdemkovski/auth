@@ -322,15 +322,13 @@ describe("settings integration", () => {
 
     const verified = await readProjectSocialProviders({
       ...integrationAdminDbOptions,
-      project,
-      publicBaseUrl: integrationPublicBaseUrl
+      project
     });
     expect(verified.find((provider) => provider.provider === SocialProvider.GitHub))
       .toMatchObject({
         enabled: true,
         clientId: "github-client",
-        configured: true,
-        callbackUrl: `${integrationPublicBaseUrl}/api/${project.slug}/auth/callback/github`
+        configured: true
       });
     expect(
       verified.find((provider) => provider.provider === SocialProvider.GitHub)?.verifiedAt

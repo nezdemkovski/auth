@@ -14,6 +14,11 @@ import {
   ProjectTwoFactorRequirement,
   type AuthProject
 } from "../../config/projects";
+import {
+  OAUTH_DYNAMIC_CLIENT_SCOPES,
+  OAUTH_SCOPES,
+  oauthResourceDefinitions
+} from "../../config/oauth-resources";
 import type { EmailSender } from "../../email/sender";
 
 const baseProject: AuthProject = {
@@ -54,7 +59,7 @@ const emailSender: EmailSender = {
 };
 
 describe("project auth options", () => {
-  test("pins the OAuth provider to the first release candidate containing audience binding", async () => {
+  test("pins the OAuth provider to the release candidate with native resources", async () => {
     const manifest = await Bun.file(
       new URL("../../../package.json", import.meta.url)
     ).json();
@@ -187,20 +192,48 @@ describe("project auth options", () => {
     });
   });
 
-  test("does not derive OAuth resources from browser trust settings", () => {
-    const oauthPlugin = (createMigrationOptions(baseProject).plugins ?? [])
+  test("defines explicit OAuth resources without trusting browser origins", () => {
+    const oauthProject = {
+      ...baseProject,
+      features: {
+        ...baseProject.features,
+        oauthProvider: {
+          enabled: true,
+          dynamicClientRegistration: false
+        }
+      }
+    };
+    const oauthPlugin = (createMigrationOptions(oauthProject).plugins ?? [])
       .find((plugin) => plugin.id === "oauth-provider");
     const oauthOptions = oauthPlugin
       ? Reflect.get(oauthPlugin, "options")
       : null;
 
     expect(oauthOptions).toMatchObject({
-      scopes: ["openid", "profile", "email", "offline_access"]
+      scopes: OAUTH_SCOPES,
+      resources: oauthResourceDefinitions(
+        "https://auth.example.com",
+        oauthProject.slug
+      ),
+      resourceSeedMode: "overwrite",
+      enforcePerClientResources: true,
+      clientRegistrationDefaultScopes: OAUTH_DYNAMIC_CLIENT_SCOPES,
+      clientRegistrationAllowedScopes: OAUTH_DYNAMIC_CLIENT_SCOPES
     });
-    expect(oauthOptions ? Reflect.get(oauthOptions, "resources") : null)
-      .toBeUndefined();
-    expect(oauthOptions ? Reflect.get(oauthOptions, "validAudiences") : null)
-      .toBeUndefined();
+    expect(
+      oauthOptions ? Reflect.get(oauthOptions, "resources") : []
+    ).not.toContainEqual(
+      expect.objectContaining({ identifier: oauthProject.appUrl })
+    );
+
+    const disabledOAuthPlugin = (
+      createMigrationOptions(baseProject).plugins ?? []
+    ).find((plugin) => plugin.id === "oauth-provider");
+    expect(
+      disabledOAuthPlugin
+        ? Reflect.get(Reflect.get(disabledOAuthPlugin, "options"), "resources")
+        : null
+    ).toEqual([]);
   });
 
   test("uses the OAuth Provider post-login hook for product security policy", async () => {

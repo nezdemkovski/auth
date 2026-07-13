@@ -116,9 +116,9 @@ const claims = await verifyAccessTokenRequest(request, {
   jwksUrl: "https://auth.example.com/api/demo/.well-known/jwks.json",
   verifyOptions: {
     issuer: "https://auth.example.com/api/demo",
-    audience: "https://auth.example.com/resources/billing"
+    audience: "https://auth.example.com/api/demo/upload"
   },
-  scopes: ["billing:read"]
+  scopes: ["storage:avatar:write"]
 });
 ```
 
@@ -127,6 +127,10 @@ also be enforced. After protocol verification, application code owns only its
 domain authorization decisions. Do not use this example until the exact
 resource and scopes have been registered in the central realm; there is no
 session-token compatibility fallback.
+
+The upload resource publishes discovery metadata at
+`/.well-known/oauth-protected-resource/api/<realm>/upload`. OAuth clients must
+also be linked to that Better Auth resource before requesting its audience.
 
 ## Business contracts
 

@@ -7,6 +7,11 @@ import { passkey } from "@better-auth/passkey";
 import { checkout, polar, portal, usage, webhooks } from "@polar-sh/better-auth";
 import { Polar } from "@polar-sh/sdk";
 
+import {
+  OAUTH_DYNAMIC_CLIENT_SCOPES,
+  OAUTH_SCOPES,
+  oauthResourceDefinitions
+} from "../config/oauth-resources";
 import { AuthUserRole, BillingProvider, type AuthProject } from "../config/projects";
 import {
   isSocialProviderConfigured,
@@ -161,7 +166,14 @@ export const createBaseProjectAuthOptions = (options: {
         },
         allowDynamicClientRegistration: project.features.oauthProvider.dynamicClientRegistration,
         allowUnauthenticatedClientRegistration: false,
-        scopes: ["openid", "profile", "email", "offline_access"],
+        scopes: OAUTH_SCOPES,
+        resources: project.features.oauthProvider.enabled
+          ? oauthResourceDefinitions(publicBaseUrl, project.slug)
+          : [],
+        resourceSeedMode: "overwrite",
+        enforcePerClientResources: true,
+        clientRegistrationDefaultScopes: OAUTH_DYNAMIC_CLIENT_SCOPES,
+        clientRegistrationAllowedScopes: OAUTH_DYNAMIC_CLIENT_SCOPES,
         silenceWarnings: {
           oauthAuthServerConfig: true,
           openidConfig: true

@@ -14,6 +14,7 @@ import { AuthRegistry } from "../auth/registry";
 import { migrateDatabase } from "../db/migrate";
 import { createAdminDatabase } from "../db/admin-pool";
 import { registerBillingUsageRoutes } from "../modules/billing/usage-http";
+import { registerOAuthResourceRoutes } from "../modules/oauth-resource/http";
 import { createPolarEntitlementGrantStore } from "../modules/billing/usage-store";
 import { createPolarWebhookStore } from "../modules/billing/webhook-store";
 import { toRuntimeEmailConfig } from "../modules/delivery/translator";
@@ -78,6 +79,7 @@ export const createApp = async (env: Env) => {
     polarEntitlementGrantStore: createPolarEntitlementGrantStore(billingStoreOptions),
     polarWebhookStore
   });
+  await registry.ready();
   const storageService = new StorageService({
     registry,
     databaseUrl: env.databaseUrl,
@@ -143,7 +145,15 @@ export const createApp = async (env: Env) => {
     registry,
     ...billingStoreOptions
   });
-  registerPublicStorageRoutes(app, { registry, storageService });
+  registerOAuthResourceRoutes(app, {
+    registry,
+    publicBaseUrl: env.publicBaseUrl
+  });
+  registerPublicStorageRoutes(app, {
+    registry,
+    publicBaseUrl: env.publicBaseUrl,
+    storageService
+  });
   registerAuthProxyRoutes(app, { registry });
 
   app.notFound((c) => {

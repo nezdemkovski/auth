@@ -8,6 +8,7 @@ import { seedIntegrationRealm } from "./seed";
 import {
   createIntegrationApp,
   integrationPublicBaseUrl,
+  installIntegrationAppFetch,
   resetAndBootstrapIntegrationDatabase,
   signUpIntegrationUser
 } from "./setup";
@@ -35,26 +36,7 @@ describe("reference product OAuth integration", () => {
       }
     });
     const central = await createIntegrationApp();
-    const originalFetch = globalThis.fetch;
-    const authFetch = Object.assign(
-      (
-        input: Parameters<typeof fetch>[0],
-        init?: Parameters<typeof fetch>[1]
-      ) => {
-        const request = new Request(input, init);
-        if (new URL(request.url).origin !== integrationPublicBaseUrl) {
-          return originalFetch(input, init);
-        }
-
-        const headers = new Headers(request.headers);
-        headers.set(DIRECT_CLIENT_IP_HEADER, "127.0.0.1");
-        return central.app.fetch(new Request(request, { headers }));
-      },
-      {
-        preconnect: originalFetch.preconnect
-      }
-    );
-    globalThis.fetch = authFetch;
+    const restoreFetch = installIntegrationAppFetch(central.app);
 
     try {
       const registered = central.registry.get(project.slug);
@@ -410,7 +392,7 @@ describe("reference product OAuth integration", () => {
         "error=issuer_mismatch"
       );
     } finally {
-      globalThis.fetch = originalFetch;
+      restoreFetch();
       await central.close();
     }
   }, 30_000);
