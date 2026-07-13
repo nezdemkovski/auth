@@ -1,6 +1,6 @@
 import type React from "react";
 import { useState } from "react";
-import { Check, Copy, KeyRound, Waypoints } from "lucide-react";
+import { Check, Copy, KeyRound } from "lucide-react";
 
 import {
   Button,
@@ -59,17 +59,16 @@ export function NewProjectView({
       return;
     }
     if (!SLUG_PATTERN.test(slug)) {
-      setLocalError("Realm ID must contain letters, numbers, and hyphens.");
+      setLocalError("Internal ID must contain letters, numbers, and hyphens.");
       return;
     }
     if (!isOrigin(form.appUrl)) {
-      setLocalError("Web app URL must be an origin such as https://app.example.com.");
+      setLocalError("App address must look like https://myapp.com.");
       return;
     }
-    if (!isOrigin(form.backendUrl)) {
-      setLocalError(
-        "Backend URL must be an origin such as https://api.example.com."
-      );
+    const backendUrl = form.backendUrl.trim() || form.appUrl.trim();
+    if (!isOrigin(backendUrl)) {
+      setLocalError("Sign-in server address must look like https://api.myapp.com.");
       return;
     }
 
@@ -78,7 +77,7 @@ export function NewProjectView({
       slug,
       name: form.name.trim(),
       appUrl: form.appUrl.trim(),
-      backendUrl: form.backendUrl.trim()
+      backendUrl
     });
   };
 
@@ -86,15 +85,14 @@ export function NewProjectView({
     <div className="space-y-8">
       <div>
         <div className="mb-3 flex items-baseline gap-3">
-          <span className="eyebrow">New realm</span>
+          <span className="eyebrow">New app</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
         </div>
         <h1 className="serif text-[52px] leading-[0.95] tracking-[-0.03em] text-ink sm:text-[64px]">
-          Connect your <em>app.</em>
+          Add your <em>app.</em>
         </h1>
         <p className="mt-3 max-w-[38rem] text-[14.5px] leading-[1.55] text-muted">
-          Three fields. We create the isolated realm, register the secure
-          callback, and prepare MCP discovery automatically.
+          Give it a name and the address people open. We create everything else.
         </p>
       </div>
 
@@ -108,38 +106,42 @@ export function NewProjectView({
             onChange={updateName}
           />
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <SettingsInput
-              id="new-project-app-url"
-              label="Web app URL"
-              value={form.appUrl}
-              placeholder="https://app.example.com"
-              onChange={(appUrl) =>
-                setForm((current) => ({ ...current, appUrl }))
-              }
-            />
-            <SettingsInput
-              id="new-project-backend-url"
-              label="Backend URL"
-              value={form.backendUrl}
-              placeholder="https://api.example.com"
-              onChange={(backendUrl) =>
-                setForm((current) => ({ ...current, backendUrl }))
-              }
-            />
-          </div>
+          <SettingsInput
+            id="new-project-app-url"
+            label="App address"
+            value={form.appUrl}
+            placeholder="https://myapp.com"
+            onChange={(appUrl) =>
+              setForm((current) => ({ ...current, appUrl }))
+            }
+          />
 
           <details className="rounded-lg border border-border bg-surface-muted">
             <summary className="flex min-h-11 cursor-pointer select-none items-center justify-between gap-3 px-3 text-[12.5px] font-medium text-ink-soft outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
-              <span>Customize realm ID</span>
-              <code className="font-mono text-[11px] text-muted">
-                {form.slug || "demo-app"}
-              </code>
+              <span>Advanced</span>
+              <span className="text-[11px] font-normal text-muted">
+                Most apps can skip this
+              </span>
             </summary>
-            <div className="border-t border-border p-3">
+            <div className="space-y-4 border-t border-border p-3">
+              <div>
+                <SettingsInput
+                  id="new-project-backend-url"
+                  label="Sign-in server address"
+                  value={form.backendUrl}
+                  placeholder={form.appUrl || "https://api.myapp.com"}
+                  onChange={(backendUrl) =>
+                    setForm((current) => ({ ...current, backendUrl }))
+                  }
+                />
+                <p className="mt-1.5 text-[11.5px] leading-5 text-muted">
+                  Only change this when your sign-in code runs at a different
+                  address from the app.
+                </p>
+              </div>
               <SettingsInput
                 id="new-project-slug"
-                label="Realm ID"
+                label="Internal ID"
                 value={form.slug}
                 placeholder="demo-app"
                 onChange={(slug) => {
@@ -156,7 +158,7 @@ export function NewProjectView({
 
           <div className="max-w-[220px]">
             <PrimaryButton type="submit" loading={pending}>
-              {pending ? "Creating realm…" : "Create realm"}
+              {pending ? "Creating app…" : "Create app"}
             </PrimaryButton>
           </div>
         </form>
@@ -192,14 +194,15 @@ function RealmReady({
     <div className="space-y-6">
       <div>
         <div className="mb-3 flex items-baseline gap-3">
-          <span className="eyebrow">Realm ready</span>
+          <span className="eyebrow">App ready</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
         </div>
         <h1 className="serif text-[52px] leading-[0.95] tracking-[-0.03em] text-ink sm:text-[64px]">
           Copy. Paste. <em>Done.</em>
         </h1>
         <p className="mt-3 max-w-[42rem] text-[14.5px] leading-[1.55] text-muted">
-          Add this block to the app backend. It is the complete auth setup for
+          Add this block to the app's private environment. It contains the
+          complete sign-in setup for
           {` ${created.project.name}.`}
         </p>
       </div>
@@ -213,11 +216,11 @@ function RealmReady({
               </span>
               <div>
                 <h2 className="text-[15px] font-semibold text-ink">
-                  Backend environment
+                  Private app settings
                 </h2>
                 <p className="mt-1 text-[12.5px] leading-5 text-muted">
-                  The secret is shown once. Store it with the app, never in the
-                  browser.
+                  The secret is shown once. Keep it private and never put it in
+                  browser code.
                 </p>
               </div>
             </div>
@@ -251,57 +254,25 @@ function RealmReady({
           ) : null}
         </div>
 
-        <div className="grid gap-px bg-border sm:grid-cols-3">
-          <ReadyItem label="Login" detail="App callback registered" />
-          <ReadyItem label="Sessions" detail="Better Auth owns the flow" />
-          <ReadyItem label="MCP auth" detail="Discovery is enabled" />
-        </div>
-      </Card>
-
-      <div className="rounded-xl border border-border bg-surface-muted p-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <Waypoints
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border px-5 py-4 sm:px-6">
+          <p className="flex items-center gap-2 text-[12.5px] text-ink-soft">
+            <Check
               aria-hidden="true"
-              size={18}
-              strokeWidth={1.8}
-              className="mt-0.5 text-ink-soft"
+              size={15}
+              strokeWidth={2}
+              className="text-success"
             />
-            <div>
-              <div className="text-[13px] font-semibold text-ink">
-                One issuer for the whole realm
-              </div>
-              <code className="mt-1 block break-all font-mono text-[11.5px] text-muted">
-                {created.setup.issuer}
-              </code>
-            </div>
-          </div>
+            Sign-in is ready. MCP access is ready.
+          </p>
           <Button
             type="button"
             size="sm"
             onClick={() => onOpenRealm(created.project.slug)}
           >
-            Open realm
+            Open app settings
           </Button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function ReadyItem({ label, detail }: { label: string; detail: string }) {
-  return (
-    <div className="flex items-start gap-2 bg-surface px-4 py-3.5">
-      <Check
-        aria-hidden="true"
-        size={14}
-        strokeWidth={2}
-        className="mt-0.5 text-success"
-      />
-      <div>
-        <div className="text-[12.5px] font-semibold text-ink">{label}</div>
-        <div className="mt-0.5 text-[11.5px] text-muted">{detail}</div>
-      </div>
+      </Card>
     </div>
   );
 }

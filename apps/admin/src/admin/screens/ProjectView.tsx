@@ -143,11 +143,8 @@ export function ProjectView({
     <div className="space-y-10">
       <div>
         <div className="mb-3 flex items-baseline gap-3">
-          <span className="eyebrow">00 — Realm</span>
+          <span className="eyebrow">00 — App</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
-          <code className="font-mono text-[11.5px] uppercase tracking-[0.06em] text-muted">
-            {project.schema}
-          </code>
         </div>
         <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
           <h1 className="serif text-[56px] leading-[0.95] tracking-[-0.03em] text-ink sm:text-[64px]">
@@ -207,7 +204,7 @@ export function ProjectView({
 
       <section>
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="eyebrow">02 — Setup</span>
+          <span className="eyebrow">02 — Connect</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
         </div>
 
@@ -215,8 +212,8 @@ export function ProjectView({
           <AuthConnectionSettings
             project={project.slug}
             projectName={project.name}
+            appUrl={project.appUrl}
             issuer={`${window.location.origin}/api/${project.slug}`}
-            mcpReady={project.features.oauthProvider.enabled}
             data={authConnectionsQuery.data}
             loading={authConnectionsQuery.isLoading}
             loadError={authConnectionsQuery.isError}
@@ -344,7 +341,7 @@ export function ProjectView({
           ) : users.length === 0 ? (
             <EmptyState
               title="No users yet"
-              description="Users will appear here after they sign up to this realm."
+              description="Users will appear here after they sign up to this app."
             />
           ) : (
             <UserTable

@@ -86,7 +86,7 @@ test("a protected admin API 401 clears the shell and returns to sign in", async 
   await expect(page.getByRole("heading", { name: /Overview/ })).not.toBeVisible();
 });
 
-test("admin generates app setup without configuring OAuth internals", async ({
+test("admin connects an app without exposing auth internals", async ({
   page
 }) => {
   const connections: Array<Record<string, unknown>> = [];
@@ -188,20 +188,27 @@ test("admin generates app setup without configuring OAuth internals", async ({
 
   await page.goto("http://127.0.0.1:5173/admin/projects/demo");
 
-  await expect(page.getByRole("heading", { name: "App setup" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Connect your app" })
+  ).toBeVisible();
   await expect(page.getByLabel("Client profile")).not.toBeVisible();
   await expect(page.getByLabel(/Scopes/)).not.toBeVisible();
   await expect(page.getByLabel(/Resources/)).not.toBeVisible();
   await expect(page.getByText("Skip consent")).not.toBeVisible();
+  await expect(page.getByLabel("Backend URL")).not.toBeVisible();
+  await expect(page.getByText("Better Auth")).not.toBeVisible();
+  await expect(page.getByText("MCP discovery")).not.toBeVisible();
+  await expect(page.getByText("Billing worker")).not.toBeVisible();
+  await expect(page.getByText("Passkeys", { exact: true })).not.toBeVisible();
+  await expect(page.getByLabel("Allowed app addresses")).not.toBeVisible();
 
-  await page.getByLabel("Backend URL").fill("https://api.demo.example.com");
-  await page.getByRole("button", { name: "Generate setup" }).click();
+  await page.getByRole("button", { name: "Connect app" }).click();
 
-  await expect(page.getByText("Demo App backend is ready")).toBeVisible();
+  await expect(page.getByText("Demo App app is ready")).toBeVisible();
   await expect(page.getByText("AUTH_CLIENT_ID=demo-client", { exact: false })).toBeVisible();
   await expect(page.getByText("AUTH_CLIENT_SECRET=demo-secret", { exact: false })).toBeVisible();
   expect(createBody).toBe(
-    '{"kind":"application","name":"Demo App backend","backendUrl":"https://api.demo.example.com"}'
+    '{"kind":"application","name":"Demo App app","backendUrl":"https://demo.example.com"}'
   );
   expect(createBody).not.toContain("scopes");
   expect(createBody).not.toContain("resources");
@@ -268,9 +275,10 @@ test("creating a realm returns one copy-ready setup block", async ({ page }) => 
   await page.goto("http://127.0.0.1:5173/admin/projects/new");
 
   await page.getByLabel("App name").fill("Demo App");
-  await page.getByLabel("Web app URL").fill("https://app.demo.example.com");
-  await page.getByLabel("Backend URL").fill("https://api.demo.example.com");
-  await page.getByRole("button", { name: "Create realm" }).click();
+  await page.getByLabel("App address").fill("https://app.demo.example.com");
+  await expect(page.getByLabel("Backend URL")).not.toBeVisible();
+  await expect(page.getByText("Better Auth")).not.toBeVisible();
+  await page.getByRole("button", { name: "Create app" }).click();
 
   await expect(
     page.getByRole("heading", { name: /Copy\. Paste\. Done\./ })
@@ -283,8 +291,8 @@ test("creating a realm returns one copy-ready setup block", async ({ page }) => 
   await expect(
     page.getByText("AUTH_CLIENT_SECRET=demo-secret", { exact: false })
   ).toBeVisible();
-  await expect(page.getByText("MCP auth", { exact: true })).toBeVisible();
+  await expect(page.getByText("MCP access is ready.")).toBeVisible();
   expect(createBody).toBe(
-    '{"slug":"demo-app","name":"Demo App","appUrl":"https://app.demo.example.com","backendUrl":"https://api.demo.example.com"}'
+    '{"slug":"demo-app","name":"Demo App","appUrl":"https://app.demo.example.com","backendUrl":"https://app.demo.example.com"}'
   );
 });

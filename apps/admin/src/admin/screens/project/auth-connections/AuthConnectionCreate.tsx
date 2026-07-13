@@ -13,25 +13,28 @@ import {
 export function AppSetupForm({
   project,
   projectName,
+  appUrl,
   pending,
   onCreate
 }: {
   project: string;
   projectName: string;
+  appUrl: string;
   pending: boolean;
   onCreate: (input: CreateAuthConnectionInput) => Promise<boolean>;
 }) {
-  const [backendUrl, setBackendUrl] = useState("");
+  const [serverUrl, setServerUrl] = useState("");
+  const connectionUrl = serverUrl.trim() || appUrl.trim();
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!backendUrl.trim()) {
+    if (!connectionUrl) {
       return;
     }
     await onCreate({
       kind: AuthConnectionKind.Application,
-      name: `${projectName} backend`,
-      backendUrl: backendUrl.trim()
+      name: `${projectName} app`,
+      backendUrl: connectionUrl
     });
   };
 
@@ -41,34 +44,51 @@ export function AppSetupForm({
       className="rounded-xl border border-border bg-surface p-4"
     >
       <div>
-        <h3 className="text-[14px] font-semibold text-ink">Connect the app</h3>
+        <h3 className="text-[14px] font-semibold text-ink">
+          Connect {projectName}
+        </h3>
         <p className="mt-1 max-w-[38rem] text-[12px] leading-5 text-muted">
-          Enter the app backend URL. We register the callback and generate the
-          complete environment block.
+          We will use the app address already saved in Settings and give you one
+          private setup block to copy.
         </p>
       </div>
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="flex-1">
-          <SettingsInput
-            id={`${project}-app-backend-url`}
-            label="Backend URL"
-            value={backendUrl}
-            disabled={pending}
-            placeholder="https://api.example.com"
-            onChange={setBackendUrl}
-          />
+      <div className="mt-4 flex flex-col gap-3 rounded-lg border border-border bg-surface-muted p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="text-[11px] font-medium text-muted">App address</div>
+          <div className="mt-0.5 truncate text-[13px] text-ink-soft">
+            {connectionUrl || "Add an app address in Settings first"}
+          </div>
         </div>
         <Button
           type="submit"
           variant="primary"
           size="sm"
           loading={pending}
-          disabled={!backendUrl.trim()}
-          className="sm:mb-px"
+          disabled={!connectionUrl}
         >
-          Generate setup
+          Connect app
         </Button>
       </div>
+
+      <details className="mt-3 rounded-lg border border-border bg-surface-muted">
+        <summary className="flex min-h-10 cursor-pointer select-none items-center px-3 text-[11.5px] text-muted outline-none hover:text-ink-soft focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+          Sign-in runs at a different address
+        </summary>
+        <div className="border-t border-border p-3">
+          <SettingsInput
+            id={`${project}-app-server-url`}
+            label="Sign-in server address"
+            value={serverUrl}
+            disabled={pending}
+            placeholder="https://api.myapp.com"
+            onChange={setServerUrl}
+          />
+          <p className="mt-1.5 text-[11.5px] leading-5 text-muted">
+            Change this only when your app's sign-in code is deployed somewhere
+            else.
+          </p>
+        </div>
+      </details>
     </form>
   );
 }
@@ -107,20 +127,20 @@ export function ServiceCredentialCreate({
   return (
     <form onSubmit={(event) => void submit(event)} className="space-y-3">
       <div>
-        <h4 className="text-[13px] font-semibold text-ink">Create API key</h4>
+        <h4 className="text-[13px] font-semibold text-ink">Create server key</h4>
         <p className="mt-1 text-[11.5px] leading-5 text-muted">
-          For a trusted backend that calls realm-owned platform APIs. Never put
-          this key in a browser or mobile bundle.
+          Only for a background process that records usage without a signed-in
+          user. Most apps do not need this.
         </p>
       </div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex-1">
           <SettingsInput
             id={`${project}-service-key-name`}
-            label="Key name"
+            label="Name"
             value={name}
             disabled={pending}
-            placeholder="Billing worker"
+            placeholder="Production usage sync"
             onChange={setName}
           />
         </div>
@@ -131,7 +151,7 @@ export function ServiceCredentialCreate({
           disabled={!name.trim() || !billingPermissionAvailable}
           className="sm:mb-px"
         >
-          Create key
+          Create server key
         </Button>
       </div>
     </form>

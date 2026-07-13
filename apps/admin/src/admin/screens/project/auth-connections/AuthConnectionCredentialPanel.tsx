@@ -53,8 +53,8 @@ export function AuthConnectionCredentialPanel({
             {visible.name} is ready
           </div>
           <p className="mt-1 text-pretty text-[12.5px] leading-5 text-ink-soft">
-            Add these values to the trusted backend now. The secret is shown only
-            once.
+            Add these values to your app's private environment now. The secret is
+            shown only once.
           </p>
         </div>
         <Pill>shown once</Pill>

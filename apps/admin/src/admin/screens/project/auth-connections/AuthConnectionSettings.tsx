@@ -1,6 +1,5 @@
-import type React from "react";
 import { useState } from "react";
-import { Check, KeyRound, RotateCcw, Waypoints } from "lucide-react";
+import { KeyRound, RotateCcw } from "lucide-react";
 
 import {
   Button,
@@ -31,8 +30,8 @@ import { errorMessage } from "./model";
 export function AuthConnectionSettings({
   project,
   projectName,
+  appUrl,
   issuer,
-  mcpReady,
   data,
   loading,
   loadError,
@@ -43,8 +42,8 @@ export function AuthConnectionSettings({
 }: {
   project: string;
   projectName: string;
+  appUrl: string;
   issuer: string;
-  mcpReady: boolean;
   data: AuthConnectionsResponse | undefined;
   loading: boolean;
   loadError: boolean;
@@ -137,11 +136,11 @@ export function AuthConnectionSettings({
     <div className="space-y-5 p-5">
       <div>
         <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">
-          App setup
+          Connect your app
         </h2>
         <p className="mt-1 max-w-[45rem] text-pretty text-[12.5px] leading-5 text-muted">
-          One realm, one issuer, one environment block. OAuth details stay
-          inside Better Auth.
+          Copy one private setup block into your app. Sign-in works immediately,
+          and MCP clients connect automatically.
         </p>
       </div>
 
@@ -161,7 +160,7 @@ export function AuthConnectionSettings({
           Loading setup…
         </div>
       ) : loadError ? (
-        <FormAlert>Could not load realm setup.</FormAlert>
+        <FormAlert>Could not load app setup.</FormAlert>
       ) : app ? (
         <PrimaryAppSetup
           app={app}
@@ -182,35 +181,30 @@ export function AuthConnectionSettings({
         <AppSetupForm
           project={project}
           projectName={projectName}
+          appUrl={appUrl}
           pending={pendingAction?.clientId === "new"}
           onCreate={create}
         />
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <SetupStatus
-          icon={<Check aria-hidden="true" size={15} />}
-          label="User login"
-          detail={app ? "Ready" : "Waiting for backend URL"}
-          ready={Boolean(app && !app.disabled)}
-        />
-        <SetupStatus
-          icon={<Waypoints aria-hidden="true" size={15} />}
-          label="MCP discovery"
-          detail={mcpReady ? "Ready automatically" : "Enabled with new keys"}
-          ready={mcpReady}
-        />
-      </div>
-
       <details className="rounded-xl border border-border bg-surface-muted">
         <summary className="flex min-h-12 cursor-pointer select-none items-center justify-between gap-3 px-4 text-[12.5px] font-medium text-ink-soft outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
           <span className="flex items-center gap-2">
             <KeyRound aria-hidden="true" size={15} />
-            Backend API keys
+            Advanced
           </span>
-          <Pill>{apiKeys.length}</Pill>
+          {apiKeys.length > 0 ? <Pill>{apiKeys.length}</Pill> : null}
         </summary>
         <div className="space-y-4 border-t border-border p-4">
+          <div>
+            <h3 className="text-[13px] font-semibold text-ink">
+              Server-to-server access
+            </h3>
+            <p className="mt-1 text-[11.5px] leading-5 text-muted">
+              For rare background jobs that call platform features without a
+              signed-in user. This is unrelated to normal app sign-in.
+            </p>
+          </div>
           <ServiceCredentialCreate
             project={project}
             permissions={permissionCatalog}
@@ -262,14 +256,14 @@ function PrimaryAppSetup({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-[14px] font-semibold text-ink">Ready to use</h3>
+            <h3 className="text-[14px] font-semibold text-ink">App connected</h3>
             <StatusBadge
               tone={app.disabled ? "neutral" : "success"}
               label={app.disabled ? "Paused" : "Active"}
             />
           </div>
           <p className="mt-1 text-[11.5px] leading-5 text-muted">
-            The app backend signs users in through this realm.
+            Sign-in returns to {connectionAddress(app.callbackUrl)}.
           </p>
         </div>
         <div className="flex gap-2">
@@ -285,15 +279,20 @@ function PrimaryAppSetup({
             disabled={pending}
             onClick={onConfirmRotate}
           >
-            New keys
+            Replace keys
           </Button>
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <SetupValue label="Issuer" value={issuer} />
-        <SetupValue label="Client ID" value={app.clientId} />
-      </div>
+      <details className="mt-3 text-[11.5px] text-muted">
+        <summary className="min-h-10 cursor-pointer select-none py-2 outline-none hover:text-ink-soft focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+          Technical details
+        </summary>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SetupValue label="Issuer" value={issuer} />
+          <SetupValue label="Client ID" value={app.clientId} />
+        </div>
+      </details>
 
       {confirmed ? (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--danger-border)] bg-[var(--danger-bg)] px-3 py-2.5">
@@ -311,7 +310,7 @@ function PrimaryAppSetup({
               loading={pending}
               onClick={onRotate}
             >
-              Generate new keys
+              Replace keys
             </Button>
           </div>
         </div>
@@ -333,24 +332,13 @@ function SetupValue({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SetupStatus({
-  icon,
-  label,
-  detail,
-  ready
-}: {
-  icon: React.ReactNode;
-  label: string;
-  detail: string;
-  ready: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-surface-muted px-3 py-2.5">
-      <span className={ready ? "text-success" : "text-muted"}>{icon}</span>
-      <div>
-        <div className="text-[12px] font-semibold text-ink">{label}</div>
-        <div className="text-[11px] text-muted">{detail}</div>
-      </div>
-    </div>
-  );
-}
+const connectionAddress = (callbackUrl: string | null) => {
+  if (!callbackUrl) {
+    return "the app";
+  }
+  try {
+    return new URL(callbackUrl).origin;
+  } catch {
+    return "the app";
+  }
+};

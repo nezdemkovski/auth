@@ -104,8 +104,7 @@ export function ProjectSettingsForm({
             App details
           </h2>
           <p className="mt-1 max-w-[34rem] text-[12.5px] leading-5 text-muted">
-            These settings control the login experience, trusted origins,
-            and application metadata.
+            The name and address people use for this app.
           </p>
         </div>
         {project.appUrl ? (
@@ -122,7 +121,7 @@ export function ProjectSettingsForm({
 
       {project.system ? (
         <div className="rounded-lg border border-border bg-surface-muted px-3 py-2.5 text-[12.5px] leading-5 text-muted">
-          System realm settings are read-only from this dashboard.
+          System app settings are read-only from this dashboard.
         </div>
       ) : null}
 
@@ -138,86 +137,98 @@ export function ProjectSettingsForm({
           disabled={project.system}
           onChange={(value) => update("name", value)}
         />
-        <ProjectIconField
-          value={form.iconUrl}
-          storageConfigured={Boolean(storageSettings?.configured)}
-          disabled={project.system}
-          uploadPending={uploadPending}
-          uploadedIcon={uploadedIcon}
-          onUrlChange={(value) => update("iconUrl", value)}
-          onUpload={onUploadIcon}
-        />
         <SettingsInput
           id="project-app-url"
-          label="App URL"
+          label="App address"
           value={form.appUrl}
           disabled={project.system}
-          placeholder="https://app.domain.com"
+          placeholder="https://myapp.com"
           onChange={(value) => update("appUrl", value)}
-        />
-        <SettingsTextarea
-          id="project-origins"
-          label="Trusted origins"
-          value={form.trustedOrigins}
-          disabled={project.system}
-          placeholder="https://app.domain.com"
-          rows={4}
-          onChange={(value) => update("trustedOrigins", value)}
         />
       </div>
 
-      <SettingsTextarea
-        id="project-description"
-        label="Description"
-        value={form.description}
-        disabled={project.system}
-        placeholder="Internal description for this realm."
-        rows={3}
-        onChange={(value) => update("description", value)}
-      />
-
-      <section className="rounded-lg border border-border bg-surface-muted p-4">
-        <div>
-          <h3 className="text-[13px] font-semibold tracking-[-0.005em] text-ink">
-            Auth features
-          </h3>
-          <p className="mt-1 max-w-[34rem] text-[12px] leading-5 text-muted">
-            Feature availability is enforced by the server for this realm.
-          </p>
-        </div>
-
-        <div className="mt-4 grid gap-3">
-          <FeatureToggle
-            label="Passkeys"
-            description="Allow users to register and sign in with WebAuthn passkeys."
-            checked={form.passkeyEnabled}
-            disabled={project.system}
-            onChange={(checked) => update("passkeyEnabled", checked)}
-          />
-
-          <FeatureToggle
-            label="Two-factor authentication"
-            description="Allow TOTP and backup-code based second factor flows."
-            checked={form.twoFactorEnabled}
-            disabled={project.system}
-            onChange={(checked) => update("twoFactorEnabled", checked)}
-          />
-
-          {form.twoFactorEnabled ? (
-            <SelectField
-              label="Who must use two-factor authentication?"
-              value={form.twoFactorRequired}
+      <details className="rounded-lg border border-border bg-surface-muted">
+        <summary className="flex min-h-11 cursor-pointer select-none items-center justify-between gap-3 px-3 text-[12.5px] font-medium text-ink-soft outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+          <span>Advanced settings</span>
+          <span className="text-[11px] font-normal text-muted">
+            Branding, security, allowed domains
+          </span>
+        </summary>
+        <div className="space-y-5 border-t border-border p-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <ProjectIconField
+              value={form.iconUrl}
+              storageConfigured={Boolean(storageSettings?.configured)}
               disabled={project.system}
-              options={TWO_FACTOR_REQUIREMENT_OPTIONS}
-              className="pl-8 md:max-w-[20rem]"
-              onChange={(value) =>
-                update("twoFactorRequired", parseTwoFactorRequirement(value))
-              }
+              uploadPending={uploadPending}
+              uploadedIcon={uploadedIcon}
+              onUrlChange={(value) => update("iconUrl", value)}
+              onUpload={onUploadIcon}
             />
-          ) : null}
-        </div>
+            <SettingsTextarea
+              id="project-origins"
+              label="Allowed app addresses"
+              value={form.trustedOrigins}
+              disabled={project.system}
+              placeholder="https://myapp.com"
+              rows={4}
+              onChange={(value) => update("trustedOrigins", value)}
+            />
+          </div>
 
-      </section>
+          <SettingsTextarea
+            id="project-description"
+            label="Private note"
+            value={form.description}
+            disabled={project.system}
+            placeholder="Optional note for your team"
+            rows={3}
+            onChange={(value) => update("description", value)}
+          />
+
+          <section>
+            <div>
+              <h3 className="text-[13px] font-semibold tracking-[-0.005em] text-ink">
+                Sign-in security
+              </h3>
+              <p className="mt-1 max-w-[34rem] text-[12px] leading-5 text-muted">
+                Optional controls for apps that need stronger account security.
+              </p>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              <FeatureToggle
+                label="Passkeys"
+                description="Let users sign in with a device passkey."
+                checked={form.passkeyEnabled}
+                disabled={project.system}
+                onChange={(checked) => update("passkeyEnabled", checked)}
+              />
+
+              <FeatureToggle
+                label="Two-factor authentication"
+                description="Require an extra code for protected accounts."
+                checked={form.twoFactorEnabled}
+                disabled={project.system}
+                onChange={(checked) => update("twoFactorEnabled", checked)}
+              />
+
+              {form.twoFactorEnabled ? (
+                <SelectField
+                  label="Who must use two-factor authentication?"
+                  value={form.twoFactorRequired}
+                  disabled={project.system}
+                  options={TWO_FACTOR_REQUIREMENT_OPTIONS}
+                  className="pl-8 md:max-w-[20rem]"
+                  onChange={(value) =>
+                    update("twoFactorRequired", parseTwoFactorRequirement(value))
+                  }
+                />
+              ) : null}
+            </div>
+          </section>
+        </div>
+      </details>
 
       <div className="flex justify-end">
         <Button
