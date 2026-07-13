@@ -138,20 +138,21 @@ the immutable `issuer + sub` pair.
   - product frontends use local Better Auth sessions;
   - direct public-client OAuth is reserved for native, CLI, MCP, or explicitly
     approved browser-only applications.
-- [ ] Build a minimal in-repo reference product before changing Amela.
-- [ ] Prove with the pinned Better Auth version that Generic OAuth supports:
-  - discovery against the realm-specific issuer;
-  - Authorization Code with PKCE;
-  - issuer validation;
-  - refresh-token rotation;
-  - provider-token retrieval on the product backend;
-  - stable access to the central `sub` identity.
+- [x] Build a minimal in-repo reference product before changing Amela.
+- [x] Prove with the pinned Better Auth version that Generic OAuth supports:
+  - [x] discovery against the realm-specific issuer;
+  - [x] Authorization Code with PKCE;
+  - [x] automatic issuer validation from discovery, including rejection of a
+    mismatched `iss`;
+  - [x] refresh-token rotation;
+  - [x] provider-token retrieval on the product backend;
+  - [x] stable access to the central `sub` identity.
 - [x] Decide and document how the product Better Auth user/account model exposes
   the central `issuer + sub` without treating email as an identity key.
 
 ### Phase 0 exit gate
 
-- [ ] The reference product can sign in through a real realm and establish a
+- [x] The reference product can sign in through a real realm and establish a
   local HttpOnly Better Auth session without exposing a central session or
   token to browser JavaScript.
 
@@ -242,20 +243,22 @@ the immutable `issuer + sub` pair.
 
 ## Phase 3: Establish the Product-App Better Auth Pattern
 
-- [ ] Create a confidential OAuth client for the reference product through the
+- [x] Create a confidential OAuth client for the reference product through the
   central Better Auth admin API.
-- [ ] Configure the reference product's Better Auth instance with Generic OAuth
+- [x] Configure the reference product's Better Auth instance with Generic OAuth
   discovery against its central realm.
-- [ ] Enable PKCE and strict issuer validation.
-- [ ] Request only `openid`, the required identity claims, `offline_access`, and
+- [x] Enable PKCE and the pinned version's automatic issuer validation from
+  discovery. The removed legacy `requireIssuerValidation` option must not be
+  recreated in platform code.
+- [x] Request only `openid`, the required identity claims, `offline_access`, and
   explicitly required platform resource scopes.
-- [ ] Handle the OAuth callback through the product application's Better Auth
+- [x] Handle the OAuth callback through the product application's Better Auth
   handler.
-- [ ] Keep central access and refresh tokens in the product backend's Better
+- [x] Keep central access and refresh tokens in the product backend's Better
   Auth account storage.
-- [ ] Use the product application's Better Auth session cookie for browser-to-
+- [x] Use the product application's Better Auth session cookie for browser-to-
   product API authentication.
-- [ ] Expose the central `issuer + sub` to product business code through one
+- [x] Expose the central `issuer + sub` to product business code through one
   typed server-side helper.
 - [ ] Key product data by the central subject only after realm/issuer validation;
   never join identities by email.
@@ -266,7 +269,7 @@ the immutable `issuer + sub` pair.
 
 ### Phase 3 exit gate
 
-- [ ] Product browser code has no access-token storage, refresh logic, PKCE
+- [x] Product browser code has no access-token storage, refresh logic, PKCE
   implementation, central auth fetch wrapper, or central session token.
 
 ## Phase 4: Convert Platform Capabilities into OAuth Resources

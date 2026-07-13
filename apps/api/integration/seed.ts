@@ -16,6 +16,10 @@ export const seedIntegrationRealm = async (options: {
   slug: string;
   schema: string;
   name: string;
+  oauthProvider?: {
+    enabled: boolean;
+    dynamicClientRegistration?: boolean;
+  };
   freeEntitlements?: BillingEntitlement[];
   products?: BillingProductMapping[];
 }) => {
@@ -27,7 +31,16 @@ export const seedIntegrationRealm = async (options: {
     iconUrl: "",
     appUrl: `https://${options.slug}.integration.test`,
     trustedOrigins: [`https://${options.slug}.integration.test`],
-    features: DEFAULT_PROJECT_FEATURES,
+    features: {
+      ...DEFAULT_PROJECT_FEATURES,
+      oauthProvider: options.oauthProvider
+        ? {
+            enabled: options.oauthProvider.enabled,
+            dynamicClientRegistration:
+              options.oauthProvider.dynamicClientRegistration ?? false
+          }
+        : DEFAULT_PROJECT_FEATURES.oauthProvider
+    },
     socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
     billing: {
       provider: BillingProvider.Polar,

@@ -58,6 +58,9 @@
         "react": "19.2.7",
         "react-dom": "19.2.7",
       },
+      "devDependencies": {
+        "@nezdemkovski/auth-reference-product": "workspace:*",
+      },
     },
     "apps/login": {
       "name": "@nezdemkovski/auth-login",
@@ -73,6 +76,16 @@
         "lucide-react": "1.23.0",
         "react": "19.2.7",
         "react-dom": "19.2.7",
+      },
+    },
+    "apps/reference-product": {
+      "name": "@nezdemkovski/auth-reference-product",
+      "version": "0.0.0",
+      "dependencies": {
+        "@better-auth/memory-adapter": "1.7.0-rc.1",
+        "@nezdemkovski/auth-integration": "workspace:*",
+        "better-auth": "1.7.0-rc.1",
+        "hono": "4.12.27",
       },
     },
     "packages/auth-client": {
@@ -447,6 +460,8 @@
     "@nezdemkovski/auth-integration": ["@nezdemkovski/auth-integration@workspace:packages/auth-integration"],
 
     "@nezdemkovski/auth-login": ["@nezdemkovski/auth-login@workspace:apps/login"],
+
+    "@nezdemkovski/auth-reference-product": ["@nezdemkovski/auth-reference-product@workspace:apps/reference-product"],
 
     "@nezdemkovski/auth-server": ["@nezdemkovski/auth-server@workspace:packages/auth-server"],
 

@@ -1,0 +1,22 @@
+{
+  "name": "@nezdemkovski/auth-reference-product",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "bun --watch src/server.ts",
+    "start": "bun src/server.ts",
+    "build": "bun build ./src/server.ts --outdir ./dist --target bun --packages external --sourcemap=external",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@better-auth/memory-adapter": "1.7.0-rc.1",
+    "@nezdemkovski/auth-integration": "workspace:*",
+    "better-auth": "1.7.0-rc.1",
+    "hono": "4.12.27"
+  }
+}
