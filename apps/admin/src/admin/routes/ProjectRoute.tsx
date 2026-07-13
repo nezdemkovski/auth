@@ -26,6 +26,7 @@ function ProjectRouteContent({ projectSlug }: { projectSlug?: string }) {
     selected,
     usersQuery,
     socialProvidersQuery,
+    oauthClientsQuery,
     billingQuery,
     storageQuery,
     storageObjectsQuery,
@@ -57,6 +58,7 @@ function ProjectRouteContent({ projectSlug }: { projectSlug?: string }) {
       project={selected}
       usersQuery={usersQuery}
       socialProvidersQuery={socialProvidersQuery}
+      oauthClientsQuery={oauthClientsQuery}
       billingQuery={billingQuery}
       storageQuery={storageQuery}
       polarProductsQuery={polarProductsQuery}
@@ -181,6 +183,35 @@ function ProjectRouteContent({ projectSlug }: { projectSlug?: string }) {
           provider
         })
       }
+      onCreateOAuthClient={async (client) => {
+        const created = await mutations.oauthClientCreate.mutateAsync({
+          project: selected.slug,
+          client
+        });
+        mutations.oauthClientCreate.reset();
+        return created.credential;
+      }}
+      onSetOAuthClientDisabled={async (clientId, disabled) => {
+        await mutations.oauthClientToggle.mutateAsync({
+          project: selected.slug,
+          clientId,
+          disabled
+        });
+      }}
+      onRotateOAuthClientSecret={async (clientId) => {
+        const credential = await mutations.oauthClientSecretRotate.mutateAsync({
+          project: selected.slug,
+          clientId
+        });
+        mutations.oauthClientSecretRotate.reset();
+        return credential;
+      }}
+      onDeleteOAuthClient={async (clientId) => {
+        await mutations.oauthClientDelete.mutateAsync({
+          project: selected.slug,
+          clientId
+        });
+      }}
       onUpdateBilling={(patch) =>
         mutations.billingUpdate.mutate({
           project: selected.slug,

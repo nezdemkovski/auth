@@ -2,8 +2,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import {
+  createOAuthClient,
   createPolarProduct,
+  deleteOAuthClient,
   resendVerificationEmail,
+  rotateOAuthClientSecret,
+  setOAuthClientDisabled,
   terminateUserSessions,
   updateBillingSettings,
   updateProjectSettings,
@@ -17,6 +21,7 @@ import { adminQueryKeys } from "../queryKeys";
 import { notifyError, notifySuccess } from "../toast";
 import type {
   BillingSettingsPatch,
+  CreateOAuthClientInput,
   CreatePolarProductInput,
   ProjectSettingsPatch,
   SocialProviderId,
@@ -133,6 +138,69 @@ export const useProjectRouteMutations = () => {
       );
     }
   });
+  const oauthClientCreate = useMutation({
+    mutationFn: (input: { project: string; client: CreateOAuthClientInput }) =>
+      createOAuthClient(input),
+    onSuccess: async (_data, variables) => {
+      notifySuccess("OAuth client created");
+      await queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.oauthClients(variables.project)
+      });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Could not create OAuth client",
+        caught instanceof Error ? caught.message : undefined
+      );
+    }
+  });
+  const oauthClientToggle = useMutation({
+    mutationFn: setOAuthClientDisabled,
+    onSuccess: async (_data, variables) => {
+      notifySuccess(
+        variables.disabled ? "OAuth client disabled" : "OAuth client enabled"
+      );
+      await queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.oauthClients(variables.project)
+      });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Could not update OAuth client",
+        caught instanceof Error ? caught.message : undefined
+      );
+    }
+  });
+  const oauthClientSecretRotate = useMutation({
+    mutationFn: rotateOAuthClientSecret,
+    onSuccess: async (_data, variables) => {
+      notifySuccess("OAuth client secret rotated");
+      await queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.oauthClients(variables.project)
+      });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Could not rotate OAuth client secret",
+        caught instanceof Error ? caught.message : undefined
+      );
+    }
+  });
+  const oauthClientDelete = useMutation({
+    mutationFn: deleteOAuthClient,
+    onSuccess: async (_data, variables) => {
+      notifySuccess("OAuth client deleted");
+      await queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.oauthClients(variables.project)
+      });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Could not delete OAuth client",
+        caught instanceof Error ? caught.message : undefined
+      );
+    }
+  });
   const billingUpdate = useMutation({
     mutationFn: (input: { project: string; patch: BillingSettingsPatch }) =>
       updateBillingSettings(input),
@@ -236,6 +304,10 @@ export const useProjectRouteMutations = () => {
     updateProject,
     socialProviderUpdate,
     socialProviderVerify,
+    oauthClientCreate,
+    oauthClientToggle,
+    oauthClientSecretRotate,
+    oauthClientDelete,
     billingUpdate,
     billingVerify,
     storageUpdate,

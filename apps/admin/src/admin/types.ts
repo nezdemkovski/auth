@@ -46,6 +46,53 @@ export type ProjectFeatures = {
   };
 };
 
+export enum OAuthClientProfile {
+  Web = "web",
+  Public = "public",
+  Service = "service"
+}
+
+export type OAuthClient = {
+  clientId: string;
+  name: string;
+  profile: OAuthClientProfile;
+  redirectUris: string[];
+  postLogoutRedirectUris: string[];
+  scopes: string[];
+  resources: string[];
+  disabled: boolean;
+  public: boolean;
+  skipConsent: boolean;
+  requirePkce: boolean;
+  secretConfigured: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OAuthClientsResponse = {
+  clients: OAuthClient[];
+};
+
+export type OAuthClientCredential = {
+  clientId: string;
+  clientSecret?: string;
+};
+
+export type CreateOAuthClientInput = {
+  name: string;
+  profile: OAuthClientProfile;
+  redirectUris: string[];
+  postLogoutRedirectUris: string[];
+  scopes: string[];
+  resources: string[];
+  skipConsent: boolean;
+};
+
+export type CreatedOAuthClient = {
+  client: OAuthClient;
+  credential: OAuthClientCredential;
+};
+
 export type SocialProviderId = "telegram" | "github" | "google" | "twitter" | "facebook";
 
 export type SocialProviderCatalogItem = {

@@ -2,6 +2,7 @@ export * from "./api/adminAccount";
 export * from "./api/billing";
 export * from "./api/delivery";
 export * from "./api/observability";
+export * from "./api/oauthClients";
 export * from "./api/projects";
 export * from "./api/shared";
 export * from "./api/socialProviders";

@@ -12,6 +12,11 @@ export const adminQueryKeys = {
     "social-providers",
     project
   ],
+  oauthClients: (project: string | undefined) => [
+    ...adminQueryKeys.root,
+    "oauth-clients",
+    project
+  ],
   billing: (project: string | undefined) => [
     ...adminQueryKeys.root,
     "billing",

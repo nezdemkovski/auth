@@ -5,11 +5,13 @@ import type {
   BillingSettings,
   BillingSettingsPatch,
   BillingProductMapping,
+  CreateOAuthClientInput,
   CreatePolarProductInput,
+  OAuthClientCredential,
+  OAuthClientsResponse,
   ProjectSettingsPatch,
   ProjectSummary,
   ProjectUsersResponse,
-  SocialProviderCatalogItem,
   SocialProviderId,
   SocialProviderPatch,
   SocialProvidersResponse,
@@ -24,6 +26,7 @@ import { StatCard } from "@nezdemkovski/auth-ui";
 import { UsersSkeleton } from "@nezdemkovski/auth-ui";
 import { ProjectSettingsForm } from "./project/ProjectSettingsForm";
 import { BillingSettings as BillingSettingsForm } from "./project/BillingSettings";
+import { OAuthClientSettings } from "./project/oauth-clients/OAuthClientSettings";
 import { SocialProviderSettings } from "./project/SocialProviderSettings";
 import { StorageSettingsForm } from "./project/StorageSettings";
 import { UserTable } from "./project/UserTable";
@@ -32,6 +35,7 @@ export function ProjectView({
   project,
   usersQuery,
   socialProvidersQuery,
+  oauthClientsQuery,
   billingQuery,
   storageQuery,
   polarProductsQuery,
@@ -62,6 +66,10 @@ export function ProjectView({
   onUpdateProject,
   onUpdateSocialProvider,
   onVerifySocialProvider,
+  onCreateOAuthClient,
+  onSetOAuthClientDisabled,
+  onRotateOAuthClientSecret,
+  onDeleteOAuthClient,
   onUpdateBilling,
   onVerifyBilling,
   onCreatePolarProduct,
@@ -71,6 +79,7 @@ export function ProjectView({
   project: ProjectSummary;
   usersQuery: ReturnType<typeof useQuery<ProjectUsersResponse>>;
   socialProvidersQuery: ReturnType<typeof useQuery<SocialProvidersResponse>>;
+  oauthClientsQuery: ReturnType<typeof useQuery<OAuthClientsResponse>>;
   billingQuery: ReturnType<typeof useQuery<BillingSettings>>;
   storageQuery: ReturnType<typeof useQuery<StorageSettings>>;
   polarProductsQuery: ReturnType<typeof useQuery<PolarProductsResponse>>;
@@ -104,6 +113,12 @@ export function ProjectView({
     patch: SocialProviderPatch
   ) => void;
   onVerifySocialProvider: (provider: SocialProviderId) => void;
+  onCreateOAuthClient: (
+    input: CreateOAuthClientInput
+  ) => Promise<OAuthClientCredential>;
+  onSetOAuthClientDisabled: (clientId: string, disabled: boolean) => Promise<void>;
+  onRotateOAuthClientSecret: (clientId: string) => Promise<OAuthClientCredential>;
+  onDeleteOAuthClient: (clientId: string) => Promise<void>;
   onUpdateBilling: (patch: BillingSettingsPatch) => void;
   onVerifyBilling: (input: {
     accessToken?: string;
@@ -117,8 +132,7 @@ export function ProjectView({
 }) {
   const users = usersQuery.data?.users ?? [];
   const socialProviders = socialProvidersQuery.data?.providers ?? project.socialProviders;
-  const socialProviderCatalog =
-    socialProvidersQuery.data?.catalog ?? ([] as SocialProviderCatalogItem[]);
+  const socialProviderCatalog = socialProvidersQuery.data?.catalog ?? [];
 
   return (
     <div className="space-y-10">
@@ -188,7 +202,29 @@ export function ProjectView({
 
       <section>
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="eyebrow">02 — Social sign-in</span>
+          <span className="eyebrow">02 — OAuth clients</span>
+          <span aria-hidden="true" className="h-px flex-1 bg-border" />
+        </div>
+
+        <Card padding={false}>
+          <OAuthClientSettings
+            project={project.slug}
+            issuer={`${window.location.origin}/api/${project.slug}`}
+            enabled={project.features.oauthProvider.enabled}
+            clients={oauthClientsQuery.data?.clients ?? []}
+            loading={oauthClientsQuery.isLoading}
+            loadError={oauthClientsQuery.isError}
+            onCreate={onCreateOAuthClient}
+            onSetDisabled={onSetOAuthClientDisabled}
+            onRotateSecret={onRotateOAuthClientSecret}
+            onDelete={onDeleteOAuthClient}
+          />
+        </Card>
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-baseline gap-3">
+          <span className="eyebrow">03 — Social sign-in</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
         </div>
 
@@ -216,7 +252,7 @@ export function ProjectView({
 
       <section>
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="eyebrow">03 — Billing</span>
+          <span className="eyebrow">04 — Billing</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
         </div>
 
@@ -251,7 +287,7 @@ export function ProjectView({
 
       <section>
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="eyebrow">04 — Storage</span>
+          <span className="eyebrow">05 — Storage</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
           <Link
             to="/projects/$projectSlug/files"
@@ -283,7 +319,7 @@ export function ProjectView({
 
       <section>
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="eyebrow">05 — Users</span>
+          <span className="eyebrow">06 — Users</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
           {!usersQuery.isLoading && users.length > 0 ? (
             <span className="eyebrow text-muted-soft tabular">
