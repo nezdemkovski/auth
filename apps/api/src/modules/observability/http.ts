@@ -1,23 +1,31 @@
 import {
   ObservabilityComponent,
   ObservabilityServiceError,
-  parseObservabilitySettingsPatch
+  parseObservabilitySettingsPatch,
+  type ObservabilityService
 } from "@nezdemkovski/auth-observability";
+import type { Hono } from "hono";
 
 import {
   auditLog,
   domainErrorResponse,
   parseJson,
   requireAdmin,
-  type AdminRouteRegistration
+  type AdminRegistryOptions
 } from "../../http/admin/shared";
 import { ErrorCode } from "../../runtime/error-codes";
 
-export const registerObservabilityRoutes: AdminRouteRegistration = ({
+type ObservabilityRouteContext = {
+  app: Hono;
+  options: AdminRegistryOptions;
+  observabilityService: ObservabilityService;
+};
+
+export const registerObservabilityRoutes = ({
   app,
   options,
   observabilityService
-}) => {
+}: ObservabilityRouteContext) => {
   app.get("/observability-config", (c) => {
     return c.json({
       observability: observabilityService.publicConfig()

@@ -1,6 +1,11 @@
 import type { RegisteredProject } from "../../auth/registry";
+import type { AuthProject } from "../../config/projects";
 import { ErrorCode } from "../../runtime/error-codes";
-import type { AdminApiOptions } from "./context";
+import type { AdminRegistryOptions } from "./session";
+
+export type AdminProjectLookupOptions = AdminRegistryOptions & {
+  adminProject: Pick<AuthProject, "slug">;
+};
 
 export type AdminRouteError = {
   error: ErrorCode.UnknownProject | ErrorCode.SystemProjectLocked;
@@ -15,7 +20,10 @@ export type AdminProjectLookup =
     }
   | AdminRouteError;
 
-export const requireRegisteredProject = (options: AdminApiOptions, slug: string) => {
+export const requireRegisteredProject = (
+  options: AdminRegistryOptions,
+  slug: string
+) => {
   const registered = options.registry.get(slug);
   if (!registered) {
     const result: AdminProjectLookup = {
@@ -31,7 +39,10 @@ export const requireRegisteredProject = (options: AdminApiOptions, slug: string)
   return result;
 };
 
-export const requireMutableProject = (options: AdminApiOptions, slug: string) => {
+export const requireMutableProject = (
+  options: AdminProjectLookupOptions,
+  slug: string
+) => {
   const result = requireRegisteredProject(options, slug);
   if (result.error) {
     return result;

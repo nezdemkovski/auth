@@ -1,8 +1,10 @@
 import {
   BillingServiceError,
   parseBillingSettingsPatch,
-  parseCreatePolarProduct
+  parseCreatePolarProduct,
+  type BillingService
 } from "@nezdemkovski/auth-billing";
+import type { Hono } from "hono";
 import {
   auditLog,
   domainErrorResponse,
@@ -10,15 +12,21 @@ import {
   requireAdmin,
   requireMutableProject,
   requireRegisteredProject,
-  type AdminRouteRegistration
+  type AdminProjectLookupOptions
 } from "../../http/admin/shared";
 import { ErrorCode } from "../../runtime/error-codes";
 
-export const registerBillingRoutes: AdminRouteRegistration = ({
+type BillingRouteContext = {
+  app: Hono;
+  options: AdminProjectLookupOptions;
+  billingService: BillingService;
+};
+
+export const registerBillingRoutes = ({
   app,
   options,
   billingService
-}) => {
+}: BillingRouteContext) => {
   app.get("/projects/:project/billing", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {

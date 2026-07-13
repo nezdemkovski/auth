@@ -132,7 +132,8 @@
   delivery and billing enter only through app-owned composition functions.
 - Realm metadata, feature policy, social-provider configuration, validation,
   and persistence extracted into private compiled `@nezdemkovski/auth-realm`;
-  app-level project responses still compose billing and storage explicitly.
+  the app-level runtime catalog composes billing and storage explicitly, while
+  the admin project translator combines only realm and identity read models.
 - Billing and entitlements extracted into private compiled
   `@nezdemkovski/auth-billing`: Polar settings and webhooks, product mapping,
   grants, quota usage and reservations live behind explicit ports without

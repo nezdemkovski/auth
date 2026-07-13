@@ -184,6 +184,34 @@ describe("repository security controls", () => {
     }
   });
 
+  test("keeps admin HTTP route dependencies capability-local", async () => {
+    const sharedContext = await read("apps/api/src/http/admin/context.ts");
+    const sharedExports = await read("apps/api/src/http/admin/shared.ts");
+    const routePaths = [
+      "apps/api/src/modules/admin-account/http.ts",
+      "apps/api/src/modules/billing/http.ts",
+      "apps/api/src/modules/delivery/http.ts",
+      "apps/api/src/modules/observability/http.ts",
+      "apps/api/src/modules/projects/http.ts",
+      "apps/api/src/modules/storage/http.ts",
+      "apps/api/src/modules/users/http.ts"
+    ];
+
+    expect(sharedContext).not.toContain("AdminRouteContext");
+    expect(sharedContext).not.toContain("AdminRouteRegistration");
+    expect(sharedExports).not.toContain("AdminRouteContext");
+    expect(sharedExports).not.toContain("AdminRouteRegistration");
+    for (const path of routePaths) {
+      expect(await read(path)).not.toContain("AdminRouteRegistration");
+    }
+
+    expect(
+      await Bun.file(
+        rootFile("apps/api/src/application/admin-project-translator.ts")
+      ).exists()
+    ).toBe(true);
+  });
+
   test("does not mask integration dependency health failures", async () => {
     const compose = await read("dev/docker-compose.integration.yml");
 

@@ -16,9 +16,10 @@ only when:
 - the API and frontend apps compose capabilities without becoming their hidden
   shared implementation.
 
-Billing, storage, delivery, observability, realm management, and identity must
-remain realm-isolated. Extracting packages must never create shared users,
-balances, provider credentials, or configuration across realms.
+Realm-scoped identity, billing, storage, and realm management must remain
+realm-isolated. Delivery and observability are intentionally platform-scoped in
+the current product. Extracting packages must preserve those scopes rather than
+silently sharing realm data or inventing per-realm semantics.
 
 ## First-Principles Rules
 
@@ -213,9 +214,9 @@ Package API rules:
   and realm enums are owned by their closest stable package.
 - [x] Stop database bootstrap from knowing domain table details. Each domain
   exports one migration/bootstrap entrypoint and the app composes them.
-- [ ] Remove shared admin HTTP context types that enumerate every service when a
+- [x] Remove shared admin HTTP context types that enumerate every service when a
   route only needs one capability.
-- [ ] Replace cross-domain DTO shaping with an explicit app-level aggregate
+- [x] Replace cross-domain DTO shaping with an explicit app-level aggregate
   translator where a response intentionally combines capabilities.
 
 ## Phase 0: Freeze Behavior and Map Boundaries
@@ -354,8 +355,10 @@ Migrate one domain at a time and keep every move behavior-preserving.
 
 - [x] Extract realm metadata and realm settings ownership from the current
   project module.
-- [ ] Keep aggregate admin responses in an app-level query that explicitly
-  combines realm, billing, storage, delivery, and observability state.
+- [x] Keep aggregate admin responses in an app-level translator or query. The
+  project response intentionally combines realm and identity state; billing,
+  storage, delivery, and observability keep capability-owned DTOs until an API
+  response actually needs to aggregate them.
 - [x] Extract identity administration around Better Auth-owned user/session
   data without copying Better Auth models into a parallel domain model.
 - [x] Extract per-realm Better Auth construction, policy, registry, Telegram

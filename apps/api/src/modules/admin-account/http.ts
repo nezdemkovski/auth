@@ -1,28 +1,40 @@
-import type { RegisteredProject } from "../../auth/registry";
 import {
   AdminAccountServiceError,
   getProfileCurrentPassword,
   parseAdminProfilePatch,
-  parseChangePasswordInput
+  parseChangePasswordInput,
+  type AdminAccountService
 } from "@nezdemkovski/auth-identity";
+import type { Hono } from "hono";
+
+import type { RegisteredProject } from "../../auth/registry";
 import { ADMIN_PROJECT_SLUG } from "../../config/projects";
-import { ErrorCode } from "../../runtime/error-codes";
 import {
   auditLog,
   domainErrorResponse,
   getSession,
   parseJson,
-  type AdminRouteRegistration,
+  type AdminRegistryOptions,
   type AdminSession
 } from "../../http/admin/shared";
+import { ErrorCode } from "../../runtime/error-codes";
 
-export const registerAdminAccountRoutes: AdminRouteRegistration = ({
+type AdminAccountRouteContext = {
+  app: Hono;
+  options: AdminRegistryOptions;
+  adminAccountService: AdminAccountService;
+};
+
+export const registerAdminAccountRoutes = ({
   app,
   options,
   adminAccountService
-}) => {
+}: AdminAccountRouteContext) => {
   app.get("/me", async (c) => {
-    const admin = await requireAdminAccount(options.registry.get(ADMIN_PROJECT_SLUG), c.req.raw.headers);
+    const admin = await requireAdminAccount(
+      options.registry.get(ADMIN_PROJECT_SLUG),
+      c.req.raw.headers
+    );
     if (admin.error) {
       return c.json({ error: admin.error }, admin.status);
     }
@@ -36,7 +48,10 @@ export const registerAdminAccountRoutes: AdminRouteRegistration = ({
   });
 
   app.patch("/profile", async (c) => {
-    const admin = await requireAdminAccount(options.registry.get(ADMIN_PROJECT_SLUG), c.req.raw.headers);
+    const admin = await requireAdminAccount(
+      options.registry.get(ADMIN_PROJECT_SLUG),
+      c.req.raw.headers
+    );
     if (admin.error) {
       return c.json({ error: admin.error }, admin.status);
     }
@@ -76,7 +91,10 @@ export const registerAdminAccountRoutes: AdminRouteRegistration = ({
   });
 
   app.post("/change-password", async (c) => {
-    const admin = await requireAdminAccount(options.registry.get(ADMIN_PROJECT_SLUG), c.req.raw.headers);
+    const admin = await requireAdminAccount(
+      options.registry.get(ADMIN_PROJECT_SLUG),
+      c.req.raw.headers
+    );
     if (admin.error) {
       return c.json({ error: admin.error }, admin.status);
     }

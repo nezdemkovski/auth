@@ -10,10 +10,10 @@ import {
   SocialProvider
 } from "@nezdemkovski/auth-realm";
 
-import { projectResponse } from "../translator";
+import { adminProjectResponse } from "../admin-project-translator";
 
-describe("project translator", () => {
-  test("serializes realm metadata without exposing provider secrets", () => {
+describe("admin project aggregate translator", () => {
+  test("combines realm and identity state without exposing provider secrets", () => {
     const socialProviders = cloneDefaultSocialProviders();
     socialProviders[SocialProvider.GitHub] = {
       ...socialProviders[SocialProvider.GitHub],
@@ -23,7 +23,7 @@ describe("project translator", () => {
       verifiedAt: "2026-05-24T00:00:00.000Z"
     };
 
-    const response = projectResponse(
+    const response = adminProjectResponse(
       {
         slug: "demo",
         schema: "demo_auth",

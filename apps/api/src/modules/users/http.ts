@@ -2,21 +2,30 @@ import {
   IdentityServiceError,
   parseResendVerificationEmail
 } from "@nezdemkovski/auth-identity";
+import type { Hono } from "hono";
+
 import {
   auditLog,
   domainErrorResponse,
   parseJson,
   requireAdmin,
   requireRegisteredProject,
-  type AdminRouteRegistration
+  type AdminRegistryOptions
 } from "../../http/admin/shared";
 import { ErrorCode } from "../../runtime/error-codes";
+import type { UsersService } from "./core";
 
-export const registerUserRoutes: AdminRouteRegistration = ({
+type UserRouteContext = {
+  app: Hono;
+  options: AdminRegistryOptions;
+  usersService: UsersService;
+};
+
+export const registerUserRoutes = ({
   app,
   options,
   usersService
-}) => {
+}: UserRouteContext) => {
   app.get("/projects/:project/users", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {

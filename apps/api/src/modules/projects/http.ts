@@ -4,8 +4,8 @@ import {
   parseRealmSettingsPatch,
   parseSocialProviderPatch
 } from "@nezdemkovski/auth-realm";
-import { ErrorCode } from "../../runtime/error-codes";
-import { ProjectServiceError } from "./core";
+import type { Hono } from "hono";
+
 import {
   auditLog,
   domainErrorResponse,
@@ -13,14 +13,22 @@ import {
   requireAdmin,
   requireMutableProject,
   requireRegisteredProject,
-  type AdminRouteRegistration
+  type AdminProjectLookupOptions
 } from "../../http/admin/shared";
+import { ErrorCode } from "../../runtime/error-codes";
+import { ProjectServiceError, type ProjectService } from "./core";
 
-export const registerProjectRoutes: AdminRouteRegistration = ({
+type ProjectRouteContext = {
+  app: Hono;
+  options: AdminProjectLookupOptions;
+  projectService: ProjectService;
+};
+
+export const registerProjectRoutes = ({
   app,
   options,
   projectService
-}) => {
+}: ProjectRouteContext) => {
   app.get("/projects", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {

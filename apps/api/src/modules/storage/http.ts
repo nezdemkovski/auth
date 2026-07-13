@@ -1,12 +1,14 @@
-import { projectResponse } from "../projects/translator";
 import {
   mediaUploadBodyError,
   MediaUploadBodyError,
   MediaUploadPurpose,
   parseMediaUploadRequest,
-  parseStorageSettingsPatch
+  parseStorageSettingsPatch,
+  type StorageService
 } from "@nezdemkovski/auth-storage";
-import { ErrorCode } from "../../runtime/error-codes";
+import type { Hono } from "hono";
+
+import { adminProjectResponse } from "../../application/admin-project-translator";
 import {
   auditLog,
   mediaUploadError,
@@ -14,15 +16,24 @@ import {
   requireAdmin,
   requireMutableProject,
   requireRegisteredProject,
-  type AdminRouteRegistration
+  type AdminProjectLookupOptions
 } from "../../http/admin/shared";
+import { ErrorCode } from "../../runtime/error-codes";
+import type { MediaService } from "../media/core";
 
-export const registerStorageRoutes: AdminRouteRegistration = ({
+type StorageRouteContext = {
+  app: Hono;
+  options: AdminProjectLookupOptions;
+  mediaService: MediaService;
+  storageService: StorageService;
+};
+
+export const registerStorageRoutes = ({
   app,
   options,
   mediaService,
   storageService
-}) => {
+}: StorageRouteContext) => {
   app.get("/projects/:project/storage", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
@@ -144,7 +155,7 @@ export const registerStorageRoutes: AdminRouteRegistration = ({
 
       return c.json({
         upload: result.upload,
-        project: result.project ? projectResponse(result.project) : null
+        project: result.project ? adminProjectResponse(result.project) : null
       });
     } catch (error) {
       return mediaUploadError(error);

@@ -1,22 +1,11 @@
-import type { Hono } from "hono";
-import type {
-  DeliveryService,
-  EmailConfig
-} from "@nezdemkovski/auth-delivery";
-import type {
-  ObservabilityReporter,
-  ObservabilityService
-} from "@nezdemkovski/auth-observability";
+import type { EmailConfig } from "@nezdemkovski/auth-delivery";
+import type { ObservabilityReporter } from "@nezdemkovski/auth-observability";
 import type { StorageService } from "@nezdemkovski/auth-storage";
-import type { BillingService } from "@nezdemkovski/auth-billing";
-import type { AdminAccountService } from "@nezdemkovski/auth-identity";
 
 import type { AuthRegistry } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import type { AdminDatabase } from "../../db/admin-pool";
 import type { MediaService } from "../../modules/media/core";
-import type { ProjectService } from "../../modules/projects/core";
-import type { UsersService } from "../../modules/users/core";
 
 export type AdminApiOptions = {
   registry: AuthRegistry;
@@ -32,18 +21,3 @@ export type AdminApiOptions = {
   mediaService: MediaService;
   storageService: StorageService;
 };
-
-export type AdminRouteContext = {
-  app: Hono;
-  options: AdminApiOptions;
-  adminAccountService: AdminAccountService;
-  billingService: BillingService;
-  deliveryService: DeliveryService;
-  observabilityService: ObservabilityService;
-  mediaService: MediaService;
-  projectService: ProjectService;
-  storageService: StorageService;
-  usersService: UsersService;
-};
-
-export type AdminRouteRegistration = (context: AdminRouteContext) => void;

@@ -22,7 +22,8 @@ import { ErrorCode } from "../../runtime/error-codes";
 import { prepareProjectSchema } from "../../db/bootstrap";
 import type { AdminDatabase } from "../../db/admin-pool";
 import { isPostgresUniqueViolation } from "../../db/errors";
-import { projectResponse, socialProvidersResponse } from "./translator";
+import { adminProjectResponse } from "../../application/admin-project-translator";
+import { socialProvidersResponse } from "./translator";
 import {
   cloneDefaultStorage
 } from "@nezdemkovski/auth-storage";
@@ -62,7 +63,7 @@ export class ProjectService {
         }
 
         const counts = await readIdentityCounts(registered.projectDb.pool);
-        return projectResponse(project, counts, this.options.publicBaseUrl);
+        return adminProjectResponse(project, counts, this.options.publicBaseUrl);
       })
     );
 
@@ -124,7 +125,7 @@ export class ProjectService {
         project
       });
       await this.options.registry.updateProject(createdProject);
-      return this.projectResponseWithCounts(createdProject);
+      return this.adminProjectResponseWithCounts(createdProject);
     } catch (error) {
       if (settingsCreated) {
         await deleteRealmSettings({
@@ -198,7 +199,7 @@ export class ProjectService {
       };
       await this.options.registry.updateProject(nextProject);
 
-      return this.projectResponseWithCounts(nextProject);
+      return this.adminProjectResponseWithCounts(nextProject);
     } catch (error) {
       if (error instanceof ProjectServiceError) {
         throw error;
@@ -307,10 +308,10 @@ export class ProjectService {
     };
   }
 
-  private async projectResponseWithCounts(project: AuthProject) {
+  private async adminProjectResponseWithCounts(project: AuthProject) {
     const registered = this.options.registry.get(project.slug);
     const counts = registered ? await readIdentityCounts(registered.projectDb.pool) : undefined;
-    return projectResponse(project, counts, this.options.publicBaseUrl);
+    return adminProjectResponse(project, counts, this.options.publicBaseUrl);
   }
 }
 

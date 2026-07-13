@@ -1,22 +1,30 @@
 import {
   DeliveryServiceError,
-  parseDeliverySettingsPatch
+  parseDeliverySettingsPatch,
+  type DeliveryService
 } from "@nezdemkovski/auth-delivery";
+import type { Hono } from "hono";
 
 import {
   auditLog,
   domainErrorResponse,
   parseJson,
   requireAdmin,
-  type AdminRouteRegistration
+  type AdminRegistryOptions
 } from "../../http/admin/shared";
 import { ErrorCode } from "../../runtime/error-codes";
 
-export const registerDeliveryRoutes: AdminRouteRegistration = ({
+type DeliveryRouteContext = {
+  app: Hono;
+  options: AdminRegistryOptions;
+  deliveryService: DeliveryService;
+};
+
+export const registerDeliveryRoutes = ({
   app,
   options,
   deliveryService
-}) => {
+}: DeliveryRouteContext) => {
   app.get("/delivery-settings", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
     if (!admin) {
