@@ -2,12 +2,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import {
-  createOAuthClient,
+  createAuthConnection,
   createPolarProduct,
-  deleteOAuthClient,
+  deleteAuthConnection,
   resendVerificationEmail,
-  rotateOAuthClientSecret,
-  setOAuthClientDisabled,
+  rotateAuthConnectionCredential,
+  setAuthConnectionDisabled,
   terminateUserSessions,
   updateBillingSettings,
   updateProjectSettings,
@@ -21,7 +21,7 @@ import { adminQueryKeys } from "../queryKeys";
 import { notifyError, notifySuccess } from "../toast";
 import type {
   BillingSettingsPatch,
-  CreateOAuthClientInput,
+  CreateAuthConnectionInput,
   CreatePolarProductInput,
   ProjectSettingsPatch,
   SocialProviderId,
@@ -138,65 +138,70 @@ export const useProjectRouteMutations = () => {
       );
     }
   });
-  const oauthClientCreate = useMutation({
-    mutationFn: (input: { project: string; client: CreateOAuthClientInput }) =>
-      createOAuthClient(input),
+  const authConnectionCreate = useMutation({
+    mutationFn: (input: {
+      project: string;
+      connection: CreateAuthConnectionInput;
+    }) => createAuthConnection(input),
     onSuccess: async (_data, variables) => {
-      notifySuccess("OAuth client created");
+      notifySuccess("Connection created");
       await queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.oauthClients(variables.project)
+        queryKey: adminQueryKeys.authConnections(variables.project)
+      });
+      await queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.projects()
       });
     },
     onError: (caught) => {
       notifyError(
-        "Could not create OAuth client",
+        "Could not create connection",
         caught instanceof Error ? caught.message : undefined
       );
     }
   });
-  const oauthClientToggle = useMutation({
-    mutationFn: setOAuthClientDisabled,
+  const authConnectionToggle = useMutation({
+    mutationFn: setAuthConnectionDisabled,
     onSuccess: async (_data, variables) => {
       notifySuccess(
-        variables.disabled ? "OAuth client disabled" : "OAuth client enabled"
+        variables.disabled ? "Connection disabled" : "Connection enabled"
       );
       await queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.oauthClients(variables.project)
+        queryKey: adminQueryKeys.authConnections(variables.project)
       });
     },
     onError: (caught) => {
       notifyError(
-        "Could not update OAuth client",
+        "Could not update connection",
         caught instanceof Error ? caught.message : undefined
       );
     }
   });
-  const oauthClientSecretRotate = useMutation({
-    mutationFn: rotateOAuthClientSecret,
+  const authConnectionCredentialRotate = useMutation({
+    mutationFn: rotateAuthConnectionCredential,
     onSuccess: async (_data, variables) => {
-      notifySuccess("OAuth client secret rotated");
+      notifySuccess("Credential rotated");
       await queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.oauthClients(variables.project)
+        queryKey: adminQueryKeys.authConnections(variables.project)
       });
     },
     onError: (caught) => {
       notifyError(
-        "Could not rotate OAuth client secret",
+        "Could not rotate credential",
         caught instanceof Error ? caught.message : undefined
       );
     }
   });
-  const oauthClientDelete = useMutation({
-    mutationFn: deleteOAuthClient,
+  const authConnectionDelete = useMutation({
+    mutationFn: deleteAuthConnection,
     onSuccess: async (_data, variables) => {
-      notifySuccess("OAuth client deleted");
+      notifySuccess("Connection deleted");
       await queryClient.invalidateQueries({
-        queryKey: adminQueryKeys.oauthClients(variables.project)
+        queryKey: adminQueryKeys.authConnections(variables.project)
       });
     },
     onError: (caught) => {
       notifyError(
-        "Could not delete OAuth client",
+        "Could not delete connection",
         caught instanceof Error ? caught.message : undefined
       );
     }
@@ -304,10 +309,10 @@ export const useProjectRouteMutations = () => {
     updateProject,
     socialProviderUpdate,
     socialProviderVerify,
-    oauthClientCreate,
-    oauthClientToggle,
-    oauthClientSecretRotate,
-    oauthClientDelete,
+    authConnectionCreate,
+    authConnectionToggle,
+    authConnectionCredentialRotate,
+    authConnectionDelete,
     billingUpdate,
     billingVerify,
     storageUpdate,

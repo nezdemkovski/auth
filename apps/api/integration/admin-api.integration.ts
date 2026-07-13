@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { EmailProvider } from "@nezdemkovski/auth-delivery";
 import { ObservabilityProvider } from "@nezdemkovski/auth-observability";
-import { OAuthClientProfile } from "@nezdemkovski/auth-oauth-client-management";
 import {
   RealmAgentAuthMode,
   RealmTwoFactorRequirement
@@ -17,6 +16,10 @@ import {
   resetIntegrationDatabase
 } from "./setup";
 import { DIRECT_CLIENT_IP_HEADER } from "../src/http/security";
+import {
+  AuthConnectionKind,
+  ServicePermission
+} from "../src/modules/auth-connections/model";
 
 describe("admin API integration", () => {
   beforeEach(async () => {
@@ -203,7 +206,7 @@ describe("admin API integration", () => {
     }
   });
 
-  test("manages realm-owned OAuth clients without a realm user owner", async () => {
+  test("manages realm connections without exposing OAuth protocol controls", async () => {
     const { app, registry, close } = await createIntegrationApp();
 
     try {
@@ -216,40 +219,34 @@ describe("admin API integration", () => {
       const createdProject = await app.request("/admin/api/projects", {
         method: "POST",
         headers: adminHeaders(cookie),
-        body: JSON.stringify({
-          ...projectCreateBody(projectSlug),
-          features: {
-            oauthProvider: {
-              enabled: true,
-              dynamicClientRegistration: false
-            }
-          }
-        })
+        body: JSON.stringify(projectCreateBody(projectSlug))
       });
       expect(createdProject.status).toBe(201);
 
       const billingResource = `${integrationPublicBaseUrl}/api/${projectSlug}/billing`;
       const created = await app.request(
-        `/admin/api/projects/${projectSlug}/oauth-clients`,
+        `/admin/api/projects/${projectSlug}/auth-connections`,
         {
           method: "POST",
           headers: adminHeaders(cookie),
           body: JSON.stringify({
             name: "Demo Worker",
-            profile: OAuthClientProfile.Service,
-            scopes: ["billing:usage:write"],
-            resources: [billingResource]
+            kind: AuthConnectionKind.Service,
+            permissions: [ServicePermission.BillingUsageWrite]
           })
         }
       );
       expect(created.status).toBe(201);
+      expect(
+        registry.get(projectSlug)?.project.features.oauthProvider.enabled
+      ).toBe(true);
       const initialCredential = readOAuthCredential(
         await readIntegrationJson(created)
       );
       expect(initialCredential.clientSecret).toMatch(/^[A-Za-z0-9_-]+$/);
 
       const listed = await app.request(
-        `/admin/api/projects/${projectSlug}/oauth-clients`,
+        `/admin/api/projects/${projectSlug}/auth-connections`,
         {
           headers: {
             Cookie: cookie,
@@ -260,23 +257,30 @@ describe("admin API integration", () => {
       expect(listed.status).toBe(200);
       const listedBody = await readIntegrationJson(listed);
       expect(listedBody).toMatchObject({
-        clients: [
+        connections: [
           {
             clientId: initialCredential.clientId,
             name: "Demo Worker",
-            profile: OAuthClientProfile.Service,
-            resources: [billingResource],
-            secretConfigured: true,
+            kind: AuthConnectionKind.Service,
+            permissions: [ServicePermission.BillingUsageWrite],
+            canRotateCredential: true,
             disabled: false
           }
-        ]
+        ],
+        catalog: {
+          servicePermissions: [
+            { id: ServicePermission.BillingUsageWrite }
+          ]
+        }
       });
       expect(JSON.stringify(listedBody)).not.toContain(
         initialCredential.clientSecret
       );
+      expect(JSON.stringify(listedBody)).not.toContain('"scopes"');
+      expect(JSON.stringify(listedBody)).not.toContain('"resources"');
 
       const updated = await app.request(
-        `/admin/api/projects/${projectSlug}/oauth-clients/${initialCredential.clientId}`,
+        `/admin/api/projects/${projectSlug}/auth-connections/${initialCredential.clientId}`,
         {
           method: "PATCH",
           headers: adminHeaders(cookie),
@@ -285,14 +289,14 @@ describe("admin API integration", () => {
       );
       expect(updated.status).toBe(200);
       expect(await readIntegrationJson(updated)).toMatchObject({
-        client: {
+        connection: {
           clientId: initialCredential.clientId,
           name: "Updated Demo Worker"
         }
       });
 
       const fetched = await app.request(
-        `/admin/api/projects/${projectSlug}/oauth-clients/${initialCredential.clientId}`,
+        `/admin/api/projects/${projectSlug}/auth-connections/${initialCredential.clientId}`,
         {
           headers: {
             Cookie: cookie,
@@ -302,7 +306,7 @@ describe("admin API integration", () => {
       );
       expect(fetched.status).toBe(200);
       expect(await readIntegrationJson(fetched)).toMatchObject({
-        client: {
+        connection: {
           clientId: initialCredential.clientId,
           name: "Updated Demo Worker"
         }
@@ -317,7 +321,7 @@ describe("admin API integration", () => {
       ).toBe(200);
 
       const rotated = await app.request(
-        `/admin/api/projects/${projectSlug}/oauth-clients/${initialCredential.clientId}/rotate-secret`,
+        `/admin/api/projects/${projectSlug}/auth-connections/${initialCredential.clientId}/rotate-credential`,
         {
           method: "POST",
           headers: adminHeaders(cookie)
@@ -348,7 +352,7 @@ describe("admin API integration", () => {
       ).toBe(200);
 
       const disabled = await app.request(
-        `/admin/api/projects/${projectSlug}/oauth-clients/${initialCredential.clientId}/disable`,
+        `/admin/api/projects/${projectSlug}/auth-connections/${initialCredential.clientId}/disable`,
         {
           method: "POST",
           headers: adminHeaders(cookie)
@@ -356,7 +360,7 @@ describe("admin API integration", () => {
       );
       expect(disabled.status).toBe(200);
       expect(await readIntegrationJson(disabled)).toMatchObject({
-        client: { disabled: true }
+        connection: { disabled: true }
       });
       expect(
         await exchangeClientCredentials({
@@ -368,7 +372,7 @@ describe("admin API integration", () => {
       ).not.toBe(200);
 
       const enabled = await app.request(
-        `/admin/api/projects/${projectSlug}/oauth-clients/${initialCredential.clientId}/enable`,
+        `/admin/api/projects/${projectSlug}/auth-connections/${initialCredential.clientId}/enable`,
         {
           method: "POST",
           headers: adminHeaders(cookie)
@@ -376,7 +380,7 @@ describe("admin API integration", () => {
       );
       expect(enabled.status).toBe(200);
       expect(await readIntegrationJson(enabled)).toMatchObject({
-        client: { disabled: false }
+        connection: { disabled: false }
       });
       expect(
         await exchangeClientCredentials({
@@ -388,7 +392,7 @@ describe("admin API integration", () => {
       ).toBe(200);
 
       const deleted = await app.request(
-        `/admin/api/projects/${projectSlug}/oauth-clients/${initialCredential.clientId}`,
+        `/admin/api/projects/${projectSlug}/auth-connections/${initialCredential.clientId}`,
         {
           method: "DELETE",
           headers: adminHeaders(cookie)
@@ -397,7 +401,7 @@ describe("admin API integration", () => {
       expect(deleted.status).toBe(204);
 
       const missing = await app.request(
-        `/admin/api/projects/${projectSlug}/oauth-clients/${initialCredential.clientId}`,
+        `/admin/api/projects/${projectSlug}/auth-connections/${initialCredential.clientId}`,
         {
           headers: {
             Cookie: cookie,

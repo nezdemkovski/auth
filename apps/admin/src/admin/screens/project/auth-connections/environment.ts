@@ -1,15 +1,15 @@
 import {
-  OAuthClientProfile,
-  type OAuthClientCredential
+  AuthConnectionKind,
+  type AuthConnectionCredential
 } from "../../../types";
 
-export const buildOAuthClientEnvironment = (input: {
+export const buildAuthConnectionEnvironment = (input: {
   issuer: string;
-  profile: OAuthClientProfile;
-  credential: OAuthClientCredential;
+  kind: AuthConnectionKind;
+  credential: AuthConnectionCredential;
 }) => {
   const prefix =
-    input.profile === OAuthClientProfile.Service ? "AUTH_SERVICE" : "AUTH";
+    input.kind === AuthConnectionKind.Service ? "AUTH_SERVICE" : "AUTH";
   const lines = [
     `AUTH_ISSUER=${input.issuer}`,
     `${prefix}_CLIENT_ID=${input.credential.clientId}`

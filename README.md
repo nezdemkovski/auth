@@ -202,23 +202,30 @@ The central realm session cookie stays on the auth origin. Product browser code
 does not store central access tokens, refresh tokens, PKCE state, or a copied
 central session credential.
 
-## OAuth Provider and MCP
+## Authentication Connections and MCP
 
 Realms can expose OAuth/OIDC endpoints for first-party apps and remote MCP
 clients. OAuth clients authenticate against the same realm-local user pool as
 the login flow.
 
-Admin-created OAuth clients belong to the realm, not to a user account. The
-authenticated admin API exposes lifecycle routes under
-`/admin/api/projects/<realm>/oauth-clients` for product web, public/MCP, and
-service profiles. Confidential client secrets are returned only when a client
-is created or its secret is rotated; list and detail responses expose only
-`secretConfigured`.
+The normal admin surface models two user intentions: connecting a product
+backend for user sign-in, and creating a service credential for trusted
+server-to-server access. The authenticated admin API exposes them under
+`/admin/api/projects/<realm>/auth-connections`. It accepts a backend URL or
+named service permissions; OAuth profiles, redirect paths, scopes, resources,
+PKCE, and consent policy are derived on the server and are not public form
+controls. Creating the first connection enables the realm's OAuth provider.
 
-Dynamic Client Registration can be enabled per realm. When enabled, compatible
-OAuth clients, including MCP clients, can register themselves and receive a
-client ID. Registration only creates client metadata; users still approve access
-through the consent screen.
+Connections belong to the realm, not to a user account. Confidential secrets
+are returned only when a connection is created or its credential is rotated.
+List and detail responses expose the product intent, callback, named
+permissions, and lifecycle state without leaking raw protocol configuration.
+
+Public clients and Dynamic Client Registration are advanced protocol features,
+not part of ordinary product onboarding. When Dynamic Client Registration is
+enabled through realm configuration, compatible OAuth clients, including MCP
+clients, can register themselves and receive a client ID. Registration only
+creates client metadata; users still approve access through the consent screen.
 
 OAuth resource identifiers are not inferred from browser trusted origins. A
 client may request `resource=` only after that exact Better Auth OAuth resource

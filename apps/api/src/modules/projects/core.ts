@@ -212,6 +212,38 @@ export class ProjectService {
     }
   }
 
+  async enableOAuthProvider(registered: RegisteredProject) {
+    if (registered.project.features.oauthProvider.enabled) {
+      return registered;
+    }
+
+    const project = registered.project;
+    await this.updateProject(registered, {
+      name: project.name,
+      description: project.description,
+      iconUrl: project.iconUrl,
+      appUrl: project.appUrl,
+      trustedOrigins: project.trustedOrigins,
+      features: {
+        ...project.features,
+        oauthProvider: {
+          ...project.features.oauthProvider,
+          enabled: true
+        }
+      }
+    });
+
+    const enabled = this.options.registry.get(project.slug);
+    if (!enabled) {
+      throw new ProjectServiceError(
+        ErrorCode.UnknownProject,
+        404,
+        "Unknown project"
+      );
+    }
+    return enabled;
+  }
+
   async readSocialProviders(project: AuthProject) {
     const providers = await readRealmSocialProviders({
       databaseUrl: this.options.databaseUrl,

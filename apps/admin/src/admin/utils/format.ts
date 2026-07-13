@@ -53,7 +53,6 @@ export function projectToSettingsForm(project: ProjectSummary) {
     twoFactorRequired: project.features.twoFactor.required,
     agentAuthEnabled: project.features.agentAuth.enabled,
     agentAuthMode: project.features.agentAuth.mode,
-    oauthProviderEnabled: project.features.oauthProvider.enabled,
     oauthDynamicClientRegistration:
       project.features.oauthProvider.dynamicClientRegistration
   };

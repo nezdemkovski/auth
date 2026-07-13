@@ -90,7 +90,7 @@ export function ProjectSettingsForm({
           mode: form.agentAuthMode
         },
         oauthProvider: {
-          enabled: form.oauthProviderEnabled,
+          enabled: project.features.oauthProvider.enabled,
           dynamicClientRegistration: form.oauthDynamicClientRegistration
         }
       }
@@ -204,51 +204,64 @@ export function ProjectSettingsForm({
             onChange={(checked) => update("twoFactorEnabled", checked)}
           />
 
-          <SelectField
-            label="Two-factor requirement"
-            value={form.twoFactorRequired}
-            disabled={project.system || !form.twoFactorEnabled}
-            options={TWO_FACTOR_REQUIREMENT_OPTIONS}
-            className="pl-8 md:max-w-[20rem]"
-            onChange={(value) =>
-              update("twoFactorRequired", parseTwoFactorRequirement(value))
-            }
-          />
-
-          <FeatureToggle
-            label="Agent Auth"
-            description="Allow AI agents to request scoped access through the Agent Auth protocol."
-            checked={form.agentAuthEnabled}
-            disabled={project.system}
-            onChange={(checked) => update("agentAuthEnabled", checked)}
-          />
-
-          <SelectField
-            label="Agent access mode"
-            value={form.agentAuthMode}
-            disabled={project.system || !form.agentAuthEnabled}
-            options={AGENT_ACCESS_MODE_OPTIONS}
-            className="pl-8 md:max-w-[20rem]"
-            onChange={(value) => update("agentAuthMode", parseAgentAccessMode(value))}
-          />
-
-          <FeatureToggle
-            label="OAuth provider"
-            description="Expose OAuth 2.1 and OpenID Connect endpoints for this realm."
-            checked={form.oauthProviderEnabled}
-            disabled={project.system}
-            onChange={(checked) => update("oauthProviderEnabled", checked)}
-          />
-
-          <FeatureToggle
-            label="Dynamic client registration"
-            description="Allow compatible OAuth clients, including MCP clients, to register themselves and receive a client ID."
-            checked={form.oauthDynamicClientRegistration}
-            disabled={project.system || !form.oauthProviderEnabled}
-            onChange={(checked) => update("oauthDynamicClientRegistration", checked)}
-            inset
-          />
+          {form.twoFactorEnabled ? (
+            <SelectField
+              label="Who must use two-factor authentication?"
+              value={form.twoFactorRequired}
+              disabled={project.system}
+              options={TWO_FACTOR_REQUIREMENT_OPTIONS}
+              className="pl-8 md:max-w-[20rem]"
+              onChange={(value) =>
+                update("twoFactorRequired", parseTwoFactorRequirement(value))
+              }
+            />
+          ) : null}
         </div>
+
+        <details className="mt-4 rounded-lg border border-border bg-surface">
+          <summary className="flex min-h-11 cursor-pointer select-none items-center px-3 text-[12.5px] font-medium text-ink-soft outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
+            Advanced features
+          </summary>
+          <div className="grid gap-3 border-t border-border p-3">
+            <FeatureToggle
+              label="Agent Auth"
+              description="Allow AI agents to request scoped access through the Agent Auth protocol."
+              checked={form.agentAuthEnabled}
+              disabled={project.system}
+              onChange={(checked) => update("agentAuthEnabled", checked)}
+            />
+
+            {form.agentAuthEnabled ? (
+              <SelectField
+                label="Agent access mode"
+                value={form.agentAuthMode}
+                disabled={project.system}
+                options={AGENT_ACCESS_MODE_OPTIONS}
+                className="pl-8 md:max-w-[20rem]"
+                onChange={(value) =>
+                  update("agentAuthMode", parseAgentAccessMode(value))
+                }
+              />
+            ) : null}
+
+            <FeatureToggle
+              label="Dynamic client registration"
+              description="Allow compatible third-party and MCP clients to register themselves. Normal app connections do not need this."
+              checked={form.oauthDynamicClientRegistration}
+              disabled={
+                project.system || !project.features.oauthProvider.enabled
+              }
+              onChange={(checked) =>
+                update("oauthDynamicClientRegistration", checked)
+              }
+            />
+            {!project.features.oauthProvider.enabled ? (
+              <p className="px-3 text-[11.5px] leading-5 text-muted">
+                Connect an app or service before enabling protocol extensions.
+              </p>
+            ) : null}
+          </div>
+        </details>
       </section>
 
       <div className="flex justify-end">

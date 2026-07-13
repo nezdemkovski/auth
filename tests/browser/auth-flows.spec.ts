@@ -86,10 +86,11 @@ test("a protected admin API 401 clears the shell and returns to sign in", async 
   await expect(page.getByRole("heading", { name: /Overview/ })).not.toBeVisible();
 });
 
-test("admin creates an OAuth client and receives copy-ready environment variables", async ({
+test("admin connects an app without configuring OAuth internals", async ({
   page
 }) => {
-  const clients: Array<Record<string, unknown>> = [];
+  const connections: Array<Record<string, unknown>> = [];
+  let createBody = "";
   await mockAdminObservability(page);
   await page.route("**/admin/api/me", (route) =>
     route.fulfill({
@@ -117,7 +118,7 @@ test("admin creates an OAuth client and receives copy-ready environment variable
               twoFactor: { enabled: false, required: "optional" },
               agentAuth: { enabled: false, mode: "read-only" },
               oauthProvider: {
-                enabled: true,
+                enabled: false,
                 dynamicClientRegistration: false
               }
             },
@@ -142,31 +143,26 @@ test("admin creates an OAuth client and receives copy-ready environment variable
   await page.route("**/admin/api/projects/demo/storage", (route) =>
     route.fulfill({ status: 500 })
   );
-  await page.route("**/admin/api/projects/demo/oauth-clients", async (route) => {
+  await page.route("**/admin/api/projects/demo/auth-connections", async (route) => {
     if (route.request().method() === "POST") {
-      const client = {
+      createBody = route.request().postData() ?? "";
+      const connection = {
         clientId: "demo-client",
         name: "Demo product backend",
-        profile: "web",
-        redirectUris: [
-          "https://api.demo.example.com/api/auth/oauth2/callback/auth-platform"
-        ],
-        postLogoutRedirectUris: [],
-        scopes: ["openid", "profile", "email", "offline_access"],
-        resources: [],
+        kind: "application",
+        callbackUrl:
+          "https://api.demo.example.com/api/auth/oauth2/callback/auth-platform",
+        permissions: [],
         disabled: false,
-        public: false,
-        skipConsent: true,
-        requirePkce: true,
-        secretConfigured: true,
+        canRotateCredential: true,
         createdAt: "2026-07-13T00:00:00.000Z",
         updatedAt: "2026-07-13T00:00:00.000Z"
       };
-      clients.push(client);
+      connections.push(connection);
       return route.fulfill({
         status: 201,
         json: {
-          client,
+          connection,
           credential: {
             clientId: "demo-client",
             clientSecret: "demo-secret"
@@ -174,20 +170,46 @@ test("admin creates an OAuth client and receives copy-ready environment variable
         }
       });
     }
-    return route.fulfill({ json: { clients } });
+    return route.fulfill({
+      json: {
+        connections,
+        catalog: {
+          servicePermissions: [
+            {
+              id: "billing_usage_write",
+              name: "Record billing usage",
+              description: "Allow a trusted backend to manage user quotas."
+            }
+          ]
+        }
+      }
+    });
   });
 
   await page.goto("http://127.0.0.1:5173/admin/projects/demo");
 
-  await expect(page.getByRole("heading", { name: "OAuth clients" })).toBeVisible();
-  await page.getByLabel("Client name").fill("Demo product backend");
-  await page
-    .getByLabel(/Redirect URIs/)
-    .fill("https://api.demo.example.com/api/auth/oauth2/callback/auth-platform");
-  await page.getByRole("button", { name: "Create client" }).click();
+  await expect(page.getByRole("heading", { name: "Connections" })).toBeVisible();
+  await expect(page.getByLabel("Client profile")).not.toBeVisible();
+  await expect(page.getByLabel(/Scopes/)).not.toBeVisible();
+  await expect(page.getByLabel(/Resources/)).not.toBeVisible();
+  await expect(page.getByText("Skip consent")).not.toBeVisible();
 
-  await expect(page.getByText("Credentials for Demo product backend")).toBeVisible();
+  await page.getByRole("button", { name: /Add sign-in to an app/ }).click();
+  await page.getByLabel("App name").fill("Demo product backend");
+  await page.getByLabel("Backend URL").fill("https://api.demo.example.com");
+  await expect(
+    page.getByText(
+      "https://api.demo.example.com/api/auth/oauth2/callback/auth-platform"
+    )
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Connect app" }).click();
+
+  await expect(page.getByText("Demo product backend is ready")).toBeVisible();
   await expect(page.getByText("AUTH_CLIENT_ID=demo-client", { exact: false })).toBeVisible();
   await expect(page.getByText("AUTH_CLIENT_SECRET=demo-secret", { exact: false })).toBeVisible();
-  await expect(page.getByText("demo-client", { exact: true })).toBeVisible();
+  expect(createBody).toBe(
+    '{"kind":"application","name":"Demo product backend","backendUrl":"https://api.demo.example.com"}'
+  );
+  expect(createBody).not.toContain("scopes");
+  expect(createBody).not.toContain("resources");
 });

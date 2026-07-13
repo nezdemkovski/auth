@@ -46,51 +46,65 @@ export type ProjectFeatures = {
   };
 };
 
-export enum OAuthClientProfile {
-  Web = "web",
-  Public = "public",
-  Service = "service"
+export enum AuthConnectionKind {
+  Application = "application",
+  Service = "service",
+  Advanced = "advanced"
 }
 
-export type OAuthClient = {
+export enum ServicePermission {
+  BillingUsageWrite = "billing_usage_write"
+}
+
+export type AuthConnection = {
   clientId: string;
   name: string;
-  profile: OAuthClientProfile;
-  redirectUris: string[];
-  postLogoutRedirectUris: string[];
-  scopes: string[];
-  resources: string[];
+  kind: AuthConnectionKind;
+  callbackUrl: string | null;
+  permissions: ServicePermission[];
   disabled: boolean;
-  public: boolean;
-  skipConsent: boolean;
-  requirePkce: boolean;
-  secretConfigured: boolean;
+  canRotateCredential: boolean;
   createdAt: string;
   updatedAt: string;
 };
 
-export type OAuthClientsResponse = {
-  clients: OAuthClient[];
+export type ServicePermissionCatalogItem = {
+  id: ServicePermission;
+  name: string;
+  description: string;
 };
 
-export type OAuthClientCredential = {
+export type AuthConnectionsResponse = {
+  connections: AuthConnection[];
+  catalog: {
+    servicePermissions: ServicePermissionCatalogItem[];
+  };
+};
+
+export type AuthConnectionCredential = {
   clientId: string;
   clientSecret?: string;
 };
 
-export type CreateOAuthClientInput = {
+export type CreateApplicationConnectionInput = {
   name: string;
-  profile: OAuthClientProfile;
-  redirectUris: string[];
-  postLogoutRedirectUris: string[];
-  scopes: string[];
-  resources: string[];
-  skipConsent: boolean;
+  kind: AuthConnectionKind.Application;
+  backendUrl: string;
 };
 
-export type CreatedOAuthClient = {
-  client: OAuthClient;
-  credential: OAuthClientCredential;
+export type CreateServiceConnectionInput = {
+  name: string;
+  kind: AuthConnectionKind.Service;
+  permissions: ServicePermission[];
+};
+
+export type CreateAuthConnectionInput =
+  | CreateApplicationConnectionInput
+  | CreateServiceConnectionInput;
+
+export type CreatedAuthConnection = {
+  connection: AuthConnection;
+  credential: AuthConnectionCredential;
 };
 
 export type SocialProviderId = "telegram" | "github" | "google" | "twitter" | "facebook";

@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 
 import {
+  fetchAuthConnections,
   fetchBillingSettings,
-  fetchOAuthClients,
   fetchPolarProducts,
   fetchProjectUsers,
   fetchProjects,
@@ -30,10 +30,10 @@ export const useProjectRouteQueries = (projectSlug?: string) => {
     queryFn: () => fetchSocialProviders(selected!.slug),
     enabled: Boolean(selected?.slug)
   });
-  const oauthClientsQuery = useQuery({
-    queryKey: adminQueryKeys.oauthClients(selected?.slug),
-    queryFn: () => fetchOAuthClients(selected!.slug),
-    enabled: Boolean(selected?.slug && selected.features.oauthProvider.enabled)
+  const authConnectionsQuery = useQuery({
+    queryKey: adminQueryKeys.authConnections(selected?.slug),
+    queryFn: () => fetchAuthConnections(selected!.slug),
+    enabled: Boolean(selected?.slug)
   });
   const billingQuery = useQuery({
     queryKey: adminQueryKeys.billing(selected?.slug),
@@ -65,7 +65,7 @@ export const useProjectRouteQueries = (projectSlug?: string) => {
     selected,
     usersQuery,
     socialProvidersQuery,
-    oauthClientsQuery,
+    authConnectionsQuery,
     billingQuery,
     storageQuery,
     storageObjectsQuery,

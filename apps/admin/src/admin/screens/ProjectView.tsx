@@ -2,13 +2,13 @@ import type { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 
 import type {
+  AuthConnectionCredential,
+  AuthConnectionsResponse,
   BillingSettings,
   BillingSettingsPatch,
   BillingProductMapping,
-  CreateOAuthClientInput,
+  CreateAuthConnectionInput,
   CreatePolarProductInput,
-  OAuthClientCredential,
-  OAuthClientsResponse,
   ProjectSettingsPatch,
   ProjectSummary,
   ProjectUsersResponse,
@@ -26,7 +26,7 @@ import { StatCard } from "@nezdemkovski/auth-ui";
 import { UsersSkeleton } from "@nezdemkovski/auth-ui";
 import { ProjectSettingsForm } from "./project/ProjectSettingsForm";
 import { BillingSettings as BillingSettingsForm } from "./project/BillingSettings";
-import { OAuthClientSettings } from "./project/oauth-clients/OAuthClientSettings";
+import { AuthConnectionSettings } from "./project/auth-connections/AuthConnectionSettings";
 import { SocialProviderSettings } from "./project/SocialProviderSettings";
 import { StorageSettingsForm } from "./project/StorageSettings";
 import { UserTable } from "./project/UserTable";
@@ -35,7 +35,7 @@ export function ProjectView({
   project,
   usersQuery,
   socialProvidersQuery,
-  oauthClientsQuery,
+  authConnectionsQuery,
   billingQuery,
   storageQuery,
   polarProductsQuery,
@@ -66,10 +66,10 @@ export function ProjectView({
   onUpdateProject,
   onUpdateSocialProvider,
   onVerifySocialProvider,
-  onCreateOAuthClient,
-  onSetOAuthClientDisabled,
-  onRotateOAuthClientSecret,
-  onDeleteOAuthClient,
+  onCreateAuthConnection,
+  onSetAuthConnectionDisabled,
+  onRotateAuthConnectionCredential,
+  onDeleteAuthConnection,
   onUpdateBilling,
   onVerifyBilling,
   onCreatePolarProduct,
@@ -79,7 +79,7 @@ export function ProjectView({
   project: ProjectSummary;
   usersQuery: ReturnType<typeof useQuery<ProjectUsersResponse>>;
   socialProvidersQuery: ReturnType<typeof useQuery<SocialProvidersResponse>>;
-  oauthClientsQuery: ReturnType<typeof useQuery<OAuthClientsResponse>>;
+  authConnectionsQuery: ReturnType<typeof useQuery<AuthConnectionsResponse>>;
   billingQuery: ReturnType<typeof useQuery<BillingSettings>>;
   storageQuery: ReturnType<typeof useQuery<StorageSettings>>;
   polarProductsQuery: ReturnType<typeof useQuery<PolarProductsResponse>>;
@@ -113,12 +113,17 @@ export function ProjectView({
     patch: SocialProviderPatch
   ) => void;
   onVerifySocialProvider: (provider: SocialProviderId) => void;
-  onCreateOAuthClient: (
-    input: CreateOAuthClientInput
-  ) => Promise<OAuthClientCredential>;
-  onSetOAuthClientDisabled: (clientId: string, disabled: boolean) => Promise<void>;
-  onRotateOAuthClientSecret: (clientId: string) => Promise<OAuthClientCredential>;
-  onDeleteOAuthClient: (clientId: string) => Promise<void>;
+  onCreateAuthConnection: (
+    input: CreateAuthConnectionInput
+  ) => Promise<AuthConnectionCredential>;
+  onSetAuthConnectionDisabled: (
+    clientId: string,
+    disabled: boolean
+  ) => Promise<void>;
+  onRotateAuthConnectionCredential: (
+    clientId: string
+  ) => Promise<AuthConnectionCredential>;
+  onDeleteAuthConnection: (clientId: string) => Promise<void>;
   onUpdateBilling: (patch: BillingSettingsPatch) => void;
   onVerifyBilling: (input: {
     accessToken?: string;
@@ -202,22 +207,21 @@ export function ProjectView({
 
       <section>
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="eyebrow">02 — OAuth clients</span>
+          <span className="eyebrow">02 — Connections</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
         </div>
 
         <Card padding={false}>
-          <OAuthClientSettings
+          <AuthConnectionSettings
             project={project.slug}
             issuer={`${window.location.origin}/api/${project.slug}`}
-            enabled={project.features.oauthProvider.enabled}
-            clients={oauthClientsQuery.data?.clients ?? []}
-            loading={oauthClientsQuery.isLoading}
-            loadError={oauthClientsQuery.isError}
-            onCreate={onCreateOAuthClient}
-            onSetDisabled={onSetOAuthClientDisabled}
-            onRotateSecret={onRotateOAuthClientSecret}
-            onDelete={onDeleteOAuthClient}
+            data={authConnectionsQuery.data}
+            loading={authConnectionsQuery.isLoading}
+            loadError={authConnectionsQuery.isError}
+            onCreate={onCreateAuthConnection}
+            onSetDisabled={onSetAuthConnectionDisabled}
+            onRotateCredential={onRotateAuthConnectionCredential}
+            onDelete={onDeleteAuthConnection}
           />
         </Card>
       </section>

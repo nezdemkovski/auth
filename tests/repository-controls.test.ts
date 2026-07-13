@@ -238,7 +238,7 @@ describe("repository security controls", () => {
       "apps/api/src/modules/billing/http.ts",
       "apps/api/src/modules/delivery/http.ts",
       "apps/api/src/modules/observability/http.ts",
-      "apps/api/src/modules/oauth-client-management/http.ts",
+      "apps/api/src/modules/auth-connections/http.ts",
       "apps/api/src/modules/projects/http.ts",
       "apps/api/src/modules/storage/http.ts",
       "apps/api/src/modules/users/http.ts"

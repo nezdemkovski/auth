@@ -1,34 +1,35 @@
 import { useState } from "react";
+import { Check, Copy } from "lucide-react";
 
 import { Button, Pill } from "@nezdemkovski/auth-ui";
 
 import type {
-  OAuthClientCredential,
-  OAuthClientProfile
+  AuthConnectionCredential,
+  AuthConnectionKind
 } from "../../../types";
-import { buildOAuthClientEnvironment } from "./environment";
+import { buildAuthConnectionEnvironment } from "./environment";
 
-export type VisibleOAuthClientCredential = {
+export type VisibleAuthConnectionCredential = {
   name: string;
-  profile: OAuthClientProfile;
-  credential: OAuthClientCredential;
+  kind: AuthConnectionKind;
+  credential: AuthConnectionCredential;
 };
 
-export function OAuthClientCredentialPanel({
+export function AuthConnectionCredentialPanel({
   issuer,
   visible,
   onDismiss,
   onCopyError
 }: {
   issuer: string;
-  visible: VisibleOAuthClientCredential;
+  visible: VisibleAuthConnectionCredential;
   onDismiss: () => void;
   onCopyError: (message: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
-  const environment = buildOAuthClientEnvironment({
+  const environment = buildAuthConnectionEnvironment({
     issuer,
-    profile: visible.profile,
+    kind: visible.kind,
     credential: visible.credential
   });
 
@@ -49,10 +50,11 @@ export function OAuthClientCredentialPanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-[13px] font-semibold text-ink">
-            Credentials for {visible.name}
+            {visible.name} is ready
           </div>
-          <p className="mt-1 text-[12.5px] leading-5 text-ink-soft">
-            Save this block now. A confidential client secret cannot be viewed again.
+          <p className="mt-1 text-pretty text-[12.5px] leading-5 text-ink-soft">
+            Add these values to the trusted backend now. The secret is shown only
+            once.
           </p>
         </div>
         <Pill>shown once</Pill>
@@ -61,7 +63,18 @@ export function OAuthClientCredentialPanel({
         {environment}
       </pre>
       <div className="mt-3 flex flex-wrap justify-end gap-2">
-        <Button type="button" size="sm" onClick={() => void copy()}>
+        <Button
+          type="button"
+          size="sm"
+          leading={
+            copied ? (
+              <Check aria-hidden="true" size={14} />
+            ) : (
+              <Copy aria-hidden="true" size={14} />
+            )
+          }
+          onClick={() => void copy()}
+        >
           {copied ? "Copied" : "Copy env"}
         </Button>
         <Button type="button" size="sm" variant="primary" onClick={onDismiss}>

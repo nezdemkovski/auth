@@ -26,7 +26,7 @@ function ProjectRouteContent({ projectSlug }: { projectSlug?: string }) {
     selected,
     usersQuery,
     socialProvidersQuery,
-    oauthClientsQuery,
+    authConnectionsQuery,
     billingQuery,
     storageQuery,
     storageObjectsQuery,
@@ -58,7 +58,7 @@ function ProjectRouteContent({ projectSlug }: { projectSlug?: string }) {
       project={selected}
       usersQuery={usersQuery}
       socialProvidersQuery={socialProvidersQuery}
-      oauthClientsQuery={oauthClientsQuery}
+      authConnectionsQuery={authConnectionsQuery}
       billingQuery={billingQuery}
       storageQuery={storageQuery}
       polarProductsQuery={polarProductsQuery}
@@ -183,31 +183,32 @@ function ProjectRouteContent({ projectSlug }: { projectSlug?: string }) {
           provider
         })
       }
-      onCreateOAuthClient={async (client) => {
-        const created = await mutations.oauthClientCreate.mutateAsync({
+      onCreateAuthConnection={async (connection) => {
+        const created = await mutations.authConnectionCreate.mutateAsync({
           project: selected.slug,
-          client
+          connection
         });
-        mutations.oauthClientCreate.reset();
+        mutations.authConnectionCreate.reset();
         return created.credential;
       }}
-      onSetOAuthClientDisabled={async (clientId, disabled) => {
-        await mutations.oauthClientToggle.mutateAsync({
+      onSetAuthConnectionDisabled={async (clientId, disabled) => {
+        await mutations.authConnectionToggle.mutateAsync({
           project: selected.slug,
           clientId,
           disabled
         });
       }}
-      onRotateOAuthClientSecret={async (clientId) => {
-        const credential = await mutations.oauthClientSecretRotate.mutateAsync({
-          project: selected.slug,
-          clientId
-        });
-        mutations.oauthClientSecretRotate.reset();
+      onRotateAuthConnectionCredential={async (clientId) => {
+        const credential =
+          await mutations.authConnectionCredentialRotate.mutateAsync({
+            project: selected.slug,
+            clientId
+          });
+        mutations.authConnectionCredentialRotate.reset();
         return credential;
       }}
-      onDeleteOAuthClient={async (clientId) => {
-        await mutations.oauthClientDelete.mutateAsync({
+      onDeleteAuthConnection={async (clientId) => {
+        await mutations.authConnectionDelete.mutateAsync({
           project: selected.slug,
           clientId
         });
