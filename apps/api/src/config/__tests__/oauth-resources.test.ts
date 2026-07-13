@@ -40,7 +40,33 @@ describe("OAuth platform resources", () => {
           OAuthScope.StorageAvatarWrite,
           OAuthScope.StorageAvatarDelete
         ]
+      },
+      {
+        identifier: "https://auth.example.com/api/demo/billing",
+        allowedScopes: [OAuthScope.BillingUsageRead]
       }
     ]);
+  });
+
+  test("defines billing usage as a separate read-only audience", () => {
+    expect(
+      oauthResourceIdentifier(
+        "https://auth.example.com",
+        "demo",
+        OAuthResource.Billing
+      )
+    ).toBe("https://auth.example.com/api/demo/billing");
+    expect(oauthResourceScopes(OAuthResource.Billing)).toEqual([
+      OAuthScope.BillingUsageRead
+    ]);
+    expect(
+      oauthResourceMetadataUrl(
+        "https://auth.example.com",
+        "demo",
+        OAuthResource.Billing
+      )
+    ).toBe(
+      "https://auth.example.com/.well-known/oauth-protected-resource/api/demo/billing"
+    );
   });
 });

@@ -289,7 +289,8 @@ the immutable `issuer + sub` pair.
   - product-owned business operation that should leave the auth platform.
 - [x] Define separate `storage:avatar:write` and
   `storage:avatar:delete` user-delegated scopes for the retained avatar API.
-- [ ] Define the minimal read-only scope for the retained billing summary API.
+- [x] Define `billing:usage:read` as the minimal read-only scope for the
+  retained billing summary API.
 - [ ] Define separate service-only scopes for quota consumption or other
   backend operations.
 - [x] Verify avatar resource requests with the official
@@ -300,8 +301,9 @@ the immutable `issuer + sub` pair.
 - [ ] Keep only domain authorization after protocol verification, such as
   validating that a service may act on a subject in its realm.
 - [x] Return standards-compliant `WWW-Authenticate` resource challenges from
-  the avatar resource.
-- [x] Publish OAuth Protected Resource Metadata for the avatar resource.
+  the avatar and billing resources.
+- [x] Publish OAuth Protected Resource Metadata for the avatar and billing
+  resources.
 - [ ] Ensure checkout, portal, avatar, and entitlement operations no longer
   require exporting or replaying the central Better Auth session credential.
 

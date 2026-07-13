@@ -1,19 +1,11 @@
 import type { Hono } from "hono";
 import { cors } from "hono/cors";
-import { requestToResourceInput } from "better-auth/oauth2";
 
 import type { AuthRegistry } from "../../auth/registry";
 import { OAuthResource, OAuthScope } from "../../config/oauth-resources";
 import { mediaUploadError } from "../../http/admin/shared";
 import { ErrorCode } from "../../runtime/error-codes";
-import {
-  requireUserOAuthResource,
-  type UserOAuthResourceAccess
-} from "../oauth-resource/core";
-import {
-  oauthResourceFailureResponse,
-  type OAuthResourceFailureResponse
-} from "../oauth-resource/translator";
+import { authorizeUserOAuthResourceRequest } from "../oauth-resource/http";
 import { StorageService } from "./core";
 import { mediaUploadBodyError, MediaUploadBodyError, MediaUploadPurpose } from "./media";
 import { parseMediaUploadRequest } from "./validator";
@@ -21,16 +13,6 @@ import { parseMediaUploadRequest } from "./validator";
 type PublicStorageVariables = {
   registry: AuthRegistry;
 };
-
-type StorageAuthorization =
-  | {
-      ok: true;
-      value: UserOAuthResourceAccess;
-    }
-  | {
-      ok: false;
-      failure: OAuthResourceFailureResponse;
-    };
 
 export const registerPublicStorageRoutes = (
   app: Hono<{ Variables: PublicStorageVariables }>,
@@ -58,7 +40,7 @@ export const registerPublicStorageRoutes = (
   );
 
   app.post("/api/:project/upload", async (c) => {
-    const access = await authorizeStorageRequest({
+    const access = await authorizeUserOAuthResourceRequest({
       registry: options.registry,
       publicBaseUrl: options.publicBaseUrl,
       projectSlug: c.req.param("project"),
@@ -103,7 +85,7 @@ export const registerPublicStorageRoutes = (
   });
 
   app.delete("/api/:project/upload", async (c) => {
-    const access = await authorizeStorageRequest({
+    const access = await authorizeUserOAuthResourceRequest({
       registry: options.registry,
       publicBaseUrl: options.publicBaseUrl,
       projectSlug: c.req.param("project"),
@@ -128,33 +110,4 @@ export const registerPublicStorageRoutes = (
       return mediaUploadError(error);
     }
   });
-};
-
-const authorizeStorageRequest = async (options: {
-  registry: AuthRegistry;
-  publicBaseUrl: string;
-  projectSlug: string;
-  request: Request;
-  resource: OAuthResource;
-  scopes: OAuthScope[];
-}): Promise<StorageAuthorization> => {
-  try {
-    return {
-      ok: true,
-      value: await requireUserOAuthResource({
-        ...options,
-        request: requestToResourceInput(options.request)
-      })
-    };
-  } catch (error) {
-    const failure = oauthResourceFailureResponse(error, options);
-    if (!failure) {
-      throw error;
-    }
-
-    return {
-      ok: false,
-      failure
-    };
-  }
 };

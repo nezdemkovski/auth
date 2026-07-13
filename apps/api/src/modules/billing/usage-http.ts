@@ -2,12 +2,14 @@ import type { Hono } from "hono";
 import { cors } from "hono/cors";
 
 import type { AuthRegistry } from "../../auth/registry";
+import { OAuthResource, OAuthScope } from "../../config/oauth-resources";
 import type { AuthProject } from "../../config/projects";
 import type { AdminDatabase } from "../../db/admin-pool";
 import { ErrorCode } from "../../runtime/error-codes";
 import { isTrustedProjectMutation } from "../../http/project-csrf";
 import { requireProjectSession } from "../../http/project-session";
 import { isRecord } from "../../runtime/type-guards";
+import { authorizeUserOAuthResourceRequest } from "../oauth-resource/http";
 import {
   commitBillingUsageReservation,
   consumeBillingUsage,
@@ -22,6 +24,7 @@ type BillingVariables = {
 
 type PublicBillingOptions = {
   registry: AuthRegistry;
+  publicBaseUrl: string;
   databaseUrl: string;
   adminProject: AuthProject;
   adminDb: AdminDatabase;
@@ -50,13 +53,19 @@ export const registerBillingUsageRoutes = (
   );
 
   app.get("/api/:project/billing/usage/summary", async (c) => {
-    const access = await requireProjectSession(
-      options.registry,
-      c.req.param("project"),
-      c.req.raw.headers
-    );
+    const access = await authorizeUserOAuthResourceRequest({
+      registry: options.registry,
+      publicBaseUrl: options.publicBaseUrl,
+      projectSlug: c.req.param("project"),
+      request: c.req.raw,
+      resource: OAuthResource.Billing,
+      scopes: [OAuthScope.BillingUsageRead]
+    });
     if (!access.ok) {
-      return c.json({ error: access.error }, access.status);
+      if (access.failure.wwwAuthenticate) {
+        c.header("WWW-Authenticate", access.failure.wwwAuthenticate);
+      }
+      return c.json({ error: access.failure.error }, access.failure.status);
     }
 
     const key = c.req.query("key");
@@ -67,8 +76,8 @@ export const registerBillingUsageRoutes = (
     return c.json({
       summary: await readBillingUsageSummary({
         ...options,
-        project: access.registered.project,
-        userId: access.session.user.id,
+        project: access.value.registered.project,
+        userId: access.value.subject,
         key
       })
     });

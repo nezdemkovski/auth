@@ -10,6 +10,12 @@ import {
   type BillingProductMapping
 } from "../src/config/projects";
 import {
+  OAuthResource,
+  OAuthScope,
+  oauthResourceIdentifier,
+  oauthResourceMetadataUrl
+} from "../src/config/oauth-resources";
+import {
   commitBillingUsageReservation,
   createPolarEntitlementGrantStore,
   readBillingUsageSummary,
@@ -23,7 +29,10 @@ import { seedIntegrationRealm } from "./seed";
 import {
   integrationAdminDbOptions,
   createIntegrationApp,
+  createIntegrationUserResourceToken,
   integrationEncryptionSecret,
+  integrationPublicBaseUrl,
+  installIntegrationAppFetch,
   resetAndBootstrapIntegrationDatabase,
   signUpIntegrationUser
 } from "./setup";
@@ -568,9 +577,10 @@ describe("billing usage integration", () => {
     });
   });
 
-  test("lets an authenticated app reserve, release, and commit credits through the public API", async () => {
-    const project = await prepareBillingProject(credits(2));
-    const { app, close } = await createIntegrationApp();
+  test("protects usage reads with a delegated OAuth resource token while preserving usage mutations", async () => {
+    const project = await prepareBillingProject(credits(2), true);
+    const { app, registry, close } = await createIntegrationApp();
+    const restoreFetch = installIntegrationAppFetch(app);
 
     try {
       const { cookie } = await signUpIntegrationUser({
@@ -580,8 +590,79 @@ describe("billing usage integration", () => {
         email: "billing-user@integration.test",
         password: "correct horse battery staple"
       });
+      const billingResource = oauthResourceIdentifier(
+        integrationPublicBaseUrl,
+        project.slug,
+        OAuthResource.Billing
+      );
+      const billingMetadataUrl = oauthResourceMetadataUrl(
+        integrationPublicBaseUrl,
+        project.slug,
+        OAuthResource.Billing
+      );
 
-      await expectApiSummary(app, project, cookie, {
+      const metadata = await app.request(billingMetadataUrl);
+      expect(metadata.status).toBe(200);
+      expect(await metadata.json()).toMatchObject({
+        resource: billingResource,
+        authorization_servers: [
+          `${integrationPublicBaseUrl}/api/${project.slug}`
+        ],
+        scopes_supported: [OAuthScope.BillingUsageRead]
+      });
+
+      const sessionOnly = await app.request(
+        `/api/${project.slug}/billing/usage/summary?key=${benefitKey}`,
+        {
+          headers: {
+            Cookie: cookie,
+            Origin: project.appUrl,
+            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+          }
+        }
+      );
+      expect(sessionOnly.status).toBe(401);
+      expect(sessionOnly.headers.get("www-authenticate")).toContain(
+        `resource_metadata="${billingMetadataUrl}"`
+      );
+
+      const wrongAudienceToken = await createIntegrationUserResourceToken({
+        app,
+        registry,
+        projectSlug: project.slug,
+        userCookie: cookie,
+        resource: oauthResourceIdentifier(
+          integrationPublicBaseUrl,
+          project.slug,
+          OAuthResource.Storage
+        ),
+        scopes: [OAuthScope.StorageAvatarWrite]
+      });
+      const wrongAudience = await app.request(
+        `/api/${project.slug}/billing/usage/summary?key=${benefitKey}`,
+        {
+          headers: {
+            Authorization: `Bearer ${wrongAudienceToken}`,
+            Origin: project.appUrl,
+            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+          }
+        }
+      );
+      expect(wrongAudience.status).toBe(401);
+      expect(wrongAudience.headers.get("www-authenticate")).toContain(
+        "error=\"invalid_token\""
+      );
+
+      const billingToken = await createIntegrationUserResourceToken({
+        app,
+        registry,
+        projectSlug: project.slug,
+        userCookie: cookie,
+        resource: billingResource,
+        scopes: [OAuthScope.BillingUsageRead]
+      });
+
+      await expectApiSummary(app, project, billingToken, {
         used: 0,
         limit: 2,
         remaining: 2
@@ -596,7 +677,7 @@ describe("billing usage integration", () => {
       const firstReservationId = reservationId(firstBody);
       expect(firstReservationId.length).toBeGreaterThan(0);
 
-      await expectApiSummary(app, project, cookie, {
+      await expectApiSummary(app, project, billingToken, {
         used: 1,
         limit: 2,
         remaining: 1
@@ -607,7 +688,7 @@ describe("billing usage integration", () => {
       });
       expect(release.status).toBe(200);
 
-      await expectApiSummary(app, project, cookie, {
+      await expectApiSummary(app, project, billingToken, {
         used: 0,
         limit: 2,
         remaining: 2
@@ -625,7 +706,7 @@ describe("billing usage integration", () => {
       });
       expect(commit.status).toBe(200);
 
-      await expectApiSummary(app, project, cookie, {
+      await expectApiSummary(app, project, billingToken, {
         used: 2,
         limit: 2,
         remaining: 0
@@ -646,6 +727,7 @@ describe("billing usage integration", () => {
         }
       });
     } finally {
+      restoreFetch();
       await close();
     }
   });
@@ -1001,11 +1083,15 @@ describe("billing usage integration", () => {
   });
 });
 
-const prepareBillingProject = async (freeEntitlement: BillingEntitlement) => {
+const prepareBillingProject = async (
+  freeEntitlement: BillingEntitlement,
+  oauthProviderEnabled = false
+) => {
   return seedIntegrationRealm({
     slug: "integration-billing",
     schema: "integration_billing_auth",
     name: "Integration Billing",
+    oauthProvider: { enabled: oauthProviderEnabled },
     freeEntitlements: [freeEntitlement]
   });
 };
@@ -1123,7 +1209,7 @@ const billingApi = (
 const expectApiSummary = async (
   app: Awaited<ReturnType<typeof createIntegrationApp>>["app"],
   project: AuthProject,
-  cookie: string,
+  accessToken: string,
   expected: {
     used: number;
     limit: number;
@@ -1134,7 +1220,7 @@ const expectApiSummary = async (
     `/api/${project.slug}/billing/usage/summary?key=${benefitKey}`,
     {
       headers: {
-        Cookie: cookie,
+        Authorization: `Bearer ${accessToken}`,
         Origin: project.appUrl,
         [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
       }

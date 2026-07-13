@@ -4,11 +4,13 @@ export enum OAuthScope {
   Email = "email",
   OfflineAccess = "offline_access",
   StorageAvatarWrite = "storage:avatar:write",
-  StorageAvatarDelete = "storage:avatar:delete"
+  StorageAvatarDelete = "storage:avatar:delete",
+  BillingUsageRead = "billing:usage:read"
 }
 
 export enum OAuthResource {
-  Storage = "storage"
+  Storage = "storage",
+  Billing = "billing"
 }
 
 export const OAUTH_SCOPES = Object.values(OAuthScope);
@@ -24,6 +26,9 @@ export const oauthResourceScopes = (resource: OAuthResource) => {
   if (resource === OAuthResource.Storage) {
     return [OAuthScope.StorageAvatarWrite, OAuthScope.StorageAvatarDelete];
   }
+  if (resource === OAuthResource.Billing) {
+    return [OAuthScope.BillingUsageRead];
+  }
 
   return [];
 };
@@ -35,6 +40,9 @@ export const oauthResourceIdentifier = (
 ) => {
   if (resource === OAuthResource.Storage) {
     return `${publicBaseUrl}/api/${projectSlug}/upload`;
+  }
+  if (resource === OAuthResource.Billing) {
+    return `${publicBaseUrl}/api/${projectSlug}/billing`;
   }
 
   throw new Error(`Unknown OAuth resource: ${resource}`);

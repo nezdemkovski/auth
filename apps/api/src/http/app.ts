@@ -143,6 +143,7 @@ export const createApp = async (env: Env) => {
   });
   registerBillingUsageRoutes(app, {
     registry,
+    publicBaseUrl: env.publicBaseUrl,
     ...billingStoreOptions
   });
   registerOAuthResourceRoutes(app, {

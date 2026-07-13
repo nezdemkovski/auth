@@ -13,11 +13,13 @@ tokens with an explicit resource audience and least-privilege scope.
 | `/admin/api/*` | Central control plane | Admin-realm Better Auth session cookie | Keep same-origin and separate from product resource tokens. |
 | `POST /api/:realm/upload` | User-delegated platform resource | OAuth token for the exact upload resource with `storage:avatar:write` | Converted. |
 | `DELETE /api/:realm/upload` | User-delegated platform resource | OAuth token for the exact upload resource with `storage:avatar:delete` | Converted. |
-| `GET /api/:realm/billing/usage/summary` | User-delegated platform resource | OAuth token for a billing resource and a read-only scope | Convert next. |
+| `GET /api/:realm/billing/usage/summary` | User-delegated platform resource | OAuth token for the exact billing resource with `billing:usage:read` | Converted. |
 | Billing usage `consume`, `reserve`, `commit`, and `release` | Service-only platform resource | Client Credentials token plus an explicit user subject | Convert after the summary endpoint. A browser or user token must not mutate authoritative quota state. |
 | Product-specific business operations | Product-owned business boundary | Product-local Better Auth session | Keep out of the auth platform unless the capability is genuinely shared. |
 
-## Registered resource: avatar storage
+## Registered resources
+
+### Avatar storage
 
 For realm `demo` at `https://auth.example.com`:
 
@@ -34,6 +36,19 @@ Provider plugin. The HTTP resource boundary owns only request verification and
 the domain operation after verified `sub`, `azp`, `iss`, `aud`, expiry, scope,
 and optional DPoP binding.
 
-There is deliberately no cookie or bearer-session fallback on the upload
-route. Trusted-origin CORS remains a browser transport policy; it is not an
-authentication mechanism.
+### Billing usage
+
+For the same realm:
+
+```text
+resource = https://auth.example.com/api/demo/billing
+scopes   = billing:usage:read
+metadata = https://auth.example.com/.well-known/oauth-protected-resource/api/demo/billing
+issuer   = https://auth.example.com/api/demo
+```
+
+There is deliberately no cookie or bearer-session fallback on either
+user-delegated resource. Trusted-origin CORS remains a browser transport
+policy; it is not an authentication mechanism. Billing quota mutations remain
+separate because they will accept only a service-client credential and an
+explicit user subject.
