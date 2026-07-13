@@ -1,20 +1,54 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { createProjectDatabase } from "@nezdemkovski/auth-better-auth-runtime";
+import {
+  markPasswordChanged,
+  mustChangePassword,
+  readIdentityCounts,
+  readIdentityUserByEmail,
+  readIdentityUsers,
+  terminateIdentitySessions
+} from "@nezdemkovski/auth-identity";
 
 import {
+  bootstrapIntegrationDatabase,
   createIntegrationApp,
+  integrationAdminEmail,
+  integrationAdminProject,
+  integrationDatabaseUrl,
   resetAndBootstrapIntegrationDatabase,
   signUpIntegrationUser
 } from "./setup";
 import { seedIntegrationRealm } from "./seed";
-import {
-  readProjectCounts,
-  readProjectUsers,
-  terminateUserSessions
-} from "../src/modules/users/store";
 
 describe("users integration", () => {
   beforeEach(async () => {
     await resetAndBootstrapIntegrationDatabase();
+  });
+
+  test("does not restore the generated-password flag on a later bootstrap", async () => {
+    const projectDb = createProjectDatabase(
+      integrationDatabaseUrl,
+      integrationAdminProject
+    );
+
+    try {
+      const admin = await readIdentityUserByEmail(
+        projectDb.pool,
+        integrationAdminEmail
+      );
+      if (!admin) {
+        throw new Error("Expected the initial admin to exist");
+      }
+
+      await markPasswordChanged(projectDb.pool, admin.id);
+      await expect(mustChangePassword(projectDb.pool, admin.id)).resolves.toBe(false);
+
+      await bootstrapIntegrationDatabase();
+
+      await expect(mustChangePassword(projectDb.pool, admin.id)).resolves.toBe(false);
+    } finally {
+      await projectDb.pool.end();
+    }
   });
 
   test("lists users and terminates only the selected user's active sessions", async () => {
@@ -47,11 +81,11 @@ describe("users integration", () => {
         throw new Error("Expected integration realm to be registered");
       }
 
-      await expect(readProjectCounts(registered.projectDb.pool)).resolves.toEqual({
+      await expect(readIdentityCounts(registered.projectDb.pool)).resolves.toEqual({
         userCount: 2,
         activeSessionCount: 2
       });
-      await expect(readProjectUsers(registered.projectDb.pool)).resolves.toEqual(
+      await expect(readIdentityUsers(registered.projectDb.pool)).resolves.toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             id: first.userId,
@@ -69,13 +103,13 @@ describe("users integration", () => {
       );
 
       await expect(
-        terminateUserSessions(registered.projectDb.pool, first.userId)
+        terminateIdentitySessions(registered.projectDb.pool, first.userId)
       ).resolves.toBe(1);
-      await expect(readProjectCounts(registered.projectDb.pool)).resolves.toEqual({
+      await expect(readIdentityCounts(registered.projectDb.pool)).resolves.toEqual({
         userCount: 2,
         activeSessionCount: 1
       });
-      await expect(readProjectUsers(registered.projectDb.pool)).resolves.toEqual(
+      await expect(readIdentityUsers(registered.projectDb.pool)).resolves.toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             id: first.userId,

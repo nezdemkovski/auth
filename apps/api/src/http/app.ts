@@ -17,6 +17,10 @@ import {
   createPolarWebhookStore
 } from "@nezdemkovski/auth-billing";
 import { updateRealmIconUrl } from "@nezdemkovski/auth-realm";
+import {
+  readIdentityUserImage,
+  updateIdentityUserImage
+} from "@nezdemkovski/auth-identity";
 
 import { registerLoginRoutes } from "../modules/login/http";
 import { registerAuthProxyRoutes } from "../modules/auth-proxy/http";
@@ -33,7 +37,6 @@ import { createOAuthResourceAuthorizer } from "../modules/oauth-resource/authori
 import { createBillingAuthPluginContribution } from "../modules/billing/better-auth";
 import { loadEffectiveProjects } from "../application/project-catalog";
 import { MediaService } from "../modules/media/core";
-import { readUserImage, updateUserImage } from "../modules/users/store";
 import { ErrorCode } from "../runtime/error-codes";
 import { logError } from "../runtime/logger";
 import { createAdminApi } from "./admin";
@@ -151,8 +154,8 @@ export const createApp = async (env: Env) => {
         registry.patchProject(projectSlug, { iconUrl })
     },
     userAvatars: {
-      read: readUserImage,
-      update: updateUserImage
+      read: readIdentityUserImage,
+      update: updateIdentityUserImage
     }
   });
 

@@ -1,10 +1,90 @@
+import type { Pool } from "pg";
+
+import type { AdminProfilePatch } from "./model";
 import {
   markPasswordChanged,
   mustChangePassword,
-  updateAdminProfile,
-  type AdminProfilePatch
+  readIdentityUsers,
+  terminateIdentitySessions,
+  updateAdminProfile
 } from "./store";
+import { identityUserResponse } from "./translator";
 import type { ChangePasswordInput } from "./validator";
+
+export type IdentityAuth = {
+  api: {
+    sendVerificationEmail(input: {
+      body: {
+        email: string;
+        callbackURL?: string;
+      };
+    }): Promise<unknown>;
+  };
+};
+
+type IdentityStore = {
+  readIdentityUsers: typeof readIdentityUsers;
+  terminateIdentitySessions: typeof terminateIdentitySessions;
+};
+
+const defaultIdentityStore: IdentityStore = {
+  readIdentityUsers,
+  terminateIdentitySessions
+};
+
+export class IdentityServiceError extends Error {
+  constructor(
+    readonly code: string,
+    readonly status: 400 | 404 | 409,
+    message = code
+  ) {
+    super(message);
+    this.name = "IdentityServiceError";
+  }
+}
+
+export class IdentityService {
+  constructor(
+    private readonly options: {
+      isDeliveryEnabled(): boolean;
+      store?: IdentityStore;
+    }
+  ) {
+    this.store = options.store ?? defaultIdentityStore;
+  }
+
+  private readonly store: IdentityStore;
+
+  async listUsers(pool: Pool) {
+    const users = await this.store.readIdentityUsers(pool);
+    return users.map(identityUserResponse);
+  }
+
+  async terminateSessions(pool: Pool, userId: string) {
+    return this.store.terminateIdentitySessions(pool, userId);
+  }
+
+  async resendVerification(input: {
+    auth: IdentityAuth;
+    email: string;
+    callbackURL?: string;
+  }) {
+    if (!this.options.isDeliveryEnabled()) {
+      throw new IdentityServiceError(
+        "email_service_disabled",
+        409,
+        "Email service is disabled"
+      );
+    }
+
+    await input.auth.api.sendVerificationEmail({
+      body: {
+        email: input.email,
+        callbackURL: input.callbackURL
+      }
+    });
+  }
+}
 
 type AdminAccountSession = {
   user: {
@@ -50,7 +130,7 @@ type AdminAccountStore = {
   markPasswordChanged: typeof markPasswordChanged;
 };
 
-const defaultStore: AdminAccountStore = {
+const defaultAdminAccountStore: AdminAccountStore = {
   mustChangePassword,
   updateAdminProfile,
   markPasswordChanged
@@ -75,13 +155,13 @@ export class AdminAccountService {
       store?: AdminAccountStore;
     }
   ) {
-    this.store = options.store ?? defaultStore;
+    this.store = options.store ?? defaultAdminAccountStore;
   }
 
   private readonly store: AdminAccountStore;
 
   async currentProfile(input: {
-    projectDb: { pool: Parameters<typeof mustChangePassword>[0] };
+    projectDb: { pool: Pool };
     session: AdminAccountSession;
   }) {
     return {
@@ -95,7 +175,7 @@ export class AdminAccountService {
   }
 
   async passwordRotationRequired(input: {
-    projectDb: { pool: Parameters<typeof mustChangePassword>[0] };
+    projectDb: { pool: Pool };
     session: AdminAccountSession;
   }) {
     return this.store.mustChangePassword(
@@ -107,7 +187,7 @@ export class AdminAccountService {
   async updateProfile(input: {
     auth: AdminAccountAuth;
     headers: Headers;
-    projectDb: { pool: Parameters<typeof updateAdminProfile>[0] };
+    projectDb: { pool: Pool };
     session: AdminAccountSession;
     patch: AdminProfilePatch;
     currentPassword: string | null;
@@ -158,7 +238,7 @@ export class AdminAccountService {
   async changePassword(input: {
     auth: AdminAccountAuth;
     headers: Headers;
-    projectDb: { pool: Parameters<typeof markPasswordChanged>[0] };
+    projectDb: { pool: Pool };
     session: AdminAccountSession;
     password: ChangePasswordInput;
   }) {
@@ -177,10 +257,14 @@ export class AdminAccountService {
   }
 }
 
-const changePassword = async (auth: AdminAccountAuth, headers: Headers, body: {
+const changePassword = async (
+  auth: AdminAccountAuth,
+  headers: Headers,
+  body: {
     currentPassword: string;
     newPassword: string;
-  }) => {
+  }
+) => {
   return auth.api.changePassword({
     headers,
     body: {
@@ -190,7 +274,11 @@ const changePassword = async (auth: AdminAccountAuth, headers: Headers, body: {
   });
 };
 
-const verifyPassword = async (auth: AdminAccountAuth, headers: Headers, password: string) => {
+const verifyPassword = async (
+  auth: AdminAccountAuth,
+  headers: Headers,
+  password: string
+) => {
   const result = await auth.api
     .verifyPassword({
       headers,
@@ -203,10 +291,14 @@ const verifyPassword = async (auth: AdminAccountAuth, headers: Headers, password
   return result?.status === true;
 };
 
-const changeEmail = async (auth: AdminAccountAuth, headers: Headers, body: {
+const changeEmail = async (
+  auth: AdminAccountAuth,
+  headers: Headers,
+  body: {
     newEmail: string;
     callbackURL: string;
-  }) => {
+  }
+) => {
   return auth.api.changeEmail({
     headers,
     body

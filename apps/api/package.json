@@ -21,6 +21,7 @@
     "@nezdemkovski/auth-better-auth-runtime": "workspace:*",
     "@nezdemkovski/auth-contracts": "workspace:*",
     "@nezdemkovski/auth-delivery": "workspace:*",
+    "@nezdemkovski/auth-identity": "workspace:*",
     "@nezdemkovski/auth-observability": "workspace:*",
     "@nezdemkovski/auth-platform-crypto": "workspace:*",
     "@nezdemkovski/auth-platform-database": "workspace:*",

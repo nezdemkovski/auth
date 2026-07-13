@@ -1,11 +1,8 @@
+import type { AdminProfilePatch } from "./model";
+
 export type ChangePasswordInput = {
   currentPassword: string;
   newPassword: string;
-};
-
-export type AdminProfilePatch = {
-  name?: string;
-  email?: string;
 };
 
 type ChangePasswordBody = {
@@ -18,6 +15,13 @@ type UpdateProfileBody = {
   email?: unknown;
   currentPassword?: unknown;
 };
+
+type ResendVerificationBody = {
+  email?: unknown;
+};
+
+const MAX_EMAIL_LENGTH = 254;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const parseChangePasswordInput = (body: ChangePasswordBody) => {
   if (typeof body.currentPassword !== "string" || typeof body.newPassword !== "string") {
@@ -43,10 +47,7 @@ export const parseAdminProfilePatch = (body: UpdateProfileBody) => {
 
   if (typeof body.email === "string") {
     const trimmed = body.email.trim().toLowerCase();
-    if (
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ||
-      trimmed.length > 200
-    ) {
+    if (!EMAIL_PATTERN.test(trimmed) || trimmed.length > 200) {
       return null;
     }
     patch.email = trimmed;
@@ -59,4 +60,17 @@ export const getProfileCurrentPassword = (body: UpdateProfileBody) => {
   return typeof body.currentPassword === "string" && body.currentPassword.length > 0
     ? body.currentPassword
     : null;
+};
+
+export const parseResendVerificationEmail = (body: ResendVerificationBody) => {
+  if (typeof body.email !== "string") {
+    return null;
+  }
+
+  const email = body.email.trim().toLowerCase();
+  if (email.length === 0 || email.length > MAX_EMAIL_LENGTH) {
+    return null;
+  }
+
+  return EMAIL_PATTERN.test(email) ? email : null;
 };

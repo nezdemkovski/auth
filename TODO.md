@@ -116,6 +116,11 @@
 
 ## Done
 
+- Better Auth-owned user and session administration, initial-admin bootstrap
+  state, identity validation, and response translation extracted into private
+  compiled `@nezdemkovski/auth-identity`; realm composition and HTTP stay in
+  the API, and the package does not mint sessions or replace Better Auth's user
+  model.
 - Per-realm Better Auth construction, lifecycle registry, auth policy,
   Telegram OIDC, project database setup, OAuth metadata, and DPoP verification
   extracted into private compiled `@nezdemkovski/auth-better-auth-runtime`;

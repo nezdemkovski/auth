@@ -1,5 +1,6 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import { cloneDefaultBilling } from "@nezdemkovski/auth-billing";
+import { readIdentityCounts } from "@nezdemkovski/auth-identity";
 import {
   createRealmFromInput,
   createRealmSettings,
@@ -21,7 +22,6 @@ import { ErrorCode } from "../../runtime/error-codes";
 import { prepareProjectSchema } from "../../db/bootstrap";
 import type { AdminDatabase } from "../../db/admin-pool";
 import { isPostgresUniqueViolation } from "../../db/errors";
-import { readProjectCounts } from "../users/store";
 import { projectResponse, socialProvidersResponse } from "./translator";
 import {
   cloneDefaultStorage
@@ -61,7 +61,7 @@ export class ProjectService {
           return null;
         }
 
-        const counts = await readProjectCounts(registered.projectDb.pool);
+        const counts = await readIdentityCounts(registered.projectDb.pool);
         return projectResponse(project, counts, this.options.publicBaseUrl);
       })
     );
@@ -309,7 +309,7 @@ export class ProjectService {
 
   private async projectResponseWithCounts(project: AuthProject) {
     const registered = this.options.registry.get(project.slug);
-    const counts = registered ? await readProjectCounts(registered.projectDb.pool) : undefined;
+    const counts = registered ? await readIdentityCounts(registered.projectDb.pool) : undefined;
     return projectResponse(project, counts, this.options.publicBaseUrl);
   }
 }

@@ -1,4 +1,10 @@
 import type { RegisteredProject } from "../../auth/registry";
+import {
+  AdminAccountServiceError,
+  getProfileCurrentPassword,
+  parseAdminProfilePatch,
+  parseChangePasswordInput
+} from "@nezdemkovski/auth-identity";
 import { ADMIN_PROJECT_SLUG } from "../../config/projects";
 import { ErrorCode } from "../../runtime/error-codes";
 import {
@@ -9,12 +15,6 @@ import {
   type AdminRouteRegistration,
   type AdminSession
 } from "../../http/admin/shared";
-import { AdminAccountServiceError } from "./core";
-import {
-  getProfileCurrentPassword,
-  parseAdminProfilePatch,
-  parseChangePasswordInput
-} from "./validator";
 
 export const registerAdminAccountRoutes: AdminRouteRegistration = ({
   app,

@@ -1,5 +1,5 @@
 import { getMigrations } from "better-auth/db/migration";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, type PoolClient } from "pg";
 import { createProjectDatabase } from "@nezdemkovski/auth-better-auth-runtime";
@@ -17,6 +17,13 @@ import {
   ensureBillingTables
 } from "@nezdemkovski/auth-billing";
 import {
+  ensureIdentityTables,
+  ensureInitialAdminState,
+  readIdentityUserByEmail,
+  recordGeneratedInitialAdminState,
+  updateIdentityUserRole
+} from "@nezdemkovski/auth-identity";
+import {
   ensureRealmTables,
   seedAdminRealmSettings
 } from "@nezdemkovski/auth-realm";
@@ -24,7 +31,6 @@ import {
 import { AuthUserRole, type AuthProject } from "../config/projects";
 import { randomBase64Url } from "../runtime/crypto";
 import { logError } from "../runtime/logger";
-import { authBootstrapState, authUsers } from "./auth-tables";
 import {
   createProjectAuth,
   createProjectMigrationAuthOptions
@@ -95,9 +101,6 @@ export const bootstrapProjects = async (options: BootstrapOptions) => {
 const bootstrapInitialAdmin = async (options: BootstrapOptions) => {
   const project = options.adminProject;
   const projectDb = createProjectDatabase(options.databaseUrl, project);
-  const db = drizzle({
-    client: projectDb.pool
-  });
   const auth = createProjectAuth({
     project,
     projectDb,
@@ -108,43 +111,23 @@ const bootstrapInitialAdmin = async (options: BootstrapOptions) => {
   });
 
   try {
-    await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS auth_bootstrap_state (
-        key text PRIMARY KEY,
-        user_id text NOT NULL,
-        must_change_password boolean NOT NULL DEFAULT true,
-        generated_at timestamptz NOT NULL DEFAULT now(),
-        changed_at timestamptz
-      )
-    `);
-
-    const [existing] = await db
-      .select({
-        id: authUsers.id,
-        email: authUsers.email,
-        role: authUsers.role
-      })
-      .from(authUsers)
-      .where(sql`lower(${authUsers.email}) = lower(${options.adminEmail})`)
-      .limit(1);
+    await ensureIdentityTables(projectDb.pool);
+    const existing = await readIdentityUserByEmail(
+      projectDb.pool,
+      options.adminEmail
+    );
 
     if (existing) {
       const user = existing;
       if (user.role !== AuthUserRole.Admin) {
-        await db
-          .update(authUsers)
-          .set({ role: AuthUserRole.Admin })
-          .where(eq(authUsers.id, user.id));
+        await updateIdentityUserRole(
+          projectDb.pool,
+          user.id,
+          AuthUserRole.Admin
+        );
       }
 
-      await db
-        .insert(authBootstrapState)
-        .values({
-          key: "initial_admin",
-          userId: user.id,
-          mustChangePassword: false
-        })
-        .onConflictDoNothing();
+      await ensureInitialAdminState(projectDb.pool, user.id);
       console.info(`[bootstrap] ${project.slug}: initial admin already exists`);
       return;
     }
@@ -159,22 +142,7 @@ const bootstrapInitialAdmin = async (options: BootstrapOptions) => {
       }
     });
 
-    await db
-      .insert(authBootstrapState)
-      .values({
-        key: "initial_admin",
-        userId: created.user.id,
-        mustChangePassword: true
-      })
-      .onConflictDoUpdate({
-        target: authBootstrapState.key,
-        set: {
-          userId: created.user.id,
-          mustChangePassword: true,
-          generatedAt: sql`now()`,
-          changedAt: null
-        }
-      });
+    await recordGeneratedInitialAdminState(projectDb.pool, created.user.id);
 
     console.info(`[bootstrap] ${project.slug}: created initial admin ${options.adminEmail}`);
     console.info(`[bootstrap] ${project.slug}: temporary admin password: ${temporaryPassword}`);

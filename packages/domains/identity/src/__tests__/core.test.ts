@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { Pool } from "pg";
 
-import { AuthUserRole } from "../../../config/projects";
 import {
   AdminAccountService,
-  AdminAccountServiceError
+  AdminAccountServiceError,
+  IdentityService
 } from "../core";
 
 const session = {
@@ -12,14 +12,14 @@ const session = {
     id: "admin-user",
     email: "admin@example.com",
     name: "Admin",
-    role: AuthUserRole.Admin
+    role: "admin"
   },
   session: {
     id: "admin-session"
   }
 };
 
-const createStore = () => {
+const createAdminStore = () => {
   const updatedProfiles: { userId: string; patch: { name?: string } }[] = [];
   const changedPasswords: string[] = [];
 
@@ -38,7 +38,7 @@ const createStore = () => {
   };
 };
 
-const createAuth = (passwordValid: boolean) => {
+const createAdminAuth = (passwordValid: boolean) => {
   const verifiedPasswords: string[] = [];
   const emailChanges: { newEmail: string; callbackURL: string }[] = [];
   const passwordChanges: {
@@ -81,10 +81,94 @@ const createAuth = (passwordValid: boolean) => {
   };
 };
 
+describe("identity service", () => {
+  test("keeps delivery policy outside the Better Auth verification API", async () => {
+    const verificationEmails: { email: string; callbackURL?: string }[] = [];
+    const auth = {
+      api: {
+        sendVerificationEmail: async (input: {
+          body: { email: string; callbackURL?: string };
+        }) => {
+          verificationEmails.push(input.body);
+        }
+      }
+    };
+    const disabled = new IdentityService({ isDeliveryEnabled: () => false });
+
+    await expect(
+      disabled.resendVerification({
+        auth,
+        email: "user@example.com",
+        callbackURL: "https://demo.example.com"
+      })
+    ).rejects.toMatchObject({
+      code: "email_service_disabled",
+      status: 409
+    });
+    expect(verificationEmails).toEqual([]);
+
+    const enabled = new IdentityService({ isDeliveryEnabled: () => true });
+    await enabled.resendVerification({
+      auth,
+      email: "user@example.com",
+      callbackURL: "https://demo.example.com"
+    });
+    expect(verificationEmails).toEqual([
+      {
+        email: "user@example.com",
+        callbackURL: "https://demo.example.com"
+      }
+    ]);
+  });
+
+  test("maps Better Auth users and terminates sessions through the identity store", async () => {
+    const terminatedUsers: string[] = [];
+    const service = new IdentityService({
+      isDeliveryEnabled: () => false,
+      store: {
+        readIdentityUsers: async () => [
+          {
+            id: "user-id",
+            email: "user@example.com",
+            name: "User",
+            role: null,
+            banned: null,
+            emailVerified: true,
+            createdAt: new Date("2026-05-25T10:00:00.000Z"),
+            updatedAt: new Date("2026-05-25T11:00:00.000Z"),
+            sessionCount: 2
+          }
+        ],
+        terminateIdentitySessions: async (_pool: Pool, userId: string) => {
+          terminatedUsers.push(userId);
+          return 3;
+        }
+      }
+    });
+    const pool = new Pool();
+
+    await expect(service.listUsers(pool)).resolves.toEqual([
+      {
+        id: "user-id",
+        email: "user@example.com",
+        name: "User",
+        role: null,
+        banned: false,
+        emailVerified: true,
+        createdAt: "2026-05-25T10:00:00.000Z",
+        updatedAt: "2026-05-25T11:00:00.000Z",
+        sessionCount: 2
+      }
+    ]);
+    await expect(service.terminateSessions(pool, "user-id")).resolves.toBe(3);
+    expect(terminatedUsers).toEqual(["user-id"]);
+  });
+});
+
 describe("admin account service", () => {
   test("does not start an email change when delivery is disabled", async () => {
-    const { store, updatedProfiles } = createStore();
-    const { auth, verifiedPasswords, emailChanges } = createAuth(true);
+    const { store, updatedProfiles } = createAdminStore();
+    const { auth, verifiedPasswords, emailChanges } = createAdminAuth(true);
     const service = new AdminAccountService({
       publicBaseUrl: "https://auth.example.com",
       isDeliveryEnabled: () => false,
@@ -108,8 +192,8 @@ describe("admin account service", () => {
   });
 
   test("verifies the current password before requesting an admin email change", async () => {
-    const { store, updatedProfiles } = createStore();
-    const { auth, verifiedPasswords, emailChanges } = createAuth(true);
+    const { store, updatedProfiles } = createAdminStore();
+    const { auth, verifiedPasswords, emailChanges } = createAdminAuth(true);
     const service = new AdminAccountService({
       publicBaseUrl: "https://auth.example.com",
       isDeliveryEnabled: () => true,
@@ -146,8 +230,8 @@ describe("admin account service", () => {
   });
 
   test("does not save profile changes when the current password is wrong", async () => {
-    const { store, updatedProfiles } = createStore();
-    const { auth, verifiedPasswords, emailChanges } = createAuth(false);
+    const { store, updatedProfiles } = createAdminStore();
+    const { auth, verifiedPasswords, emailChanges } = createAdminAuth(false);
     const service = new AdminAccountService({
       publicBaseUrl: "https://auth.example.com",
       isDeliveryEnabled: () => true,
@@ -176,9 +260,9 @@ describe("admin account service", () => {
     expect(emailChanges).toEqual([]);
   });
 
-  test("revokes other sessions and clears the bootstrap password flag after password change", async () => {
-    const { store, changedPasswords } = createStore();
-    const { auth, passwordChanges } = createAuth(true);
+  test("revokes other sessions and clears the bootstrap flag after password change", async () => {
+    const { store, changedPasswords } = createAdminStore();
+    const { auth, passwordChanges } = createAdminAuth(true);
     const service = new AdminAccountService({
       publicBaseUrl: "https://auth.example.com",
       isDeliveryEnabled: () => false,

@@ -1,4 +1,8 @@
 import {
+  IdentityServiceError,
+  parseResendVerificationEmail
+} from "@nezdemkovski/auth-identity";
+import {
   auditLog,
   domainErrorResponse,
   parseJson,
@@ -7,8 +11,6 @@ import {
   type AdminRouteRegistration
 } from "../../http/admin/shared";
 import { ErrorCode } from "../../runtime/error-codes";
-import { UsersServiceError } from "./core";
-import { parseResendVerificationEmail } from "./validator";
 
 export const registerUserRoutes: AdminRouteRegistration = ({
   app,
@@ -78,7 +80,7 @@ export const registerUserRoutes: AdminRouteRegistration = ({
         targetEmail: email
       });
     } catch (error) {
-      if (error instanceof UsersServiceError) {
+      if (error instanceof IdentityServiceError) {
         return domainErrorResponse(error);
       }
       throw error;

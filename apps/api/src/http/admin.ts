@@ -5,9 +5,12 @@ import {
 } from "@nezdemkovski/auth-delivery";
 import { ObservabilityService } from "@nezdemkovski/auth-observability";
 import { BillingService } from "@nezdemkovski/auth-billing";
+import {
+  AdminAccountService,
+  IdentityService
+} from "@nezdemkovski/auth-identity";
 
 import { ErrorCode } from "../runtime/error-codes";
-import { AdminAccountService } from "../modules/admin-account/core";
 import { registerAdminAccountRoutes } from "../modules/admin-account/http";
 import { registerBillingRoutes } from "../modules/billing/http";
 import { registerDeliveryRoutes } from "../modules/delivery/http";
@@ -70,8 +73,10 @@ export const createAdminApi = (options: AdminApiOptions) => {
   });
   const usersService = new UsersService({
     adminProject: options.adminProject,
-    isDeliveryEnabled: () =>
-      currentDeliverySettings.provider !== EmailProvider.None
+    identity: new IdentityService({
+      isDeliveryEnabled: () =>
+        currentDeliverySettings.provider !== EmailProvider.None
+    })
   });
   const routeContext = {
     app,

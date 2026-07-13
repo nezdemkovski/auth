@@ -1,11 +1,11 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import { projectSessionSatisfiesPolicy } from "@nezdemkovski/auth-better-auth-runtime";
+import { mustChangePassword } from "@nezdemkovski/auth-identity";
 import {
   ADMIN_PROJECT_SLUG,
   AuthUserRole,
   type AuthProject
 } from "../../config/projects";
-import { mustChangePassword } from "../../modules/admin-account/store";
 
 export type AdminSession = {
   user: {

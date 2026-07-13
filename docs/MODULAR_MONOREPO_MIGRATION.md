@@ -211,7 +211,7 @@ Package API rules:
   Depend on a minimal reporter port.
 - [x] Split `config/projects.ts` so billing, storage, observability, auth feature,
   and realm enums are owned by their closest stable package.
-- [ ] Stop database bootstrap from knowing domain table details. Each domain
+- [x] Stop database bootstrap from knowing domain table details. Each domain
   exports one migration/bootstrap entrypoint and the app composes them.
 - [ ] Remove shared admin HTTP context types that enumerate every service when a
   route only needs one capability.
@@ -356,7 +356,7 @@ Migrate one domain at a time and keep every move behavior-preserving.
   project module.
 - [ ] Keep aggregate admin responses in an app-level query that explicitly
   combines realm, billing, storage, delivery, and observability state.
-- [ ] Extract identity administration around Better Auth-owned user/session
+- [x] Extract identity administration around Better Auth-owned user/session
   data without copying Better Auth models into a parallel domain model.
 - [x] Extract per-realm Better Auth construction, policy, registry, Telegram
   OIDC configuration, and plugin composition into the Better Auth runtime

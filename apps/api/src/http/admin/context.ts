@@ -9,11 +9,11 @@ import type {
 } from "@nezdemkovski/auth-observability";
 import type { StorageService } from "@nezdemkovski/auth-storage";
 import type { BillingService } from "@nezdemkovski/auth-billing";
+import type { AdminAccountService } from "@nezdemkovski/auth-identity";
 
 import type { AuthRegistry } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import type { AdminDatabase } from "../../db/admin-pool";
-import type { AdminAccountService } from "../../modules/admin-account/core";
 import type { MediaService } from "../../modules/media/core";
 import type { ProjectService } from "../../modules/projects/core";
 import type { UsersService } from "../../modules/users/core";

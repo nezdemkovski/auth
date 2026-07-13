@@ -18,6 +18,7 @@ RUN bun build packages/domains/observability/src/index.ts --outdir packages/doma
 RUN bun build packages/domains/storage/src/index.ts --outdir packages/domains/storage/dist --target bun --packages external
 RUN bun build packages/domains/billing/src/index.ts --outdir packages/domains/billing/dist --target bun --packages external
 RUN bun build packages/domains/realm/src/index.ts --outdir packages/domains/realm/dist --target bun --packages external
+RUN bun build packages/domains/identity/src/index.ts --outdir packages/domains/identity/dist --target bun --packages external
 RUN bun build packages/platform/better-auth-runtime/src/index.ts --outdir packages/platform/better-auth-runtime/dist --target bun --packages external
 
 FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS runtime
@@ -31,6 +32,7 @@ COPY --from=install /app/packages/domains/observability/node_modules ./packages/
 COPY --from=install /app/packages/domains/storage/node_modules ./packages/domains/storage/node_modules
 COPY --from=install /app/packages/domains/billing/node_modules ./packages/domains/billing/node_modules
 COPY --from=install /app/packages/domains/realm/node_modules ./packages/domains/realm/node_modules
+COPY --from=install /app/packages/domains/identity/node_modules ./packages/domains/identity/node_modules
 COPY --from=install /app/packages/platform/better-auth-runtime/node_modules ./packages/platform/better-auth-runtime/node_modules
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build /app/apps/api/src ./apps/api/src
@@ -50,6 +52,8 @@ COPY --from=build /app/packages/domains/billing/package.json ./packages/domains/
 COPY --from=build /app/packages/domains/billing/dist ./packages/domains/billing/dist
 COPY --from=build /app/packages/domains/realm/package.json ./packages/domains/realm/package.json
 COPY --from=build /app/packages/domains/realm/dist ./packages/domains/realm/dist
+COPY --from=build /app/packages/domains/identity/package.json ./packages/domains/identity/package.json
+COPY --from=build /app/packages/domains/identity/dist ./packages/domains/identity/dist
 COPY --from=build /app/packages/platform/better-auth-runtime/package.json ./packages/platform/better-auth-runtime/package.json
 COPY --from=build /app/packages/platform/better-auth-runtime/dist ./packages/platform/better-auth-runtime/dist
 WORKDIR /app/apps/api

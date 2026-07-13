@@ -113,6 +113,7 @@ describe("repository security controls", () => {
       ["packages/client-shared", "frontend"],
       ["packages/domains/billing", "domain"],
       ["packages/domains/delivery", "domain"],
+      ["packages/domains/identity", "domain"],
       ["packages/domains/observability", "domain"],
       ["packages/domains/realm", "domain"],
       ["packages/domains/storage", "domain"],
@@ -157,6 +158,7 @@ describe("repository security controls", () => {
     for (const path of [
       "packages/domains/billing",
       "packages/domains/delivery",
+      "packages/domains/identity",
       "packages/domains/observability",
       "packages/domains/realm",
       "packages/domains/storage",
