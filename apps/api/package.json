@@ -19,7 +19,6 @@
     "@better-auth/passkey": "1.7.0-rc.1",
     "@nezdemkovski/auth-billing": "workspace:*",
     "@nezdemkovski/auth-better-auth-runtime": "workspace:*",
-    "@nezdemkovski/auth-contracts": "workspace:*",
     "@nezdemkovski/auth-delivery": "workspace:*",
     "@nezdemkovski/auth-identity": "workspace:*",
     "@nezdemkovski/auth-observability": "workspace:*",

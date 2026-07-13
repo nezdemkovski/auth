@@ -399,7 +399,7 @@ Expected obsolete files:
 
 ### Phase 5 exit gate
 
-- [ ] No published package owns a parallel authentication state machine.
+- [x] No published package owns a parallel authentication state machine.
 - [x] The smallest supported product integration is recognizably Better Auth
   configuration, not a proprietary auth client.
 

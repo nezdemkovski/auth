@@ -254,7 +254,7 @@ Package API rules:
   checks explicitly repo-wide.
 - [x] Ensure `build.dependsOn` includes `^build` and compiled outputs include
   `dist/**`.
-- [ ] Add an affected-packages CI path with `turbo run ... --affected` only after
+- [x] Add an affected-packages CI path with `turbo run ... --affected` only after
   the full suite remains the canonical security gate.
 
 ### Phase 1 exit gate
@@ -402,34 +402,36 @@ Migrate one domain at a time and keep every move behavior-preserving.
 
 ## Phase 8: Public Packages and Release Boundaries
 
-- [ ] Keep `@nezdemkovski/auth-integration` limited to Better Auth composition,
+- [x] Keep `@nezdemkovski/auth-integration` limited to Better Auth composition,
   immutable identity extraction, and resource conventions.
-- [ ] Keep business DTOs in explicit `@nezdemkovski/auth-contracts` subpath
+- [x] Keep business DTOs in explicit `@nezdemkovski/auth-contracts` subpath
   exports such as `/billing` and `/storage`; avoid one accidental root export
   surface.
-- [ ] Decide whether any capability needs its own public client package based on
-  independent versioning, not internal folder structure.
-- [ ] Ensure private domain packages cannot be published accidentally.
-- [ ] Update publish workflows only after package moves preserve existing npm
+- [x] Decide whether any capability needs its own public client package based on
+  independent versioning, not internal folder structure. None does yet: billing
+  and storage expose data contracts but do not own a reusable transport or
+  runtime lifecycle.
+- [x] Ensure private domain packages cannot be published accidentally.
+- [x] Update publish workflows only after package moves preserve existing npm
   names and immutable tag rules.
 - [ ] Migrate Amela only against the final public package boundaries, never
   against private monorepo packages.
 
 ## Final Exit Gate
 
-- [ ] `apps/api` contains process startup, composition, migrations, and Hono
+- [x] `apps/api` contains process startup, composition, migrations, and Hono
   boundaries rather than hidden domain implementations.
-- [ ] Every domain package has one responsibility, explicit exports, local
+- [x] Every domain package has one responsibility, explicit exports, local
   dependencies, local tests, and owned persistence.
-- [ ] No domain package imports another domain package.
-- [ ] No domain reads or writes another domain's tables.
-- [ ] The workspace dependency graph is acyclic and enforced in CI.
-- [ ] `turbo run build`, `turbo run typecheck`, and `turbo run test` operate on
+- [x] No domain package imports another domain package.
+- [x] No domain reads or writes another domain's tables.
+- [x] The workspace dependency graph is acyclic and enforced in CI.
+- [x] `turbo run build`, `turbo run typecheck`, and `turbo run test` operate on
   the declared package graph and cache independently.
-- [ ] A billing-only change invalidates billing and its consumers, not unrelated
+- [x] A billing-only change invalidates billing and its consumers, not unrelated
   storage or delivery package tasks.
-- [ ] Full API, integration, and browser behavior remains unchanged.
-- [ ] Realm isolation and all security-sensitive regression tests still pass.
+- [x] Full API, integration, and browser behavior remains unchanged.
+- [x] Realm isolation and all security-sensitive regression tests still pass.
 
 ## Non-Goals
 

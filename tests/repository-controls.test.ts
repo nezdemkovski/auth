@@ -74,15 +74,33 @@ describe("repository security controls", () => {
   test("publishes only protocol-thin integration and business contract packages", async () => {
     const contractManifest = await Bun.file(rootFile("packages/auth-contracts/package.json")).json();
     const integrationManifest = await Bun.file(rootFile("packages/auth-integration/package.json")).json();
+    const apiManifest = await Bun.file(rootFile("apps/api/package.json")).json();
+    const integrationIndex = await read("packages/auth-integration/src/index.ts");
 
     expect(await Bun.file(rootFile("packages/auth-client/package.json")).exists()).toBe(false);
     expect(await Bun.file(rootFile("packages/auth-server/package.json")).exists()).toBe(false);
     expect(integrationManifest.peerDependencies["better-auth"]).toBe("1.7.0-rc.1");
+    expect(integrationManifest.dependencies).toBeUndefined();
     expect(contractManifest.files).not.toContain("dist");
     expect(contractManifest.files).not.toContain("src");
     expect(integrationManifest.files).not.toContain("dist");
     expect(integrationManifest.exports["."].bun).toBeUndefined();
-    expect(contractManifest.exports["."].bun).toBeUndefined();
+    expect(contractManifest.exports["."]).toBeUndefined();
+    expect(Object.keys(contractManifest.exports)).toEqual([
+      "./billing",
+      "./storage"
+    ]);
+    expect(contractManifest.exports["./billing"].bun).toBeUndefined();
+    expect(contractManifest.exports["./storage"].bun).toBeUndefined();
+    expect(
+      await Bun.file(rootFile("packages/auth-contracts/src/index.ts")).exists()
+    ).toBe(false);
+    expect(
+      apiManifest.dependencies["@nezdemkovski/auth-contracts"]
+    ).toBeUndefined();
+    expect(integrationIndex).not.toContain("fetch(");
+    expect(integrationIndex).not.toContain("session");
+    expect(integrationIndex).not.toContain("token");
 
     for (const manifest of [contractManifest, integrationManifest]) {
       expect(manifest.private).not.toBe(true);
@@ -95,6 +113,7 @@ describe("repository security controls", () => {
     expect(workflow).toContain("auth-integration-v*");
     expect(workflow).not.toContain("packages/auth-client");
     expect(workflow).not.toContain("packages/auth-server");
+    expect(workflow).toContain("npm pack");
   });
 
   test("enforces an acyclic modular workspace dependency policy", async () => {
@@ -182,6 +201,17 @@ describe("repository security controls", () => {
       const manifest = await Bun.file(rootFile(`${path}/package.json`)).json();
       expect(manifest.private).toBe(true);
     }
+  });
+
+  test("keeps affected CI additive to the canonical full security gate", async () => {
+    const workflow = await read(".github/workflows/integration-tests.yml");
+
+    expect(workflow).toContain("fetch-depth: 0");
+    expect(workflow).toContain(
+      "bunx turbo run build typecheck test --affected"
+    );
+    expect(workflow).toContain("Run canonical full repository test suite");
+    expect(workflow).toContain("run: bun run test");
   });
 
   test("keeps admin HTTP route dependencies capability-local", async () => {

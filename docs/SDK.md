@@ -191,8 +191,11 @@ mutation routes.
 ## Business contracts
 
 `@nezdemkovski/auth-contracts` contains parsers for platform business resource
-DTOs such as billing usage and avatar responses. It deliberately does not copy
-Better Auth OAuth, token, session, user, or error response types.
+DTOs such as billing usage and avatar responses. Import the capability-specific
+contract from `@nezdemkovski/auth-contracts/billing` or
+`@nezdemkovski/auth-contracts/storage`; the package deliberately has no root
+export and does not copy Better Auth OAuth, token, session, user, or error
+response types.
 
 ## Publishing
 
@@ -200,7 +203,7 @@ Packages are versioned independently and published from immutable tags:
 
 ```text
 auth-integration-v0.1.0
-auth-contracts-v0.2.0
+auth-contracts-v0.3.0
 ```
 
 The workflow validates that the tag matches the selected package manifest,

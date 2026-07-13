@@ -1,4 +1,9 @@
-import { booleanField, isRecord, numberField, stringField } from "../shared/validator";
+import {
+  booleanField,
+  isRecord,
+  numberField,
+  stringField
+} from "../shared/validator";
 
 export type BillingUsageSummary = {
   key: string;
@@ -8,19 +13,29 @@ export type BillingUsageSummary = {
   unlimited: boolean;
 };
 
-export const parseBillingUsageSummary = (value: unknown): BillingUsageSummary | null => {
+export const parseBillingUsageSummary = (
+  value: unknown
+): BillingUsageSummary | null => {
   const key = stringField(value, "key");
   const used = numberField(value, "used");
   const limit = numberField(value, "limit");
   const remaining = numberField(value, "remaining");
   const unlimited = booleanField(value, "unlimited");
-  if (!key || used === null || limit === null || remaining === null || unlimited === null) {
+  if (
+    !key ||
+    used === null ||
+    limit === null ||
+    remaining === null ||
+    unlimited === null
+  ) {
     return null;
   }
   return { key, used, limit, remaining, unlimited };
 };
 
-export const parseBillingUsageSummaryResponse = (value: unknown): BillingUsageSummary | null => {
+export const parseBillingUsageSummaryResponse = (
+  value: unknown
+): BillingUsageSummary | null => {
   if (!isRecord(value)) {
     return null;
   }

@@ -8,7 +8,9 @@ export type UserAvatarResponse = {
   image: string | null;
 };
 
-export const parseUserAvatarResponse = (value: unknown): UserAvatarResponse | null => {
+export const parseUserAvatarResponse = (
+  value: unknown
+): UserAvatarResponse | null => {
   if (!isRecord(value) || !isRecord(value.user)) {
     return null;
   }

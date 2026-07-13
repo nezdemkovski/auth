@@ -1,6 +1,6 @@
 {
   "name": "@nezdemkovski/auth-contracts",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Stable business contracts for Nezdemkovski platform resources",
   "repository": {
     "type": "git",
@@ -8,27 +8,25 @@
     "directory": "packages/auth-contracts"
   },
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "files": [
-    "dist/index.js",
-    "dist/index.js.map",
-    "dist/index.d.ts",
-    "dist/index.d.ts.map",
     "dist/billing",
-    "dist/shared",
     "dist/storage",
     "README.md"
   ],
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+    "./billing": {
+      "types": "./dist/billing/contract.d.ts",
+      "import": "./dist/billing/contract.js",
+      "default": "./dist/billing/contract.js"
+    },
+    "./storage": {
+      "types": "./dist/storage/contract.d.ts",
+      "import": "./dist/storage/contract.js",
+      "default": "./dist/storage/contract.js"
     }
   },
   "scripts": {
-    "build": "bun build ./src/index.ts --outdir ./dist --target browser --packages external --sourcemap=external && tsc -p tsconfig.build.json",
+    "build": "bun build ./src/billing/contract.ts ./src/storage/contract.ts --outdir ./dist --root ./src --target browser --packages external --sourcemap=external && tsc -p tsconfig.build.json",
     "test": "bun test",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
