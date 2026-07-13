@@ -311,30 +311,30 @@ the immutable `issuer + sub` pair.
 
 ### `@nezdemkovski/auth-client`
 
-- [ ] Stop adding features to the current implementation.
-- [ ] Delete custom PKCE generation and callback exchange.
-- [ ] Delete custom central session persistence.
-- [ ] Delete custom JWT expiry parsing, access-token caching, and refresh.
-- [ ] Delete the authenticated fetch retry loop tied to `/auth/token`.
-- [ ] Delete Telegram logic that extracts `set-auth-token`.
-- [ ] Delete billing/profile methods that authenticate with a central session
+- [x] Stop adding features to the current implementation.
+- [x] Delete custom PKCE generation and callback exchange.
+- [x] Delete custom central session persistence.
+- [x] Delete custom JWT expiry parsing, access-token caching, and refresh.
+- [x] Delete the authenticated fetch retry loop tied to `/auth/token`.
+- [x] Delete Telegram logic that extracts `set-auth-token`.
+- [x] Delete billing/profile methods that authenticate with a central session
   token.
-- [ ] Replace product browser integration with the product application's normal
+- [x] Replace product browser integration with the product application's normal
   Better Auth client.
 - [ ] Deprecate the published `0.1.x` package after the reference product and
   Amela no longer consume it.
 
 Expected obsolete files:
 
-- [ ] `packages/auth-client/src/login/core.ts`
-- [ ] `packages/auth-client/src/session/core.ts`
-- [ ] `packages/auth-client/src/session/token.ts`
-- [ ] `packages/auth-client/src/crypto/base64.ts`
-- [ ] `packages/auth-client/src/crypto/core.ts`
-- [ ] `packages/auth-client/src/storage/core.ts`
-- [ ] `packages/auth-client/src/storage/memory.ts`
-- [ ] `packages/auth-client/src/telegram/core.ts`
-- [ ] the current orchestration in `packages/auth-client/src/client.ts`
+- [x] `packages/auth-client/src/login/core.ts`
+- [x] `packages/auth-client/src/session/core.ts`
+- [x] `packages/auth-client/src/session/token.ts`
+- [x] `packages/auth-client/src/crypto/base64.ts`
+- [x] `packages/auth-client/src/crypto/core.ts`
+- [x] `packages/auth-client/src/storage/core.ts`
+- [x] `packages/auth-client/src/storage/memory.ts`
+- [x] `packages/auth-client/src/telegram/core.ts`
+- [x] the current orchestration in `packages/auth-client/src/client.ts`
 
 ### Better Auth product integration package
 
@@ -353,40 +353,40 @@ Expected obsolete files:
 
 ### `@nezdemkovski/auth-server`
 
-- [ ] Replace direct `jose` verification with Better Auth's official resource
+- [x] Replace direct `jose` verification with Better Auth's official resource
   client or `verifyAccessToken` API.
-- [ ] Require an explicit audience/resource and endpoint scopes.
-- [ ] Preserve only platform conventions and typed domain-claim parsing that
+- [x] Require an explicit audience/resource and endpoint scopes.
+- [x] Preserve only platform conventions and typed domain-claim parsing that
   Better Auth does not own.
-- [ ] Rename or remove the package if direct Better Auth resource-client usage
+- [x] Rename or remove the package if direct Better Auth resource-client usage
   is already simpler for product apps.
 
 Expected obsolete files or dependencies:
 
-- [ ] `packages/auth-server/src/token/core.ts`
-- [ ] custom JWKS resolver configuration in
+- [x] `packages/auth-server/src/token/core.ts`
+- [x] custom JWKS resolver configuration in
   `packages/auth-server/src/config/validator.ts`
-- [ ] direct `jose` dependency, if no non-Better-Auth protocol remains
+- [x] direct `jose` dependency, if no non-Better-Auth protocol remains
 
 ### `@nezdemkovski/auth-contracts`
 
-- [ ] Remove login-code, session-cookie, and legacy access-token contracts.
-- [ ] Do not copy Better Auth OAuth token, session, user, or error response
+- [x] Remove login-code, session-cookie, and legacy access-token contracts.
+- [x] Do not copy Better Auth OAuth token, session, user, or error response
   types into this package.
-- [ ] Infer Better Auth types from Better Auth instances where possible.
-- [ ] Keep only stable platform business contracts, such as entitlement or
+- [x] Infer Better Auth types from Better Auth instances where possible.
+- [x] Keep only stable platform business contracts, such as entitlement or
   media DTOs, that are not Better Auth protocol models.
 
 Expected obsolete files:
 
-- [ ] `packages/auth-contracts/src/login/contract.ts`
-- [ ] login/session fixtures in
+- [x] `packages/auth-contracts/src/login/contract.ts`
+- [x] login/session fixtures in
   `packages/auth-contracts/src/__tests__/contracts.test.ts`
 
 ### Phase 5 exit gate
 
 - [ ] No published package owns a parallel authentication state machine.
-- [ ] The smallest supported product integration is recognizably Better Auth
+- [x] The smallest supported product integration is recognizably Better Auth
   configuration, not a proprietary auth client.
 
 ## Phase 6: Migrate Amela as the First Real Consumer

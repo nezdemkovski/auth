@@ -59,21 +59,30 @@ describe("repository security controls", () => {
     );
   });
 
-  test("keeps public SDK package versions and release dependencies aligned", async () => {
+  test("publishes only protocol-thin integration and business contract packages", async () => {
     const contractManifest = await Bun.file(rootFile("packages/auth-contracts/package.json")).json();
-    const clientManifest = await Bun.file(rootFile("packages/auth-client/package.json")).json();
-    const serverManifest = await Bun.file(rootFile("packages/auth-server/package.json")).json();
+    const integrationManifest = await Bun.file(rootFile("packages/auth-integration/package.json")).json();
 
-    expect(clientManifest.version).toBe(contractManifest.version);
-    expect(serverManifest.version).toBe(contractManifest.version);
-    expect(clientManifest.dependencies["@nezdemkovski/auth-contracts"]).toBe(contractManifest.version);
-    expect(serverManifest.dependencies["@nezdemkovski/auth-contracts"]).toBe(contractManifest.version);
+    expect(await Bun.file(rootFile("packages/auth-client/package.json")).exists()).toBe(false);
+    expect(await Bun.file(rootFile("packages/auth-server/package.json")).exists()).toBe(false);
+    expect(integrationManifest.peerDependencies["better-auth"]).toBe("1.7.0-rc.1");
+    expect(contractManifest.files).not.toContain("dist");
+    expect(contractManifest.files).not.toContain("src");
+    expect(integrationManifest.files).not.toContain("dist");
+    expect(integrationManifest.exports["."].bun).toBeUndefined();
+    expect(contractManifest.exports["."].bun).toBeUndefined();
 
-    for (const manifest of [contractManifest, clientManifest, serverManifest]) {
+    for (const manifest of [contractManifest, integrationManifest]) {
       expect(manifest.private).not.toBe(true);
       expect(manifest.publishConfig.access).toBe("public");
       expect(manifest.repository.url).toBe("git+https://github.com/nezdemkovski/auth.git");
     }
+
+    const workflow = await read(".github/workflows/publish-sdk.yml");
+    expect(workflow).toContain("auth-contracts-v*");
+    expect(workflow).toContain("auth-integration-v*");
+    expect(workflow).not.toContain("packages/auth-client");
+    expect(workflow).not.toContain("packages/auth-server");
   });
 
   test("does not mask integration dependency health failures", async () => {

@@ -33,9 +33,9 @@ https://auth.nezdemkovski.cloud/api/<project>/.well-known/jwks.json
 apps/api                 Hono/Bun auth API
 apps/admin               Vite React admin dashboard
 apps/login               Vite React login experience
-packages/auth-contracts  Public API contracts and runtime parsers
-packages/auth-client     Headless browser/native auth client
-packages/auth-server     Server-side realm JWT verification
+apps/reference-product   Executable Better Auth product integration
+packages/auth-contracts  Platform business DTOs and runtime parsers
+packages/auth-integration Thin product-side Better Auth configuration
 packages/client-shared   Shared frontend theme and CSS
 packages/ui              Shared React UI primitives
 charts/auth              OCI Helm chart for the full runtime stack
@@ -45,7 +45,7 @@ The frontend apps build into their own `dist` directories and run as separate
 web images served by Caddy. The API server does not read or serve frontend
 assets.
 
-The public SDK packages are documented in [`docs/SDK.md`](docs/SDK.md).
+The supported product integration is documented in [`docs/SDK.md`](docs/SDK.md).
 
 ## Local Development
 
@@ -154,8 +154,8 @@ Each realm gets:
 - its own trusted origins
 - its own JWT issuer and JWKS endpoint
 
-Applications should store their own domain data in their own databases and only
-reference the realm-local Better Auth `user.id`.
+Applications should store their own domain data in their own databases and key
+the central identity by the validated `issuer + sub` pair, never by email.
 
 ## Rate Limiting
 
@@ -189,13 +189,17 @@ The local compose stack includes RustFS for development. It creates an
 `auth-public` bucket and exposes public objects under
 `http://127.0.0.1:9000/auth-public/...`.
 
-## Login Auth Handoff
+## Product Login
 
-The login flow uses a short-lived authorization code plus PKCE S256. The
-client app sends `code_challenge` and `code_challenge_method=S256` to
-`/login/<project>`, stores the verifier in an HttpOnly app cookie, and sends
-`code_verifier` to `/api/<project>/login/token` during callback exchange.
-Only the realm session cookie is carried in the short-lived handoff record.
+Product applications run their own Better Auth instance and configure the
+central realm as a Generic OAuth provider. The product backend starts the
+authorization-code flow with PKCE, the central hosted UI preserves Better
+Auth's signed OAuth query, and Better Auth completes the callback into the
+product application's own HttpOnly session cookie.
+
+The central realm session cookie stays on the auth origin. Product browser code
+does not store central access tokens, refresh tokens, PKCE state, or a copied
+central session credential.
 
 ## OAuth Provider and MCP
 

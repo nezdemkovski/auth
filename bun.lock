@@ -88,33 +88,18 @@
         "hono": "4.12.27",
       },
     },
-    "packages/auth-client": {
-      "name": "@nezdemkovski/auth-client",
-      "version": "0.1.0",
-      "dependencies": {
-        "@nezdemkovski/auth-contracts": "workspace:*",
-      },
-    },
     "packages/auth-contracts": {
       "name": "@nezdemkovski/auth-contracts",
-      "version": "0.1.0",
+      "version": "0.2.0",
     },
     "packages/auth-integration": {
       "name": "@nezdemkovski/auth-integration",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "devDependencies": {
         "better-auth": "1.7.0-rc.1",
       },
       "peerDependencies": {
         "better-auth": "1.7.0-rc.1",
-      },
-    },
-    "packages/auth-server": {
-      "name": "@nezdemkovski/auth-server",
-      "version": "0.1.0",
-      "dependencies": {
-        "@nezdemkovski/auth-contracts": "workspace:*",
-        "jose": "6.2.3",
       },
     },
     "packages/client-shared": {
@@ -451,8 +436,6 @@
 
     "@nezdemkovski/auth-api": ["@nezdemkovski/auth-api@workspace:apps/api"],
 
-    "@nezdemkovski/auth-client": ["@nezdemkovski/auth-client@workspace:packages/auth-client"],
-
     "@nezdemkovski/auth-client-shared": ["@nezdemkovski/auth-client-shared@workspace:packages/client-shared"],
 
     "@nezdemkovski/auth-contracts": ["@nezdemkovski/auth-contracts@workspace:packages/auth-contracts"],
@@ -462,8 +445,6 @@
     "@nezdemkovski/auth-login": ["@nezdemkovski/auth-login@workspace:apps/login"],
 
     "@nezdemkovski/auth-reference-product": ["@nezdemkovski/auth-reference-product@workspace:apps/reference-product"],
-
-    "@nezdemkovski/auth-server": ["@nezdemkovski/auth-server@workspace:packages/auth-server"],
 
     "@nezdemkovski/auth-ui": ["@nezdemkovski/auth-ui@workspace:packages/ui"],
 

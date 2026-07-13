@@ -1,7 +1,7 @@
 {
   "name": "@nezdemkovski/auth-contracts",
-  "version": "0.1.0",
-  "description": "Public contracts for the Nezdemkovski auth platform",
+  "version": "0.2.0",
+  "description": "Stable business contracts for Nezdemkovski platform resources",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nezdemkovski/auth.git",
@@ -10,11 +10,19 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist", "src", "README.md"],
+  "files": [
+    "dist/index.js",
+    "dist/index.js.map",
+    "dist/index.d.ts",
+    "dist/index.d.ts.map",
+    "dist/billing",
+    "dist/shared",
+    "dist/storage",
+    "README.md"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "bun": "./src/index.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     }

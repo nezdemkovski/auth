@@ -1,21 +1,29 @@
 {
   "name": "@nezdemkovski/auth-integration",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Thin Better Auth integration for Nezdemkovski auth realms",
-  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nezdemkovski/auth.git",
+    "directory": "packages/auth-integration"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "bun": "./src/index.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     }
   },
   "files": [
-    "dist",
+    "dist/index.js",
+    "dist/index.js.map",
+    "dist/index.d.ts",
+    "dist/index.d.ts.map",
+    "dist/identity",
+    "dist/provider",
     "README.md"
   ],
   "scripts": {
@@ -28,5 +36,8 @@
   },
   "devDependencies": {
     "better-auth": "1.7.0-rc.1"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

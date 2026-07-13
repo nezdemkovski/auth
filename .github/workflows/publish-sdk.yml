@@ -1,16 +1,17 @@
-name: Publish SDK Packages
+name: Publish Auth Package
 
 on:
   push:
     tags:
-      - "sdk-v*"
+      - "auth-contracts-v*"
+      - "auth-integration-v*"
 
 permissions:
   contents: read
   id-token: write
 
 concurrency:
-  group: publish-sdk-${{ github.ref }}
+  group: publish-package-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -38,47 +39,48 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Validate release version
+      - name: Resolve package from tag
+        id: package
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#sdk-v}"
-          for manifest in \
-            packages/auth-contracts/package.json \
-            packages/auth-client/package.json \
-            packages/auth-server/package.json; do
-            package_version="$(node -p "require('./${manifest}').version")"
-            if [ "$package_version" != "$version" ]; then
-              echo "Tag version $version does not match $manifest version $package_version"
+          case "$GITHUB_REF_NAME" in
+            auth-contracts-v*)
+              package_dir="packages/auth-contracts"
+              version="${GITHUB_REF_NAME#auth-contracts-v}"
+              ;;
+            auth-integration-v*)
+              package_dir="packages/auth-integration"
+              version="${GITHUB_REF_NAME#auth-integration-v}"
+              ;;
+            *)
+              echo "Unsupported package tag: $GITHUB_REF_NAME"
               exit 1
-            fi
-          done
+              ;;
+          esac
+
+          package_name="$(node -p "require('./${package_dir}/package.json').name")"
+          package_version="$(node -p "require('./${package_dir}/package.json').version")"
+          if [ "$package_version" != "$version" ]; then
+            echo "Tag version $version does not match $package_dir version $package_version"
+            exit 1
+          fi
+
+          echo "dir=$package_dir" >> "$GITHUB_OUTPUT"
+          echo "name=$package_name" >> "$GITHUB_OUTPUT"
+          echo "version=$package_version" >> "$GITHUB_OUTPUT"
 
       - name: Typecheck and test
         run: bun run test
 
-      - name: Build SDK packages
-        run: bun run build --filter=@nezdemkovski/auth-client --filter=@nezdemkovski/auth-server
+      - name: Build package
+        run: bun run build --filter=${{ steps.package.outputs.name }}
 
       - name: Refuse existing package versions
-        shell: bash
         run: |
-          for manifest in \
-            packages/auth-contracts/package.json \
-            packages/auth-client/package.json \
-            packages/auth-server/package.json; do
-            package_name="$(node -p "require('./${manifest}').name")"
-            package_version="$(node -p "require('./${manifest}').version")"
-            if npm view "${package_name}@${package_version}" version >/dev/null 2>&1; then
-              echo "Refusing to overwrite ${package_name}@${package_version}"
-              exit 1
-            fi
-          done
+          if npm view "${{ steps.package.outputs.name }}@${{ steps.package.outputs.version }}" version >/dev/null 2>&1; then
+            echo "Refusing to overwrite ${{ steps.package.outputs.name }}@${{ steps.package.outputs.version }}"
+            exit 1
+          fi
 
-      - name: Publish contracts
-        run: npm publish ./packages/auth-contracts --access public
-
-      - name: Publish client
-        run: npm publish ./packages/auth-client --access public
-
-      - name: Publish server
-        run: npm publish ./packages/auth-server --access public
+      - name: Publish package
+        run: npm publish ./${{ steps.package.outputs.dir }} --access public

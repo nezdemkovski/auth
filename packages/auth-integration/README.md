@@ -3,9 +3,8 @@
 Thin Better Auth configuration for product backends that use a central auth
 realm as their OpenID Connect provider.
 
-This package is intentionally private during the migration. It does not own a
-session, OAuth exchange, PKCE implementation, token cache, refresh loop, or
-authenticated fetch wrapper.
+It does not own a session, OAuth exchange, PKCE implementation, token cache,
+refresh loop, or authenticated fetch wrapper.
 
 ## Better Auth server configuration
 

@@ -1,107 +1,137 @@
-# Auth SDK
+# Better Auth Product Integration
 
-The SDK is split into three publishable packages with one-way dependencies:
+Product applications use Better Auth directly. This repository publishes only
+the platform-specific pieces that Better Auth cannot know:
 
 ```text
-@nezdemkovski/auth-client ─┐
-                           ├─> @nezdemkovski/auth-contracts
-@nezdemkovski/auth-server ─┘
+@nezdemkovski/auth-integration  Thin server-side provider config and identity helpers
+@nezdemkovski/auth-contracts    Stable DTOs for platform-owned business resources
 ```
 
-`auth-contracts` owns stable public DTOs, enums, and parsers for untrusted JSON.
-`auth-client` owns hosted login, PKCE, session lifecycle, access-token refresh,
-Telegram Mini App sign-in, authenticated fetch, billing reads, and avatar
-management. `auth-server` owns Bearer extraction and realm JWT verification.
+There is intentionally no product auth client or token-verification wrapper.
+The former `@nezdemkovski/auth-client@0.1.0` and
+`@nezdemkovski/auth-server@0.1.0` implement a parallel session and token state
+machine and must not be used for new integrations.
 
-Product user provisioning, permissions, domain data, and business workflows do
-not belong in these packages.
+## Product server
 
-## Client integration
+Install Better Auth and the thin integration package:
+
+```bash
+bun add better-auth @nezdemkovski/auth-integration
+```
+
+Configure the central realm as a Generic OAuth provider in the product's own
+Better Auth instance:
 
 ```ts
-import {
-  createAuthClient,
-  createKeyValueAuthStorage
-} from "@nezdemkovski/auth-client";
+import { createAuthPlatformProvider } from "@nezdemkovski/auth-integration";
+import { betterAuth } from "better-auth";
+import { genericOAuth } from "better-auth/plugins";
 
-const auth = createAuthClient({
-  baseUrl: process.env.AUTH_BASE_URL,
-  realm: process.env.AUTH_REALM,
-  storage: createKeyValueAuthStorage(AsyncStorage)
+export const auth = betterAuth({
+  baseURL: "https://demo.example.com",
+  database,
+  plugins: [
+    genericOAuth({
+      config: [
+        createAuthPlatformProvider({
+          issuer: "https://auth.example.com/api/demo",
+          clientId: env.AUTH_CLIENT_ID,
+          clientSecret: env.AUTH_CLIENT_SECRET
+        })
+      ]
+    })
+  ]
 });
-
-await auth.session.initialize();
-
-const loginUrl = await auth.login.createUrl({
-  redirectUri: "https://demo.example.com/auth/callback"
-});
-
-await auth.login.complete({
-  callbackUrl: window.location.href,
-  redirectUri: "https://demo.example.com/auth/callback"
-});
-
-const response = await auth.fetch("https://api.demo.example.com/profile");
 ```
 
-The client keeps the realm session credential private. Applications receive a
-short-lived access token through `auth.session.getAccessToken()` and must not
-forward the realm session credential to their own backend.
+Mount `auth.handler` under the product application's Better Auth route. Better
+Auth owns authorization-code exchange, PKCE, provider token storage, refresh,
+account linking, and the product's HttpOnly session cookie.
 
-Storage is adapter-based. Memory storage is the safe default for short-lived
-browser use. React Native and Expo apps can wrap AsyncStorage with
-`createKeyValueAuthStorage`. Platforms without Web Crypto can provide an
-`AuthCrypto` adapter.
+## Product browser
 
-## Server integration
+The browser talks only to the product application's Better Auth client:
 
 ```ts
-import { createRealmAuth } from "@nezdemkovski/auth-server";
+import { createAuthClient } from "better-auth/client";
 
-const auth = createRealmAuth({
-  baseUrl: process.env.AUTH_BASE_URL,
-  realm: process.env.AUTH_REALM
+const authClient = createAuthClient({
+  baseURL: "https://demo.example.com"
 });
 
-const identity = await auth.verifyRequest(request);
-const productUser = await findOrCreateProductUser(identity.id);
+await authClient.signIn.social({
+  provider: "auth-platform",
+  callbackURL: "https://demo.example.com/signed-in"
+});
 ```
 
-Remote JWKS keys are cached by `jose`. Verification checks the signature,
-issuer, audience, expiry, realm claim, and public identity claim types.
+Do not store or relay central access tokens, refresh tokens, session cookies, or
+PKCE state in product browser code.
 
-## Versioning boundary
+## Stable central identity
 
-All three packages start on the same version. A contract change must first be
-additive and supported by the API before clients depend on it. Removing a field
-or changing its meaning requires a major package version and a compatibility
-window in the API.
+On the product server, read the linked provider account and extract its stable
+central identity:
+
+```ts
+import { readAuthPlatformIdentity } from "@nezdemkovski/auth-integration";
+
+const identity = readAuthPlatformIdentity(accounts, {
+  issuer: "https://auth.example.com/api/demo"
+});
+```
+
+Persist the `issuer + subject` pair. Email is mutable profile data and is not a
+cross-system identity key.
+
+## Calling platform resources
+
+Any platform capability retained for cross-product use must be registered as an
+OAuth resource with explicit scopes. Its resource server verifies tokens with
+Better Auth's official client:
+
+```bash
+bun add @better-auth/oauth-provider@1.7.0-rc.1
+```
+
+```ts
+import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resource-client";
+
+const { verifyAccessTokenRequest } = oauthProviderResourceClient().getActions();
+
+const claims = await verifyAccessTokenRequest(request, {
+  jwksUrl: "https://auth.example.com/api/demo/.well-known/jwks.json",
+  verifyOptions: {
+    issuer: "https://auth.example.com/api/demo",
+    audience: "https://auth.example.com/resources/billing"
+  },
+  scopes: ["billing:read"]
+});
+```
+
+Use `verifyAccessTokenRequest` for new integrations so DPoP-bound requests can
+also be enforced. After protocol verification, application code owns only its
+domain authorization decisions. Do not use this example until the exact
+resource and scopes have been registered in the central realm; there is no
+session-token compatibility fallback.
+
+## Business contracts
+
+`@nezdemkovski/auth-contracts` contains parsers for platform business resource
+DTOs such as billing usage and avatar responses. It deliberately does not copy
+Better Auth OAuth, token, session, user, or error response types.
 
 ## Publishing
 
-SDK releases are published to the public npm registry by
-`.github/workflows/publish-sdk.yml`. All three packages use fixed, matching
-versions so published dependencies never contain the local `workspace:`
-protocol.
-
-For the first release, publish the three packages once in dependency order and
-configure each npm package's trusted publisher for:
+Packages are versioned independently and published from immutable tags:
 
 ```text
-GitHub owner: nezdemkovski
-Repository: auth
-Workflow: publish-sdk.yml
+auth-integration-v0.1.0
+auth-contracts-v0.2.0
 ```
 
-Subsequent releases require updating the version in all three package manifests
-and the internal `auth-contracts` dependency versions, then pushing a matching
-tag such as `sdk-v0.2.0`. The workflow validates version alignment, runs the
-full test suite, builds the SDK, refuses existing versions, and publishes in
-dependency order: contracts, client, then server.
-
-Consumers install only the packages they need:
-
-```bash
-bun add @nezdemkovski/auth-client
-bun add @nezdemkovski/auth-server
-```
+The workflow validates that the tag matches the selected package manifest,
+runs the complete repository test suite, builds that package, refuses an
+existing npm version, and publishes through npm trusted publishing.
