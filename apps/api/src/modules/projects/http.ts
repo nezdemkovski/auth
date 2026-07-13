@@ -1,6 +1,5 @@
 import {
   isSocialProviderId,
-  parseRealmCreate,
   parseRealmSettingsPatch,
   parseSocialProviderPatch
 } from "@nezdemkovski/auth-realm";
@@ -17,17 +16,21 @@ import {
 } from "../../http/admin/shared";
 import { ErrorCode } from "../../runtime/error-codes";
 import { ProjectServiceError, type ProjectService } from "./core";
+import { projectSetupResponse } from "./translator";
+import { parseProjectCreate } from "./validator";
 
 type ProjectRouteContext = {
   app: Hono;
   options: AdminProjectLookupOptions;
   projectService: ProjectService;
+  publicBaseUrl: string;
 };
 
 export const registerProjectRoutes = ({
   app,
   options,
-  projectService
+  projectService,
+  publicBaseUrl
 }: ProjectRouteContext) => {
   app.get("/projects", async (c) => {
     const admin = await requireAdmin(options.registry, c.req.raw.headers);
@@ -47,19 +50,29 @@ export const registerProjectRoutes = ({
     }
 
     const body = await parseJson(c.req);
-    const input = parseRealmCreate(body);
+    const input = parseProjectCreate(body);
     if (!input) {
       return c.json({ error: ErrorCode.InvalidBody }, 400);
     }
 
     try {
-      const project = await projectService.createProject(input);
+      const created = await projectService.createProject(input);
       auditLog("project.created", {
         actorId: admin.session.user.id,
         actorEmail: admin.session.user.email,
-        projectSlug: project.slug
+        projectSlug: created.project.slug
       });
-      return c.json({ project }, 201);
+      return c.json(
+        {
+          project: created.project,
+          setup: projectSetupResponse(
+            publicBaseUrl,
+            created.project,
+            created.integration
+          )
+        },
+        201
+      );
     } catch (error) {
       return projectServiceError(error);
     }

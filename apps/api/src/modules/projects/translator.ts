@@ -5,6 +5,7 @@ import {
   type SocialProviderId,
   type SocialProviderSummary
 } from "@nezdemkovski/auth-realm";
+import type { CreatedManagedOAuthClient } from "@nezdemkovski/auth-oauth-client-management";
 
 export const socialProvidersResponse = (
   project: AuthProject,
@@ -33,4 +34,26 @@ export const socialProviderCallbackUrl = (
     ? `/oauth2/callback/${provider}`
     : `/callback/${provider}`;
   return `${publicBaseUrl}/api/${project.slug}/auth${callbackPath}`;
+};
+
+export const projectSetupResponse = (
+  publicBaseUrl: string,
+  project: Pick<AuthProject, "slug">,
+  integration: CreatedManagedOAuthClient
+) => {
+  const issuer = `${publicBaseUrl}/api/${project.slug}`;
+  const clientSecret = integration.credential.clientSecret;
+  if (!clientSecret) {
+    throw new Error("Primary app integration must be confidential");
+  }
+  return {
+    issuer,
+    callbackUrl: integration.client.redirectUris[0] ?? "",
+    clientId: integration.credential.clientId,
+    clientSecret,
+    mcp: {
+      authorizationServer: issuer,
+      discoveryUrl: `${issuer}/.well-known/oauth-authorization-server`
+    }
+  };
 };

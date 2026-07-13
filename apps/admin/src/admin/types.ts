@@ -351,9 +351,27 @@ export type ProjectSettingsPatch = {
   features: ProjectFeatures;
 };
 
-export type CreateProjectInput = Omit<ProjectSettingsPatch, "features"> & {
+export type CreateProjectInput = {
   slug: string;
-  features?: ProjectFeatures;
+  name: string;
+  appUrl: string;
+  backendUrl: string;
+};
+
+export type RealmSetup = {
+  issuer: string;
+  callbackUrl: string;
+  clientId: string;
+  clientSecret: string;
+  mcp: {
+    authorizationServer: string;
+    discoveryUrl: string;
+  };
+};
+
+export type CreatedProject = {
+  project: ProjectSummary;
+  setup: RealmSetup;
 };
 
 export type ProjectUser = AdminUser & {

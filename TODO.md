@@ -109,10 +109,17 @@
   fewer required fields, clearer product/benefit mapping, and better validation
   messages.
 - Add empty/error/loading states for every admin settings panel.
-- Add a cleaner realm creation flow with inline validation and post-create
-  guidance for origins, social providers, billing, and login settings.
 
 ## Done
+
+- Replaced protocol-first realm onboarding with a three-field golden path.
+  Realm creation now provisions the primary Better Auth product client and
+  returns a one-time copy-ready environment block; OAuth profiles, scopes,
+  resources, callback paths, and MCP discovery stay internal. Existing realms
+  expose one primary app setup while rare service credentials remain collapsed
+  under Backend API keys.
+- Added Better Auth's official CIMD plugin for zero-registration MCP client
+  discovery while keeping unauthenticated Dynamic Client Registration disabled.
 
 - Realm-owned OAuth client management extracted into the private compiled
   `@nezdemkovski/auth-oauth-client-management` package. Product web, public/MCP,

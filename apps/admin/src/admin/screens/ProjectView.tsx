@@ -207,14 +207,16 @@ export function ProjectView({
 
       <section>
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="eyebrow">02 — Connections</span>
+          <span className="eyebrow">02 — Setup</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
         </div>
 
         <Card padding={false}>
           <AuthConnectionSettings
             project={project.slug}
+            projectName={project.name}
             issuer={`${window.location.origin}/api/${project.slug}`}
+            mcpReady={project.features.oauthProvider.enabled}
             data={authConnectionsQuery.data}
             loading={authConnectionsQuery.isLoading}
             loadError={authConnectionsQuery.isError}

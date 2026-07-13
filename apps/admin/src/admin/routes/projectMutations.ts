@@ -19,6 +19,7 @@ import {
 } from "../api";
 import { adminQueryKeys } from "../queryKeys";
 import { notifyError, notifySuccess } from "../toast";
+import { AuthConnectionKind } from "../types";
 import type {
   BillingSettingsPatch,
   CreateAuthConnectionInput,
@@ -144,7 +145,11 @@ export const useProjectRouteMutations = () => {
       connection: CreateAuthConnectionInput;
     }) => createAuthConnection(input),
     onSuccess: async (_data, variables) => {
-      notifySuccess("Connection created");
+      notifySuccess(
+        variables.connection.kind === AuthConnectionKind.Application
+          ? "App setup generated"
+          : "API key created"
+      );
       await queryClient.invalidateQueries({
         queryKey: adminQueryKeys.authConnections(variables.project)
       });
@@ -154,7 +159,7 @@ export const useProjectRouteMutations = () => {
     },
     onError: (caught) => {
       notifyError(
-        "Could not create connection",
+        "Could not generate access",
         caught instanceof Error ? caught.message : undefined
       );
     }
@@ -168,6 +173,9 @@ export const useProjectRouteMutations = () => {
       await queryClient.invalidateQueries({
         queryKey: adminQueryKeys.authConnections(variables.project)
       });
+      await queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.projects()
+      });
     },
     onError: (caught) => {
       notifyError(
@@ -179,9 +187,12 @@ export const useProjectRouteMutations = () => {
   const authConnectionCredentialRotate = useMutation({
     mutationFn: rotateAuthConnectionCredential,
     onSuccess: async (_data, variables) => {
-      notifySuccess("Credential rotated");
+      notifySuccess("New keys generated");
       await queryClient.invalidateQueries({
         queryKey: adminQueryKeys.authConnections(variables.project)
+      });
+      await queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.projects()
       });
     },
     onError: (caught) => {
@@ -194,7 +205,7 @@ export const useProjectRouteMutations = () => {
   const authConnectionDelete = useMutation({
     mutationFn: deleteAuthConnection,
     onSuccess: async (_data, variables) => {
-      notifySuccess("Connection deleted");
+      notifySuccess("API key deleted");
       await queryClient.invalidateQueries({
         queryKey: adminQueryKeys.authConnections(variables.project)
       });

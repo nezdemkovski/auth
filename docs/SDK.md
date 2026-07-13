@@ -13,6 +13,24 @@ The former `@nezdemkovski/auth-client@0.1.0` and
 `@nezdemkovski/auth-server@0.1.0` implement a parallel session and token state
 machine and must not be used for new integrations.
 
+## Golden path
+
+Create a realm in the admin and provide only the app name, web-app URL, and
+backend URL. Realm creation registers the Better Auth callback and returns the
+only three values the product backend needs:
+
+```dotenv
+AUTH_ISSUER=https://auth.example.com/api/demo
+AUTH_CLIENT_ID=...
+AUTH_CLIENT_SECRET=...
+```
+
+Copy the block immediately because the client secret is shown once. The realm
+is then ready for hosted user login, product sessions, and standards-based MCP
+client discovery. The auth platform configures OAuth/OIDC details internally;
+the product does not choose profiles, scopes, resources, or registration modes
+during onboarding.
+
 ## Product server
 
 Install Better Auth and the thin integration package:

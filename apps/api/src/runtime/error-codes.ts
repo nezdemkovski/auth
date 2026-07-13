@@ -1,5 +1,6 @@
 export enum ErrorCode {
   AdminNotConfigured = "admin_not_configured",
+  AppIntegrationExists = "app_integration_exists",
   ForbiddenOrigin = "forbidden_origin",
   InvalidBenefitKey = "invalid_benefit_key",
   InvalidBody = "invalid_body",

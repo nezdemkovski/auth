@@ -86,7 +86,7 @@ test("a protected admin API 401 clears the shell and returns to sign in", async 
   await expect(page.getByRole("heading", { name: /Overview/ })).not.toBeVisible();
 });
 
-test("admin connects an app without configuring OAuth internals", async ({
+test("admin generates app setup without configuring OAuth internals", async ({
   page
 }) => {
   const connections: Array<Record<string, unknown>> = [];
@@ -188,28 +188,103 @@ test("admin connects an app without configuring OAuth internals", async ({
 
   await page.goto("http://127.0.0.1:5173/admin/projects/demo");
 
-  await expect(page.getByRole("heading", { name: "Connections" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "App setup" })).toBeVisible();
   await expect(page.getByLabel("Client profile")).not.toBeVisible();
   await expect(page.getByLabel(/Scopes/)).not.toBeVisible();
   await expect(page.getByLabel(/Resources/)).not.toBeVisible();
   await expect(page.getByText("Skip consent")).not.toBeVisible();
 
-  await page.getByRole("button", { name: /Add sign-in to an app/ }).click();
-  await page.getByLabel("App name").fill("Demo product backend");
   await page.getByLabel("Backend URL").fill("https://api.demo.example.com");
-  await expect(
-    page.getByText(
-      "https://api.demo.example.com/api/auth/oauth2/callback/auth-platform"
-    )
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Connect app" }).click();
+  await page.getByRole("button", { name: "Generate setup" }).click();
 
-  await expect(page.getByText("Demo product backend is ready")).toBeVisible();
+  await expect(page.getByText("Demo App backend is ready")).toBeVisible();
   await expect(page.getByText("AUTH_CLIENT_ID=demo-client", { exact: false })).toBeVisible();
   await expect(page.getByText("AUTH_CLIENT_SECRET=demo-secret", { exact: false })).toBeVisible();
   expect(createBody).toBe(
-    '{"kind":"application","name":"Demo product backend","backendUrl":"https://api.demo.example.com"}'
+    '{"kind":"application","name":"Demo App backend","backendUrl":"https://api.demo.example.com"}'
   );
   expect(createBody).not.toContain("scopes");
   expect(createBody).not.toContain("resources");
+});
+
+test("creating a realm returns one copy-ready setup block", async ({ page }) => {
+  let createBody = "";
+  await mockAdminObservability(page);
+  await page.route("**/admin/api/me", (route) =>
+    route.fulfill({
+      json: {
+        user: adminUser,
+        mustChangePassword: false,
+        emailServiceEnabled: false
+      }
+    })
+  );
+  await page.route("**/admin/api/projects", async (route) => {
+    if (route.request().method() === "POST") {
+      createBody = route.request().postData() ?? "";
+      return route.fulfill({
+        status: 201,
+        json: {
+          project: {
+            slug: "demo-app",
+            name: "Demo App",
+            schema: "demo_app_auth",
+            description: "",
+            iconUrl: "",
+            appUrl: "https://app.demo.example.com",
+            trustedOrigins: ["https://app.demo.example.com"],
+            features: {
+              passkey: { enabled: false },
+              twoFactor: { enabled: false, required: "optional" },
+              agentAuth: { enabled: false, mode: "read-only" },
+              oauthProvider: {
+                enabled: true,
+                dynamicClientRegistration: false
+              }
+            },
+            socialProviders: [],
+            system: false,
+            userCount: 0,
+            activeSessionCount: 0
+          },
+          setup: {
+            issuer: "https://auth.example.com/api/demo-app",
+            callbackUrl:
+              "https://api.demo.example.com/api/auth/oauth2/callback/auth-platform",
+            clientId: "demo-client",
+            clientSecret: "demo-secret",
+            mcp: {
+              authorizationServer: "https://auth.example.com/api/demo-app",
+              discoveryUrl:
+                "https://auth.example.com/api/demo-app/.well-known/oauth-authorization-server"
+            }
+          }
+        }
+      });
+    }
+    return route.fulfill({ json: { projects: [] } });
+  });
+
+  await page.goto("http://127.0.0.1:5173/admin/projects/new");
+
+  await page.getByLabel("App name").fill("Demo App");
+  await page.getByLabel("Web app URL").fill("https://app.demo.example.com");
+  await page.getByLabel("Backend URL").fill("https://api.demo.example.com");
+  await page.getByRole("button", { name: "Create realm" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: /Copy\. Paste\. Done\./ })
+  ).toBeVisible();
+  await expect(
+    page.getByText("AUTH_ISSUER=https://auth.example.com/api/demo-app", {
+      exact: false
+    })
+  ).toBeVisible();
+  await expect(
+    page.getByText("AUTH_CLIENT_SECRET=demo-secret", { exact: false })
+  ).toBeVisible();
+  await expect(page.getByText("MCP auth", { exact: true })).toBeVisible();
+  expect(createBody).toBe(
+    '{"slug":"demo-app","name":"Demo App","appUrl":"https://app.demo.example.com","backendUrl":"https://api.demo.example.com"}'
+  );
 });

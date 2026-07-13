@@ -1,4 +1,5 @@
 import { agentAuth } from "@better-auth/agent-auth";
+import { cimd } from "@better-auth/cimd";
 import {
   oauthProvider,
   oauthProviderAuthServerMetadata,
@@ -282,6 +283,7 @@ const buildProjectAuthOptions = <TProject extends Realm>(options: {
       }),
       ...buildTelegramOidcPlugins(project),
       oauthProvider(oauthProviderOptions),
+      cimd(),
       oauthClientManagement(oauthProviderOptions),
       lastLoginMethod({
         customResolveMethod: (ctx) => {

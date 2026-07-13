@@ -1,4 +1,5 @@
 import type {
+  CreatedProject,
   CreateProjectInput,
   ProjectSettingsPatch,
   ProjectSummary,
@@ -12,7 +13,7 @@ export async function fetchProjects(): Promise<ProjectsResponse> {
   return readJson<ProjectsResponse>(response);
 }
 
-export async function createProject(input: CreateProjectInput): Promise<ProjectSummary> {
+export async function createProject(input: CreateProjectInput): Promise<CreatedProject> {
   const response = await adminFetch("/admin/api/projects", {
     method: "POST",
     credentials: "include",
@@ -28,7 +29,7 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectS
     throw new Error(body?.message ?? "Could not create project");
   }
 
-  return (await readJson<{ project: ProjectSummary }>(response)).project;
+  return readJson<CreatedProject>(response);
 }
 
 export async function updateProjectSettings(

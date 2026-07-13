@@ -28,6 +28,12 @@ import {
   cloneDefaultStorage
 } from "@nezdemkovski/auth-storage";
 import { logError } from "../../runtime/logger";
+import {
+  AuthConnectionKind,
+  type CreateApplicationConnectionInput
+} from "../auth-connections/model";
+import { authConnectionClientInput } from "../auth-connections/core";
+import type { ProjectCreateInput } from "./validator";
 
 export class ProjectServiceError extends Error {
   constructor(
@@ -70,10 +76,10 @@ export class ProjectService {
     return projects.filter((project) => project !== null);
   }
 
-  async createProject(input: RealmSettingsCreate) {
+  async createProject(input: ProjectCreateInput) {
     let project: AuthProject;
     try {
-      project = createProjectFromInput(input);
+      project = createProjectFromInput(input.realm);
     } catch (error) {
       throw new ProjectServiceError(
         "invalid_project",
@@ -104,6 +110,7 @@ export class ProjectService {
 
     let schemaCreationStarted = false;
     let settingsCreated = false;
+    let registryCreated = false;
     try {
       const created = await createRealmSettings({
         databaseUrl: this.options.databaseUrl,
@@ -125,8 +132,41 @@ export class ProjectService {
         project
       });
       await this.options.registry.updateProject(createdProject);
-      return this.adminProjectResponseWithCounts(createdProject);
+      registryCreated = true;
+      const registered = this.options.registry.get(createdProject.slug);
+      if (!registered) {
+        throw new Error("Created realm is not registered");
+      }
+      const application: CreateApplicationConnectionInput = {
+        kind: AuthConnectionKind.Application,
+        name: `${createdProject.name} backend`,
+        backendUrl: input.backendUrl
+      };
+      const integration = await registered.auth.oauthClientManagement.create(
+        authConnectionClientInput(
+          application,
+          registered,
+          this.options.publicBaseUrl
+        )
+      );
+
+      return {
+        project: await this.adminProjectResponseWithCounts(createdProject),
+        integration
+      };
     } catch (error) {
+      if (registryCreated) {
+        await this.options.registry.removeProject(project.slug).catch((cleanupError) => {
+          logError("project_registry_cleanup_failed", {
+            slug: project.slug,
+            error:
+              cleanupError instanceof Error
+                ? cleanupError.message
+                : String(cleanupError)
+          });
+        });
+      }
+
       if (settingsCreated) {
         await deleteRealmSettings({
           databaseUrl: this.options.databaseUrl,

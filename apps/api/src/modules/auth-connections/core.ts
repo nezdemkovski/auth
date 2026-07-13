@@ -65,9 +65,19 @@ export class AuthConnectionService {
     registered: RegisteredProject,
     input: CreateAuthConnectionInput
   ) {
-    const enabled = registered.project.features.oauthProvider.enabled
-      ? registered
-      : await this.options.enableOAuthProvider(registered);
+    const enabled = await this.options.enableOAuthProvider(registered);
+    if (input.kind === AuthConnectionKind.Application) {
+      const existing = await enabled.auth.oauthClientManagement.list();
+      if (
+        existing.some((client) => client.profile === OAuthClientProfile.Web)
+      ) {
+        throw new AuthConnectionServiceError(
+          ErrorCode.AppIntegrationExists,
+          409,
+          "This realm already has an app integration"
+        );
+      }
+    }
     const client = authConnectionClientInput(
       input,
       enabled,
@@ -101,10 +111,10 @@ export class AuthConnectionService {
     );
   }
 
-  rotateSecret(registered: RegisteredProject, clientId: string) {
-    this.requireEnabled(registered);
+  async rotateSecret(registered: RegisteredProject, clientId: string) {
+    const enabled = await this.options.enableOAuthProvider(registered);
     return this.translateErrors(() =>
-      registered.auth.oauthClientManagement.rotateSecret(clientId)
+      enabled.auth.oauthClientManagement.rotateSecret(clientId)
     );
   }
 

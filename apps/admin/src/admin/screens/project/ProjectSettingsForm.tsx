@@ -18,9 +18,7 @@ import {
 import { FeatureToggle } from "./FeatureToggle";
 import { ProjectIconField } from "./ProjectIconField";
 import {
-  AGENT_ACCESS_MODE_OPTIONS,
   TWO_FACTOR_REQUIREMENT_OPTIONS,
-  parseAgentAccessMode,
   parseTwoFactorRequirement
 } from "./project-settings-options";
 
@@ -86,12 +84,13 @@ export function ProjectSettingsForm({
           required: form.twoFactorRequired
         },
         agentAuth: {
-          enabled: form.agentAuthEnabled,
-          mode: form.agentAuthMode
+          enabled: project.features.agentAuth.enabled,
+          mode: project.features.agentAuth.mode
         },
         oauthProvider: {
           enabled: project.features.oauthProvider.enabled,
-          dynamicClientRegistration: form.oauthDynamicClientRegistration
+          dynamicClientRegistration:
+            project.features.oauthProvider.dynamicClientRegistration
         }
       }
     });
@@ -218,50 +217,6 @@ export function ProjectSettingsForm({
           ) : null}
         </div>
 
-        <details className="mt-4 rounded-lg border border-border bg-surface">
-          <summary className="flex min-h-11 cursor-pointer select-none items-center px-3 text-[12.5px] font-medium text-ink-soft outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
-            Advanced features
-          </summary>
-          <div className="grid gap-3 border-t border-border p-3">
-            <FeatureToggle
-              label="Agent Auth"
-              description="Allow AI agents to request scoped access through the Agent Auth protocol."
-              checked={form.agentAuthEnabled}
-              disabled={project.system}
-              onChange={(checked) => update("agentAuthEnabled", checked)}
-            />
-
-            {form.agentAuthEnabled ? (
-              <SelectField
-                label="Agent access mode"
-                value={form.agentAuthMode}
-                disabled={project.system}
-                options={AGENT_ACCESS_MODE_OPTIONS}
-                className="pl-8 md:max-w-[20rem]"
-                onChange={(value) =>
-                  update("agentAuthMode", parseAgentAccessMode(value))
-                }
-              />
-            ) : null}
-
-            <FeatureToggle
-              label="Dynamic client registration"
-              description="Allow compatible third-party and MCP clients to register themselves. Normal app connections do not need this."
-              checked={form.oauthDynamicClientRegistration}
-              disabled={
-                project.system || !project.features.oauthProvider.enabled
-              }
-              onChange={(checked) =>
-                update("oauthDynamicClientRegistration", checked)
-              }
-            />
-            {!project.features.oauthProvider.enabled ? (
-              <p className="px-3 text-[11.5px] leading-5 text-muted">
-                Connect an app or service before enabling protocol extensions.
-              </p>
-            ) : null}
-          </div>
-        </details>
       </section>
 
       <div className="flex justify-end">

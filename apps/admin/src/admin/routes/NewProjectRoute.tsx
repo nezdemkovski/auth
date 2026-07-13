@@ -12,13 +12,9 @@ export function NewProjectRoute() {
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: (input: CreateProjectInput) => createProject(input),
-    onSuccess: async (project) => {
+    onSuccess: async (created) => {
       await queryClient.invalidateQueries({ queryKey: adminQueryKeys.projects() });
-      notifySuccess("Realm created", `${project.name} is ready.`);
-      await navigate({
-        to: "/projects/$projectSlug",
-        params: { projectSlug: project.slug }
-      });
+      notifySuccess("Realm created", `${created.project.name} is ready.`);
     },
     onError: (caught) => {
       notifyError(
@@ -31,6 +27,7 @@ export function NewProjectRoute() {
   return (
     <NewProjectView
       pending={mutation.isPending}
+      created={mutation.data ?? null}
       error={
         mutation.isError
           ? mutation.error instanceof Error
@@ -39,6 +36,12 @@ export function NewProjectRoute() {
           : null
       }
       onSubmit={(input) => mutation.mutate(input)}
+      onOpenRealm={(projectSlug) =>
+        void navigate({
+          to: "/projects/$projectSlug",
+          params: { projectSlug }
+        })
+      }
     />
   );
 }

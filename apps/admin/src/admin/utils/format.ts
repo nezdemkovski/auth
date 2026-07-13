@@ -50,10 +50,6 @@ export function projectToSettingsForm(project: ProjectSummary) {
     trustedOrigins: project.trustedOrigins.join("\n"),
     passkeyEnabled: project.features.passkey.enabled,
     twoFactorEnabled: project.features.twoFactor.enabled,
-    twoFactorRequired: project.features.twoFactor.required,
-    agentAuthEnabled: project.features.agentAuth.enabled,
-    agentAuthMode: project.features.agentAuth.mode,
-    oauthDynamicClientRegistration:
-      project.features.oauthProvider.dynamicClientRegistration
+    twoFactorRequired: project.features.twoFactor.required
   };
 }

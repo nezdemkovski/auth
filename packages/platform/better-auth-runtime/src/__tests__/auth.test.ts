@@ -5,6 +5,7 @@ import {
   RealmTwoFactorRequirement,
   type Realm
 } from "@nezdemkovski/auth-realm";
+import { betterAuth } from "better-auth";
 
 import {
   createBaseProjectAuthOptions,
@@ -75,6 +76,7 @@ describe("project auth options", () => {
     expect(manifest.dependencies["@better-auth/oauth-provider"]).toBe(
       "1.7.0-rc.1"
     );
+    expect(manifest.dependencies["@better-auth/cimd"]).toBe("1.7.0-rc.1");
   });
 
   test("builds isolated Better Auth settings per realm", () => {
@@ -118,6 +120,7 @@ describe("project auth options", () => {
     expect(pluginIds).toContain("two-factor");
     expect(pluginIds).toContain("agent-auth");
     expect(pluginIds).toContain("oauth-provider");
+    expect(pluginIds).toContain("cimd");
     expect(pluginIds).toContain("last-login-method");
     expect(pluginIds).toContain("bearer");
     expect(pluginIds).toContain("jwt");
@@ -208,6 +211,8 @@ describe("project auth options", () => {
     expect(oauthOptions).toMatchObject({
       scopes: protocol.oauthProvider.scopes,
       resources: protocol.oauthProvider.resources(oauthRealm),
+      allowDynamicClientRegistration: false,
+      allowUnauthenticatedClientRegistration: false,
       resourceSeedMode: "overwrite",
       enforcePerClientResources: true,
       clientRegistrationDefaultScopes:
@@ -215,6 +220,11 @@ describe("project auth options", () => {
       clientRegistrationAllowedScopes:
         protocol.oauthProvider.dynamicClientScopes
     });
+    expect(
+      (createMigrationOptions(oauthRealm).plugins ?? []).map(
+        (plugin) => plugin.id
+      )
+    ).toContain("cimd");
 
     const disabledPlugin = (createMigrationOptions(baseRealm).plugins ?? [])
       .find((plugin) => plugin.id === "oauth-provider");
@@ -223,6 +233,39 @@ describe("project auth options", () => {
       : null;
     expect(disabledOptions ? Reflect.get(disabledOptions, "resources") : null)
       .toEqual([]);
+  });
+
+  test("advertises secure zero-registration MCP client discovery", async () => {
+    const oauthRealm = {
+      ...baseRealm,
+      features: {
+        ...baseRealm.features,
+        oauthProvider: {
+          enabled: true,
+          dynamicClientRegistration: false
+        }
+      }
+    };
+    const auth = betterAuth(createMigrationOptions(oauthRealm));
+    const getOAuthServerConfig = Reflect.get(
+      auth.api,
+      "getOAuthServerConfig"
+    );
+    if (typeof getOAuthServerConfig !== "function") {
+      throw new Error("Expected OAuth authorization server metadata endpoint");
+    }
+    const metadata: unknown = await getOAuthServerConfig({
+      request: new Request(
+        "https://auth.example.com/api/demo/.well-known/oauth-authorization-server"
+      ),
+      asResponse: false
+    });
+    if (!isRecord(metadata)) {
+      throw new Error("Expected OAuth authorization server metadata");
+    }
+
+    expect(metadata.client_id_metadata_document_supported).toBe(true);
+    expect(metadata.registration_endpoint).toBeUndefined();
   });
 
   test("uses the OAuth Provider post-login hook for realm security policy", async () => {
@@ -331,3 +374,7 @@ const providerEnabled = (provider: unknown) => {
 
   return false;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}

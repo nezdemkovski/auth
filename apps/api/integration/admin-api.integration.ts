@@ -103,9 +103,36 @@ describe("admin API integration", () => {
         project: {
           slug: "admin-created-project",
           name: "Admin Created Project",
-          appUrl: "https://admin-created-project.integration.test"
+          appUrl: "https://admin-created-project.integration.test",
+          features: {
+            oauthProvider: {
+              enabled: true,
+              dynamicClientRegistration: false
+            }
+          }
+        },
+        setup: {
+          issuer: `${integrationPublicBaseUrl}/api/admin-created-project`,
+          callbackUrl:
+            "https://api.admin-created-project.integration.test/api/auth/oauth2/callback/auth-platform",
+          clientId: expect.any(String),
+          clientSecret: expect.any(String),
+          mcp: {
+            authorizationServer: `${integrationPublicBaseUrl}/api/admin-created-project`,
+            discoveryUrl: `${integrationPublicBaseUrl}/api/admin-created-project/.well-known/oauth-authorization-server`
+          }
         }
       });
+
+      const oauthMetadata = await app.request(
+        "/api/admin-created-project/.well-known/oauth-authorization-server"
+      );
+      expect(oauthMetadata.status).toBe(200);
+      const oauthMetadataBody = await readIntegrationJson(oauthMetadata);
+      expect(oauthMetadataBody).toMatchObject({
+        client_id_metadata_document_supported: true
+      });
+      expect(oauthMetadataBody).not.toHaveProperty("registration_endpoint");
 
       const listed = await app.request("/admin/api/projects", {
         headers: {
@@ -245,6 +272,23 @@ describe("admin API integration", () => {
       );
       expect(initialCredential.clientSecret).toMatch(/^[A-Za-z0-9_-]+$/);
 
+      const duplicateApp = await app.request(
+        `/admin/api/projects/${projectSlug}/auth-connections`,
+        {
+          method: "POST",
+          headers: adminHeaders(cookie),
+          body: JSON.stringify({
+            name: "Another Demo App",
+            kind: AuthConnectionKind.Application,
+            backendUrl: "https://another-demo.integration.test"
+          })
+        }
+      );
+      expect(duplicateApp.status).toBe(409);
+      expect(await readIntegrationJson(duplicateApp)).toMatchObject({
+        error: "app_integration_exists"
+      });
+
       const listed = await app.request(
         `/admin/api/projects/${projectSlug}/auth-connections`,
         {
@@ -257,16 +301,16 @@ describe("admin API integration", () => {
       expect(listed.status).toBe(200);
       const listedBody = await readIntegrationJson(listed);
       expect(listedBody).toMatchObject({
-        connections: [
-          {
+        connections: expect.arrayContaining([
+          expect.objectContaining({
             clientId: initialCredential.clientId,
             name: "Demo Worker",
             kind: AuthConnectionKind.Service,
             permissions: [ServicePermission.BillingUsageWrite],
             canRotateCredential: true,
             disabled: false
-          }
-        ],
+          })
+        ]),
         catalog: {
           servicePermissions: [
             { id: ServicePermission.BillingUsageWrite }
@@ -515,10 +559,8 @@ const projectCreateBody = (slug: string) => {
   return {
     slug,
     name: "Admin Created Project",
-    description: "Created from the admin API integration test",
-    iconUrl: "",
     appUrl: `https://${slug}.integration.test`,
-    trustedOrigins: [`https://${slug}.integration.test`]
+    backendUrl: `https://api.${slug}.integration.test`
   };
 };
 

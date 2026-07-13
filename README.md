@@ -204,28 +204,34 @@ central session credential.
 
 ## Authentication Connections and MCP
 
-Realms can expose OAuth/OIDC endpoints for first-party apps and remote MCP
-clients. OAuth clients authenticate against the same realm-local user pool as
-the login flow.
+Creating a realm is the normal integration path. The admin enters an app name,
+web-app origin, and backend origin. The server creates the isolated realm,
+enables its Better Auth OAuth/OIDC provider, registers the product callback,
+and returns one copy-ready backend environment block:
 
-The normal admin surface models two user intentions: connecting a product
-backend for user sign-in, and creating a service credential for trusted
-server-to-server access. The authenticated admin API exposes them under
-`/admin/api/projects/<realm>/auth-connections`. It accepts a backend URL or
-named service permissions; OAuth profiles, redirect paths, scopes, resources,
-PKCE, and consent policy are derived on the server and are not public form
-controls. Creating the first connection enables the realm's OAuth provider.
+```dotenv
+AUTH_ISSUER=https://auth.example.com/api/demo
+AUTH_CLIENT_ID=...
+AUTH_CLIENT_SECRET=...
+```
 
-Connections belong to the realm, not to a user account. Confidential secrets
-are returned only when a connection is created or its credential is rotated.
-List and detail responses expose the product intent, callback, named
-permissions, and lifecycle state without leaking raw protocol configuration.
+The secret is returned once. OAuth profiles, callback paths, scopes, resources,
+PKCE, consent policy, and MCP client discovery are server-owned defaults rather
+than onboarding choices. A realm has one primary product-backend integration;
+new keys rotate that integration instead of creating competing profiles.
 
-Public clients and Dynamic Client Registration are advanced protocol features,
-not part of ordinary product onboarding. When Dynamic Client Registration is
-enabled through realm configuration, compatible OAuth clients, including MCP
-clients, can register themselves and receive a client ID. Registration only
-creates client metadata; users still approve access through the consent screen.
+MCP authentication uses Better Auth's OAuth Provider together with its CIMD
+plugin. Standards-aware MCP clients identify themselves through a verified
+HTTPS metadata document and do not need an operator to create a client or copy
+a secret. The golden path leaves both open and realm-user Dynamic Client
+Registration disabled. The product still owns its actual MCP tools and
+publishes protected-resource metadata that points to the realm as its
+authorization server.
+
+Rare trusted backend-to-backend access is kept separately under the collapsed
+Backend API keys section. Those credentials belong to the realm, use the
+Better Auth `client_credentials` flow, receive only named permissions, and are
+never exposed to browser code.
 
 OAuth resource identifiers are not inferred from browser trusted origins. A
 client may request `resource=` only after that exact Better Auth OAuth resource

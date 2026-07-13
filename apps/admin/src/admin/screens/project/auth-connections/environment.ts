@@ -1,7 +1,17 @@
 import {
   AuthConnectionKind,
-  type AuthConnectionCredential
+  type AuthConnectionCredential,
+  type RealmSetup
 } from "../../../types";
+
+export const buildRealmSetupEnvironment = (
+  setup: Pick<RealmSetup, "issuer" | "clientId" | "clientSecret">
+) =>
+  [
+    `AUTH_ISSUER=${setup.issuer}`,
+    `AUTH_CLIENT_ID=${setup.clientId}`,
+    `AUTH_CLIENT_SECRET=${setup.clientSecret}`
+  ].join("\n");
 
 export const buildAuthConnectionEnvironment = (input: {
   issuer: string;

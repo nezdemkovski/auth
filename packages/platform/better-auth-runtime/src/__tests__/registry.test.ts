@@ -52,4 +52,27 @@ describe("auth registry lifecycle", () => {
       await registry.close();
     }
   });
+
+  test("removes a failed realm from the live registry", async () => {
+    const project: TestProject = {
+      ...ADMIN_REALM,
+      slug: "failed-realm",
+      schema: "failed_realm_auth",
+      runtimeLabel: "failed"
+    };
+    const registry = new AuthRegistry({
+      databaseUrl: "postgres://auth:auth@127.0.0.1:5432/auth",
+      publicBaseUrl: "https://auth.example.com",
+      secret: "x".repeat(32),
+      trustedClientIpHeader: "x-demo-client-ip",
+      trustProxyHeaders: false,
+      projects: [project],
+      protocol
+    });
+
+    await registry.removeProject(project.slug);
+
+    expect(registry.get(project.slug)).toBeNull();
+    expect(registry.list()).toEqual([]);
+  });
 });

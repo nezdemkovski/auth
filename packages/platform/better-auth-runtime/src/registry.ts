@@ -88,6 +88,16 @@ export class AuthRegistry<TProject extends Realm = Realm> {
     });
   }
 
+  async removeProject(slug: string): Promise<void> {
+    const current = this.projects.get(slug);
+    if (!current) {
+      return;
+    }
+
+    this.projects.delete(slug);
+    await current.projectDb.pool.end();
+  }
+
   async updateEmailContribution(
     emailContribution: ProjectAuthEmailContribution<TProject> | undefined
   ): Promise<void> {

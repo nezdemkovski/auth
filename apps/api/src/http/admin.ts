@@ -88,6 +88,7 @@ export const createAdminApi = (options: AdminApiOptions) => {
   const routeContext = {
     app,
     options,
+    publicBaseUrl: options.publicBaseUrl,
     adminAccountService,
     billingService,
     deliveryService,
