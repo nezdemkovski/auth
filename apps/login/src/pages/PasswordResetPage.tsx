@@ -1,7 +1,7 @@
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
-import { resetLoginPassword } from "../auth-client";
+import { createLoginAuthClient, resetLoginPassword } from "../auth-client";
 import { LoginHeader } from "../components/LoginHeader";
 import { LoginFooter } from "../components/LoginFooter";
 import {
@@ -14,6 +14,10 @@ import { useLoginTheme } from "../hooks/useLoginTheme";
 import type { LoginPasswordResetConfig } from "../types";
 
 export function PasswordResetPage({ config }: { config: LoginPasswordResetConfig }) {
+  const authClient = useMemo(
+    () => createLoginAuthClient(config.project),
+    [config.project]
+  );
   const { theme, toggleTheme } = useLoginTheme("Reset password", config.projectName);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -43,7 +47,7 @@ export function PasswordResetPage({ config }: { config: LoginPasswordResetConfig
     setPending(true);
     try {
       const ok = await resetLoginPassword({
-        project: config.project,
+        authClient,
         token: config.token,
         newPassword: password
       });

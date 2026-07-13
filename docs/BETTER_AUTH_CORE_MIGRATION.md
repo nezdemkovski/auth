@@ -2,8 +2,8 @@
 
 ## Status
 
-Proposed architecture and execution checklist. No compatibility path in this
-document is intended to become permanent.
+Migration in progress. No compatibility path in this document is intended to
+become permanent.
 
 ## Goal
 
@@ -198,13 +198,14 @@ the immutable `issuer + sub` pair.
 
 - [x] Change `apps/login` to include the Better Auth OAuth Provider client
   plugin used by the pinned version.
-- [ ] Preserve hosted UI and realm display configuration, but pass Better
+- [x] Preserve hosted UI and realm display configuration, but pass Better
   Auth's signed `oauth_query` through every required login/continue/consent
   step.
-- [ ] Use Better Auth client methods for email sign-in, signup, social sign-in,
+- [x] Use Better Auth client methods for email sign-in, signup, social sign-in,
   passkeys, 2FA, password reset, OAuth continue, and OAuth consent.
-- [ ] Keep post-login product policy such as required 2FA enrollment or passkey
-  offering in Better Auth hooks/continue steps; do not mint another code.
+- [x] Keep required 2FA enrollment in the Better Auth `postLogin` hook and
+  signed continuation flow; optional passkey enrollment must not block OAuth
+  authorization.
 - [ ] Integrate Telegram Mini App sign-in into the hosted Better Auth flow so
   the resulting central session remains on the auth origin.
 - [ ] Remove `createLoginSessionRedirect` from
@@ -215,6 +216,9 @@ the immutable `issuer + sub` pair.
   routes.
 - [ ] Remove Redis and memory login-code stores from API startup and shutdown.
 - [ ] Remove the custom login-code unit and integration tests.
+- [x] Add a public-HTTP integration test for signed hosted login, required TOTP
+  enrollment, PKCE callback, local product session creation, refresh rotation,
+  and issuer-mismatch rejection.
 - [ ] Replace them with Better Auth OAuth Provider integration tests through
   the public HTTP boundary.
 

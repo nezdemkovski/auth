@@ -23,6 +23,7 @@ describe("login translator", () => {
       state: "state",
       mode: LoginMode.Login,
       codeChallenge: "A".repeat(43),
+      oauthProviderFlow: false,
       observability: {
         enabled: false,
         dsn: "",
@@ -90,7 +91,6 @@ describe("login translator", () => {
       project: "demo",
       clientId: "client",
       scopes: ["openid", "custom:write"],
-      oauthQuery: "client_id=client",
       observability: {
         enabled: false,
         dsn: "",

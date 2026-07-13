@@ -3,6 +3,12 @@ import type { LoginConfig } from "../types";
 
 export const loginAlternateUrl = (config: LoginConfig, isSignup: boolean) => {
   const url = new URL(`/login/${config.project}`, window.location.origin);
+  if (config.oauthProviderFlow) {
+    url.search = window.location.search;
+    url.searchParams.set("mode", isSignup ? "login" : "signup");
+    return url;
+  }
+
   url.searchParams.set("redirect_uri", config.redirectUri);
   url.searchParams.set("state", config.state);
   url.searchParams.set("mode", isSignup ? "login" : "signup");

@@ -37,6 +37,15 @@ export const useLoginFlow = (config: LoginConfig) => {
   });
 
   useEffect(() => {
+    if (config.oauthProviderFlow) {
+      void continueAfterAuth({
+        offerPasskey: passkeysEnabled,
+        password: null,
+        silentWhenUnauthenticated: true
+      });
+      return;
+    }
+
     const params = new URLSearchParams(window.location.search);
     if (params.get("social") !== "1" || socialCallbackHandled.current) {
       return;
@@ -47,7 +56,7 @@ export const useLoginFlow = (config: LoginConfig) => {
       offerPasskey: passkeysEnabled,
       password: null
     });
-  }, [continueAfterAuth, passkeysEnabled]);
+  }, [config.oauthProviderFlow, continueAfterAuth, passkeysEnabled]);
 
   return {
     actions: {

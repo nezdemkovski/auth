@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { createReferenceProductApp } from "@nezdemkovski/auth-reference-product";
 
+import { ProjectTwoFactorRequirement } from "../src/config/projects";
 import { DIRECT_CLIENT_IP_HEADER } from "../src/http/security";
 import { isRecord } from "../src/runtime/type-guards";
 import { seedIntegrationRealm } from "./seed";
@@ -27,6 +28,10 @@ describe("reference product OAuth integration", () => {
       name: "Reference Auth",
       oauthProvider: {
         enabled: true
+      },
+      twoFactor: {
+        enabled: true,
+        required: ProjectTwoFactorRequirement.Everyone
       }
     });
     const central = await createIntegrationApp();
@@ -57,17 +62,17 @@ describe("reference product OAuth integration", () => {
         throw new Error("Expected the OAuth realm to be registered");
       }
 
-      const centralUser = await signUpIntegrationUser({
+      const clientOwner = await signUpIntegrationUser({
         app: central.app,
         projectSlug: project.slug,
         origin: project.appUrl,
-        email: "user@example.com",
+        email: "owner@example.com",
         password: "correct horse battery staple",
-        name: "Demo User"
+        name: "Client Owner"
       });
       const client = await registered.auth.api.adminCreateOAuthClient({
         headers: new Headers({
-          Cookie: centralUser.cookie
+          Cookie: clientOwner.cookie
         }),
         body: {
           client_name: "Reference Product",
@@ -126,15 +131,158 @@ describe("reference product OAuth integration", () => {
 
       const authorization = await central.app.request(authorizationUrl, {
         headers: {
-          Cookie: centralUser.cookie,
           [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
         }
       });
-      const callbackUrl = requiredHeader(authorization, "location");
+      const hostedLoginUrl = new URL(
+        requiredHeader(authorization, "location"),
+        integrationPublicBaseUrl
+      );
 
       expect(authorization.status).toBe(302);
-      expect(new URL(callbackUrl).origin).toBe(PRODUCT_ORIGIN);
-      expect(new URL(callbackUrl).searchParams.get("iss")).toBe(issuer);
+      expect(hostedLoginUrl.pathname).toBe(`/login/${project.slug}`);
+      expect(hostedLoginUrl.searchParams.get("sig")).not.toBeNull();
+      expect(hostedLoginUrl.searchParams.get("ba_param")).not.toBeNull();
+
+      const loginConfig = await central.app.request(
+        `/api/${project.slug}/login/config/login${hostedLoginUrl.search}`,
+        {
+          headers: {
+            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+          }
+        }
+      );
+      expect(loginConfig.status).toBe(200);
+      expect(await readObject(loginConfig)).toMatchObject({
+        oauthProviderFlow: true,
+        redirectUri: PRODUCT_CALLBACK
+      });
+
+      const hostedSignup = await central.app.request(
+        `/api/${project.slug}/auth/sign-up/email`,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Origin: integrationPublicBaseUrl,
+            "Sec-Fetch-Mode": "cors",
+            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+          },
+          body: JSON.stringify({
+            name: "Demo User",
+            email: "user@example.com",
+            password: "correct horse battery staple",
+            oauth_query: hostedLoginUrl.searchParams.toString()
+          })
+        }
+      );
+      const hostedSignupBody = await readObject(hostedSignup);
+      if (hostedSignup.status !== 200) {
+        throw new Error(
+          `Expected hosted signup to continue OAuth, got ${hostedSignup.status}: ${JSON.stringify(hostedSignupBody)}`
+        );
+      }
+      const postLoginUrl = new URL(
+        stringField(hostedSignupBody, "url"),
+        integrationPublicBaseUrl
+      );
+      let centralUserCookie = responseCookieHeader(hostedSignup);
+
+      expect(hostedSignup.status).toBe(200);
+      expect(centralUserCookie).toContain(
+        "auth_reference-auth.session_token="
+      );
+      expect(postLoginUrl.pathname).toBe(`/login/${project.slug}`);
+      expect(postLoginUrl.searchParams.get("sig")).not.toBeNull();
+
+      const nextAction = await central.app.request(
+        `/api/${project.slug}/login/next-action`,
+        {
+          headers: {
+            Cookie: centralUserCookie,
+            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+          }
+        }
+      );
+      expect(nextAction.status).toBe(200);
+      expect(await readObject(nextAction)).toMatchObject({
+        action: "enroll_2fa"
+      });
+
+      const enrollment = await registered.auth.api.enableTwoFactor({
+        headers: new Headers({
+          Cookie: centralUserCookie
+        }),
+        body: {
+          password: "correct horse battery staple",
+          method: "totp",
+          issuer: project.name
+        }
+      });
+      if (enrollment.method !== "totp" || !enrollment.totpURI) {
+        throw new Error("Expected TOTP enrollment details");
+      }
+
+      const totpSecret = new URL(enrollment.totpURI).searchParams.get("secret");
+      if (!totpSecret) {
+        throw new Error("Expected the TOTP URI to contain a secret");
+      }
+      const generatedTotp = await registered.auth.api.generateTOTP({
+        body: {
+          secret: decodeTotpSecret(totpSecret)
+        }
+      });
+
+      const verifiedEnrollment = await central.app.request(
+        `/api/${project.slug}/auth/two-factor/verify-totp`,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Cookie: centralUserCookie,
+            Origin: integrationPublicBaseUrl,
+            "Sec-Fetch-Mode": "cors",
+            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+          },
+          body: JSON.stringify({
+            code: generatedTotp.code,
+            trustDevice: true,
+            oauth_query: postLoginUrl.searchParams.toString()
+          })
+        }
+      );
+      const verifiedEnrollmentBody = await readObject(verifiedEnrollment);
+      centralUserCookie = responseCookieHeader(verifiedEnrollment);
+
+      if (verifiedEnrollment.status !== 200) {
+        throw new Error(
+          `Expected TOTP verification to succeed, got ${verifiedEnrollment.status}: ${JSON.stringify(verifiedEnrollmentBody)}`
+        );
+      }
+      expect(verifiedEnrollment.status).toBe(200);
+      expect(centralUserCookie).toContain(
+        "auth_reference-auth.session_token="
+      );
+      const callbackUrl = stringField(verifiedEnrollmentBody, "url");
+      const callbackRequestUrl = new URL(callbackUrl);
+
+      expect(callbackRequestUrl.origin).toBe(PRODUCT_ORIGIN);
+      expect(callbackRequestUrl.searchParams.get("iss")).toBe(issuer);
+
+      const centralSessionResponse = await central.app.request(
+        `/api/${project.slug}/auth/get-session`,
+        {
+          headers: {
+            Cookie: centralUserCookie,
+            Origin: integrationPublicBaseUrl,
+            [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+          }
+        }
+      );
+      const centralSession = await readObject(centralSessionResponse);
+      const centralUserId = stringField(objectField(centralSession, "user"), "id");
 
       const callback = await product.app.request(callbackUrl, {
         headers: {
@@ -167,7 +315,7 @@ describe("reference product OAuth integration", () => {
         },
         identity: {
           issuer,
-          subject: centralUser.userId
+          subject: centralUserId
         }
       });
       expect(JSON.stringify(account)).not.toContain("accessToken");
@@ -179,7 +327,7 @@ describe("reference product OAuth integration", () => {
       expect(accounts).toContainEqual(
         expect.objectContaining({
           providerId: "auth-platform",
-          accountId: centralUser.userId
+          accountId: centralUserId
         })
       );
 
@@ -236,7 +384,7 @@ describe("reference product OAuth integration", () => {
         stringField(mismatchSignInBody, "url"),
         {
           headers: {
-            Cookie: centralUser.cookie,
+            Cookie: centralUserCookie,
             [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
           }
         }
@@ -300,4 +448,40 @@ const stringField = (value: Record<string, unknown>, field: string) => {
   }
 
   return fieldValue;
+};
+
+const objectField = (value: Record<string, unknown>, field: string) => {
+  const fieldValue = value[field];
+  if (!isRecord(fieldValue)) {
+    throw new Error(`Expected ${field} to be an object`);
+  }
+
+  return fieldValue;
+};
+
+const decodeTotpSecret = (encoded: string) => {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const bytes: number[] = [];
+  let buffer = 0;
+  let bits = 0;
+
+  for (const character of encoded.toUpperCase()) {
+    if (character === "=") {
+      break;
+    }
+
+    const value = alphabet.indexOf(character);
+    if (value < 0) {
+      throw new Error("Expected a valid Base32 TOTP secret");
+    }
+
+    buffer = (buffer << 5) | value;
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      bytes.push((buffer >> bits) & 255);
+    }
+  }
+
+  return new TextDecoder().decode(Uint8Array.from(bytes));
 };

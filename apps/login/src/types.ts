@@ -6,6 +6,7 @@ export type LoginConfig = {
   state: string;
   mode: "login" | "signup";
   codeChallenge: string;
+  oauthProviderFlow: boolean;
   features: ProjectFeatures;
   socialProviders: SocialProviderConfig[];
   observability: PublicObservabilityConfig;
@@ -19,7 +20,6 @@ export type LoginOAuthConsentConfig = {
   clientId: string;
   scopes: string[];
   scopeDescriptions: Record<string, ScopeDescription>;
-  oauthQuery: string;
   observability: PublicObservabilityConfig;
 };
 

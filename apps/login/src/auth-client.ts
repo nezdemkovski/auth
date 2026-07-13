@@ -27,161 +27,139 @@ export enum PkceChallengeMethod {
   S256 = "S256"
 }
 
-export async function signInWithEmail(options: {
-  project: string;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+const hasTwoFactorRedirect = (value: unknown) => {
+  return isRecord(value) && value["twoFactorRedirect"] === true;
+};
+
+export const signInWithEmail = async (options: {
+  authClient: LoginAuthClient;
   email: string;
   password: string;
-}): Promise<{ ok: true; twoFactorRedirect: boolean } | { ok: false }> {
-  const response = await fetch(`/api/${options.project}/auth/sign-in/email`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      email: options.email,
-      password: options.password
-    })
+}): Promise<{ ok: true; twoFactorRedirect: boolean } | { ok: false }> => {
+  const result = await options.authClient.signIn.email({
+    email: options.email,
+    password: options.password
   });
-  const payload = await response.json().catch(() => null);
 
-  if (!response.ok) {
+  if (result.error) {
     return { ok: false };
   }
 
   return {
     ok: true,
-    twoFactorRedirect: payload?.twoFactorRedirect === true
+    twoFactorRedirect: hasTwoFactorRedirect(result.data)
   };
-}
+};
 
-export async function signUpWithEmail(options: {
-  project: string;
+export const signUpWithEmail = async (options: {
+  authClient: LoginAuthClient;
   email: string;
   password: string;
   callbackURL: string;
-}): Promise<boolean> {
-  const response = await fetch(`/api/${options.project}/auth/sign-up/email`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      email: options.email,
-      password: options.password,
-      name: options.email.split("@")[0],
-      callbackURL: options.callbackURL
-    })
+}): Promise<boolean> => {
+  const result = await options.authClient.signUp.email({
+    email: options.email,
+    password: options.password,
+    name: options.email.split("@")[0],
+    callbackURL: options.callbackURL
   });
 
-  return response.ok;
-}
+  return !result.error;
+};
 
-export async function signInWithSocial(options: {
-  project: string;
+export const signInWithSocial = async (options: {
+  authClient: LoginAuthClient;
   provider: string;
-  callbackURL: string;
-}): Promise<boolean> {
-  const response = await fetch(`/api/${options.project}/auth/sign-in/social`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      provider: options.provider,
-      callbackURL: options.callbackURL
-    })
+  callbackURL?: string;
+}): Promise<boolean> => {
+  const result = await options.authClient.signIn.social({
+    provider: options.provider,
+    ...(options.callbackURL ? { callbackURL: options.callbackURL } : {})
   });
-  const payload = (await response.json().catch(() => null)) as {
-    url?: string;
-    redirect?: boolean;
-  } | null;
 
-  if (!response.ok || !payload?.url) {
-    return false;
-  }
+  return !result.error;
+};
 
-  window.location.assign(payload.url);
-  return true;
-}
-
-export async function verifyTwoFactorCode(options: {
-  project: string;
+export const verifyTwoFactorCode = async (options: {
+  authClient: LoginAuthClient;
   code: string;
-}): Promise<boolean> {
-  const totp = await postTwoFactor(options.project, "/two-factor/verify-totp", {
+}): Promise<boolean> => {
+  const totp = await options.authClient.twoFactor.verifyTotp({
     code: options.code,
     trustDevice: true
   });
 
-  if (totp) {
+  if (!totp.error) {
     return true;
   }
 
-  return postTwoFactor(options.project, "/two-factor/verify-backup-code", {
+  const backup = await options.authClient.twoFactor.verifyBackupCode({
     code: options.code
   });
-}
 
-export async function requestLoginPasswordReset(options: {
-  project: string;
+  return !backup.error;
+};
+
+export const requestLoginPasswordReset = async (options: {
+  authClient: LoginAuthClient;
   email: string;
   redirectTo: string;
-}): Promise<boolean> {
-  const response = await fetch(`/api/${options.project}/auth/request-password-reset`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      email: options.email,
-      redirectTo: options.redirectTo
-    })
+}): Promise<boolean> => {
+  const result = await options.authClient.requestPasswordReset({
+    email: options.email,
+    redirectTo: options.redirectTo
   });
 
-  return response.ok;
-}
+  return !result.error;
+};
 
-export async function resetLoginPassword(options: {
-  project: string;
+export const resetLoginPassword = async (options: {
+  authClient: LoginAuthClient;
   token: string;
   newPassword: string;
-}): Promise<boolean> {
-  const response = await fetch(`/api/${options.project}/auth/reset-password`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      token: options.token,
-      newPassword: options.newPassword
-    })
+}): Promise<boolean> => {
+  const result = await options.authClient.resetPassword({
+    token: options.token,
+    newPassword: options.newPassword
   });
 
-  return response.ok;
-}
+  return !result.error;
+};
 
-export async function getLoginNextAction(project: string): Promise<LoginNextAction | null> {
+export const getLoginNextAction = async (
+  project: string
+): Promise<LoginNextAction | null> => {
   const response = await fetch(`/api/${project}/login/next-action`, {
     credentials: "include"
   });
-  const payload = (await response.json().catch(() => null)) as {
-    action?: LoginNextAction;
-  } | null;
+  const payload: unknown = await response.json().catch(() => null);
 
-  return response.ok && payload?.action ? payload.action : null;
-}
+  if (!response.ok || !isRecord(payload)) {
+    return null;
+  }
 
-export async function createLoginSessionRedirect(options: {
+  const action = payload["action"];
+  if (
+    action === LoginNextAction.Redirect ||
+    action === LoginNextAction.EnrollTwoFactor ||
+    action === LoginNextAction.OfferPasskey
+  ) {
+    return action;
+  }
+
+  return null;
+};
+
+export const createLoginSessionRedirect = async (options: {
   project: string;
   redirectUri: string;
   state: string;
   codeChallenge: string;
-}): Promise<string | null> {
+}): Promise<string | null> => {
   const response = await fetch(`/api/${options.project}/login/session-code`, {
     method: "POST",
     credentials: "include",
@@ -194,12 +172,15 @@ export async function createLoginSessionRedirect(options: {
       code_challenge: options.codeChallenge
     })
   });
-  const payload = (await response.json().catch(() => null)) as {
-    redirectTo?: string;
-  } | null;
+  const payload: unknown = await response.json().catch(() => null);
 
-  return response.ok && payload?.redirectTo ? payload.redirectTo : null;
-}
+  if (!response.ok || !isRecord(payload)) {
+    return null;
+  }
+
+  const redirectTo = payload["redirectTo"];
+  return typeof redirectTo === "string" && redirectTo ? redirectTo : null;
+};
 
 export type OAuthPublicClient = {
   client_id: string;
@@ -208,69 +189,46 @@ export type OAuthPublicClient = {
   logo_uri?: string | null;
 };
 
-export async function getOAuthPublicClient(options: {
-  project: string;
+export const getOAuthPublicClient = async (options: {
+  authClient: LoginAuthClient;
   clientId: string;
-}): Promise<OAuthPublicClient | null> {
-  const url = new URL(
-    `/api/${options.project}/auth/oauth2/public-client`,
-    window.location.origin
-  );
-  url.searchParams.set("client_id", options.clientId);
-
-  const response = await fetch(url, {
-    credentials: "include"
+}): Promise<OAuthPublicClient | null> => {
+  const result = await options.authClient.oauth2.publicClient({
+    query: {
+      client_id: options.clientId
+    }
   });
-  const payload = (await response.json().catch(() => null)) as
-    | OAuthPublicClient
-    | null;
 
-  return response.ok && payload ? payload : null;
-}
+  return result.error ? null : result.data ?? null;
+};
 
-export async function submitOAuthConsent(options: {
-  project: string;
+export const submitOAuthConsent = async (options: {
+  authClient: LoginAuthClient;
   accept: boolean;
   scopes: string[];
-  oauthQuery: string;
-}): Promise<string | null> {
-  const response = await fetch(`/api/${options.project}/auth/oauth2/consent`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      accept: options.accept,
-      scope: options.scopes.join(" "),
-      oauth_query: options.oauthQuery
-    })
+}): Promise<string | null> => {
+  const result = await options.authClient.oauth2.consent({
+    accept: options.accept,
+    scope: options.scopes.join(" ")
   });
-  const payload = (await response.json().catch(() => null)) as {
-    url?: string;
-    redirect_uri?: string;
-  } | null;
 
-  if (!response.ok) {
+  if (result.error || !result.data) {
     return null;
   }
 
-  return payload?.url ?? payload?.redirect_uri ?? null;
-}
+  return result.data.url ?? null;
+};
 
-async function postTwoFactor(
-  project: string,
-  path: string,
-  body: Record<string, unknown>
-): Promise<boolean> {
-  const response = await fetch(`/api/${project}/auth${path}`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body)
+export const continueOAuthPostLogin = async (options: {
+  authClient: LoginAuthClient;
+}) => {
+  const result = await options.authClient.oauth2.continue({
+    postLogin: true
   });
 
-  return response.ok;
-}
+  if (result.error || !result.data) {
+    return null;
+  }
+
+  return result.data.url ?? null;
+};

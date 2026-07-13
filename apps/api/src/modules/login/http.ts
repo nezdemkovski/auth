@@ -109,12 +109,21 @@ export const getLoginConfig = (req: Request, project: string, options: LoginConf
       : LoginMode.Login;
   const codeChallenge = url.searchParams.get("code_challenge") ?? "";
   const codeChallengeMethod = url.searchParams.get("code_challenge_method") ?? "";
+  const oauthProviderFlow =
+    url.searchParams.has("sig") && url.searchParams.has("ba_param");
 
-  if (!redirectUriAllowed(options.registry, project, redirectUri)) {
+  if (
+    !oauthProviderFlow &&
+    !redirectUriAllowed(options.registry, project, redirectUri)
+  ) {
     return json({ error: ErrorCode.InvalidRedirectUri }, 400);
   }
 
-  if (codeChallengeMethod !== PkceChallengeMethod.S256 || !validPkceChallenge(codeChallenge)) {
+  if (
+    !oauthProviderFlow &&
+    (codeChallengeMethod !== PkceChallengeMethod.S256 ||
+      !validPkceChallenge(codeChallenge))
+  ) {
     return json({ error: ErrorCode.InvalidPkceChallenge }, 400);
   }
 
@@ -126,6 +135,7 @@ export const getLoginConfig = (req: Request, project: string, options: LoginConf
       state,
       mode,
       codeChallenge,
+      oauthProviderFlow,
       observability: options.observabilityReporter.publicConfig()
     })
   );
@@ -177,7 +187,6 @@ export const getOAuthConsentConfig = (req: Request, project: string, options: Lo
       project,
       clientId,
       scopes,
-      oauthQuery: url.searchParams.toString(),
       observability: options.observabilityReporter.publicConfig()
     })
   );

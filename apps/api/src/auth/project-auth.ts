@@ -22,6 +22,7 @@ import { createProjectEmailHandlers } from "../email/templates";
 import { sha256Hex } from "../runtime/crypto";
 import { logInfo } from "../runtime/logger";
 import type { PolarWebhookHandlers } from "../modules/billing/webhooks";
+import { mustEnrollTwoFactor } from "./policy";
 
 type ProjectAuthOptions = {
   project: AuthProject;
@@ -150,6 +151,13 @@ export const createBaseProjectAuthOptions = (options: {
       oauthProvider({
         loginPage: `/login/${project.slug}`,
         consentPage: `/login/${project.slug}/oauth/consent`,
+        postLogin: {
+          page: `/login/${project.slug}`,
+          shouldRedirect: ({ user }) => {
+            return mustEnrollTwoFactor(project.features.twoFactor, user);
+          },
+          consentReferenceId: () => undefined
+        },
         allowDynamicClientRegistration: project.features.oauthProvider.dynamicClientRegistration,
         allowUnauthenticatedClientRegistration: false,
         scopes: ["openid", "profile", "email", "offline_access"],

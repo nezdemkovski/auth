@@ -20,6 +20,7 @@ export const seedIntegrationRealm = async (options: {
     enabled: boolean;
     dynamicClientRegistration?: boolean;
   };
+  twoFactor?: AuthProject["features"]["twoFactor"];
   freeEntitlements?: BillingEntitlement[];
   products?: BillingProductMapping[];
 }) => {
@@ -33,6 +34,7 @@ export const seedIntegrationRealm = async (options: {
     trustedOrigins: [`https://${options.slug}.integration.test`],
     features: {
       ...DEFAULT_PROJECT_FEATURES,
+      twoFactor: options.twoFactor ?? DEFAULT_PROJECT_FEATURES.twoFactor,
       oauthProvider: options.oauthProvider
         ? {
             enabled: options.oauthProvider.enabled,

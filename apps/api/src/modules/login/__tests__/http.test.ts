@@ -127,7 +127,28 @@ describe("login HTTP handlers", () => {
       projectName: "Demo App",
       redirectUri: "https://demo.example.com/auth/callback",
       state: "client-state",
-      codeChallenge: pkceChallenge(verifier)
+      codeChallenge: pkceChallenge(verifier),
+      oauthProviderFlow: false
+    });
+  });
+
+  test("delegates signed OAuth request validation to Better Auth", async () => {
+    const url = new URL("http://auth.local/api/demo/login/config/login");
+    url.searchParams.set("redirect_uri", "https://product.example/auth/callback");
+    url.searchParams.set("state", "client-state");
+    url.searchParams.set("ba_param", "client_id");
+    url.searchParams.set("sig", "signed-query");
+
+    const response = await getLoginConfig(
+      new Request(url),
+      "demo",
+      configOptions
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      redirectUri: "https://product.example/auth/callback",
+      oauthProviderFlow: true
     });
   });
 

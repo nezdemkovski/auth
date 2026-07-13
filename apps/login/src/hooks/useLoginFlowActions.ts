@@ -3,6 +3,7 @@ import { useCallback } from "react";
 
 import type { LoginAuthClient } from "../auth-client";
 import {
+  continueOAuthPostLogin,
   createLoginSessionRedirect,
   getLoginNextAction,
   LoginNextAction,
@@ -44,12 +45,16 @@ export const useLoginFlowActions = ({
 
   const redirectWithCurrentSession = useCallback(async () => {
     dispatch({ type: "set-step", step: "redirecting" });
-    const redirectTo = await createLoginSessionRedirect({
-      project: config.project,
-      redirectUri: config.redirectUri,
-      state: config.state,
-      codeChallenge: config.codeChallenge
-    });
+    const redirectTo = config.oauthProviderFlow
+      ? await continueOAuthPostLogin({
+          authClient
+        })
+      : await createLoginSessionRedirect({
+          project: config.project,
+          redirectUri: config.redirectUri,
+          state: config.state,
+          codeChallenge: config.codeChallenge
+        });
 
     if (!redirectTo) {
       dispatch({ type: "set-step", step: "credentials" });
@@ -58,20 +63,24 @@ export const useLoginFlowActions = ({
     }
 
     window.location.assign(redirectTo);
-  }, [config.codeChallenge, config.project, config.redirectUri, config.state, dispatch]);
+  }, [authClient, config, dispatch]);
 
   const continueAfterAuth = useCallback(
     async ({
       offerPasskey,
-      password
+      password,
+      silentWhenUnauthenticated = false
     }: {
       offerPasskey: boolean;
       password: string | null;
+      silentWhenUnauthenticated?: boolean;
     }) => {
       const nextAction = await getLoginNextAction(config.project);
 
       if (!nextAction) {
-        dispatch({ type: "set-error", error: "Could not verify sign-in requirements" });
+        if (!silentWhenUnauthenticated) {
+          dispatch({ type: "set-error", error: "Could not verify sign-in requirements" });
+        }
         return;
       }
 
@@ -99,7 +108,7 @@ export const useLoginFlowActions = ({
     try {
       if (isSignup) {
         const created = await signUpWithEmail({
-          project: config.project,
+          authClient,
           email: flow.email,
           password: flow.password,
           callbackURL: new URL(config.redirectUri).origin
@@ -109,9 +118,12 @@ export const useLoginFlowActions = ({
           return;
         }
         dispatch({ type: "set-verified-password", password: flow.password });
+        if (config.oauthProviderFlow) {
+          return;
+        }
       } else {
         const signedIn = await signInWithEmail({
-          project: config.project,
+          authClient,
           email: flow.email,
           password: flow.password
         });
@@ -124,6 +136,9 @@ export const useLoginFlowActions = ({
           return;
         }
         dispatch({ type: "set-verified-password", password: flow.password });
+        if (config.oauthProviderFlow) {
+          return;
+        }
       }
 
       await continueAfterAuth({
@@ -148,6 +163,10 @@ export const useLoginFlowActions = ({
         return;
       }
 
+      if (config.oauthProviderFlow) {
+        return;
+      }
+
       await continueAfterAuth({ offerPasskey: false, password: null });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not sign in with passkey");
@@ -162,9 +181,11 @@ export const useLoginFlowActions = ({
 
     try {
       const started = await signInWithSocial({
-        project: config.project,
+        authClient,
         provider,
-        callbackURL: socialCallbackUrl(config).toString()
+        ...(config.oauthProviderFlow
+          ? {}
+          : { callbackURL: socialCallbackUrl(config).toString() })
       });
       if (!started) {
         setPending(false);
@@ -183,12 +204,16 @@ export const useLoginFlowActions = ({
 
     try {
       const verified = await verifyTwoFactorCode({
-        project: config.project,
+        authClient,
         code: flow.twoFactorCode.trim()
       });
 
       if (!verified) {
         setError("Invalid verification code");
+        return;
+      }
+
+      if (config.oauthProviderFlow) {
         return;
       }
 
@@ -210,7 +235,7 @@ export const useLoginFlowActions = ({
 
     try {
       const sent = await requestLoginPasswordReset({
-        project: config.project,
+        authClient,
         email: flow.email,
         redirectTo: passwordResetUrl(config).toString()
       });
@@ -286,6 +311,10 @@ export const useLoginFlowActions = ({
       });
       if (result.error) {
         setError(result.error.message || "Invalid verification code");
+        return;
+      }
+
+      if (config.oauthProviderFlow) {
         return;
       }
 

@@ -11,6 +11,7 @@ import {
   DEFAULT_PROJECT_BILLING,
   DEFAULT_PROJECT_STORAGE,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
+  ProjectTwoFactorRequirement,
   type AuthProject
 } from "../../config/projects";
 import type { EmailSender } from "../../email/sender";
@@ -182,6 +183,83 @@ describe("project auth options", () => {
       .toBeUndefined();
     expect(oauthOptions ? Reflect.get(oauthOptions, "validAudiences") : null)
       .toBeUndefined();
+  });
+
+  test("uses the OAuth Provider post-login hook for product security policy", async () => {
+    const project = {
+      ...baseProject,
+      features: {
+        ...DEFAULT_PROJECT_FEATURES,
+        passkey: {
+          enabled: true
+        },
+        twoFactor: {
+          enabled: true,
+          required: ProjectTwoFactorRequirement.Everyone
+        }
+      }
+    };
+    const oauthPlugin = (createMigrationOptions(project).plugins ?? [])
+      .find((plugin) => plugin.id === "oauth-provider");
+    const oauthOptions = oauthPlugin
+      ? Reflect.get(oauthPlugin, "options")
+      : null;
+    const postLogin = oauthOptions
+      ? Reflect.get(oauthOptions, "postLogin")
+      : null;
+
+    if (!postLogin) {
+      throw new Error("Expected OAuth Provider post-login configuration");
+    }
+
+    expect(postLogin.page).toBe("/login/demo");
+    const shouldRedirectBeforeEnrollment = await postLogin.shouldRedirect({
+      headers: new Headers(),
+      scopes: ["openid"],
+      session: {
+        id: "session-id",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        userId: "user-id",
+        expiresAt: new Date(Date.now() + 60_000),
+        token: "session-token"
+      },
+      user: {
+        id: "user-id",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        email: "user@example.com",
+        emailVerified: true,
+        name: "Demo User",
+        role: "user",
+        twoFactorEnabled: false
+      }
+    });
+    const shouldRedirectAfterEnrollment = await postLogin.shouldRedirect({
+      headers: new Headers(),
+      scopes: ["openid"],
+      session: {
+        id: "session-id",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        userId: "user-id",
+        expiresAt: new Date(Date.now() + 60_000),
+        token: "session-token"
+      },
+      user: {
+        id: "user-id",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        email: "user@example.com",
+        emailVerified: true,
+        name: "Demo User",
+        role: "user",
+        twoFactorEnabled: true
+      }
+    });
+
+    expect(shouldRedirectBeforeEnrollment).toBe(true);
+    expect(shouldRedirectAfterEnrollment).toBe(false);
   });
 
   test("enables social providers only when enabled and fully configured", () => {

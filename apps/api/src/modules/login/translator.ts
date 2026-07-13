@@ -35,6 +35,7 @@ type LoginConfigInput = {
   state: string;
   mode: LoginMode;
   codeChallenge: string;
+  oauthProviderFlow: boolean;
   observability: PublicObservabilityConfig;
 };
 
@@ -51,7 +52,6 @@ type OAuthConsentConfigInput = {
   project: string;
   clientId: string;
   scopes: string[];
-  oauthQuery: string;
   observability: PublicObservabilityConfig;
 };
 
@@ -70,6 +70,7 @@ export const loginConfigResponse = (input: LoginConfigInput) => {
     state: input.state,
     mode: input.mode,
     codeChallenge: input.codeChallenge,
+    oauthProviderFlow: input.oauthProviderFlow,
     features: input.registered.project.features,
     socialProviders: enabledSocialProviders(input.registered).map((provider) => {
       const catalog = SOCIAL_PROVIDER_CATALOG[provider];
@@ -105,7 +106,6 @@ export const oauthConsentConfigResponse = (input: OAuthConsentConfigInput) => {
     scopeDescriptions: Object.fromEntries(
       input.scopes.map((scope) => [scope, describeOAuthScope(scope)])
     ),
-    oauthQuery: input.oauthQuery,
     observability: input.observability
   };
 };

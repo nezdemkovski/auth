@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@nezdemkovski/auth-ui";
 
 import {
+  createLoginAuthClient,
   getOAuthPublicClient,
   submitOAuthConsent,
   type OAuthPublicClient
@@ -14,6 +15,10 @@ import { useLoginTheme } from "../hooks/useLoginTheme";
 import type { LoginOAuthConsentConfig } from "../types";
 
 export function OAuthConsentPage({ config }: { config: LoginOAuthConsentConfig }) {
+  const authClient = useMemo(
+    () => createLoginAuthClient(config.project),
+    [config.project]
+  );
   const [client, setClient] = useState<OAuthPublicClient | null>(null);
   const [pending, setPending] = useState<"approve" | "deny" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,12 +31,12 @@ export function OAuthConsentPage({ config }: { config: LoginOAuthConsentConfig }
 
   useEffect(() => {
     void getOAuthPublicClient({
-      project: config.project,
+      authClient,
       clientId: config.clientId
     })
       .then(setClient)
       .catch(() => setError("Could not load OAuth client details"));
-  }, [config.project, config.clientId]);
+  }, [authClient, config.clientId]);
 
   async function decideConsent(accept: boolean) {
     setPending(accept ? "approve" : "deny");
@@ -39,10 +44,9 @@ export function OAuthConsentPage({ config }: { config: LoginOAuthConsentConfig }
 
     try {
       const redirectTo = await submitOAuthConsent({
-        project: config.project,
+        authClient,
         accept,
-        scopes: config.scopes,
-        oauthQuery: config.oauthQuery
+        scopes: config.scopes
       });
 
       if (!redirectTo) {

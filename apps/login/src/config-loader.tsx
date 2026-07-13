@@ -14,6 +14,7 @@ import {
 import { AuthHeading } from "./components/AuthHeading";
 import { ErrorAlert, ThemeToggle } from "./components/shared";
 import type { LoginAuthConfig } from "./types";
+import { hasSignedOAuthQuery } from "./oauth-query";
 
 export function LoginConfigLoader({
   project,
@@ -30,7 +31,9 @@ export function LoginConfigLoader({
   useEffect(() => {
     let cancelled = false;
     const search = window.location.search;
-    scrubSensitiveBrowserUrl();
+    if (!hasSignedOAuthQuery(search)) {
+      scrubSensitiveBrowserUrl();
+    }
 
     void loadLoginAuthConfig(project, configPath, search)
       .then((loadedConfig) => {
