@@ -108,8 +108,11 @@ describe("repository security controls", () => {
       ["packages/auth-contracts", "public"],
       ["packages/auth-integration", "public"],
       ["packages/client-shared", "frontend"],
+      ["packages/domains/billing", "domain"],
       ["packages/domains/delivery", "domain"],
       ["packages/domains/observability", "domain"],
+      ["packages/domains/storage", "domain"],
+      ["packages/foundation/platform-crypto", "foundation"],
       ["packages/foundation/platform-database", "foundation"],
       ["packages/ui", "frontend"]
     ]);
@@ -131,8 +134,11 @@ describe("repository security controls", () => {
     }
 
     for (const path of [
+      "packages/domains/billing",
       "packages/domains/delivery",
       "packages/domains/observability",
+      "packages/domains/storage",
+      "packages/foundation/platform-crypto",
       "packages/foundation/platform-database"
     ]) {
       const manifest = await Bun.file(rootFile(`${path}/package.json`)).json();

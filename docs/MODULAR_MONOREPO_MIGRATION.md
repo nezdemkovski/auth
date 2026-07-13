@@ -196,15 +196,15 @@ Package API rules:
 
 ## Known Couplings to Remove
 
-- [ ] Stop `projects` from importing billing and storage stores to assemble an
+- [x] Stop `projects` from importing billing and storage stores to assemble an
   effective project. Move aggregation to the API composition/application layer.
 - [x] Stop storage from importing project and user stores when replacing icons
   or avatars. Let an app-level media use case coordinate storage with realm or
   identity ports.
-- [ ] Stop `AuthRegistry` and Better Auth construction from importing Polar
+- [x] Stop `AuthRegistry` and Better Auth construction from importing Polar
   webhook and entitlement store types. Inject optional auth/plugin
   contributions from the composition root.
-- [ ] Stop billing and storage HTTP modules from importing another domain's HTTP
+- [x] Stop billing and storage HTTP modules from importing another domain's HTTP
   implementation for OAuth authorization. Inject a common resource-authorizer
   port at route registration.
 - [x] Stop login HTTP code from importing the concrete observability service.
@@ -327,27 +327,27 @@ Migrate one domain at a time and keep every move behavior-preserving.
 
 ## Phase 5: Extract Billing and Entitlements
 
-- [ ] Merge the current `billing` and `billing-usage` implementation ownership
+- [x] Merge the current `billing` and `billing-usage` implementation ownership
   into one billing package with separate internal use cases.
-- [ ] Move Polar settings, product mapping, webhook processing, snapshots,
+- [x] Move Polar settings, product mapping, webhook processing, snapshots,
   entitlement grants, usage, reservations, and billing tables together.
-- [ ] Keep realm-local subject IDs opaque; billing must not import Better Auth
+- [x] Keep realm-local subject IDs opaque; billing must not import Better Auth
   user stores.
-- [ ] Replace the current subject-existence query with an identity port supplied
+- [x] Replace the current subject-existence query with an identity port supplied
   by the API composition root.
-- [ ] Provide optional Better Auth/Polar plugin contributions through an
+- [x] Provide optional Better Auth/Polar plugin contributions through an
   explicit adapter entrypoint rather than importing billing from the auth
   registry.
-- [ ] Keep user-delegated reads and service-authorized mutations in API modules
+- [x] Keep user-delegated reads and service-authorized mutations in API modules
   backed by the common OAuth resource authorizer.
-- [ ] Preserve idempotency, reservation expiry, webhook ordering, scope,
+- [x] Preserve idempotency, reservation expiry, webhook ordering, scope,
   audience, subject, and cross-realm regression tests.
 
 ### Phase 5 exit gate
 
-- [ ] Billing has no compile-time dependency on identity, storage, realm, or the
+- [x] Billing has no compile-time dependency on identity, storage, realm, or the
   Better Auth runtime package.
-- [ ] The composition root is the only place that connects billing webhooks or
+- [x] The composition root is the only place that connects billing webhooks or
   plugin contributions to per-realm Better Auth construction.
 
 ## Phase 6: Extract Realm, Identity, and Better Auth Runtime

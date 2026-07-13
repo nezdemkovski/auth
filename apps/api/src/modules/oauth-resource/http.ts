@@ -1,24 +1,10 @@
 import type { Hono } from "hono";
-import { requestToResourceInput } from "better-auth/oauth2";
 
 import type { AuthRegistry } from "../../auth/registry";
-import {
-  OAuthResource,
-  type OAuthScope,
-  oauthResourceScopes
-} from "../../config/oauth-resources";
+import { OAuthResource, oauthResourceScopes } from "../../config/oauth-resources";
 import { ErrorCode } from "../../runtime/error-codes";
-import {
-  readOAuthResourceMetadata,
-  requireServiceOAuthResource,
-  requireUserOAuthResource,
-  type ServiceOAuthResourceAccess,
-  type UserOAuthResourceAccess
-} from "./core";
-import {
-  oauthResourceFailureResponse,
-  type OAuthResourceFailureResponse
-} from "./translator";
+import { readOAuthResourceMetadata } from "./core";
+import { oauthResourceFailureResponse } from "./translator";
 
 type OAuthResourceVariables = {
   registry: AuthRegistry;
@@ -28,26 +14,6 @@ type OAuthResourceOptions = {
   registry: AuthRegistry;
   publicBaseUrl: string;
 };
-
-export type UserOAuthResourceAuthorization =
-  | {
-      ok: true;
-      value: UserOAuthResourceAccess;
-    }
-  | {
-      ok: false;
-      failure: OAuthResourceFailureResponse;
-    };
-
-export type ServiceOAuthResourceAuthorization =
-  | {
-      ok: true;
-      value: ServiceOAuthResourceAccess;
-    }
-  | {
-      ok: false;
-      failure: OAuthResourceFailureResponse;
-    };
 
 export const registerOAuthResourceRoutes = (
   app: Hono<{ Variables: OAuthResourceVariables }>,
@@ -95,63 +61,5 @@ export const registerOAuthResourceRoutes = (
         return c.json({ error: failure.error }, failure.status);
       }
     });
-  }
-};
-
-export const authorizeUserOAuthResourceRequest = async (options: {
-  registry: AuthRegistry;
-  publicBaseUrl: string;
-  projectSlug: string;
-  request: Request;
-  resource: OAuthResource;
-  scopes: OAuthScope[];
-}): Promise<UserOAuthResourceAuthorization> => {
-  try {
-    return {
-      ok: true,
-      value: await requireUserOAuthResource({
-        ...options,
-        request: requestToResourceInput(options.request)
-      })
-    };
-  } catch (error) {
-    const failure = oauthResourceFailureResponse(error, options);
-    if (!failure) {
-      throw error;
-    }
-
-    return {
-      ok: false,
-      failure
-    };
-  }
-};
-
-export const authorizeServiceOAuthResourceRequest = async (options: {
-  registry: AuthRegistry;
-  publicBaseUrl: string;
-  projectSlug: string;
-  request: Request;
-  resource: OAuthResource;
-  scopes: OAuthScope[];
-}): Promise<ServiceOAuthResourceAuthorization> => {
-  try {
-    return {
-      ok: true,
-      value: await requireServiceOAuthResource({
-        ...options,
-        request: requestToResourceInput(options.request)
-      })
-    };
-  } catch (error) {
-    const failure = oauthResourceFailureResponse(error, options);
-    if (!failure) {
-      throw error;
-    }
-
-    return {
-      ok: false,
-      failure
-    };
   }
 };

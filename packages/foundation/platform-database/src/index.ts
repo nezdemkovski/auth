@@ -10,3 +10,7 @@ export {
   decryptSecretValue,
   encryptSecretValue
 } from "./secret-crypto";
+export {
+  isPostgresUniqueViolation,
+  PostgresErrorCode
+} from "./errors";

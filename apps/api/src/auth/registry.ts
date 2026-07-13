@@ -3,12 +3,9 @@ import type { EmailSender } from "@nezdemkovski/auth-delivery";
 import type { AuthProject } from "../config/projects";
 import { createProjectDatabase, type ProjectDatabase } from "../db/project-db";
 import {
-  createPolarWebhookHandlers,
-  type PolarWebhookHandlers
-} from "../modules/billing/webhooks";
-import type { PolarEntitlementGrantStore } from "../modules/billing/usage-store";
-import type { PolarWebhookStore } from "../modules/billing/webhook-store";
-import { createProjectAuth } from "./project-auth";
+  createProjectAuth,
+  type ProjectAuthPluginContribution
+} from "./project-auth";
 
 type ProjectAuth = ReturnType<typeof createProjectAuth>;
 
@@ -25,8 +22,7 @@ type RegistryOptions = {
   emailSender: EmailSender | null;
   trustProxyHeaders: boolean;
   projects: AuthProject[];
-  polarEntitlementGrantStore?: PolarEntitlementGrantStore;
-  polarWebhookStore?: PolarWebhookStore;
+  pluginContributions?: ProjectAuthPluginContribution[];
 };
 
 export class AuthRegistry {
@@ -148,7 +144,7 @@ export class AuthRegistry {
       secret: this.options.secret,
       emailSender: this.options.emailSender,
       trustProxyHeaders: this.options.trustProxyHeaders,
-      polarWebhookHandlers: this.createPolarWebhookHandlers()
+      pluginContributions: this.options.pluginContributions
     });
 
     return {
@@ -156,20 +152,5 @@ export class AuthRegistry {
       auth,
       projectDb
     };
-  }
-
-  private createPolarWebhookHandlers() {
-    const store = this.options.polarWebhookStore;
-    const entitlements = this.options.polarEntitlementGrantStore;
-    if (!store || !entitlements) {
-      return undefined;
-    }
-
-    return (project: AuthProject): PolarWebhookHandlers =>
-      createPolarWebhookHandlers({
-        project,
-        entitlements,
-        store
-      });
   }
 }

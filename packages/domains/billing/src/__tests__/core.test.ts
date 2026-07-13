@@ -1,31 +1,20 @@
 import { describe, expect, test } from "bun:test";
 import { Polar } from "@polar-sh/sdk";
-import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 
 import {
   BillingEnvironment,
   BillingProductType,
   BillingProvider,
   BillingRecurringInterval,
-  DEFAULT_PROJECT_FEATURES,
-  DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  type AuthProject
-} from "../../../config/projects";
+  type BillingRealm
+} from "../model";
 import {
   BillingService,
   type BillingPolarGateway
 } from "../core";
 
-const project: AuthProject = {
+const project: BillingRealm = {
   slug: "demo",
-  name: "Demo App",
-  schema: "demo_auth",
-  description: "",
-  iconUrl: "",
-  appUrl: "https://demo.example.com",
-  trustedOrigins: ["https://demo.example.com"],
-  features: DEFAULT_PROJECT_FEATURES,
-  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   billing: {
     provider: BillingProvider.Polar,
     enabled: true,
@@ -35,19 +24,16 @@ const project: AuthProject = {
     webhookSecret: "",
     products: [],
     freeEntitlements: []
-  },
-  storage: DEFAULT_PROJECT_STORAGE
+  }
 };
 
 const createService = (polar: BillingPolarGateway = createPolarGateway().gateway) => {
   return new BillingService({
-    registry: {
-      patchProject: async () => {}
-    },
     databaseUrl: "postgres://auth:auth@127.0.0.1:5432/auth",
-    adminProject: project,
+    adminProject: { schema: "auth_admin" },
     publicBaseUrl: "https://auth.example.com",
     encryptionSecret: "x".repeat(32),
+    applyRuntimeSettings: async () => {},
     polar
   });
 };
@@ -63,7 +49,7 @@ const createPolarGateway = () => {
     createdProducts,
     gateway: {
       verifyAccess: async () => {},
-      createClientFromProject: () => client,
+      createClient: () => client,
       listProducts: async () => [
         {
           id: "prod_existing",
@@ -93,7 +79,7 @@ describe("billing service", () => {
   test("refuses Polar product operations until billing has a configured client", async () => {
     const service = createService({
       verifyAccess: async () => {},
-      createClientFromProject: () => null,
+      createClient: () => null,
       listProducts: async () => [],
       createProduct: async () => {
         throw new Error("should not create");
@@ -150,7 +136,7 @@ describe("billing service", () => {
           })
         };
       },
-      createClientFromProject: () => null,
+      createClient: () => null,
       listProducts: async () => [],
       createProduct: async () => {
         throw new Error("should not create");

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { StorageProvider } from "@nezdemkovski/auth-storage";
+import { DEFAULT_PROJECT_BILLING } from "@nezdemkovski/auth-billing";
 
 import {
-  ADMIN_PROJECT,
-  DEFAULT_PROJECT_BILLING
+  ADMIN_PROJECT
 } from "../../config/projects";
 import { AuthRegistry } from "../registry";
 

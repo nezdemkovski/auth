@@ -4,11 +4,11 @@ import {
   EmailProvider
 } from "@nezdemkovski/auth-delivery";
 import { ObservabilityService } from "@nezdemkovski/auth-observability";
+import { BillingService } from "@nezdemkovski/auth-billing";
 
 import { ErrorCode } from "../runtime/error-codes";
 import { AdminAccountService } from "../modules/admin-account/core";
 import { registerAdminAccountRoutes } from "../modules/admin-account/http";
-import { BillingService } from "../modules/billing/core";
 import { registerBillingRoutes } from "../modules/billing/http";
 import { registerDeliveryRoutes } from "../modules/delivery/http";
 import { registerObservabilityRoutes } from "../modules/observability/http";
@@ -28,12 +28,13 @@ export const createAdminApi = (options: AdminApiOptions) => {
   const adminOrigin = new URL(options.publicBaseUrl).origin;
   let currentDeliverySettings = options.deliverySettings;
   const billingService = new BillingService({
-    registry: options.registry,
     databaseUrl: options.databaseUrl,
     adminProject: options.adminProject,
     adminDb: options.adminDb,
     publicBaseUrl: options.publicBaseUrl,
-    encryptionSecret: options.encryptionSecret
+    encryptionSecret: options.encryptionSecret,
+    applyRuntimeSettings: (projectSlug, billing) =>
+      options.registry.patchProject(projectSlug, { billing })
   });
   const deliveryService = new DeliveryService({
     databaseUrl: options.databaseUrl,

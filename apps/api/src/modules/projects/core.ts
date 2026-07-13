@@ -1,4 +1,5 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
+import { cloneDefaultBilling } from "@nezdemkovski/auth-billing";
 import {
   normalizeProjectSlug,
   projectSchemaFromSlug,
@@ -11,7 +12,6 @@ import { ErrorCode } from "../../runtime/error-codes";
 import { prepareProjectSchema } from "../../db/bootstrap";
 import type { AdminDatabase } from "../../db/admin-pool";
 import { isPostgresUniqueViolation } from "../../db/errors";
-import { cloneDefaultBilling, loadProjectBillingSettings } from "../billing/store";
 import { readProjectCounts } from "../users/store";
 import {
   loadProjectSocialProviders,
@@ -30,8 +30,7 @@ import {
 } from "./store";
 import { projectResponse, socialProvidersResponse } from "./translator";
 import {
-  cloneDefaultStorage,
-  loadProjectStorageSettings
+  cloneDefaultStorage
 } from "@nezdemkovski/auth-storage";
 import {
   normalizeProjectFeatures,
@@ -204,26 +203,9 @@ export class ProjectService {
         project: projectWithCurrentCapabilities,
         encryptionSecret: this.options.encryptionSecret
       });
-      const billing = await loadProjectBillingSettings({
-        databaseUrl: this.options.databaseUrl,
-        adminProject: this.options.adminProject,
-        adminDb: this.options.adminDb,
-        project: projectWithCurrentCapabilities,
-        encryptionSecret: this.options.encryptionSecret
-      });
-      const storage = await loadProjectStorageSettings({
-        databaseUrl: this.options.databaseUrl,
-        adminProject: this.options.adminProject,
-        adminDb: this.options.adminDb,
-        projectSlug: updated.slug,
-        encryptionSecret: this.options.encryptionSecret,
-        managedStorage: this.options.managedStorage
-      }) ?? cloneDefaultStorage(this.options.managedStorage);
       const nextProject = {
-        ...updated,
-        socialProviders,
-        billing,
-        storage
+        ...projectWithCurrentCapabilities,
+        socialProviders
       };
       await this.options.registry.updateProject(nextProject);
 

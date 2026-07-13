@@ -45,6 +45,7 @@
         "@better-auth/drizzle-adapter": "1.7.0-rc.1",
         "@better-auth/oauth-provider": "1.7.0-rc.1",
         "@better-auth/passkey": "1.7.0-rc.1",
+        "@nezdemkovski/auth-billing": "workspace:*",
         "@nezdemkovski/auth-contracts": "workspace:*",
         "@nezdemkovski/auth-delivery": "workspace:*",
         "@nezdemkovski/auth-observability": "workspace:*",
@@ -115,6 +116,18 @@
       "dependencies": {
         "@sentry/react": "10.63.0",
         "react": "19.2.7",
+      },
+    },
+    "packages/domains/billing": {
+      "name": "@nezdemkovski/auth-billing",
+      "version": "0.0.0",
+      "dependencies": {
+        "@nezdemkovski/auth-contracts": "workspace:*",
+        "@nezdemkovski/auth-platform-crypto": "workspace:*",
+        "@nezdemkovski/auth-platform-database": "workspace:*",
+        "@polar-sh/sdk": "0.48.1",
+        "drizzle-orm": "1.0.0-rc.4",
+        "pg": "8.21.0",
       },
     },
     "packages/domains/delivery": {
@@ -491,6 +504,8 @@
     "@nezdemkovski/auth-admin": ["@nezdemkovski/auth-admin@workspace:apps/admin"],
 
     "@nezdemkovski/auth-api": ["@nezdemkovski/auth-api@workspace:apps/api"],
+
+    "@nezdemkovski/auth-billing": ["@nezdemkovski/auth-billing@workspace:packages/domains/billing"],
 
     "@nezdemkovski/auth-client-shared": ["@nezdemkovski/auth-client-shared@workspace:packages/client-shared"],
 

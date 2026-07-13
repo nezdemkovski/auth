@@ -2,9 +2,9 @@ import { ErrorCode } from "../../runtime/error-codes";
 import {
   BillingUsageError,
   BillingUsageErrorKind,
+  BillingUsageMutation,
   type BillingUsageMutationResult
-} from "./core";
-import { BillingUsageMutation } from "./validator";
+} from "@nezdemkovski/auth-billing";
 
 export const billingUsageMutationResponse = (
   result: BillingUsageMutationResult

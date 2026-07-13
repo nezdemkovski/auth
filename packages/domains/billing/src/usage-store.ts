@@ -1,20 +1,23 @@
-import { and, eq, gt, inArray, isNull, lt, notInArray, sql } from "drizzle-orm";
 import type { BillingUsageSummary } from "@nezdemkovski/auth-contracts";
+import { randomBase64Url } from "@nezdemkovski/auth-platform-crypto";
+import {
+  isPostgresUniqueViolation,
+  type AdminDatabase,
+  type AdminDatabaseOptions,
+  withAdminDb
+} from "@nezdemkovski/auth-platform-database";
+import { and, eq, gt, inArray, isNull, lt, notInArray, sql } from "drizzle-orm";
 import type { NodePgTransaction } from "drizzle-orm/node-postgres";
 import type { AnyRelations } from "drizzle-orm/relations";
 
 import {
   EntitlementGrantType,
   EntitlementResetPeriod,
-  type AuthProject,
   type BillingEntitlement,
-  type BillingProductMapping
-} from "../../config/projects";
-import type { AdminDatabase, AdminDatabaseOptions } from "../../db/admin-pool";
-import { withAdminDb } from "../../db/admin-pool";
-import { isPostgresUniqueViolation } from "../../db/errors";
-import { randomBase64Url } from "../../runtime/crypto";
-import { isRecord } from "../../runtime/type-guards";
+  type BillingProductMapping,
+  type BillingRealm
+} from "./model";
+import { isRecord } from "./guards";
 import {
   billingEntitlementGrants,
   billingUsageEvents,
@@ -43,20 +46,20 @@ export type BillingUsageReservationResult = {
 
 export type PolarEntitlementGrantStore = {
   grantProductEntitlements(input: {
-    project: AuthProject;
+    project: BillingRealm;
     userId: string;
     productId: string;
     sourceId: string;
     metadata: unknown;
   }): Promise<number>;
   deactivateSource(input: {
-    project: AuthProject;
+    project: BillingRealm;
     sourceType: string;
     sourceId: string;
     metadata: unknown;
   }): Promise<number>;
   deactivateSubscription(input: {
-    project: AuthProject;
+    project: BillingRealm;
     subscriptionId: string;
     metadata: unknown;
   }): Promise<number>;
@@ -201,7 +204,7 @@ export const createPolarEntitlementGrantStore = (
 
 export const readBillingUsageSummary = async (
   options: AdminDatabaseOptions & {
-    project: AuthProject;
+    project: BillingRealm;
     userId: string;
     key: string;
   }
@@ -233,7 +236,7 @@ export const readBillingUsageSummary = async (
 
 export const consumeBillingUsage = async (
   options: AdminDatabaseOptions & {
-    project: AuthProject;
+    project: BillingRealm;
     userId: string;
     key: string;
     amount: number;
@@ -260,7 +263,7 @@ export const consumeBillingUsage = async (
 
 export const reserveBillingUsage = async (
   options: AdminDatabaseOptions & {
-    project: AuthProject;
+    project: BillingRealm;
     userId: string;
     key: string;
     amount: number;
@@ -398,7 +401,7 @@ export const reserveBillingUsage = async (
 
 export const commitBillingUsageReservation = async (
   options: AdminDatabaseOptions & {
-    project: AuthProject;
+    project: BillingRealm;
     userId: string;
     reservationId: string;
   }
@@ -483,7 +486,7 @@ export const commitBillingUsageReservation = async (
 const findIdempotentReservation = async (
   db: AdminDatabase["db"],
   options: {
-    project: AuthProject;
+    project: BillingRealm;
     userId: string;
     idempotencyKey?: string;
   }
@@ -512,7 +515,7 @@ const findIdempotentReservation = async (
 
 const replayBillingUsageReservation = async (
   options: AdminDatabaseOptions & {
-    project: AuthProject;
+    project: BillingRealm;
     userId: string;
     key: string;
   },
@@ -531,7 +534,7 @@ const replayBillingUsageReservation = async (
 
 export const releaseBillingUsageReservation = async (
   options: AdminDatabaseOptions & {
-    project: AuthProject;
+    project: BillingRealm;
     userId: string;
     reservationId: string;
   }
@@ -585,7 +588,7 @@ export const releaseBillingUsageReservation = async (
 
 export const grantBillingProductEntitlements = async (
   options: AdminDatabaseOptions & {
-    project: AuthProject;
+    project: BillingRealm;
     userId: string;
     productId: string;
     sourceId: string;
@@ -613,7 +616,7 @@ export const grantBillingProductEntitlements = async (
 
 const ensureFreeEntitlementGrants = async (
   options: AdminDatabaseOptions & {
-    project: AuthProject;
+    project: BillingRealm;
     userId: string;
   }
 ) => {
@@ -659,7 +662,7 @@ const ensureFreeEntitlementGrants = async (
 
 const resetDueBillingEntitlements = async (
   options: AdminDatabaseOptions & {
-    project: AuthProject;
+    project: BillingRealm;
     userId: string;
     key?: string;
   }
@@ -698,7 +701,7 @@ const resetDueBillingEntitlements = async (
 
 export const deactivateBillingEntitlementSource = async (
   options: AdminDatabaseOptions & {
-    project: AuthProject;
+    project: BillingRealm;
     sourceType: string;
     sourceId: string;
     metadata: unknown;
@@ -729,7 +732,7 @@ export const deactivateBillingEntitlementSource = async (
 
 const releaseExpiredBillingUsageReservations = async (
   options: AdminDatabaseOptions & {
-    project: AuthProject;
+    project: BillingRealm;
     userId?: string;
     key?: string;
   }
@@ -831,7 +834,7 @@ const grantIds = (value: unknown) => {
 
 export const deactivateBillingSubscriptionEntitlements = async (
   options: AdminDatabaseOptions & {
-    project: AuthProject;
+    project: BillingRealm;
     subscriptionId: string;
     metadata: unknown;
   }
@@ -863,7 +866,7 @@ export const deactivateBillingSubscriptionEntitlements = async (
 
 const grantEntitlements = async (
   options: AdminDatabaseOptions & {
-    project: AuthProject;
+    project: BillingRealm;
     userId: string;
     product: BillingProductMapping | null;
     entitlements: BillingEntitlement[];

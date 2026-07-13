@@ -1,15 +1,17 @@
 import {
   BillingEnvironment,
   BillingProvider,
-  DEFAULT_PROJECT_FEATURES,
-  DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  type AuthProject,
+  updateBillingSettings,
   type BillingEntitlement,
   type BillingProductMapping
+} from "@nezdemkovski/auth-billing";
+import {
+  DEFAULT_PROJECT_FEATURES,
+  DEFAULT_PROJECT_SOCIAL_PROVIDERS,
+  type AuthProject
 } from "../src/config/projects";
 import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 import { integrationAdminDbOptions, integrationEncryptionSecret } from "./setup";
-import { updateBillingSettings } from "../src/modules/billing/store";
 import { createProjectSettings } from "../src/modules/projects/store";
 
 export const seedIntegrationRealm = async (options: {
@@ -64,7 +66,7 @@ export const seedIntegrationRealm = async (options: {
 
   const billing = await updateBillingSettings({
     ...integrationAdminDbOptions,
-    project,
+    projectSlug: project.slug,
     encryptionSecret: integrationEncryptionSecret,
     patch: project.billing
   });

@@ -4,7 +4,7 @@ import type {
   BillingEntitlement,
   BillingProductMapping,
   ProjectBillingSettings
-} from "../../config/projects";
+} from "./model";
 import {
   BillingEnvironment,
   BillingProductType,
@@ -13,10 +13,9 @@ import {
   DEFAULT_BILLING_PRODUCT_SLUG,
   EntitlementGrantType,
   EntitlementResetPeriod,
-  normalizeProjectSlug
-} from "../../config/projects";
-import { isEnumValue } from "../../runtime/enums";
-import { isRecord } from "../../runtime/type-guards";
+  normalizeBillingProductSlug
+} from "./model";
+import { isEnumValue, isRecord } from "./guards";
 
 export type BillingSettingsPatch = {
   provider: ProjectBillingSettings["provider"];
@@ -30,7 +29,7 @@ export type BillingSettingsPatch = {
 };
 
 type BillingSettingsBody = Partial<Record<keyof BillingSettingsPatch, unknown>>;
-type CreatePolarProductBody = {
+export type CreatePolarProductBody = {
   slug?: unknown;
   name?: unknown;
   description?: unknown;
@@ -143,7 +142,7 @@ export const parseCreatePolarProduct = (body: CreatePolarProductBody) => {
 
   const slug =
     body.slug.trim() ||
-    normalizeProjectSlug(body.name) ||
+    normalizeBillingProductSlug(body.name) ||
     DEFAULT_BILLING_PRODUCT_SLUG;
   const name = body.name.trim();
   const priceCurrency = body.priceCurrency.trim().toLowerCase();

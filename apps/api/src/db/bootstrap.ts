@@ -12,6 +12,9 @@ import {
   ensureStorageObjectsTable,
   ensureStorageSettingsTable
 } from "@nezdemkovski/auth-storage";
+import {
+  ensureBillingTables
+} from "@nezdemkovski/auth-billing";
 
 import { AuthUserRole, type AuthProject } from "../config/projects";
 import { randomBase64Url } from "../runtime/crypto";
@@ -22,9 +25,6 @@ import {
   createProjectMigrationAuthOptions
 } from "../auth/project-auth";
 import { createProjectDatabase } from "./project-db";
-import { ensureBillingSettingsTable } from "../modules/billing/store";
-import { ensureBillingUsageTables } from "../modules/billing/usage-store";
-import { ensureBillingWebhookTables } from "../modules/billing/webhook-store";
 import {
   ensureProjectSettingsTable,
   seedAdminProjectSettings
@@ -69,15 +69,7 @@ export const bootstrapProjects = async (options: BootstrapOptions) => {
       databaseUrl: options.databaseUrl,
       adminProject: options.adminProject
     });
-    await ensureBillingSettingsTable({
-      databaseUrl: options.databaseUrl,
-      adminProject: options.adminProject
-    });
-    await ensureBillingWebhookTables({
-      databaseUrl: options.databaseUrl,
-      adminProject: options.adminProject
-    });
-    await ensureBillingUsageTables({
+    await ensureBillingTables({
       databaseUrl: options.databaseUrl,
       adminProject: options.adminProject
     });

@@ -1,29 +1,23 @@
+import {
+  decryptSecretValue,
+  encryptSecretValue,
+  type AdminDatabaseOptions,
+  withAdminDb
+} from "@nezdemkovski/auth-platform-database";
 import { eq, sql } from "drizzle-orm";
 
 import {
   BillingEnvironment,
   BillingProductType,
   BillingProvider,
-  DEFAULT_PROJECT_BILLING,
   EntitlementGrantType,
   EntitlementResetPeriod,
-  type AuthProject,
+  cloneDefaultBilling,
   type ProjectBillingSettings
-} from "../../config/projects";
-import { type AdminDatabaseOptions, withAdminDb } from "../../db/admin-pool";
-import { decryptSecretValue, encryptSecretValue } from "../../db/secret-crypto";
-import { isEnumValue } from "../../runtime/enums";
-import { isRecord } from "../../runtime/type-guards";
+} from "./model";
+import { isEnumValue, isRecord } from "./guards";
 import { billingSettings } from "./tables";
 import type { BillingSettingsPatch } from "./validator";
-
-export type BillingSettingsState = Omit<
-  ProjectBillingSettings,
-  "accessToken" | "webhookSecret"
-> & {
-  accessTokenConfigured: boolean;
-  webhookSecretConfigured: boolean;
-};
 
 type BillingSettingsRow = {
   projectSlug: string;
@@ -83,21 +77,21 @@ export const loadBillingSettings = async (options: AdminDatabaseOptions & {
 };
 
 export const loadProjectBillingSettings = async (options: AdminDatabaseOptions & {
-  project: AuthProject;
+  projectSlug: string;
   encryptionSecret: string;
 }) => {
   const all = await loadBillingSettings(options);
-  return all.get(options.project.slug) ?? cloneDefaultBilling();
+  return all.get(options.projectSlug) ?? cloneDefaultBilling();
 };
 
 export const readBillingSettingsState = async (options: AdminDatabaseOptions & {
-  project: AuthProject;
+  projectSlug: string;
 }) => {
   return withAdminDb(options, async ({ db }) => {
     const rows = await db
       .select()
       .from(billingSettings)
-      .where(eq(billingSettings.projectSlug, options.project.slug))
+      .where(eq(billingSettings.projectSlug, options.projectSlug))
       .limit(1);
 
     return rowToState(rows[0]);
@@ -105,7 +99,7 @@ export const readBillingSettingsState = async (options: AdminDatabaseOptions & {
 };
 
 export const updateBillingSettings = async (options: AdminDatabaseOptions & {
-  project: AuthProject;
+  projectSlug: string;
   encryptionSecret: string;
   patch: BillingSettingsPatch;
 }) => {
@@ -115,7 +109,7 @@ export const updateBillingSettings = async (options: AdminDatabaseOptions & {
       ? await encryptSecret(
           options.patch.accessToken.trim(),
           options.encryptionSecret,
-          options.project.slug,
+          options.projectSlug,
           "access-token"
         )
       : current?.accessTokenCipher ?? "";
@@ -124,7 +118,7 @@ export const updateBillingSettings = async (options: AdminDatabaseOptions & {
       ? await encryptSecret(
           options.patch.webhookSecret.trim(),
           options.encryptionSecret,
-          options.project.slug,
+          options.projectSlug,
           "webhook-secret"
         )
       : current?.webhookSecretCipher ?? "";
@@ -133,7 +127,7 @@ export const updateBillingSettings = async (options: AdminDatabaseOptions & {
     const rows = await db
       .insert(billingSettings)
       .values({
-        projectSlug: options.project.slug,
+        projectSlug: options.projectSlug,
         provider: options.patch.provider,
         enabled: options.patch.enabled,
         environment: options.patch.environment,
@@ -161,14 +155,6 @@ export const updateBillingSettings = async (options: AdminDatabaseOptions & {
 
     return rowToBilling(rows[0], options.encryptionSecret);
   });
-};
-
-export const cloneDefaultBilling = () => {
-  return {
-    ...DEFAULT_PROJECT_BILLING,
-    freeEntitlements: [],
-    products: []
-  };
 };
 
 const rowToBilling = async (row: BillingSettingsRow, encryptionSecret: string) => {
@@ -222,13 +208,13 @@ const rowToState = (row: BillingSettingsRow | undefined) => {
 };
 
 const readBillingSettingsRow = async (options: AdminDatabaseOptions & {
-  project: AuthProject;
+  projectSlug: string;
 }) => {
   return withAdminDb(options, async ({ db }) => {
     const rows = await db
       .select()
       .from(billingSettings)
-      .where(eq(billingSettings.projectSlug, options.project.slug))
+      .where(eq(billingSettings.projectSlug, options.projectSlug))
       .limit(1);
 
     return rows[0] ?? null;

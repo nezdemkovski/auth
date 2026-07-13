@@ -116,6 +116,10 @@
 
 ## Done
 
+- Billing and entitlements extracted into private compiled
+  `@nezdemkovski/auth-billing`: Polar settings and webhooks, product mapping,
+  grants, quota usage and reservations live behind explicit ports without
+  importing Better Auth, identity, realm, or storage internals.
 - Storage capability extraction into private compiled
   `@nezdemkovski/auth-storage`, with explicit persistence/provider ports and an
   API-owned media use case for realm icons and user avatars.

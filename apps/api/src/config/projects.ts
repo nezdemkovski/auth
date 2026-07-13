@@ -7,6 +7,10 @@ import {
   DEFAULT_PROJECT_STORAGE,
   type ProjectStorageSettings
 } from "@nezdemkovski/auth-storage";
+import {
+  DEFAULT_PROJECT_BILLING,
+  type ProjectBillingSettings
+} from "@nezdemkovski/auth-billing";
 
 export type AuthProject = {
   slug: string;
@@ -65,83 +69,6 @@ export enum AuthUserRole {
   User = "user"
 }
 
-export enum BillingProvider {
-  None = "none",
-  Polar = "polar"
-}
-
-export enum BillingEnvironment {
-  Sandbox = "sandbox",
-  Production = "production"
-}
-
-export enum BillingProductType {
-  Subscription = "subscription",
-  OneTime = "one_time",
-  CreditPack = "credit_pack",
-  Lifetime = "lifetime",
-  Metered = "metered"
-}
-
-export enum BillingRecurringInterval {
-  Month = "month",
-  Year = "year"
-}
-
-export enum EntitlementGrantType {
-  Boolean = "boolean",
-  RecurringQuota = "recurring_quota",
-  OneTimeCredits = "one_time_credits",
-  Lifetime = "lifetime",
-  Metered = "metered"
-}
-
-export enum EntitlementResetPeriod {
-  Never = "never",
-  Monthly = "monthly",
-  Yearly = "yearly"
-}
-
-export type BillingEntitlement = {
-  key: string;
-  grantType: EntitlementGrantType;
-  amount: number | null;
-  resetPeriod: EntitlementResetPeriod;
-  priority: number;
-};
-
-export type BillingProductMapping = {
-  slug: string;
-  name: string;
-  description: string;
-  productId: string;
-  type: BillingProductType;
-  active: boolean;
-  entitlements: BillingEntitlement[];
-};
-
-export type ProjectBillingSettings = {
-  provider: BillingProvider;
-  enabled: boolean;
-  environment: BillingEnvironment;
-  organizationId: string;
-  accessToken: string;
-  webhookSecret: string;
-  freeEntitlements: BillingEntitlement[];
-  products: BillingProductMapping[];
-};
-
-export const DEFAULT_PROJECT_BILLING: ProjectBillingSettings = {
-  provider: BillingProvider.None,
-  enabled: false,
-  environment: BillingEnvironment.Sandbox,
-  organizationId: "",
-  accessToken: "",
-  webhookSecret: "",
-  freeEntitlements: [],
-  products: []
-};
-
 export const DEFAULT_PROJECT_FEATURES: ProjectFeatures = {
   passkey: {
     enabled: false
@@ -178,8 +105,6 @@ export const DEFAULT_PROJECT_SOCIAL_PROVIDERS: ProjectSocialProviders = {
 };
 
 export const ADMIN_PROJECT_SLUG = "admin";
-export const DEFAULT_BILLING_PRODUCT_SLUG = "product";
-
 const IDENTIFIER_PATTERN = /^[a-z][a-z0-9_]*$/;
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
 export const MAX_PROJECT_SLUG_LENGTH = 58;

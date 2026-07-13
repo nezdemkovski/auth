@@ -7,7 +7,7 @@ import {
   BillingRecurringInterval,
   EntitlementGrantType,
   EntitlementResetPeriod
-} from "../../../config/projects";
+} from "../model";
 import {
   parseBillingSettingsPatch,
   parseCreatePolarProduct,

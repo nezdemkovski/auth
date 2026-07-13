@@ -11,7 +11,7 @@ import type { AuthRegistry } from "../../auth/registry";
 import { OAuthResource, OAuthScope } from "../../config/oauth-resources";
 import { mediaUploadError } from "../../http/admin/shared";
 import { ErrorCode } from "../../runtime/error-codes";
-import { authorizeUserOAuthResourceRequest } from "../oauth-resource/http";
+import type { OAuthResourceAuthorizer } from "../oauth-resource/authorizer";
 import type { MediaService } from "../media/core";
 
 type PublicStorageVariables = {
@@ -22,7 +22,7 @@ export const registerPublicStorageRoutes = (
   app: Hono<{ Variables: PublicStorageVariables }>,
   options: {
     registry: AuthRegistry;
-    publicBaseUrl: string;
+    authorizer: OAuthResourceAuthorizer;
     mediaService: MediaService;
   }
 ) => {
@@ -44,9 +44,7 @@ export const registerPublicStorageRoutes = (
   );
 
   app.post("/api/:project/upload", async (c) => {
-    const access = await authorizeUserOAuthResourceRequest({
-      registry: options.registry,
-      publicBaseUrl: options.publicBaseUrl,
+    const access = await options.authorizer.authorizeUser({
       projectSlug: c.req.param("project"),
       request: c.req.raw,
       resource: OAuthResource.Storage,
@@ -92,9 +90,7 @@ export const registerPublicStorageRoutes = (
   });
 
   app.delete("/api/:project/upload", async (c) => {
-    const access = await authorizeUserOAuthResourceRequest({
-      registry: options.registry,
-      publicBaseUrl: options.publicBaseUrl,
+    const access = await options.authorizer.authorizeUser({
       projectSlug: c.req.param("project"),
       request: c.req.raw,
       resource: OAuthResource.Storage,

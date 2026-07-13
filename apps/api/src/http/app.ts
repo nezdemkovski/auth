@@ -12,6 +12,10 @@ import {
   createStorageStore,
   StorageService
 } from "@nezdemkovski/auth-storage";
+import {
+  createPolarEntitlementGrantStore,
+  createPolarWebhookStore
+} from "@nezdemkovski/auth-billing";
 
 import { registerLoginRoutes } from "../modules/login/http";
 import { registerAuthProxyRoutes } from "../modules/auth-proxy/http";
@@ -24,8 +28,8 @@ import { migrateDatabase } from "../db/migrate";
 import { createAdminDatabase } from "../db/admin-pool";
 import { registerBillingUsageRoutes } from "../modules/billing-usage/http";
 import { registerOAuthResourceRoutes } from "../modules/oauth-resource/http";
-import { createPolarEntitlementGrantStore } from "../modules/billing/usage-store";
-import { createPolarWebhookStore } from "../modules/billing/webhook-store";
+import { createOAuthResourceAuthorizer } from "../modules/oauth-resource/authorizer";
+import { createBillingAuthPluginContribution } from "../modules/billing/better-auth";
 import { loadEffectiveProjects } from "../application/project-catalog";
 import { updateProjectIconUrl } from "../modules/projects/store";
 import { MediaService } from "../modules/media/core";
@@ -91,7 +95,12 @@ export const createApp = async (env: Env) => {
     adminProject,
     adminDb
   };
-  const polarWebhookStore = createPolarWebhookStore(billingStoreOptions);
+  const polarEntitlementGrantStore = createPolarEntitlementGrantStore(
+    billingStoreOptions
+  );
+  const polarWebhookStore = createPolarWebhookStore(billingStoreOptions, {
+    error: logError
+  });
   const registry = new AuthRegistry({
     databaseUrl: env.databaseUrl,
     publicBaseUrl: env.publicBaseUrl,
@@ -99,10 +108,18 @@ export const createApp = async (env: Env) => {
     emailSender,
     trustProxyHeaders: env.trustProxyHeaders,
     projects: [adminProject, ...projects],
-    polarEntitlementGrantStore: createPolarEntitlementGrantStore(billingStoreOptions),
-    polarWebhookStore
+    pluginContributions: [
+      createBillingAuthPluginContribution({
+        entitlements: polarEntitlementGrantStore,
+        webhooks: polarWebhookStore
+      })
+    ]
   });
   await registry.ready();
+  const oauthResourceAuthorizer = createOAuthResourceAuthorizer({
+    registry,
+    publicBaseUrl: env.publicBaseUrl
+  });
   const storageService = new StorageService({
     store: storageStore,
     provider: createS3StorageProvider(),
@@ -195,7 +212,7 @@ export const createApp = async (env: Env) => {
   });
   registerBillingUsageRoutes(app, {
     registry,
-    publicBaseUrl: env.publicBaseUrl,
+    authorizer: oauthResourceAuthorizer,
     ...billingStoreOptions
   });
   registerOAuthResourceRoutes(app, {
@@ -204,7 +221,7 @@ export const createApp = async (env: Env) => {
   });
   registerPublicStorageRoutes(app, {
     registry,
-    publicBaseUrl: env.publicBaseUrl,
+    authorizer: oauthResourceAuthorizer,
     mediaService
   });
   registerAuthProxyRoutes(app, { registry });

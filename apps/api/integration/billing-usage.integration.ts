@@ -1,30 +1,32 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { and, eq, sql } from "drizzle-orm";
 
 import {
+  BillingProductType,
   EntitlementGrantType,
   EntitlementResetPeriod,
-  BillingProductType,
-  type AuthProject,
+  commitBillingUsageReservation,
+  createPolarEntitlementGrantStore,
+  createPolarWebhookStore,
+  processPolarWebhook,
+  readBillingUsageSummary,
+  releaseBillingUsageReservation,
+  reserveBillingUsage,
+  updateBillingSettings,
   type BillingEntitlement,
   type BillingProductMapping
-} from "../src/config/projects";
+} from "@nezdemkovski/auth-billing";
+import {
+  expireBillingEntitlementReset,
+  readBillingWebhookPayloads,
+  seedExpiredBillingWebhookEvent
+} from "@nezdemkovski/auth-billing/testing";
+import type { AuthProject } from "../src/config/projects";
 import {
   OAuthResource,
   OAuthScope,
   oauthResourceIdentifier,
   oauthResourceMetadataUrl
 } from "../src/config/oauth-resources";
-import {
-  commitBillingUsageReservation,
-  createPolarEntitlementGrantStore,
-  readBillingUsageSummary,
-  releaseBillingUsageReservation,
-  reserveBillingUsage
-} from "../src/modules/billing/usage-store";
-import { updateBillingSettings } from "../src/modules/billing/store";
-import { createPolarWebhookStore } from "../src/modules/billing/webhook-store";
-import { processPolarWebhook } from "../src/modules/billing/webhooks";
 import { seedIntegrationRealm } from "./seed";
 import {
   integrationAdminDbOptions,
@@ -39,8 +41,6 @@ import {
 } from "./setup";
 import { DIRECT_CLIENT_IP_HEADER } from "../src/http/security";
 import { isRecord } from "../src/runtime/type-guards";
-import { withAdminDb } from "../src/db/admin-pool";
-import { billingEntitlementGrants } from "../src/modules/billing/tables";
 import {
   polarOrderPaidPayload,
   polarOrderRefundedPayload,
@@ -483,17 +483,11 @@ describe("billing usage integration", () => {
       userId,
       reservationId: reservation.reservationId ?? ""
     });
-    await withAdminDb(integrationAdminDbOptions, async ({ db }) => {
-      await db
-        .update(billingEntitlementGrants)
-        .set({ resetAt: sql`now() - interval '1 second'` })
-        .where(
-          and(
-            eq(billingEntitlementGrants.projectSlug, project.slug),
-            eq(billingEntitlementGrants.userId, userId),
-            eq(billingEntitlementGrants.benefitKey, benefitKey)
-          )
-        );
+    await expireBillingEntitlementReset({
+      ...integrationAdminDbOptions,
+      projectSlug: project.slug,
+      userId,
+      benefitKey
     });
 
     await expectSummary(project, {
@@ -1097,50 +1091,31 @@ describe("billing usage integration", () => {
       userId
     });
 
-    await withAdminDb(integrationAdminDbOptions, async ({ db }) => {
-      await db.execute(sql`
-        INSERT INTO auth_billing_webhook_events (
-          project_slug,
-          event_key,
-          event_type,
-          resource_id,
-          occurred_at,
-          received_at,
-          payload
-        ) VALUES (
-          ${project.slug},
-          'expired-event',
-          'order.paid',
-          'expired-order',
-          now() - interval '31 days',
-          now() - interval '31 days',
-          '{"email":"expired@integration.test"}'::jsonb
-        )
-      `);
+    await seedExpiredBillingWebhookEvent({
+      ...integrationAdminDbOptions,
+      projectSlug: project.slug,
+      eventKey: "expired-event",
+      eventType: "order.paid",
+      resourceId: "expired-order",
+      payload: { email: "expired@integration.test" }
     });
 
     await processPolarWebhook(context, payload);
     await processPolarWebhook(context, payload);
 
-    await withAdminDb(integrationAdminDbOptions, async ({ db }) => {
-      const events = await db.execute<{ payload: string }>(sql`
-        SELECT payload::text AS payload
-        FROM auth_billing_webhook_events
-        WHERE project_slug = ${project.slug}
-      `);
-      const orders = await db.execute<{ payload: string }>(sql`
-        SELECT payload::text AS payload
-        FROM auth_billing_orders
-        WHERE project_slug = ${project.slug}
-          AND order_id = 'order_integration_duplicate'
-      `);
-
-      expect(events.rows).toHaveLength(1);
-      expect(events.rows[0].payload).not.toContain("customer@integration.test");
-      expect(events.rows[0].payload).not.toContain("Integration Customer");
-      expect(orders.rows).toHaveLength(1);
-      expect(orders.rows[0].payload).not.toContain("customer@integration.test");
+    const payloads = await readBillingWebhookPayloads({
+      ...integrationAdminDbOptions,
+      projectSlug: project.slug,
+      orderId: "order_integration_duplicate"
     });
+    const eventPayload = JSON.stringify(payloads.events[0]);
+    const orderPayload = JSON.stringify(payloads.orders[0]);
+
+    expect(payloads.events).toHaveLength(1);
+    expect(eventPayload).not.toContain("customer@integration.test");
+    expect(eventPayload).not.toContain("Integration Customer");
+    expect(payloads.orders).toHaveLength(1);
+    expect(orderPayload).not.toContain("customer@integration.test");
 
     await expectSummary(project, {
       used: 0,
@@ -1301,7 +1276,7 @@ const updateProjectBilling = async (
 ) => {
   const billing = await updateBillingSettings({
     ...integrationAdminDbOptions,
-    project,
+    projectSlug: project.slug,
     encryptionSecret: integrationEncryptionSecret,
     patch: {
       ...project.billing,

@@ -8,9 +8,9 @@ import {
   type StorageStore
 } from "@nezdemkovski/auth-storage";
 import { Pool } from "pg";
+import { DEFAULT_PROJECT_BILLING } from "@nezdemkovski/auth-billing";
 
 import {
-  DEFAULT_PROJECT_BILLING,
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS
 } from "../../../config/projects";

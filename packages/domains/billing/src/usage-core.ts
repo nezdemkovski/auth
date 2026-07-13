@@ -1,19 +1,19 @@
 import type { BillingUsageSummary } from "@nezdemkovski/auth-contracts";
+import type { AdminDatabaseOptions } from "@nezdemkovski/auth-platform-database";
 
-import type { RegisteredProject } from "../../auth/registry";
-import type { AdminDatabaseOptions } from "../../db/admin-pool";
+import type { BillingRealm } from "./model";
+import type { BillingSubjectDirectory } from "./ports";
 import {
-  billingUsageSubjectExists,
   commitBillingUsageReservation,
   consumeBillingUsage,
   readBillingUsageSummary,
   releaseBillingUsageReservation,
   reserveBillingUsage
-} from "./store";
+} from "./usage-store";
 import {
   BillingUsageMutation,
   type BillingUsageMutationInput
-} from "./validator";
+} from "./usage-validator";
 
 export enum BillingUsageErrorKind {
   UnknownSubject = "unknown_subject",
@@ -28,7 +28,7 @@ export class BillingUsageError extends Error {
 }
 
 type BillingUsageOptions = AdminDatabaseOptions & {
-  registered: RegisteredProject;
+  project: BillingRealm;
 };
 
 type ConsumeResult = Awaited<ReturnType<typeof consumeBillingUsage>>;
@@ -65,10 +65,7 @@ export const readUserBillingUsageSummary = async (
   }
 ): Promise<BillingUsageSummary> => {
   return readBillingUsageSummary({
-    databaseUrl: options.databaseUrl,
-    adminProject: options.adminProject,
-    adminDb: options.adminDb,
-    project: options.registered.project,
+    ...options,
     userId: options.subject,
     key: options.key
   });
@@ -76,15 +73,11 @@ export const readUserBillingUsageSummary = async (
 
 export const mutateBillingUsage = async (
   options: BillingUsageOptions & {
+    subjects: BillingSubjectDirectory;
     input: BillingUsageMutationInput;
   }
 ): Promise<BillingUsageMutationResult> => {
-  if (
-    !(await billingUsageSubjectExists(
-      options.registered.projectDb,
-      options.input.subject
-    ))
-  ) {
+  if (!(await options.subjects.exists(options.input.subject))) {
     throw new BillingUsageError(BillingUsageErrorKind.UnknownSubject);
   }
 
@@ -92,7 +85,7 @@ export const mutateBillingUsage = async (
     databaseUrl: options.databaseUrl,
     adminProject: options.adminProject,
     adminDb: options.adminDb,
-    project: options.registered.project,
+    project: options.project,
     userId: options.input.subject
   };
 

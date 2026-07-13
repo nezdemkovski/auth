@@ -17,6 +17,7 @@
     "@better-auth/drizzle-adapter": "1.7.0-rc.1",
     "@better-auth/oauth-provider": "1.7.0-rc.1",
     "@better-auth/passkey": "1.7.0-rc.1",
+    "@nezdemkovski/auth-billing": "workspace:*",
     "@nezdemkovski/auth-contracts": "workspace:*",
     "@nezdemkovski/auth-delivery": "workspace:*",
     "@nezdemkovski/auth-observability": "workspace:*",

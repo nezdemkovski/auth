@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
+import { DEFAULT_PROJECT_BILLING } from "@nezdemkovski/auth-billing";
 
 import {
   ADMIN_PROJECT,
-  DEFAULT_PROJECT_BILLING,
   DEFAULT_PROJECT_FEATURES,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   ProjectAgentAuthMode,

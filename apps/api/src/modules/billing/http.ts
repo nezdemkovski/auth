@@ -1,8 +1,8 @@
-import { BillingServiceError } from "./core";
 import {
+  BillingServiceError,
   parseBillingSettingsPatch,
   parseCreatePolarProduct
-} from "./validator";
+} from "@nezdemkovski/auth-billing";
 import {
   auditLog,
   domainErrorResponse,
@@ -52,7 +52,10 @@ export const registerBillingRoutes: AdminRouteRegistration = ({
     }
 
     try {
-      const settings = await billingService.updateSettings(project.registered, patch);
+      const settings = await billingService.updateSettings(
+        project.registered.project,
+        patch
+      );
       auditLog("billing.settings.updated", {
         actorId: admin.session.user.id,
         actorEmail: admin.session.user.email,

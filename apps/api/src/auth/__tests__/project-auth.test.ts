@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { EmailSender } from "@nezdemkovski/auth-delivery";
 import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
+import {
+  DEFAULT_PROJECT_BILLING
+} from "@nezdemkovski/auth-billing";
 
 import {
   createBaseProjectAuthOptions,
@@ -8,9 +11,7 @@ import {
   projectAuthSecret
 } from "../project-auth";
 import {
-  BillingProvider,
   DEFAULT_PROJECT_FEATURES,
-  DEFAULT_PROJECT_BILLING,
   DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   ProjectTwoFactorRequirement,
   type AuthProject
@@ -124,24 +125,19 @@ describe("project auth options", () => {
     });
   });
 
-  test("adds Polar only when billing is enabled and configured", () => {
-    const disabledPluginIds = (createOptions(baseProject).plugins ?? []).map(
-      (plugin) => plugin.id
-    );
-    const enabledPluginIds = (
-      createOptions({
-        ...baseProject,
-        billing: {
-          ...DEFAULT_PROJECT_BILLING,
-          provider: BillingProvider.Polar,
-          enabled: true,
-          accessToken: "polar-token"
-        }
-      }).plugins ?? []
-    ).map((plugin) => plugin.id);
+  test("applies optional plugins supplied by the composition root", () => {
+    const options = createBaseProjectAuthOptions({
+      project: baseProject,
+      publicBaseUrl: "https://auth.example.com",
+      secret: "x".repeat(32),
+      emailSender: null,
+      trustProxyHeaders: false,
+      pluginContributions: [() => [{ id: "demo-contribution" }]]
+    });
 
-    expect(disabledPluginIds).not.toContain("polar");
-    expect(enabledPluginIds).toContain("polar");
+    expect(options.plugins?.map((plugin) => plugin.id)).toContain(
+      "demo-contribution"
+    );
   });
 
   test("configures Telegram through Better Auth Generic OAuth with OIDC and PKCE", () => {
@@ -229,9 +225,12 @@ describe("project auth options", () => {
     const disabledOAuthPlugin = (
       createMigrationOptions(baseProject).plugins ?? []
     ).find((plugin) => plugin.id === "oauth-provider");
+    const disabledOAuthOptions = disabledOAuthPlugin
+      ? Reflect.get(disabledOAuthPlugin, "options")
+      : null;
     expect(
-      disabledOAuthPlugin
-        ? Reflect.get(Reflect.get(disabledOAuthPlugin, "options"), "resources")
+      typeof disabledOAuthOptions === "object" && disabledOAuthOptions !== null
+        ? Reflect.get(disabledOAuthOptions, "resources")
         : null
     ).toEqual([]);
   });

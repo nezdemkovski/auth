@@ -1,9 +1,8 @@
 import type {
-  AuthProject,
   BillingEntitlement,
   BillingProductMapping,
   ProjectBillingSettings
-} from "../../config/projects";
+} from "./model";
 import {
   BillingEnvironment,
   BillingProductType,
@@ -11,9 +10,9 @@ import {
   DEFAULT_BILLING_PRODUCT_SLUG,
   EntitlementGrantType,
   EntitlementResetPeriod,
-  normalizeProjectSlug
-} from "../../config/projects";
-import type { BillingSettingsState } from "./store";
+  normalizeBillingProductSlug,
+  type BillingSettingsState
+} from "./model";
 import type { CreatePolarProductInput } from "./validator";
 
 export type PolarProductSummary = {
@@ -59,14 +58,14 @@ export type BillingTemplates = {
 
 export const billingSettingsResponse = (options: {
   settings: BillingSettingsState;
-  project: AuthProject;
+  projectSlug: string;
   publicBaseUrl: string;
 }) => {
   const benefitPresets = productBenefitPresets(options.settings.products);
 
   return {
     ...options.settings,
-    webhookUrl: billingWebhookUrl(options.publicBaseUrl, options.project),
+    webhookUrl: billingWebhookUrl(options.publicBaseUrl, options.projectSlug),
     benefitPresets,
     grantTemplate: grantTemplate(benefitPresets[0] ?? null),
     catalog: billingCatalog(),
@@ -74,8 +73,8 @@ export const billingSettingsResponse = (options: {
   };
 };
 
-export const billingWebhookUrl = (publicBaseUrl: string, project: AuthProject) => {
-  return `${publicBaseUrl}/api/${project.slug}/auth/polar/webhooks`;
+export const billingWebhookUrl = (publicBaseUrl: string, projectSlug: string) => {
+  return `${publicBaseUrl}/api/${projectSlug}/auth/polar/webhooks`;
 };
 
 export const polarProductResponse = (product: PolarProductSummary) => {
@@ -104,7 +103,7 @@ export const createdBillingProductResponse = (product: PolarProductSummary, inpu
 
 export const billingProductFromPolar = (product: PolarProductSummary): BillingProductMapping => {
   return {
-    slug: normalizeProjectSlug(product.name) || DEFAULT_BILLING_PRODUCT_SLUG,
+    slug: normalizeBillingProductSlug(product.name) || DEFAULT_BILLING_PRODUCT_SLUG,
     name: product.name,
     description: product.description ?? "",
     productId: product.id,

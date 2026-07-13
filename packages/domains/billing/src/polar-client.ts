@@ -4,15 +4,10 @@ import type { Product } from "@polar-sh/sdk/models/components/product";
 import {
   BillingProductType,
   BillingProvider,
-  type AuthProject,
   type ProjectBillingSettings
-} from "../../config/projects";
-import { isRecord } from "../../runtime/type-guards";
+} from "./model";
+import { isRecord } from "./guards";
 import type { CreatePolarProductInput } from "./validator";
-
-export const createPolarClientFromProject = (project: AuthProject) => {
-  return createPolarClient(project.billing);
-};
 
 export const createPolarClient = (billing: ProjectBillingSettings) => {
   if (

@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 
 import {
   BillingEnvironment,
@@ -7,12 +6,9 @@ import {
   BillingProvider,
   EntitlementGrantType,
   EntitlementResetPeriod,
-  DEFAULT_PROJECT_FEATURES,
-  DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  type AuthProject,
   type BillingEntitlement,
   type BillingProductMapping
-} from "../../../config/projects";
+} from "../model";
 import {
   billingSettingsResponse,
   polarProductResponse
@@ -42,33 +38,10 @@ const product = (input: Partial<BillingProductMapping> = {}) => {
   };
 };
 
-const project: AuthProject = {
-  slug: "demo",
-  name: "Demo",
-  schema: "demo_auth",
-  description: "",
-  iconUrl: "",
-  appUrl: "https://demo.example.com",
-  trustedOrigins: ["https://demo.example.com"],
-  features: DEFAULT_PROJECT_FEATURES,
-  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  billing: {
-    provider: BillingProvider.Polar,
-    enabled: true,
-    environment: BillingEnvironment.Sandbox,
-    organizationId: "",
-    accessToken: "",
-    webhookSecret: "",
-    products: [],
-    freeEntitlements: []
-  },
-  storage: DEFAULT_PROJECT_STORAGE
-};
-
 describe("billing translator", () => {
   test("returns server-side benefit presets and grant templates from product entitlements", () => {
     const response = billingSettingsResponse({
-      project,
+      projectSlug: "demo",
       publicBaseUrl: "https://auth.example.com",
       settings: {
         provider: BillingProvider.Polar,
@@ -158,7 +131,7 @@ describe("billing translator", () => {
     "builds an editable grant template for $grantType product benefits",
     ({ grantType, productAmount, resetPeriod }) => {
       const response = billingSettingsResponse({
-        project,
+        projectSlug: "demo",
         publicBaseUrl: "https://auth.example.com",
         settings: {
           provider: BillingProvider.Polar,
@@ -195,7 +168,7 @@ describe("billing translator", () => {
 
   test("returns a generic grant template when no product benefits exist", () => {
     const response = billingSettingsResponse({
-      project,
+      projectSlug: "demo",
       publicBaseUrl: "https://auth.example.com",
       settings: {
         provider: BillingProvider.Polar,

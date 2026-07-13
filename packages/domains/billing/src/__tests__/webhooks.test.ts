@@ -3,15 +3,12 @@ import type { BenefitGrantCustomWebhook } from "@polar-sh/sdk/models/components/
 import type { CustomerIndividual } from "@polar-sh/sdk/models/components/customerindividual";
 import type { Order } from "@polar-sh/sdk/models/components/order";
 import { OrderBillingReason } from "@polar-sh/sdk/models/components/orderbillingreason";
-import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
 
 import {
   BillingEnvironment,
   BillingProvider,
-  DEFAULT_PROJECT_FEATURES,
-  DEFAULT_PROJECT_SOCIAL_PROVIDERS,
-  type AuthProject
-} from "../../../config/projects";
+  type BillingRealm
+} from "../model";
 import type { PolarEntitlementGrantStore } from "../usage-store";
 import type { PolarWebhookStore } from "../webhook-store";
 import {
@@ -20,16 +17,8 @@ import {
   processPolarWebhook
 } from "../webhooks";
 
-const project: AuthProject = {
+const project: BillingRealm = {
   slug: "demo",
-  name: "Demo App",
-  schema: "demo_auth",
-  description: "",
-  iconUrl: "",
-  appUrl: "https://demo.example.com",
-  trustedOrigins: ["https://demo.example.com"],
-  features: DEFAULT_PROJECT_FEATURES,
-  socialProviders: DEFAULT_PROJECT_SOCIAL_PROVIDERS,
   billing: {
     provider: BillingProvider.Polar,
     enabled: true,
@@ -39,8 +28,7 @@ const project: AuthProject = {
     webhookSecret: "webhook-secret",
     freeEntitlements: [],
     products: []
-  },
-  storage: DEFAULT_PROJECT_STORAGE
+  }
 };
 
 const createStore = () => {

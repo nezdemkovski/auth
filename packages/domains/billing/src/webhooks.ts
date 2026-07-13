@@ -1,9 +1,9 @@
-import type { WebhooksOptions } from "@polar-sh/better-auth";
 import { SubscriptionStatus } from "@polar-sh/sdk/models/components/subscriptionstatus";
+import type { validateEvent } from "@polar-sh/sdk/webhooks";
 
-import type { AuthProject } from "../../config/projects";
-import { logInfo, logWarn } from "../../runtime/logger";
-import { isRecord } from "../../runtime/type-guards";
+import { isRecord } from "./guards";
+import type { BillingRealm } from "./model";
+import type { BillingLogger } from "./ports";
 import {
   BillingEntitlementSourceType,
   type PolarEntitlementGrantStore
@@ -18,14 +18,17 @@ export enum PolarWebhookEventGroup {
   Unknown = "unknown"
 }
 
-export type PolarWebhookHandlers = Omit<WebhooksOptions, "secret">;
+export type PolarWebhookPayload = ReturnType<typeof validateEvent>;
 
-type PolarWebhookPayload = Parameters<NonNullable<WebhooksOptions["onPayload"]>>[0];
+export type PolarWebhookHandlers = {
+  onPayload(payload: PolarWebhookPayload): Promise<void>;
+};
 
-type PolarWebhookContext = {
-  project: AuthProject;
+export type PolarWebhookContext = {
+  project: BillingRealm;
   store: PolarWebhookStore;
   entitlements: PolarEntitlementGrantStore;
+  logger?: Pick<BillingLogger, "info" | "warn">;
 };
 
 export const createPolarWebhookHandlers = (context: PolarWebhookContext): PolarWebhookHandlers => {
@@ -42,7 +45,7 @@ export const processPolarWebhook = async (
   const eventKey = polarWebhookEventKey(payload, resourceId);
   const storedPayload = polarWebhookAuditPayload(payload);
 
-  logInfo("polar_webhook_received", {
+  context.logger?.info("polar_webhook_received", {
     projectSlug: context.project.slug,
     type: payload.type,
     resourceId,
@@ -58,7 +61,7 @@ export const processPolarWebhook = async (
     payload: storedPayload
   });
   if (!claimed) {
-    logInfo("polar_webhook_duplicate", {
+    context.logger?.info("polar_webhook_duplicate", {
       projectSlug: context.project.slug,
       type: payload.type,
       resourceId
@@ -74,7 +77,7 @@ export const processPolarWebhook = async (
   await context.store.withResourceLock(resourceVersion, async () => {
     if (!(await context.store.claimResourceVersion(resourceVersion))) {
       await context.store.completeEvent(context.project.slug, eventKey);
-      logInfo("polar_webhook_stale", {
+      context.logger?.info("polar_webhook_stale", {
         projectSlug: context.project.slug,
         type: payload.type,
         resourceId
@@ -164,7 +167,7 @@ const syncPolarProjection = async (
     return;
   }
 
-  logWarn("polar_webhook_projection_skipped", {
+  context.logger?.warn("polar_webhook_projection_skipped", {
     projectSlug: context.project.slug,
     type: payload.type
   });
@@ -203,7 +206,7 @@ const syncOrder = async (
 
   const userId = payload.data.customer.externalId;
   if (!userId) {
-    logWarn("polar_order_paid_without_external_customer_id", {
+    context.logger?.warn("polar_order_paid_without_external_customer_id", {
       projectSlug: context.project.slug,
       orderId: payload.data.id
     });
@@ -218,7 +221,7 @@ const syncOrder = async (
     metadata: storedPayload
   });
 
-  logInfo("polar_order_entitlements_granted", {
+  context.logger?.info("polar_order_entitlements_granted", {
     projectSlug: context.project.slug,
     orderId: payload.data.id,
     userId,

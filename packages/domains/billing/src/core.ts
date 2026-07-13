@@ -1,9 +1,15 @@
-import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
-import type { AuthProject } from "../../config/projects";
-import type { AdminDatabase } from "../../db/admin-pool";
-import { BillingEnvironment } from "../../config/projects";
+import type {
+  AdminDatabase,
+  AdminSchema
+} from "@nezdemkovski/auth-platform-database";
+
 import {
-  createPolarClientFromProject,
+  BillingEnvironment,
+  type BillingRealm,
+  type ProjectBillingSettings
+} from "./model";
+import {
+  createPolarClient,
   createPolarProduct,
   listPolarProducts,
   polarErrorMessage,
@@ -25,29 +31,34 @@ import {
   type CreatePolarProductInput
 } from "./validator";
 
+type PolarClient = NonNullable<ReturnType<typeof createPolarClient>>;
+
 export type BillingServiceOptions = {
-  registry: Pick<AuthRegistry, "patchProject">;
   databaseUrl: string;
-  adminProject: AuthProject;
+  adminProject: AdminSchema;
   adminDb?: AdminDatabase;
   publicBaseUrl: string;
   encryptionSecret: string;
+  applyRuntimeSettings(
+    projectSlug: string,
+    billing: ProjectBillingSettings
+  ): Promise<void>;
   polar?: BillingPolarGateway;
 };
 
 export type BillingPolarGateway = {
   verifyAccess: typeof verifyPolarAccess;
-  createClientFromProject(project: AuthProject): NonNullable<ReturnType<typeof createPolarClientFromProject>> | null;
-  listProducts(client: NonNullable<ReturnType<typeof createPolarClientFromProject>>): Promise<PolarProductSummary[]>;
+  createClient(settings: ProjectBillingSettings): PolarClient | null;
+  listProducts(client: PolarClient): Promise<PolarProductSummary[]>;
   createProduct(
-    client: NonNullable<ReturnType<typeof createPolarClientFromProject>>,
+    client: PolarClient,
     input: CreatePolarProductInput
   ): Promise<PolarProductSummary>;
 };
 
 const defaultPolarGateway: BillingPolarGateway = {
   verifyAccess: verifyPolarAccess,
-  createClientFromProject: createPolarClientFromProject,
+  createClient: createPolarClient,
   listProducts: listPolarProducts,
   createProduct: createPolarProduct
 };
@@ -64,62 +75,61 @@ export class BillingServiceError extends Error {
 }
 
 export class BillingService {
+  private readonly polar: BillingPolarGateway;
+
   constructor(private readonly options: BillingServiceOptions) {
     this.polar = options.polar ?? defaultPolarGateway;
   }
 
-  private readonly polar: BillingPolarGateway;
-
-  async readSettings(project: AuthProject) {
+  async readSettings(realm: BillingRealm) {
     const settings = await readBillingSettingsState({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
       adminDb: this.options.adminDb,
-      project
+      projectSlug: realm.slug
     });
 
     return billingSettingsResponse({
       settings,
-      project,
+      projectSlug: realm.slug,
       publicBaseUrl: this.options.publicBaseUrl
     });
   }
 
-  async updateSettings(
-    registered: RegisteredProject,
-    patch: BillingSettingsPatch
-  ) {
+  async updateSettings(realm: BillingRealm, patch: BillingSettingsPatch) {
     validateBillingSettingsPatch(patch);
     const billing = await updateBillingSettings({
       databaseUrl: this.options.databaseUrl,
       adminProject: this.options.adminProject,
       adminDb: this.options.adminDb,
-      project: registered.project,
+      projectSlug: realm.slug,
       encryptionSecret: this.options.encryptionSecret,
       patch
     });
-    await this.options.registry.patchProject(registered.project.slug, { billing });
+    await this.options.applyRuntimeSettings(realm.slug, billing);
 
-    return this.readSettings(registered.project);
+    return this.readSettings({
+      slug: realm.slug,
+      billing
+    });
   }
 
   async verifyPolar(
-    project: AuthProject,
+    realm: BillingRealm,
     input: {
       accessToken?: unknown;
       environment?: unknown;
     }
   ) {
-    const billing = project.billing;
     const accessToken =
       typeof input.accessToken === "string" && input.accessToken.trim()
         ? input.accessToken.trim()
-        : billing.accessToken;
+        : realm.billing.accessToken;
     const environment =
       input.environment === BillingEnvironment.Production ||
       input.environment === BillingEnvironment.Sandbox
         ? input.environment
-        : billing.environment;
+        : realm.billing.environment;
     if (!accessToken) {
       throw new BillingServiceError(
         "billing_not_configured",
@@ -138,8 +148,8 @@ export class BillingService {
     }
   }
 
-  async listPolarProducts(project: AuthProject) {
-    const client = this.polar.createClientFromProject(project);
+  async listPolarProducts(realm: BillingRealm) {
+    const client = this.polar.createClient(realm.billing);
     if (!client) {
       throw new BillingServiceError(
         "billing_not_configured",
@@ -159,8 +169,11 @@ export class BillingService {
     }
   }
 
-  async createPolarProduct(project: AuthProject, input: CreatePolarProductInput) {
-    const client = this.polar.createClientFromProject(project);
+  async createPolarProduct(
+    realm: BillingRealm,
+    input: CreatePolarProductInput
+  ) {
+    const client = this.polar.createClient(realm.billing);
     if (!client) {
       throw new BillingServiceError(
         "billing_not_configured",

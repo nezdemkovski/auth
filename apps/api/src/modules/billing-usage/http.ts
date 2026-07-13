@@ -1,26 +1,25 @@
 import type { Context, Hono } from "hono";
 import { cors } from "hono/cors";
+import {
+  mutateBillingUsage,
+  parseBillingUsageMutationInput,
+  parseBillingUsageMutationOperation,
+  readUserBillingUsageSummary,
+  validBenefitKey
+} from "@nezdemkovski/auth-billing";
 
 import type { AuthRegistry } from "../../auth/registry";
 import { OAuthResource, OAuthScope } from "../../config/oauth-resources";
 import type { AuthProject } from "../../config/projects";
 import type { AdminDatabase } from "../../db/admin-pool";
 import { ErrorCode } from "../../runtime/error-codes";
-import {
-  authorizeServiceOAuthResourceRequest,
-  authorizeUserOAuthResourceRequest
-} from "../oauth-resource/http";
+import type { OAuthResourceAuthorizer } from "../oauth-resource/authorizer";
 import type { OAuthResourceFailureResponse } from "../oauth-resource/translator";
-import { mutateBillingUsage, readUserBillingUsageSummary } from "./core";
 import {
   billingUsageFailureResponse,
   billingUsageMutationResponse
 } from "./translator";
-import {
-  parseBillingUsageMutationInput,
-  parseBillingUsageMutationOperation,
-  validBenefitKey
-} from "./validator";
+import { createBillingSubjectDirectory } from "./store";
 
 type BillingVariables = {
   registry: AuthRegistry;
@@ -28,10 +27,10 @@ type BillingVariables = {
 
 type PublicBillingOptions = {
   registry: AuthRegistry;
-  publicBaseUrl: string;
   databaseUrl: string;
   adminProject: AuthProject;
   adminDb: AdminDatabase;
+  authorizer: OAuthResourceAuthorizer;
 };
 
 type BillingContext = Context<{ Variables: BillingVariables }>;
@@ -59,9 +58,7 @@ export const registerBillingUsageRoutes = (
   );
 
   app.get("/api/:project/billing/usage/summary", async (c) => {
-    const access = await authorizeUserOAuthResourceRequest({
-      registry: options.registry,
-      publicBaseUrl: options.publicBaseUrl,
+    const access = await options.authorizer.authorizeUser({
       projectSlug: c.req.param("project"),
       request: c.req.raw,
       resource: OAuthResource.Billing,
@@ -79,7 +76,7 @@ export const registerBillingUsageRoutes = (
     return c.json({
       summary: await readUserBillingUsageSummary({
         ...options,
-        registered: access.value.registered,
+        project: access.value.registered.project,
         subject: access.value.subject,
         key
       })
@@ -94,9 +91,7 @@ export const registerBillingUsageRoutes = (
       return c.json({ error: ErrorCode.NotFound }, 404);
     }
 
-    const access = await authorizeServiceOAuthResourceRequest({
-      registry: options.registry,
-      publicBaseUrl: options.publicBaseUrl,
+    const access = await options.authorizer.authorizeService({
       projectSlug: c.req.param("project"),
       request: c.req.raw,
       resource: OAuthResource.Billing,
@@ -119,7 +114,10 @@ export const registerBillingUsageRoutes = (
       const response = billingUsageMutationResponse(
         await mutateBillingUsage({
           ...options,
-          registered: access.value.registered,
+          project: access.value.registered.project,
+          subjects: createBillingSubjectDirectory(
+            access.value.registered.projectDb
+          ),
           input
         })
       );

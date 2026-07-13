@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_PROJECT_STORAGE } from "@nezdemkovski/auth-storage";
-
 import {
   BillingEnvironment,
-  BillingProvider,
+  BillingProvider
+} from "@nezdemkovski/auth-billing";
+
+import {
   DEFAULT_PROJECT_FEATURES
 } from "../../../config/projects";
 import { SocialProvider } from "../../../config/social-providers";

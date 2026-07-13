@@ -2,7 +2,7 @@ import type { CustomerIndividual } from "@polar-sh/sdk/models/components/custome
 import type { Order } from "@polar-sh/sdk/models/components/order";
 import { OrderBillingReason } from "@polar-sh/sdk/models/components/orderbillingreason";
 
-import type { processPolarWebhook } from "../src/modules/billing/webhooks";
+import type { processPolarWebhook } from "@nezdemkovski/auth-billing";
 
 type PolarWebhookPayload = Parameters<typeof processPolarWebhook>[1];
 

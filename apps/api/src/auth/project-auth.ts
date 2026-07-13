@@ -4,8 +4,6 @@ import { admin, bearer, jwt, lastLoginMethod, twoFactor } from "better-auth/plug
 import { agentAuth } from "@better-auth/agent-auth";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { passkey } from "@better-auth/passkey";
-import { checkout, polar, portal, usage, webhooks } from "@polar-sh/better-auth";
-import { Polar } from "@polar-sh/sdk";
 import {
   createProjectEmailHandlers,
   type EmailSender
@@ -18,7 +16,7 @@ import {
   oauthResourceDefinitions,
   oauthTokenKindClaim
 } from "../config/oauth-resources";
-import { AuthUserRole, BillingProvider, type AuthProject } from "../config/projects";
+import { AuthUserRole, type AuthProject } from "../config/projects";
 import {
   isSocialProviderConfigured,
   isBuiltInSocialProvider,
@@ -28,10 +26,16 @@ import { TRUSTED_CLIENT_IP_HEADER } from "../config/proxy";
 import { SOCIAL_PROVIDER_IDS } from "../config/social-providers";
 import type { ProjectDatabase } from "../db/project-db";
 import { sha256Hex } from "../runtime/crypto";
-import { logInfo } from "../runtime/logger";
-import type { PolarWebhookHandlers } from "../modules/billing/webhooks";
 import { mustEnrollTwoFactor } from "./policy";
 import { createTelegramOidcPlugin } from "./telegram";
+
+type ProjectAuthPlugin = NonNullable<
+  NonNullable<BetterAuthOptions["plugins"]>[number]
+>;
+
+export type ProjectAuthPluginContribution = (
+  project: AuthProject
+) => ProjectAuthPlugin[];
 
 type ProjectAuthOptions = {
   project: AuthProject;
@@ -40,7 +44,7 @@ type ProjectAuthOptions = {
   secret: string;
   emailSender: EmailSender | null;
   trustProxyHeaders: boolean;
-  polarWebhookHandlers?: (project: AuthProject) => PolarWebhookHandlers;
+  pluginContributions?: ProjectAuthPluginContribution[];
 };
 
 type ProjectMigrationOptions = {
@@ -60,7 +64,7 @@ export const createProjectAuth = (options: ProjectAuthOptions) => {
       secret,
       emailSender: options.emailSender,
       trustProxyHeaders: options.trustProxyHeaders,
-      polarWebhookHandlers: options.polarWebhookHandlers
+      pluginContributions: options.pluginContributions
     }),
     database: projectDb.pool
   });
@@ -85,7 +89,7 @@ export const createBaseProjectAuthOptions = (options: {
   secret: string;
   emailSender: EmailSender | null;
   trustProxyHeaders: boolean;
-  polarWebhookHandlers?: (project: AuthProject) => PolarWebhookHandlers;
+  pluginContributions?: ProjectAuthPluginContribution[];
 }) => {
   const { project, publicBaseUrl, secret } = options;
   const realmSecret = projectAuthSecret(secret, project.slug);
@@ -196,7 +200,9 @@ export const createBaseProjectAuthOptions = (options: {
           return null;
         }
       }),
-      ...buildPolarPlugins(project, options.polarWebhookHandlers?.(project)),
+      ...(options.pluginContributions ?? []).flatMap((contribute) =>
+        contribute(project)
+      ),
       bearer(),
       jwt({
         disableSettingJwtHeader: true,
@@ -240,70 +246,6 @@ export const createBaseProjectAuthOptions = (options: {
 
 export const projectAuthSecret = (rootSecret: string, projectSlug: string) => {
   return sha256Hex(`better-auth-session:v1:${projectSlug}:${rootSecret}`);
-};
-
-const buildPolarPlugins = (
-  project: AuthProject,
-  polarWebhookHandlers: PolarWebhookHandlers | undefined
-) => {
-  const settings = project.billing;
-  const products = settings.products
-    .filter((product) => product.active && product.productId.trim())
-    .map((product) => ({
-      slug: product.slug,
-      productId: product.productId
-    }));
-
-  if (
-    settings.provider !== BillingProvider.Polar ||
-    !settings.enabled ||
-    !settings.accessToken.trim()
-  ) {
-    return [];
-  }
-
-  const client = new Polar({
-    accessToken: settings.accessToken,
-    server: settings.environment
-  });
-  const returnUrl = project.appUrl || project.trustedOrigins[0] || undefined;
-  const polarUse: NonNullable<Parameters<typeof polar>[0]["use"]> = [
-    checkout({
-      products,
-      authenticatedUsersOnly: true,
-      returnUrl,
-      successUrl: returnUrl
-    }),
-    portal({
-      returnUrl
-    }),
-    usage({
-      creditProducts: products
-    }),
-    ...(settings.webhookSecret.trim()
-      ? [
-          webhooks({
-            secret: settings.webhookSecret,
-            ...(polarWebhookHandlers ?? {
-              onPayload: async (payload) => {
-                logInfo("polar_webhook_received", {
-                  projectSlug: project.slug,
-                  type: payload.type
-                });
-              }
-            })
-          })
-        ]
-      : [])
-  ];
-
-  return [
-    polar({
-      client,
-      createCustomerOnSignUp: true,
-      use: polarUse
-    })
-  ];
 };
 
 const buildSocialProviders = (project: AuthProject) => {

@@ -1,4 +1,8 @@
 import {
+  cloneDefaultBilling,
+  loadBillingSettings
+} from "@nezdemkovski/auth-billing";
+import {
   cloneDefaultStorage,
   loadStorageSettings,
   type ProjectStorageSettings
@@ -6,7 +10,6 @@ import {
 
 import type { AuthProject } from "../config/projects";
 import type { AdminDatabaseOptions } from "../db/admin-pool";
-import { cloneDefaultBilling, loadBillingSettings } from "../modules/billing/store";
 import {
   cloneDefaultSocialProviders,
   loadSocialProviderSettings

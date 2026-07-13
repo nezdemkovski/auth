@@ -4,7 +4,7 @@ import {
   BillingUsageMutation,
   parseBillingUsageMutationInput,
   validBillingUsageIdempotencyKey
-} from "../validator";
+} from "../usage-validator";
 
 describe("billing usage input boundary", () => {
   test("requires a bounded URL-safe idempotency key for credit mutations", () => {

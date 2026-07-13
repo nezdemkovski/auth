@@ -4,9 +4,9 @@ import {
 } from "@better-auth/oauth-provider";
 import type { Env, Hono } from "hono";
 import { cors } from "hono/cors";
+import { BillingProvider } from "@nezdemkovski/auth-billing";
 
 import { ADMIN_PROJECT_SLUG, type AuthProject } from "../../config/projects";
-import { BillingProvider } from "../../config/projects";
 import { ErrorCode } from "../../runtime/error-codes";
 import { auditLog } from "../../runtime/logger";
 import { isRecord } from "../../runtime/type-guards";

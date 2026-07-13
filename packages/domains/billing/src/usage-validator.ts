@@ -1,4 +1,4 @@
-import { isRecord } from "../../runtime/type-guards";
+import { isRecord } from "./guards";
 
 export enum BillingUsageMutation {
   Consume = "consume",
