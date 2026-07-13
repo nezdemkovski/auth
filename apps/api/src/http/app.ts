@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 
 import { registerLoginRoutes } from "../modules/login/http";
-import { createLoginCodeStore } from "../modules/login/store";
 import { registerAuthProxyRoutes } from "../modules/auth-proxy/http";
 import {
   createObservabilityReporter,
@@ -31,9 +30,7 @@ type AppVariables = {
 
 export const createApp = async (env: Env) => {
   const rateLimiter = createRateLimiter(env.redisUrl);
-  const loginCodeStore = createLoginCodeStore(env.redisUrl);
   await rateLimiter.connect();
-  await loginCodeStore.connect();
   let adminProject = env.adminProject;
   let projects: AuthProject[] = [];
 
@@ -139,9 +136,7 @@ export const createApp = async (env: Env) => {
 
   registerLoginRoutes(app, {
     registry,
-    secret: env.betterAuthSecret,
     trustProxyHeaders: env.trustProxyHeaders,
-    codeStore: loginCodeStore,
     observabilityReporter
   });
   registerBillingUsageRoutes(app, {
@@ -177,7 +172,6 @@ export const createApp = async (env: Env) => {
       await Promise.all([
         registry.close(),
         rateLimiter.close(),
-        loginCodeStore.close(),
         polarWebhookStore.close(),
         adminDb.pool.end()
       ]);

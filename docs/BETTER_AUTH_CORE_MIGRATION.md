@@ -208,33 +208,33 @@ the immutable `issuer + sub` pair.
   authorization.
 - [ ] Integrate Telegram Mini App sign-in into the hosted Better Auth flow so
   the resulting central session remains on the auth origin.
-- [ ] Remove `createLoginSessionRedirect` from
+- [x] Remove `createLoginSessionRedirect` from
   `apps/login/src/auth-client.ts`.
-- [ ] Remove custom session-code and token exchange request validators.
-- [ ] Remove custom session-code and token exchange DTO translators.
-- [ ] Remove custom rate-limit rules that exist only for the deleted handoff
+- [x] Remove custom session-code and token exchange request validators.
+- [x] Remove custom session-code and token exchange DTO translators.
+- [x] Remove custom rate-limit rules that exist only for the deleted handoff
   routes.
-- [ ] Remove Redis and memory login-code stores from API startup and shutdown.
-- [ ] Remove the custom login-code unit and integration tests.
+- [x] Remove Redis and memory login-code stores from API startup and shutdown.
+- [x] Remove the custom login-code unit and integration tests.
 - [x] Add a public-HTTP integration test for signed hosted login, required TOTP
   enrollment, PKCE callback, local product session creation, refresh rotation,
   and issuer-mismatch rejection.
-- [ ] Replace them with Better Auth OAuth Provider integration tests through
+- [x] Replace them with Better Auth OAuth Provider integration tests through
   the public HTTP boundary.
 
 ### Files expected to be deleted or substantially reduced
 
-- [ ] Delete `apps/api/src/modules/login/store.ts`.
-- [ ] Remove handoff orchestration from `apps/api/src/modules/login/core.ts`.
-- [ ] Remove `/login/session-code` and `/login/token` from
+- [x] Delete `apps/api/src/modules/login/store.ts`.
+- [x] Remove handoff orchestration from `apps/api/src/modules/login/core.ts`.
+- [x] Remove `/login/session-code` and `/login/token` from
   `apps/api/src/modules/login/http.ts`.
-- [ ] Remove handoff parsing from `apps/api/src/modules/login/validator.ts`.
-- [ ] Remove handoff response shaping from
+- [x] Remove handoff parsing from `apps/api/src/modules/login/validator.ts`.
+- [x] Remove handoff response shaping from
   `apps/api/src/modules/login/translator.ts`.
-- [ ] Remove handoff startup wiring from `apps/api/src/http/app.ts`.
-- [ ] Remove handoff rate-limit matching from
+- [x] Remove handoff startup wiring from `apps/api/src/http/app.ts`.
+- [x] Remove handoff rate-limit matching from
   `apps/api/src/http/security.ts`.
-- [ ] Remove obsolete tests under `apps/api/src/modules/login/__tests__` and
+- [x] Remove obsolete tests under `apps/api/src/modules/login/__tests__` and
   `apps/api/integration/login.integration.ts` only after equivalent Better Auth
   protocol coverage exists.
 
@@ -242,7 +242,7 @@ the immutable `issuer + sub` pair.
 
 - [ ] No HTTP response, DTO, log entry, test fixture, or SDK API contains a
   Better Auth `sessionCookie` or `set-auth-token` credential for a product app.
-- [ ] Hosted login completes through Better Auth `/oauth2/authorize` and
+- [x] Hosted login completes through Better Auth `/oauth2/authorize` and
   `/oauth2/token` only.
 
 ## Phase 3: Establish the Product-App Better Auth Pattern

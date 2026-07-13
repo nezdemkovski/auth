@@ -19,11 +19,7 @@ describe("login translator", () => {
   test("exposes only enabled and configured social providers", () => {
     const response = loginConfigResponse({
       project: "demo",
-      redirectUri: "https://demo.example.com/auth/callback",
-      state: "state",
       mode: LoginMode.Login,
-      codeChallenge: "A".repeat(43),
-      oauthProviderFlow: false,
       observability: {
         enabled: false,
         dsn: "",

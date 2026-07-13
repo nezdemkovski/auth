@@ -4,7 +4,6 @@ import { useCallback } from "react";
 import type { LoginAuthClient } from "../auth-client";
 import {
   continueOAuthPostLogin,
-  createLoginSessionRedirect,
   getLoginNextAction,
   LoginNextAction,
   requestLoginPasswordReset,
@@ -15,7 +14,7 @@ import {
 } from "../auth-client";
 import type { LoginConfig, SocialProviderId } from "../types";
 import type { LoginFlowAction, LoginFlowState } from "./loginFlowState";
-import { passwordResetUrl, socialCallbackUrl } from "./loginUrls";
+import { passwordResetUrl } from "./loginUrls";
 
 export const useLoginFlowActions = ({
   authClient,
@@ -45,16 +44,9 @@ export const useLoginFlowActions = ({
 
   const redirectWithCurrentSession = useCallback(async () => {
     dispatch({ type: "set-step", step: "redirecting" });
-    const redirectTo = config.oauthProviderFlow
-      ? await continueOAuthPostLogin({
-          authClient
-        })
-      : await createLoginSessionRedirect({
-          project: config.project,
-          redirectUri: config.redirectUri,
-          state: config.state,
-          codeChallenge: config.codeChallenge
-        });
+    const redirectTo = await continueOAuthPostLogin({
+      authClient
+    });
 
     if (!redirectTo) {
       dispatch({ type: "set-step", step: "credentials" });
@@ -63,7 +55,7 @@ export const useLoginFlowActions = ({
     }
 
     window.location.assign(redirectTo);
-  }, [authClient, config, dispatch]);
+  }, [authClient, dispatch]);
 
   const continueAfterAuth = useCallback(
     async ({
@@ -110,17 +102,14 @@ export const useLoginFlowActions = ({
         const created = await signUpWithEmail({
           authClient,
           email: flow.email,
-          password: flow.password,
-          callbackURL: new URL(config.redirectUri).origin
+          password: flow.password
         });
         if (!created) {
           setError("Could not create account");
           return;
         }
         dispatch({ type: "set-verified-password", password: flow.password });
-        if (config.oauthProviderFlow) {
-          return;
-        }
+        return;
       } else {
         const signedIn = await signInWithEmail({
           authClient,
@@ -136,15 +125,8 @@ export const useLoginFlowActions = ({
           return;
         }
         dispatch({ type: "set-verified-password", password: flow.password });
-        if (config.oauthProviderFlow) {
-          return;
-        }
+        return;
       }
-
-      await continueAfterAuth({
-        offerPasskey: passkeysEnabled,
-        password: flow.password
-      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not finish sign-in");
     } finally {
@@ -163,11 +145,7 @@ export const useLoginFlowActions = ({
         return;
       }
 
-      if (config.oauthProviderFlow) {
-        return;
-      }
-
-      await continueAfterAuth({ offerPasskey: false, password: null });
+      return;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not sign in with passkey");
     } finally {
@@ -182,10 +160,7 @@ export const useLoginFlowActions = ({
     try {
       const started = await signInWithSocial({
         authClient,
-        provider,
-        ...(config.oauthProviderFlow
-          ? {}
-          : { callbackURL: socialCallbackUrl(config).toString() })
+        provider
       });
       if (!started) {
         setPending(false);
@@ -213,14 +188,7 @@ export const useLoginFlowActions = ({
         return;
       }
 
-      if (config.oauthProviderFlow) {
-        return;
-      }
-
-      await continueAfterAuth({
-        offerPasskey: passkeysEnabled,
-        password: flow.password
-      });
+      return;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not verify two-factor code");
     } finally {
@@ -314,14 +282,7 @@ export const useLoginFlowActions = ({
         return;
       }
 
-      if (config.oauthProviderFlow) {
-        return;
-      }
-
-      await continueAfterAuth({
-        offerPasskey: passkeysEnabled,
-        password: flow.verifiedPassword
-      });
+      return;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Invalid verification code");
     } finally {

@@ -1,21 +1,6 @@
-import type { AuthRegistry } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
-import {
-  randomBase64Url,
-  sha256Base64Url
-} from "../../runtime/crypto";
-import {
-  LOGIN_CODE_TTL_SECONDS,
-  type LoginCodeStore
-} from "./store";
 import { ErrorCode } from "../../runtime/error-codes";
-import { mustEnrollTwoFactor } from "../../auth/policy";
-
-export type LoginFlowOptions = {
-  registry: LoginProjectRegistry;
-  codeStore: LoginCodeStore;
-  trustProxyHeaders?: boolean;
-};
+import { isRecord } from "../../runtime/type-guards";
 
 export type LoginRegisteredProject = {
   project: AuthProject;
@@ -26,8 +11,12 @@ export type LoginRegisteredProject = {
 
 export type LoginProjectRegistry = {
   get(slug: string): LoginRegisteredProject | null;
-} & Pick<AuthRegistry, "isTrustedOrigin">;
-type TrustedOriginRegistry = Pick<LoginProjectRegistry, "isTrustedOrigin">;
+};
+
+export type LoginCoreOptions = {
+  registry: LoginProjectRegistry;
+  trustProxyHeaders?: boolean;
+};
 
 export class LoginFlowError extends Error {
   constructor(
@@ -39,135 +28,41 @@ export class LoginFlowError extends Error {
   }
 }
 
-export class LoginFlowService {
-  constructor(private readonly options: LoginFlowOptions) {}
-
-  async nextAction(input: {
+export const resolveLoginNextAction = async (
+  options: LoginCoreOptions,
+  input: {
     project: string;
     headers: Headers;
-  }) {
-    const registered = this.options.registry.get(input.project);
-    if (!registered) {
-      throw new LoginFlowError(ErrorCode.UnknownProject, 404);
-    }
-
-    const session = await readLoginSession({
-      registered,
-      headers: input.headers,
-      trustProxyHeaders: this.options.trustProxyHeaders === true
-    });
-    if (!session) {
-      throw new LoginFlowError(ErrorCode.Unauthorized, 401);
-    }
-
-    return {
-      registered,
-      user: session.user,
-      hasPasskeys: await readHasPasskeys({
-        registered,
-        headers: input.headers,
-        trustProxyHeaders: this.options.trustProxyHeaders === true
-      })
-    };
+  }
+) => {
+  const registered = options.registry.get(input.project);
+  if (!registered) {
+    throw new LoginFlowError(ErrorCode.UnknownProject, 404);
   }
 
-  async createSessionCode(input: {
-    project: string;
-    redirectUri: string;
-    state: string;
-    codeChallenge: string;
-    headers: Headers;
-  }) {
-    const registered = this.options.registry.get(input.project);
-    if (!registered) {
-      throw new LoginFlowError(ErrorCode.UnknownProject, 404);
-    }
-    if (!redirectUriAllowed(this.options.registry, input.project, input.redirectUri)) {
-      throw new LoginFlowError(ErrorCode.InvalidRedirectUri);
-    }
-    if (!validPkceChallenge(input.codeChallenge)) {
-      throw new LoginFlowError(ErrorCode.InvalidPkceChallenge);
-    }
-
-    const issued = await issueLoginCodeFromSession({
-      registered,
-      redirectUri: input.redirectUri,
-      state: input.state,
-      codeChallenge: input.codeChallenge,
-      headers: input.headers,
-      trustProxyHeaders: this.options.trustProxyHeaders === true,
-      codeStore: this.options.codeStore
-    });
-
-    if (!issued) {
-      throw new LoginFlowError(ErrorCode.Unauthorized, 401);
-    }
-
-    return issued;
+  const authOptions = {
+    registered,
+    headers: input.headers,
+    trustProxyHeaders: options.trustProxyHeaders === true
+  };
+  const user = await readLoginSession(authOptions);
+  if (!user) {
+    throw new LoginFlowError(ErrorCode.Unauthorized, 401);
   }
 
-  async exchangeCode(input: {
-    project: string;
-    code: string;
-    redirectUri: string;
-    codeVerifier: string;
-  }) {
-    const registered = this.options.registry.get(input.project);
-    if (!registered) {
-      throw new LoginFlowError(ErrorCode.UnknownProject, 404);
-    }
-    if (!redirectUriAllowed(this.options.registry, input.project, input.redirectUri)) {
-      throw new LoginFlowError(ErrorCode.InvalidRedirectUri);
-    }
-    if (!validPkceChallenge(input.codeVerifier)) {
-      throw new LoginFlowError(ErrorCode.InvalidPkceChallenge);
-    }
-
-    const codeChallenge = pkceChallenge(input.codeVerifier);
-    const payload = await this.options.codeStore.consume(input.code, {
-      project: input.project,
-      redirectUri: input.redirectUri,
-      codeChallenge
-    });
-    if (!payload) {
-      throw new LoginFlowError(ErrorCode.InvalidCode);
-    }
-
-    return {
-      sessionCookie: payload.sessionCookie,
-      email: payload.email
-    };
-  }
-}
-
-const createCode = () => {
-  return randomBase64Url(32);
+  return {
+    registered,
+    user,
+    hasPasskeys: await readHasPasskeys(authOptions)
+  };
 };
 
-export const pkceChallenge = (verifier: string) => {
-  return sha256Base64Url(verifier);
-};
-
-export const validPkceChallenge = (value: string) => {
-  return /^[A-Za-z0-9_-]{43,128}$/.test(value);
-};
-
-export const verifyPkce = (codeChallenge: string, codeVerifier: string) => {
-  return validPkceChallenge(codeVerifier) && pkceChallenge(codeVerifier) === codeChallenge;
-};
-
-export const redirectUriAllowed = (registry: TrustedOriginRegistry, project: string, redirectUri: string) => {
-  try {
-    const url = new URL(redirectUri);
-    return registry.isTrustedOrigin(project, url.origin);
-  } catch {
-    return false;
-  }
-};
-
-export const internalAuthHeaders = (source: Headers, headers: HeadersInit, options: { trustProxyHeaders: boolean }) => {
+export const internalAuthHeaders = (
+  source: Headers,
+  headers: HeadersInit,
+  options: { trustProxyHeaders: boolean }
+) => {
   const result = new Headers(headers);
-
   const headerNames = options.trustProxyHeaders
     ? [
         "cf-connecting-ip",
@@ -188,83 +83,6 @@ export const internalAuthHeaders = (source: Headers, headers: HeadersInit, optio
   return result;
 };
 
-const issueLoginCodeFromSession = async (options: {
-  registered: LoginRegisteredProject;
-  redirectUri: string;
-  state: string;
-  codeChallenge: string;
-  headers: Headers;
-  trustProxyHeaders: boolean;
-  codeStore: LoginCodeStore;
-}) => {
-  const session = await readLoginSession(options);
-  if (!session || !session.user.email) {
-    return null;
-  }
-  const email = session.user.email;
-  if (mustEnrollTwoFactor(options.registered.project.features.twoFactor, session.user)) {
-    throw new LoginFlowError(ErrorCode.TwoFactorRequired, 403);
-  }
-
-  const sessionCookie = realmSessionCookie(
-    options.headers.get("cookie"),
-    options.registered.project.slug
-  );
-  if (!sessionCookie) {
-    return null;
-  }
-
-  const code = createCode();
-  await options.codeStore.set(code, {
-    project: options.registered.project.slug,
-    sessionCookie,
-    email,
-    redirectUri: options.redirectUri,
-    codeChallenge: options.codeChallenge,
-    expiresAt: Date.now() + LOGIN_CODE_TTL_SECONDS * 1000
-  });
-
-  const callback = new URL(options.redirectUri);
-  callback.searchParams.set("code", code);
-  if (options.state) {
-    callback.searchParams.set("state", options.state);
-  }
-
-  return {
-    redirectTo: callback.toString(),
-    email
-  };
-};
-
-export const realmSessionCookie = (cookieHeader: string | null, projectSlug: string) => {
-  if (!cookieHeader) {
-    return "";
-  }
-
-  const cookieName = `auth_${projectSlug}.session_token`;
-  const allowedNames = new Set([
-    cookieName,
-    `__Secure-${cookieName}`,
-    `__Host-${cookieName}`
-  ]);
-
-  for (const part of cookieHeader.split(";")) {
-    const cookie = part.trim();
-    const separator = cookie.indexOf("=");
-    if (separator <= 0) {
-      continue;
-    }
-
-    const name = cookie.slice(0, separator);
-    const value = cookie.slice(separator + 1);
-    if (allowedNames.has(name) && value) {
-      return `${name}=${value}`;
-    }
-  }
-
-  return "";
-};
-
 const readLoginSession = async (options: {
   registered: LoginRegisteredProject;
   headers: Headers;
@@ -273,22 +91,16 @@ const readLoginSession = async (options: {
   const response = await options.registered.auth.handler(
     internalAuthRequest(options, "/get-session")
   );
+  const payload: unknown = await response.json().catch(() => null);
 
-  if (!response.ok) {
+  if (!response.ok || !isRecord(payload) || !isRecord(payload["user"])) {
     return null;
   }
 
-  const session = await response.json().catch(() => null);
-  if (!session?.user || typeof session.user !== "object") {
-    return null;
-  }
-
+  const user = payload["user"];
   return {
-    user: {
-      email: typeof session.user.email === "string" ? session.user.email : "",
-      role: typeof session.user.role === "string" ? session.user.role : null,
-      twoFactorEnabled: session.user.twoFactorEnabled === true
-    }
+    role: typeof user["role"] === "string" ? user["role"] : null,
+    twoFactorEnabled: user["twoFactorEnabled"] === true
   };
 };
 
@@ -300,7 +112,7 @@ const readHasPasskeys = async (options: {
   const response = await options.registered.auth.handler(
     internalAuthRequest(options, "/passkey/list-user-passkeys")
   );
-  const payload = await response.json().catch(() => null);
+  const payload: unknown = await response.json().catch(() => null);
 
   return response.ok && Array.isArray(payload) && payload.length > 0;
 };

@@ -1,62 +1,31 @@
-import type { AuthRegistry } from "../../auth/registry";
 import type { ObservabilityReporter } from "../observability/core";
-import type { Hono } from "hono";
-import { cors } from "hono/cors";
+import type { Env, Hono } from "hono";
 import { ErrorCode } from "../../runtime/error-codes";
 import {
   LoginFlowError,
-  LoginFlowService,
   type LoginProjectRegistry,
-  redirectUriAllowed,
-  validPkceChallenge
+  resolveLoginNextAction
 } from "./core";
-import type { LoginCodeStore } from "./store";
-import {
-  parseLoginCodeExchangeInput,
-  parseLoginSessionCodeInput
-} from "./validator";
 import {
   LoginMode,
   loginNextActionResponse,
   loginConfigResponse,
-  PkceChallengeMethod,
   oauthConsentConfigResponse,
   resetPasswordConfigResponse
 } from "./translator";
-
-type LoginVariables = {
-  registry: AuthRegistry;
-};
 
 type PublicObservabilityReporter = Pick<ObservabilityReporter, "publicConfig">;
 
 export type LoginOptions = {
   registry: LoginProjectRegistry;
-  secret: string;
-  codeStore: LoginCodeStore;
   trustProxyHeaders?: boolean;
   observabilityReporter: PublicObservabilityReporter;
 };
 
-type LoginConfigOptions = {
-  registry: LoginProjectRegistry;
-  observabilityReporter: PublicObservabilityReporter;
-};
-
-export const registerLoginRoutes = (app: Hono<{ Variables: LoginVariables }>, options: LoginOptions) => {
-  app.use(
-    "/api/:project/login/token",
-    cors({
-      origin: (origin, c) => {
-        const project = c.req.param("project");
-        return project && options.registry.isTrustedOrigin(project, origin) ? origin : "";
-      },
-      allowHeaders: ["Content-Type"],
-      allowMethods: ["POST", "OPTIONS"],
-      maxAge: 600
-    })
-  );
-
+export const registerLoginRoutes = <TEnv extends Env>(
+  app: Hono<TEnv>,
+  options: LoginOptions
+) => {
   app.get("/api/:project/login/config/login", (c) =>
     getLoginConfig(c.req.raw, c.req.param("project"), options)
   );
@@ -66,14 +35,6 @@ export const registerLoginRoutes = (app: Hono<{ Variables: LoginVariables }>, op
   app.get("/api/:project/login/config/oauth-consent", (c) =>
     getOAuthConsentConfig(c.req.raw, c.req.param("project"), options)
   );
-
-  app.post("/api/:project/login/token", (c) => {
-    return exchangeLoginCode(c.req.raw, c.req.param("project"), options);
-  });
-
-  app.post("/api/:project/login/session-code", (c) => {
-    return createLoginSessionCode(c.req.raw, c.req.param("project"), options);
-  });
 
   app.get("/api/:project/login/next-action", (c) => {
     return getLoginNextAction(c.req.raw, c.req.param("project"), options);
@@ -94,54 +55,32 @@ const runtimeConfig = (data: unknown, status = 200) => {
   return json(data, status);
 };
 
-export const getLoginConfig = (req: Request, project: string, options: LoginConfigOptions) => {
+export const getLoginConfig = (req: Request, project: string, options: LoginOptions) => {
   const registered = options.registry.get(project);
   if (!registered) {
     return json({ error: ErrorCode.UnknownProject }, 404);
   }
 
   const url = new URL(req.url);
-  const redirectUri = url.searchParams.get("redirect_uri") ?? "";
-  const state = url.searchParams.get("state") ?? "";
   const mode =
     url.searchParams.get("mode") === LoginMode.Signup
       ? LoginMode.Signup
       : LoginMode.Login;
-  const codeChallenge = url.searchParams.get("code_challenge") ?? "";
-  const codeChallengeMethod = url.searchParams.get("code_challenge_method") ?? "";
-  const oauthProviderFlow =
-    url.searchParams.has("sig") && url.searchParams.has("ba_param");
-
-  if (
-    !oauthProviderFlow &&
-    !redirectUriAllowed(options.registry, project, redirectUri)
-  ) {
-    return json({ error: ErrorCode.InvalidRedirectUri }, 400);
-  }
-
-  if (
-    !oauthProviderFlow &&
-    (codeChallengeMethod !== PkceChallengeMethod.S256 ||
-      !validPkceChallenge(codeChallenge))
-  ) {
-    return json({ error: ErrorCode.InvalidPkceChallenge }, 400);
+  if (!url.searchParams.has("sig") || !url.searchParams.has("ba_param")) {
+    return json({ error: ErrorCode.InvalidBody }, 400);
   }
 
   return runtimeConfig(
     loginConfigResponse({
       registered,
       project,
-      redirectUri,
-      state,
       mode,
-      codeChallenge,
-      oauthProviderFlow,
       observability: options.observabilityReporter.publicConfig()
     })
   );
 };
 
-export const getPasswordResetConfig = (req: Request, project: string, options: LoginConfigOptions) => {
+export const getPasswordResetConfig = (req: Request, project: string, options: LoginOptions) => {
   const registered = options.registry.get(project);
   if (!registered) {
     return json({ error: ErrorCode.UnknownProject }, 404);
@@ -160,7 +99,7 @@ export const getPasswordResetConfig = (req: Request, project: string, options: L
   );
 };
 
-export const getOAuthConsentConfig = (req: Request, project: string, options: LoginConfigOptions) => {
+export const getOAuthConsentConfig = (req: Request, project: string, options: LoginOptions) => {
   const registered = options.registry.get(project);
   if (!registered) {
     return json({ error: ErrorCode.UnknownProject }, 404);
@@ -192,34 +131,9 @@ export const getOAuthConsentConfig = (req: Request, project: string, options: Lo
   );
 };
 
-export const createLoginSessionCode = async (req: Request, project: string, options: LoginOptions) => {
-  const input = parseLoginSessionCodeInput(await req.json().catch(() => null));
-  if (!input) {
-    return json({ error: ErrorCode.InvalidBody }, 400);
-  }
-
-  const service = new LoginFlowService(options);
-
-  try {
-    return json(
-      await service.createSessionCode({
-        project,
-        redirectUri: input.redirectUri,
-        state: input.state,
-        codeChallenge: input.codeChallenge,
-        headers: req.headers
-      })
-    );
-  } catch (error) {
-    return loginFlowError(error);
-  }
-};
-
 export const getLoginNextAction = async (req: Request, project: string, options: LoginOptions) => {
-  const service = new LoginFlowService(options);
-
   try {
-    const action = await service.nextAction({
+    const action = await resolveLoginNextAction(options, {
       project,
       headers: req.headers
     });
@@ -228,28 +142,6 @@ export const getLoginNextAction = async (req: Request, project: string, options:
         project: action.registered.project,
         user: action.user,
         hasPasskeys: action.hasPasskeys
-      })
-    );
-  } catch (error) {
-    return loginFlowError(error);
-  }
-};
-
-export const exchangeLoginCode = async (req: Request, project: string, options: LoginOptions) => {
-  const input = parseLoginCodeExchangeInput(await req.json().catch(() => null));
-  if (!input) {
-    return json({ error: ErrorCode.InvalidBody }, 400);
-  }
-
-  const service = new LoginFlowService(options);
-
-  try {
-    return json(
-      await service.exchangeCode({
-        project,
-        code: input.code,
-        redirectUri: input.redirectUri,
-        codeVerifier: input.codeVerifier
       })
     );
   } catch (error) {

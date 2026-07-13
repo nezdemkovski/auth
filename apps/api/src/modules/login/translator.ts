@@ -1,5 +1,4 @@
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
-import { LoginMode, PkceChallengeMethod } from "@nezdemkovski/auth-contracts";
 import {
   isSocialProviderConfigured,
   isOAuthSocialProvider,
@@ -26,16 +25,15 @@ export enum LoginNextAction {
   OfferPasskey = "offer_passkey"
 }
 
-export { LoginMode, PkceChallengeMethod } from "@nezdemkovski/auth-contracts";
+export enum LoginMode {
+  Login = "login",
+  Signup = "signup"
+}
 
 type LoginConfigInput = {
   registered: Pick<RegisteredProject, "project">;
   project: string;
-  redirectUri: string;
-  state: string;
   mode: LoginMode;
-  codeChallenge: string;
-  oauthProviderFlow: boolean;
   observability: PublicObservabilityConfig;
 };
 
@@ -66,11 +64,7 @@ export const loginConfigResponse = (input: LoginConfigInput) => {
     page: LoginPage.Login,
     project: input.project,
     projectName: input.registered.project.name,
-    redirectUri: input.redirectUri,
-    state: input.state,
     mode: input.mode,
-    codeChallenge: input.codeChallenge,
-    oauthProviderFlow: input.oauthProviderFlow,
     features: input.registered.project.features,
     socialProviders: enabledSocialProviders(input.registered).map((provider) => {
       const catalog = SOCIAL_PROVIDER_CATALOG[provider];

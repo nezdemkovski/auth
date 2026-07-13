@@ -23,10 +23,6 @@ export enum LoginNextAction {
   OfferPasskey = "offer_passkey"
 }
 
-export enum PkceChallengeMethod {
-  S256 = "S256"
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -59,13 +55,11 @@ export const signUpWithEmail = async (options: {
   authClient: LoginAuthClient;
   email: string;
   password: string;
-  callbackURL: string;
 }): Promise<boolean> => {
   const result = await options.authClient.signUp.email({
     email: options.email,
     password: options.password,
-    name: options.email.split("@")[0],
-    callbackURL: options.callbackURL
+    name: options.email.split("@")[0]
   });
 
   return !result.error;
@@ -74,11 +68,9 @@ export const signUpWithEmail = async (options: {
 export const signInWithSocial = async (options: {
   authClient: LoginAuthClient;
   provider: string;
-  callbackURL?: string;
 }): Promise<boolean> => {
   const result = await options.authClient.signIn.social({
-    provider: options.provider,
-    ...(options.callbackURL ? { callbackURL: options.callbackURL } : {})
+    provider: options.provider
   });
 
   return !result.error;
@@ -152,34 +144,6 @@ export const getLoginNextAction = async (
   }
 
   return null;
-};
-
-export const createLoginSessionRedirect = async (options: {
-  project: string;
-  redirectUri: string;
-  state: string;
-  codeChallenge: string;
-}): Promise<string | null> => {
-  const response = await fetch(`/api/${options.project}/login/session-code`, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      redirect_uri: options.redirectUri,
-      state: options.state,
-      code_challenge: options.codeChallenge
-    })
-  });
-  const payload: unknown = await response.json().catch(() => null);
-
-  if (!response.ok || !isRecord(payload)) {
-    return null;
-  }
-
-  const redirectTo = payload["redirectTo"];
-  return typeof redirectTo === "string" && redirectTo ? redirectTo : null;
 };
 
 export type OAuthPublicClient = {

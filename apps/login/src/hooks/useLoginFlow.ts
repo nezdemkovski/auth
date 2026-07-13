@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef } from "react";
+import { useEffect, useMemo, useReducer } from "react";
 
 import { createLoginAuthClient } from "../auth-client";
 import { getSubtitle, getTitle } from "../copy";
@@ -17,7 +17,6 @@ export const useLoginFlow = (config: LoginConfig) => {
     loginFlowReducer,
     initialLoginFlowState(config.error ?? null, authClient.getLastUsedLoginMethod())
   );
-  const socialCallbackHandled = useRef(false);
   const isSignup = config.mode === "signup";
   const passkeysEnabled = config.features.passkey.enabled;
   const title = getTitle(flow.step, isSignup);
@@ -37,26 +36,12 @@ export const useLoginFlow = (config: LoginConfig) => {
   });
 
   useEffect(() => {
-    if (config.oauthProviderFlow) {
-      void continueAfterAuth({
-        offerPasskey: passkeysEnabled,
-        password: null,
-        silentWhenUnauthenticated: true
-      });
-      return;
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("social") !== "1" || socialCallbackHandled.current) {
-      return;
-    }
-
-    socialCallbackHandled.current = true;
     void continueAfterAuth({
       offerPasskey: passkeysEnabled,
-      password: null
+      password: null,
+      silentWhenUnauthenticated: true
     });
-  }, [config.oauthProviderFlow, continueAfterAuth, passkeysEnabled]);
+  }, [continueAfterAuth, passkeysEnabled]);
 
   return {
     actions: {

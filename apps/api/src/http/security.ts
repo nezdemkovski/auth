@@ -68,19 +68,6 @@ const RATE_LIMIT_RULES: RateLimitRule[] = [
       method === "POST" && /^\/api\/[^/]+\/auth\/telegram\/miniapp\/signin$/.test(path)
   },
   {
-    name: "login-session-code",
-    windowMs: 10 * 60 * 1000,
-    max: 10,
-    match: (method, path) =>
-      method === "POST" && /\/login\/session-code$/.test(path)
-  },
-  {
-    name: "login-token",
-    windowMs: 60 * 1000,
-    max: 30,
-    match: (method, path) => method === "POST" && /\/login\/token$/.test(path)
-  },
-  {
     name: "password-reset",
     windowMs: 10 * 60 * 1000,
     max: 5,

@@ -9,15 +9,11 @@ import {
   type AuthProject
 } from "../../../config/projects";
 import { ErrorCode } from "../../../runtime/error-codes";
-import { pkceChallenge } from "../core";
 import {
-  createLoginSessionCode,
-  exchangeLoginCode,
   getLoginConfig,
   registerLoginRoutes,
   type LoginOptions
 } from "../http";
-import { PkceChallengeMethod } from "../translator";
 
 const project: AuthProject = {
   slug: "demo",
@@ -33,7 +29,6 @@ const project: AuthProject = {
   storage: DEFAULT_PROJECT_STORAGE
 };
 
-const verifier = "A".repeat(43);
 const observabilityReporter = {
   publicConfig() {
     return {
@@ -44,28 +39,7 @@ const observabilityReporter = {
   }
 };
 
-const unusedOptions: LoginOptions = {
-  registry: {
-    get() {
-      return null;
-    },
-    isTrustedOrigin() {
-      return false;
-    }
-  },
-  secret: "test-secret",
-  observabilityReporter,
-  codeStore: {
-    connect: async () => {},
-    close: () => {},
-    set: async () => {},
-    get: async () => null,
-    consume: async () => null,
-    delete: async () => {}
-  }
-};
-
-const configOptions = {
+const options: LoginOptions = {
   registry: {
     get(slug: string) {
       return slug === project.slug
@@ -76,125 +50,54 @@ const configOptions = {
             }
           }
         : null;
-    },
-    isTrustedOrigin(slug: string, origin: string | undefined) {
-      return slug === project.slug && origin === "https://demo.example.com";
     }
   },
   observabilityReporter
 };
 
 describe("login HTTP handlers", () => {
-  test("allows trusted browser origins to exchange PKCE login codes", async () => {
-    const app = new Hono();
-    registerLoginRoutes(app as never, {
-      ...unusedOptions,
-      registry: configOptions.registry
-    });
-
-    const response = await app.request("/api/demo/login/token", {
-      method: "OPTIONS",
-      headers: {
-        Origin: "https://demo.example.com",
-        "Access-Control-Request-Method": "POST",
-        "Access-Control-Request-Headers": "content-type"
-      }
-    });
-
-    expect(response.status).toBe(204);
-    expect(response.headers.get("access-control-allow-origin")).toBe(
-      "https://demo.example.com"
-    );
-  });
-
-  test("returns login runtime config for trusted redirects and valid PKCE", async () => {
-    const url = new URL("http://auth.local/api/demo/login/config/login");
-    url.searchParams.set("redirect_uri", "https://demo.example.com/auth/callback");
-    url.searchParams.set("state", "client-state");
-    url.searchParams.set("code_challenge", pkceChallenge(verifier));
-    url.searchParams.set("code_challenge_method", PkceChallengeMethod.S256);
-
-    const response = await getLoginConfig(
-      new Request(url),
-      "demo",
-      configOptions
-    );
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      page: "login",
-      project: "demo",
-      projectName: "Demo App",
-      redirectUri: "https://demo.example.com/auth/callback",
-      state: "client-state",
-      codeChallenge: pkceChallenge(verifier),
-      oauthProviderFlow: false
-    });
-  });
-
-  test("delegates signed OAuth request validation to Better Auth", async () => {
+  test("returns hosted UI config only for Better Auth signed OAuth queries", async () => {
     const url = new URL("http://auth.local/api/demo/login/config/login");
     url.searchParams.set("redirect_uri", "https://product.example/auth/callback");
     url.searchParams.set("state", "client-state");
+    url.searchParams.set("mode", "signup");
     url.searchParams.set("ba_param", "client_id");
     url.searchParams.set("sig", "signed-query");
 
-    const response = await getLoginConfig(
-      new Request(url),
-      "demo",
-      configOptions
-    );
+    const response = await getLoginConfig(new Request(url), "demo", options);
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      redirectUri: "https://product.example/auth/callback",
-      oauthProviderFlow: true
+      page: "login",
+      project: "demo",
+      projectName: "Demo App",
+      mode: "signup"
     });
   });
 
-  test("rejects login runtime config for untrusted redirects", async () => {
-    const url = new URL("http://auth.local/api/demo/login/config/login");
-    url.searchParams.set("redirect_uri", "https://evil.example/auth/callback");
-    url.searchParams.set("code_challenge", pkceChallenge(verifier));
-    url.searchParams.set("code_challenge_method", PkceChallengeMethod.S256);
-
+  test("rejects direct login pages without a Better Auth signed query", async () => {
     const response = await getLoginConfig(
-      new Request(url),
+      new Request("http://auth.local/api/demo/login/config/login"),
       "demo",
-      configOptions
+      options
     );
 
     expect(response.status).toBe(400);
-    await expect(response.json()).resolves.toEqual({
-      error: ErrorCode.InvalidRedirectUri
+    expect(await response.json()).toEqual({ error: ErrorCode.InvalidBody });
+  });
+
+  test("does not register the removed custom handoff endpoints", async () => {
+    const app = new Hono();
+    registerLoginRoutes(app, options);
+
+    const sessionCode = await app.request("/api/demo/login/session-code", {
+      method: "POST"
     });
-  });
+    const token = await app.request("/api/demo/login/token", {
+      method: "POST"
+    });
 
-  test("returns invalid_body for malformed session-code requests", async () => {
-    const response = await createLoginSessionCode(
-      new Request("http://auth.local/api/demo/login/session-code", {
-        method: "POST",
-        body: JSON.stringify({})
-      }),
-      "demo",
-      unusedOptions
-    );
-
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: ErrorCode.InvalidBody });
-  });
-
-  test("returns invalid_body for malformed token exchange requests", async () => {
-    const response = await exchangeLoginCode(
-      new Request("http://auth.local/api/demo/login/token", {
-        method: "POST",
-        body: JSON.stringify({})
-      }),
-      "demo",
-      unusedOptions
-    );
-
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: ErrorCode.InvalidBody });
+    expect(sessionCode.status).toBe(404);
+    expect(token.status).toBe(404);
   });
 });

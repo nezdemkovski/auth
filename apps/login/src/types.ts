@@ -2,11 +2,7 @@ export type LoginConfig = {
   page?: "login";
   project: string;
   projectName: string;
-  redirectUri: string;
-  state: string;
   mode: "login" | "signup";
-  codeChallenge: string;
-  oauthProviderFlow: boolean;
   features: ProjectFeatures;
   socialProviders: SocialProviderConfig[];
   observability: PublicObservabilityConfig;

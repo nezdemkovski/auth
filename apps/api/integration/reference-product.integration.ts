@@ -154,8 +154,9 @@ describe("reference product OAuth integration", () => {
       );
       expect(loginConfig.status).toBe(200);
       expect(await readObject(loginConfig)).toMatchObject({
-        oauthProviderFlow: true,
-        redirectUri: PRODUCT_CALLBACK
+        page: "login",
+        project: project.slug,
+        mode: "login"
       });
 
       const hostedSignup = await central.app.request(
