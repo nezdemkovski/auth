@@ -1,11 +1,15 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { EmailProvider } from "@nezdemkovski/auth-delivery";
 
 import { DIRECT_CLIENT_IP_HEADER } from "../src/http/security";
 import {
+  bootstrapIntegrationDatabase,
   createIntegrationApp,
+  integrationAdminEmail,
+  integrationPublicBaseUrl,
   readIntegrationJson,
   resetAndBootstrapIntegrationDatabase,
+  resetIntegrationDatabase,
   signInIntegrationUser,
   signUpIntegrationUser
 } from "./setup";
@@ -99,6 +103,52 @@ describe("email auth flows integration", () => {
           emailVerified: true
         }
       });
+    } finally {
+      await close();
+      sent.restore();
+    }
+  });
+
+  test("the bootstrap admin can sign in while email delivery is enabled", async () => {
+    await resetIntegrationDatabase();
+    const info = spyOn(console, "info").mockImplementation(() => {});
+    let temporaryPassword = "";
+    try {
+      await bootstrapIntegrationDatabase();
+      const credentialLine = info.mock.calls
+        .map(([message]) => String(message))
+        .find((message) => message.includes("temporary admin password:"));
+      temporaryPassword =
+        credentialLine?.split("temporary admin password: ")[1] ?? "";
+    } finally {
+      info.mockRestore();
+    }
+    expect(temporaryPassword).not.toBe("");
+
+    const sent = captureResendEmails();
+    const { app, close } = await createIntegrationApp({
+      email: {
+        provider: EmailProvider.Resend,
+        apiKey: "re_test_key",
+        from: "Auth <auth@example.test>"
+      }
+    });
+
+    try {
+      const response = await app.request("/api/admin/auth/sign-in/email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: integrationPublicBaseUrl,
+          [DIRECT_CLIENT_IP_HEADER]: "127.0.0.1"
+        },
+        body: JSON.stringify({
+          email: integrationAdminEmail,
+          password: temporaryPassword
+        })
+      });
+
+      expect(response.status).toBe(200);
     } finally {
       await close();
       sent.restore();

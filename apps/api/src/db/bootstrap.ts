@@ -22,6 +22,7 @@ import {
 import {
   ensureIdentityTables,
   ensureInitialAdminState,
+  markIdentityUserEmailVerified,
   readIdentityUserByEmail,
   recordGeneratedInitialAdminState,
   updateIdentityUserRole
@@ -130,6 +131,12 @@ const bootstrapInitialAdmin = async (options: BootstrapOptions) => {
         );
       }
 
+      // The initial admin email is operator-configured; requiring it to
+      // self-verify locks the operator out once email delivery is enabled.
+      if (!user.emailVerified) {
+        await markIdentityUserEmailVerified(projectDb.pool, user.id);
+      }
+
       await ensureInitialAdminState(projectDb.pool, user.id);
       console.info(`[bootstrap] ${project.slug}: initial admin already exists`);
       return;
@@ -145,6 +152,7 @@ const bootstrapInitialAdmin = async (options: BootstrapOptions) => {
       }
     });
 
+    await markIdentityUserEmailVerified(projectDb.pool, created.user.id);
     await recordGeneratedInitialAdminState(projectDb.pool, created.user.id);
 
     console.info(`[bootstrap] ${project.slug}: created initial admin ${options.adminEmail}`);

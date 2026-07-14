@@ -9,6 +9,7 @@ export { ensureIdentityTables } from "./bootstrap";
 export {
   ensureInitialAdminState,
   identitySubjectExists,
+  markIdentityUserEmailVerified,
   markPasswordChanged,
   mustChangePassword,
   readIdentityCounts,

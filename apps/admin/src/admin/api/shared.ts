@@ -55,6 +55,7 @@ export const adminFetch = async (
 type ErrorBody = {
   error?: string;
   message?: string;
+  code?: string;
 };
 
 export const readJson = async <T>(response: Response): Promise<T> => {

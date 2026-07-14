@@ -124,13 +124,25 @@ export const readIdentityUserByEmail = async (pool: Pool, email: string) => {
     .select({
       id: identityUsers.id,
       email: identityUsers.email,
-      role: identityUsers.role
+      role: identityUsers.role,
+      emailVerified: identityUsers.emailVerified
     })
     .from(identityUsers)
     .where(ilike(identityUsers.email, escapeLikePattern(email.trim())))
     .limit(1);
 
   return rows[0] ?? null;
+};
+
+export const markIdentityUserEmailVerified = async (
+  pool: Pool,
+  userId: string
+) => {
+  const db = drizzle({ client: pool });
+  await db
+    .update(identityUsers)
+    .set({ emailVerified: true, updatedAt: new Date() })
+    .where(eq(identityUsers.id, userId));
 };
 
 export const updateIdentityUserRole = async (

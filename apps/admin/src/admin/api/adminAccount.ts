@@ -25,6 +25,12 @@ export async function signInAdmin(input: {
     body: JSON.stringify(input)
   });
   if (!response.ok) {
+    const data = await readErrorBody(response);
+    if (data?.code === "EMAIL_NOT_VERIFIED") {
+      throw new Error(
+        "This admin email is not verified. Check the inbox for a verification link."
+      );
+    }
     throw new Error("Invalid email or password");
   }
   notifyAdminAuthenticated();
