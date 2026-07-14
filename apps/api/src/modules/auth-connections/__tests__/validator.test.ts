@@ -7,12 +7,12 @@ import {
 } from "../validator";
 
 describe("authentication connection input", () => {
-  test("normalizes a product backend without accepting OAuth configuration", () => {
+  test("normalizes an app address without accepting OAuth configuration", () => {
     expect(
       parseAuthConnectionCreate({
         kind: AuthConnectionKind.Application,
         name: "  Demo App  ",
-        backendUrl: "https://api.demo.example.com/",
+        appUrl: "https://demo.example.com/",
         scopes: ["admin"]
       })
     ).toBeNull();
@@ -23,10 +23,18 @@ describe("authentication connection input", () => {
         name: "  Demo App  ",
         backendUrl: "https://api.demo.example.com/"
       })
+    ).toBeNull();
+
+    expect(
+      parseAuthConnectionCreate({
+        kind: AuthConnectionKind.Application,
+        name: "  Demo App  ",
+        appUrl: "https://demo.example.com/"
+      })
     ).toEqual({
       kind: AuthConnectionKind.Application,
       name: "Demo App",
-      backendUrl: "https://api.demo.example.com"
+      appUrl: "https://demo.example.com"
     });
   });
 

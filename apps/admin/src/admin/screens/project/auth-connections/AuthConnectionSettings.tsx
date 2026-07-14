@@ -272,15 +272,17 @@ function PrimaryAppSetup({
               Resume
             </Button>
           ) : null}
-          <Button
-            type="button"
-            size="sm"
-            leading={<RotateCcw aria-hidden="true" size={13} />}
-            disabled={pending}
-            onClick={onConfirmRotate}
-          >
-            Replace keys
-          </Button>
+          {app.canRotateCredential ? (
+            <Button
+              type="button"
+              size="sm"
+              leading={<RotateCcw aria-hidden="true" size={13} />}
+              disabled={pending}
+              onClick={onConfirmRotate}
+            >
+              Replace keys
+            </Button>
+          ) : null}
         </div>
       </div>
 

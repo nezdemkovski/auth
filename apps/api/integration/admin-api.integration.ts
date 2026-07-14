@@ -99,7 +99,8 @@ describe("admin API integration", () => {
         body: JSON.stringify(projectCreateBody("admin-created-project"))
       });
       expect(created.status).toBe(201);
-      expect(await readIntegrationJson(created)).toMatchObject({
+      const createdBody = await readIntegrationJson(created);
+      expect(createdBody).toMatchObject({
         project: {
           slug: "admin-created-project",
           name: "Admin Created Project",
@@ -114,15 +115,15 @@ describe("admin API integration", () => {
         setup: {
           issuer: `${integrationPublicBaseUrl}/api/admin-created-project`,
           callbackUrl:
-            "https://api.admin-created-project.integration.test/api/auth/oauth2/callback/auth-platform",
+            "https://admin-created-project.integration.test/auth/callback",
           clientId: expect.any(String),
-          clientSecret: expect.any(String),
           mcp: {
             authorizationServer: `${integrationPublicBaseUrl}/api/admin-created-project`,
             discoveryUrl: `${integrationPublicBaseUrl}/api/admin-created-project/.well-known/oauth-authorization-server`
           }
         }
       });
+      expect(JSON.stringify(createdBody)).not.toContain("clientSecret");
 
       const oauthMetadata = await app.request(
         "/api/admin-created-project/.well-known/oauth-authorization-server"
@@ -280,7 +281,7 @@ describe("admin API integration", () => {
           body: JSON.stringify({
             name: "Another Demo App",
             kind: AuthConnectionKind.Application,
-            backendUrl: "https://another-demo.integration.test"
+            appUrl: "https://another-demo.integration.test"
           })
         }
       );
@@ -559,8 +560,7 @@ const projectCreateBody = (slug: string) => {
   return {
     slug,
     name: "Admin Created Project",
-    appUrl: `https://${slug}.integration.test`,
-    backendUrl: `https://api.${slug}.integration.test`
+    appUrl: `https://${slug}.integration.test`
   };
 };
 

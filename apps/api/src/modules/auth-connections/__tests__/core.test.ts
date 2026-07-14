@@ -13,23 +13,21 @@ const registeredProject = {
 };
 
 describe("authentication connection policy", () => {
-  test("derives the complete Better Auth policy for product login", () => {
+  test("derives the complete Better Auth policy for SPA app login", () => {
     expect(
       authConnectionClientInput(
         {
           kind: AuthConnectionKind.Application,
           name: "Demo App",
-          backendUrl: "https://api.demo.example.com"
+          appUrl: "https://demo.example.com"
         },
         registeredProject,
         "https://auth.example.com"
       )
     ).toEqual({
       name: "Demo App",
-      profile: OAuthClientProfile.Web,
-      redirectUris: [
-        "https://api.demo.example.com/api/auth/oauth2/callback/auth-platform"
-      ],
+      profile: OAuthClientProfile.Public,
+      redirectUris: ["https://demo.example.com/auth/callback"],
       postLogoutRedirectUris: ["https://demo.example.com"],
       scopes: [
         OAuthScope.OpenId,

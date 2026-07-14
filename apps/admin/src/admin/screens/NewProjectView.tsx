@@ -32,8 +32,7 @@ export function NewProjectView({
   const [form, setForm] = useState<CreateProjectInput>({
     slug: "",
     name: "",
-    appUrl: "",
-    backendUrl: ""
+    appUrl: ""
   });
   const [slugEdited, setSlugEdited] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -66,18 +65,12 @@ export function NewProjectView({
       setLocalError("App address must look like https://myapp.com.");
       return;
     }
-    const backendUrl = form.backendUrl.trim() || form.appUrl.trim();
-    if (!isOrigin(backendUrl)) {
-      setLocalError("Sign-in server address must look like https://api.myapp.com.");
-      return;
-    }
 
     setLocalError(null);
     onSubmit({
       slug,
       name: form.name.trim(),
-      appUrl: form.appUrl.trim(),
-      backendUrl
+      appUrl: form.appUrl.trim()
     });
   };
 
@@ -124,21 +117,6 @@ export function NewProjectView({
               </span>
             </summary>
             <div className="space-y-4 border-t border-border p-3">
-              <div>
-                <SettingsInput
-                  id="new-project-backend-url"
-                  label="Sign-in server address"
-                  value={form.backendUrl}
-                  placeholder={form.appUrl || "https://api.myapp.com"}
-                  onChange={(backendUrl) =>
-                    setForm((current) => ({ ...current, backendUrl }))
-                  }
-                />
-                <p className="mt-1.5 text-[11.5px] leading-5 text-muted">
-                  Only change this when your sign-in code runs at a different
-                  address from the app.
-                </p>
-              </div>
               <SettingsInput
                 id="new-project-slug"
                 label="Internal ID"
@@ -216,15 +194,15 @@ function RealmReady({
               </span>
               <div>
                 <h2 className="text-[15px] font-semibold text-ink">
-                  Private app settings
+                  App settings
                 </h2>
                 <p className="mt-1 text-[12.5px] leading-5 text-muted">
-                  The secret is shown once. Keep it private and never put it in
-                  browser code.
+                  No secret to guard: this is a public client. Paste the block
+                  into the app's environment and sign-in works.
                 </p>
               </div>
             </div>
-            <Pill>shown once</Pill>
+            <Pill>copy-ready</Pill>
           </div>
 
           <pre className="mt-5 overflow-x-auto rounded-xl border border-border-strong bg-surface-muted p-4 font-mono text-[12px] leading-6 text-ink">

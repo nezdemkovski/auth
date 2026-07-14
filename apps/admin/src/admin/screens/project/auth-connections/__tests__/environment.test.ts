@@ -7,34 +7,30 @@ import {
 } from "../environment";
 
 describe("connection environment", () => {
-  test("builds the complete realm onboarding block", () => {
+  test("builds the complete realm onboarding block without a secret", () => {
     expect(
       buildRealmSetupEnvironment({
         issuer: "https://auth.example.com/api/demo",
-        clientId: "app-client",
-        clientSecret: "app-secret"
+        clientId: "app-client"
       })
     ).toBe(
       "AUTH_ISSUER=https://auth.example.com/api/demo\n" +
-        "AUTH_CLIENT_ID=app-client\n" +
-        "AUTH_CLIENT_SECRET=app-secret"
+        "AUTH_CLIENT_ID=app-client"
     );
   });
 
-  test("builds copy-ready app backend variables", () => {
+  test("builds copy-ready app variables without a secret line for public clients", () => {
     expect(
       buildAuthConnectionEnvironment({
         issuer: "https://auth.example.com/api/demo",
         kind: AuthConnectionKind.Application,
         credential: {
-          clientId: "app-client",
-          clientSecret: "app-secret"
+          clientId: "app-client"
         }
       })
     ).toBe(
       "AUTH_ISSUER=https://auth.example.com/api/demo\n" +
-        "AUTH_CLIENT_ID=app-client\n" +
-        "AUTH_CLIENT_SECRET=app-secret"
+        "AUTH_CLIENT_ID=app-client"
     );
   });
 

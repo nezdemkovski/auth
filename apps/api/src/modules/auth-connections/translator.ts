@@ -5,10 +5,14 @@ import {
 } from "@nezdemkovski/auth-oauth-client-management";
 import { OAuthScope } from "@nezdemkovski/auth-oauth-resource";
 
-import { AuthConnectionKind, ServicePermission } from "./model";
+import {
+  AuthConnectionKind,
+  isApplicationConnectionClient,
+  ServicePermission
+} from "./model";
 
 export const authConnectionResponse = (client: ManagedOAuthClient) => {
-  const kind = authConnectionKind(client.profile);
+  const kind = authConnectionKind(client);
 
   return {
     clientId: client.clientId,
@@ -46,11 +50,11 @@ export const authConnectionCatalogResponse = () => ({
   ]
 });
 
-const authConnectionKind = (profile: OAuthClientProfile) => {
-  if (profile === OAuthClientProfile.Web) {
+const authConnectionKind = (client: ManagedOAuthClient) => {
+  if (isApplicationConnectionClient(client)) {
     return AuthConnectionKind.Application;
   }
-  if (profile === OAuthClientProfile.Service) {
+  if (client.profile === OAuthClientProfile.Service) {
     return AuthConnectionKind.Service;
   }
   return AuthConnectionKind.Advanced;

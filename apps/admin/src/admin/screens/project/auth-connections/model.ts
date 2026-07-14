@@ -29,25 +29,5 @@ export const permissionLabel = (
   catalog: ServicePermissionCatalogItem[]
 ) => catalog.find((item) => item.id === permission)?.name ?? permission;
 
-export const applicationCallbackUrl = (backendUrl: string) => {
-  try {
-    const url = new URL(backendUrl.trim());
-    if (
-      !["http:", "https:"].includes(url.protocol) ||
-      url.username ||
-      url.password ||
-      url.search ||
-      url.hash
-    ) {
-      return null;
-    }
-    url.pathname = url.pathname.replace(/\/+$/, "");
-    const normalized = url.toString().replace(/\/$/, "");
-    return `${normalized}/api/auth/oauth2/callback/auth-platform`;
-  } catch {
-    return null;
-  }
-};
-
 export const errorMessage = (caught: unknown, fallback: string) =>
   caught instanceof Error ? caught.message : fallback;

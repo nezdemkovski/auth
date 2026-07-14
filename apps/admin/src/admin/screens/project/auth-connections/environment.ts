@@ -5,12 +5,11 @@ import {
 } from "../../../types";
 
 export const buildRealmSetupEnvironment = (
-  setup: Pick<RealmSetup, "issuer" | "clientId" | "clientSecret">
+  setup: Pick<RealmSetup, "issuer" | "clientId">
 ) =>
   [
     `AUTH_ISSUER=${setup.issuer}`,
-    `AUTH_CLIENT_ID=${setup.clientId}`,
-    `AUTH_CLIENT_SECRET=${setup.clientSecret}`
+    `AUTH_CLIENT_ID=${setup.clientId}`
   ].join("\n");
 
 export const buildAuthConnectionEnvironment = (input: {

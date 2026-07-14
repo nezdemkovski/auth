@@ -139,8 +139,8 @@ export class ProjectService {
       }
       const application: CreateApplicationConnectionInput = {
         kind: AuthConnectionKind.Application,
-        name: `${createdProject.name} backend`,
-        backendUrl: input.backendUrl
+        name: `${createdProject.name} app`,
+        appUrl: createdProject.appUrl
       };
       const integration = await registered.auth.oauthClientManagement.create(
         authConnectionClientInput(

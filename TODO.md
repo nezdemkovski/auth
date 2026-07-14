@@ -13,8 +13,14 @@
   isolated `auth-oauth-client-management` plugin when upstream exposes
   ownerless list/get/update, secret rotation, disable, and delete operations;
   keep the admin API contract unchanged during that swap.
-- Migrate Amela to the reference-product pattern and the service-only billing
-  contract, then remove its legacy auth SDK usage.
+- Execute ADR-0002 ([`docs/adr/0002-spa-integration-profile.md`](docs/adr/0002-spa-integration-profile.md)):
+  verify refresh-token rotation for public clients in the pinned Better Auth
+  and token-endpoint CORS, build `@nezdemkovski/auth-spa` (web + Expo entries,
+  [`docs/SPA_SDK_DESIGN.md`](docs/SPA_SDK_DESIGN.md)), flip the admin Connect
+  flow to public SPA clients, rebuild the reference product as the SPA +
+  resource-server example, and delete `@nezdemkovski/auth-integration` plus
+  the legacy `auth-client`/`auth-server` packages. Amela then integrates
+  fresh on the SPA profile with the service-only billing contract.
 - Expand structured request logging to cover request/response metadata without
   leaking credentials, tokens, cookies, or PII.
 - Expand audit events to cover successful email verification/reset flows. Failed

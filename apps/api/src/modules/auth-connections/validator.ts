@@ -29,12 +29,12 @@ export const parseAuthConnectionCreate = (
   }
 
   if (value.kind === AuthConnectionKind.Application) {
-    if (!hasOnlyKeys(value, ["kind", "name", "backendUrl"])) {
+    if (!hasOnlyKeys(value, ["kind", "name", "appUrl"])) {
       return null;
     }
-    const backendUrl = parseBackendUrl(value.backendUrl);
-    return backendUrl
-      ? { kind: AuthConnectionKind.Application, name, backendUrl }
+    const appUrl = parseConnectionUrl(value.appUrl);
+    return appUrl
+      ? { kind: AuthConnectionKind.Application, name, appUrl }
       : null;
   }
 
@@ -61,7 +61,7 @@ export const parseAuthConnectionUpdate = (
   return name ? { name } : null;
 };
 
-const parseBackendUrl = (value: unknown) => {
+const parseConnectionUrl = (value: unknown) => {
   if (typeof value !== "string" || value.length > 2_048) {
     return null;
   }

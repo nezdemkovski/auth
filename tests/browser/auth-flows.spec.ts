@@ -148,13 +148,12 @@ test("admin connects an app without exposing auth internals", async ({
       createBody = route.request().postData() ?? "";
       const connection = {
         clientId: "demo-client",
-        name: "Demo product backend",
+        name: "Demo App app",
         kind: "application",
-        callbackUrl:
-          "https://api.demo.example.com/api/auth/oauth2/callback/auth-platform",
+        callbackUrl: "https://demo.example.com/auth/callback",
         permissions: [],
         disabled: false,
-        canRotateCredential: true,
+        canRotateCredential: false,
         createdAt: "2026-07-13T00:00:00.000Z",
         updatedAt: "2026-07-13T00:00:00.000Z"
       };
@@ -164,8 +163,7 @@ test("admin connects an app without exposing auth internals", async ({
         json: {
           connection,
           credential: {
-            clientId: "demo-client",
-            clientSecret: "demo-secret"
+            clientId: "demo-client"
           }
         }
       });
@@ -206,10 +204,11 @@ test("admin connects an app without exposing auth internals", async ({
 
   await expect(page.getByText("Demo App app is ready")).toBeVisible();
   await expect(page.getByText("AUTH_CLIENT_ID=demo-client", { exact: false })).toBeVisible();
-  await expect(page.getByText("AUTH_CLIENT_SECRET=demo-secret", { exact: false })).toBeVisible();
+  await expect(page.getByText("AUTH_CLIENT_SECRET", { exact: false })).not.toBeVisible();
   expect(createBody).toBe(
-    '{"kind":"application","name":"Demo App app","backendUrl":"https://demo.example.com"}'
+    '{"kind":"application","name":"Demo App app","appUrl":"https://demo.example.com"}'
   );
+  expect(createBody).not.toContain("backendUrl");
   expect(createBody).not.toContain("scopes");
   expect(createBody).not.toContain("resources");
 });
@@ -256,10 +255,8 @@ test("creating a realm returns one copy-ready setup block", async ({ page }) => 
           },
           setup: {
             issuer: "https://auth.example.com/api/demo-app",
-            callbackUrl:
-              "https://api.demo.example.com/api/auth/oauth2/callback/auth-platform",
+            callbackUrl: "https://app.demo.example.com/auth/callback",
             clientId: "demo-client",
-            clientSecret: "demo-secret",
             mcp: {
               authorizationServer: "https://auth.example.com/api/demo-app",
               discoveryUrl:
@@ -289,10 +286,13 @@ test("creating a realm returns one copy-ready setup block", async ({ page }) => 
     })
   ).toBeVisible();
   await expect(
-    page.getByText("AUTH_CLIENT_SECRET=demo-secret", { exact: false })
+    page.getByText("AUTH_CLIENT_ID=demo-client", { exact: false })
   ).toBeVisible();
+  await expect(
+    page.getByText("AUTH_CLIENT_SECRET", { exact: false })
+  ).not.toBeVisible();
   await expect(page.getByText("MCP access is ready.")).toBeVisible();
   expect(createBody).toBe(
-    '{"slug":"demo-app","name":"Demo App","appUrl":"https://app.demo.example.com","backendUrl":"https://app.demo.example.com"}'
+    '{"slug":"demo-app","name":"Demo App","appUrl":"https://app.demo.example.com"}'
   );
 });

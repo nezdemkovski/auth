@@ -13,12 +13,13 @@ import type { RegisteredProject } from "../../auth/registry";
 import { ErrorCode } from "../../runtime/error-codes";
 import {
   AuthConnectionKind,
+  isApplicationConnectionClient,
   ServicePermission,
   type CreateAuthConnectionInput,
   type UpdateAuthConnectionInput
 } from "./model";
 
-const APPLICATION_PROVIDER_ID = "auth-platform";
+export const APPLICATION_CALLBACK_PATH = "/auth/callback";
 const APPLICATION_SCOPES = [
   OAuthScope.OpenId,
   OAuthScope.Profile,
@@ -68,9 +69,7 @@ export class AuthConnectionService {
     const enabled = await this.options.enableOAuthProvider(registered);
     if (input.kind === AuthConnectionKind.Application) {
       const existing = await enabled.auth.oauthClientManagement.list();
-      if (
-        existing.some((client) => client.profile === OAuthClientProfile.Web)
-      ) {
+      if (existing.some(isApplicationConnectionClient)) {
         throw new AuthConnectionServiceError(
           ErrorCode.AppIntegrationExists,
           409,
@@ -170,10 +169,8 @@ export const authConnectionClientInput = (
   if (input.kind === AuthConnectionKind.Application) {
     return {
       name: input.name,
-      profile: OAuthClientProfile.Web,
-      redirectUris: [
-        `${input.backendUrl}/api/auth/oauth2/callback/${APPLICATION_PROVIDER_ID}`
-      ],
+      profile: OAuthClientProfile.Public,
+      redirectUris: [`${input.appUrl}${APPLICATION_CALLBACK_PATH}`],
       postLogoutRedirectUris: registered.project.appUrl
         ? [registered.project.appUrl]
         : [],

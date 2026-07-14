@@ -53,11 +53,16 @@ export function AuthConnectionCredentialPanel({
             {visible.name} is ready
           </div>
           <p className="mt-1 text-pretty text-[12.5px] leading-5 text-ink-soft">
-            Add these values to your app's private environment now. The secret is
-            shown only once.
+            {visible.credential.clientSecret
+              ? "Add these values to your app's private environment now. The secret is shown only once."
+              : "Add these values to your app's environment. There is no secret to guard."}
           </p>
         </div>
-        <Pill>shown once</Pill>
+        {visible.credential.clientSecret ? (
+          <Pill>shown once</Pill>
+        ) : (
+          <Pill>copy-ready</Pill>
+        )}
       </div>
       <pre className="mt-3 overflow-x-auto rounded-lg border border-border bg-surface p-3 font-mono text-[12px] leading-5 text-ink">
         {environment}

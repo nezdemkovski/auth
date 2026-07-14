@@ -89,7 +89,7 @@ export type AuthConnectionCredential = {
 export type CreateApplicationConnectionInput = {
   name: string;
   kind: AuthConnectionKind.Application;
-  backendUrl: string;
+  appUrl: string;
 };
 
 export type CreateServiceConnectionInput = {
@@ -355,14 +355,12 @@ export type CreateProjectInput = {
   slug: string;
   name: string;
   appUrl: string;
-  backendUrl: string;
 };
 
 export type RealmSetup = {
   issuer: string;
   callbackUrl: string;
   clientId: string;
-  clientSecret: string;
   mcp: {
     authorizationServer: string;
     discoveryUrl: string;

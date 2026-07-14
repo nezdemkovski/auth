@@ -11,7 +11,6 @@ import {
 } from "../../../types";
 
 export function AppSetupForm({
-  project,
   projectName,
   appUrl,
   pending,
@@ -23,8 +22,7 @@ export function AppSetupForm({
   pending: boolean;
   onCreate: (input: CreateAuthConnectionInput) => Promise<boolean>;
 }) {
-  const [serverUrl, setServerUrl] = useState("");
-  const connectionUrl = serverUrl.trim() || appUrl.trim();
+  const connectionUrl = appUrl.trim();
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -34,7 +32,7 @@ export function AppSetupForm({
     await onCreate({
       kind: AuthConnectionKind.Application,
       name: `${projectName} app`,
-      backendUrl: connectionUrl
+      appUrl: connectionUrl
     });
   };
 
@@ -49,7 +47,7 @@ export function AppSetupForm({
         </h3>
         <p className="mt-1 max-w-[38rem] text-[12px] leading-5 text-muted">
           We will use the app address already saved in Settings and give you one
-          private setup block to copy.
+          setup block to copy. Sign-in returns to that address.
         </p>
       </div>
       <div className="mt-4 flex flex-col gap-3 rounded-lg border border-border bg-surface-muted p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -69,26 +67,6 @@ export function AppSetupForm({
           Connect app
         </Button>
       </div>
-
-      <details className="mt-3 rounded-lg border border-border bg-surface-muted">
-        <summary className="flex min-h-10 cursor-pointer select-none items-center px-3 text-[11.5px] text-muted outline-none hover:text-ink-soft focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]">
-          Sign-in runs at a different address
-        </summary>
-        <div className="border-t border-border p-3">
-          <SettingsInput
-            id={`${project}-app-server-url`}
-            label="Sign-in server address"
-            value={serverUrl}
-            disabled={pending}
-            placeholder="https://api.myapp.com"
-            onChange={setServerUrl}
-          />
-          <p className="mt-1.5 text-[11.5px] leading-5 text-muted">
-            Change this only when your app's sign-in code is deployed somewhere
-            else.
-          </p>
-        </div>
-      </details>
     </form>
   );
 }

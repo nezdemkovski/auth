@@ -7,7 +7,7 @@ import {
 import { parseProjectCreate } from "../validator";
 
 describe("project creation validator", () => {
-  test("derives a ready-to-use realm from the three onboarding fields", () => {
+  test("derives a ready-to-use realm from the onboarding fields and ignores legacy keys", () => {
     expect(
       parseProjectCreate({
         slug: "demo",
@@ -38,8 +38,7 @@ describe("project creation validator", () => {
             dynamicClientRegistration: false
           }
         }
-      },
-      backendUrl: "https://api.demo.example.com"
+      }
     });
   });
 
@@ -48,16 +47,14 @@ describe("project creation validator", () => {
       parseProjectCreate({
         slug: "demo",
         name: "Demo App",
-        appUrl: "https://demo.example.com/path",
-        backendUrl: "https://api.demo.example.com"
+        appUrl: "https://demo.example.com/path"
       })
     ).toBeNull();
     expect(
       parseProjectCreate({
         slug: "demo",
         name: "Demo App",
-        appUrl: "https://demo.example.com",
-        backendUrl: "https://user:secret@api.demo.example.com"
+        appUrl: "https://user:secret@demo.example.com"
       })
     ).toBeNull();
   });

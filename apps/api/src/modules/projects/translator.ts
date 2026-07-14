@@ -42,15 +42,13 @@ export const projectSetupResponse = (
   integration: CreatedManagedOAuthClient
 ) => {
   const issuer = `${publicBaseUrl}/api/${project.slug}`;
-  const clientSecret = integration.credential.clientSecret;
-  if (!clientSecret) {
-    throw new Error("Primary app integration must be confidential");
+  if (integration.credential.clientSecret) {
+    throw new Error("Primary app integration must be a public SPA client");
   }
   return {
     issuer,
     callbackUrl: integration.client.redirectUris[0] ?? "",
     clientId: integration.credential.clientId,
-    clientSecret,
     mcp: {
       authorizationServer: issuer,
       discoveryUrl: `${issuer}/.well-known/oauth-authorization-server`

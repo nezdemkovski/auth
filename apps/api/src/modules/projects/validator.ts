@@ -7,7 +7,6 @@ import { isRecord } from "../../runtime/type-guards";
 
 export type ProjectCreateInput = {
   realm: RealmSettingsCreate;
-  backendUrl: string;
 };
 
 export const parseProjectCreate = (value: unknown): ProjectCreateInput | null => {
@@ -18,8 +17,7 @@ export const parseProjectCreate = (value: unknown): ProjectCreateInput | null =>
   const slug = parseRequiredText(value.slug);
   const name = parseRequiredText(value.name);
   const appUrl = parseOrigin(value.appUrl);
-  const backendUrl = parseOrigin(value.backendUrl);
-  if (!slug || !name || !appUrl || !backendUrl) {
+  if (!slug || !name || !appUrl) {
     return null;
   }
 
@@ -38,8 +36,7 @@ export const parseProjectCreate = (value: unknown): ProjectCreateInput | null =>
       appUrl,
       trustedOrigins: [appUrl],
       features
-    },
-    backendUrl
+    }
   };
 };
 
