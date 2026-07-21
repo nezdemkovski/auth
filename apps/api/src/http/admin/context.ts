@@ -6,6 +6,9 @@ import type { AuthRegistry } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import type { AdminDatabase } from "../../db/admin-pool";
 import type { MediaService } from "../../modules/media/core";
+import type {
+  TelegramMiniAppService
+} from "../../modules/telegram-mini-app/core";
 
 export type AdminApiOptions = {
   registry: AuthRegistry;
@@ -20,4 +23,5 @@ export type AdminApiOptions = {
   observabilityReporter: ObservabilityReporter;
   mediaService: MediaService;
   storageService: StorageService;
+  telegramMiniAppService: TelegramMiniAppService;
 };

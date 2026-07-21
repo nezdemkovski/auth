@@ -41,6 +41,23 @@ The browser implementation keeps access tokens in memory and uses standard
 OIDC Authorization Code with PKCE. Expo opens the hosted realm login and keeps
 the refresh credential in SecureStore.
 
+## Telegram Mini Apps
+
+The browser SDK can bootstrap the realm session from Telegram's signed launch
+credential and then continue through the same OAuth PKCE client:
+
+```ts
+await auth.signInWithTelegramMiniApp({
+  initData: window.Telegram.WebApp.initData
+});
+```
+
+The SDK sends the credential only to the selected realm's optional Telegram
+plugin. It contains no bot token, Telegram verifier, proprietary product
+session, or alternate access token. The plugin boundary, realm configuration,
+validation rules, and Amela rollout are defined in
+[`TELEGRAM_MINI_APP_AUTH.md`](TELEGRAM_MINI_APP_AUTH.md).
+
 ## Product backend
 
 The backend is a resource server. It does not create another auth instance or
@@ -104,7 +121,7 @@ belong to one realm, and must never enter browser or native code.
 The package is released from an immutable matching tag:
 
 ```text
-auth-v0.1.2
+auth-v0.1.3
 ```
 
 The release workflow runs the repository tests, builds the package, checks its

@@ -6,6 +6,11 @@ This document is retained as historical context for ADR 0002. Its proposed
 `@nezdemkovski/auth-spa` package name and SPA-only public API are no longer the
 implementation target.
 
+Telegram Mini App authentication is also outside this historical SPA design.
+The current decision is the realm-scoped launch-data plugin described in
+[`TELEGRAM_MINI_APP_AUTH.md`](TELEGRAM_MINI_APP_AUTH.md), not Telegram hosted
+login inside a webview.
+
 ## Goal
 
 `bun add @nezdemkovski/auth-spa`, pass issuer and client id, get working
@@ -142,8 +147,6 @@ register the app's deep-link scheme among its redirect URIs.
 
 - Redirect only in v1, or also popup flow? (Lean: redirect only; popups fight
   browsers.)
-- Telegram Mini App webview: confirm the hosted-login redirect flow works
-  inside the webview, since Telegram login is realm-hosted.
 - Package layout for the native target: subpath export vs separate package,
   and how much protocol code is shared with the web entry.
 - Does `signOut({ everywhere: true })` need RP-initiated logout metadata on

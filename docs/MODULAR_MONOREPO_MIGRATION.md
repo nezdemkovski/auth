@@ -154,15 +154,15 @@ packages/
     ui/
     client-shared/
   public/
-    auth-contracts/
-    auth-integration/
+    auth/                         # one public SDK with isolated subpath exports
 ```
 
 Workspace globs must be explicit, for example `packages/domains/*`; do not use
 an ambiguous `packages/**` wildcard.
 
-All new internal packages are `private: true`. Moving the existing published
-packages must not change their npm names, versioning, exports, or release tags.
+All new internal packages are `private: true`. The only current public package
+target is `@nezdemkovski/auth`; retired experimental packages are not preserved
+as implementation dependencies.
 
 ## Package Anatomy
 
@@ -364,9 +364,11 @@ Migrate one domain at a time and keep every move behavior-preserving.
   response actually needs to aggregate them.
 - [x] Extract identity administration around Better Auth-owned user/session
   data without copying Better Auth models into a parallel domain model.
-- [x] Extract per-realm Better Auth construction, policy, registry, Telegram
-  OIDC configuration, and plugin composition into the Better Auth runtime
-  package.
+- [x] Extract per-realm Better Auth construction, policy, registry, and plugin
+  composition into the Better Auth runtime package. The Telegram OIDC code
+  moved during this historical slice is temporary and must be removed through
+  the isolated Mini App plugin migration in
+  [`TELEGRAM_MINI_APP_AUTH.md`](TELEGRAM_MINI_APP_AUTH.md).
 - [x] Pass delivery, observability, billing, and storage contributions as ports
   or composition inputs; the runtime package must not import those domains.
 - [x] Extract OAuth protected-resource verification and metadata into the
@@ -403,17 +405,17 @@ Migrate one domain at a time and keep every move behavior-preserving.
   internals.
 - [ ] Shared UI remains domain-agnostic.
 
-## Phase 8: Public Packages and Release Boundaries
+## Phase 8: Public Package and Release Boundaries
 
-- [x] Keep `@nezdemkovski/auth-integration` limited to Better Auth composition,
-  immutable identity extraction, and resource conventions.
-- [x] Keep business DTOs in explicit `@nezdemkovski/auth-contracts` subpath
-  exports such as `/billing` and `/storage`; avoid one accidental root export
-  surface.
-- [x] Decide whether any capability needs its own public client package based on
-  independent versioning, not internal folder structure. None does yet: billing
-  and storage expose data contracts but do not own a reusable transport or
-  runtime lifecycle.
+- [x] Replace the experimental integration/contracts split with the single
+  `@nezdemkovski/auth` package and isolated `/client`, `/server`, `/billing`,
+  and `/storage` subpath exports.
+- [x] Keep Better Auth configuration, immutable identity extraction, resource
+  conventions, and stable business DTOs behind those deliberate entrypoints;
+  avoid one accidental root export surface.
+- [x] Keep internal capability packages private. Billing and storage do not get
+  independent public package versions merely because they are internal
+  domains.
 - [x] Ensure private domain packages cannot be published accidentally.
 - [x] Update publish workflows only after package moves preserve existing npm
   names and immutable tag rules.

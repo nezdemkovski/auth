@@ -18,7 +18,9 @@ import type {
   StorageSettings,
   PolarProductsResponse,
   StorageSettingsPatch,
-  StorageObject
+  StorageObject,
+  TelegramMiniAppConnection,
+  TelegramMiniAppConnectionInput
 } from "../types";
 import { pad2 } from "../utils/format";
 import { Card, EmptyState, FormAlert, SysTag } from "@nezdemkovski/auth-ui";
@@ -29,6 +31,7 @@ import { BillingSettings as BillingSettingsForm } from "./project/BillingSetting
 import { AuthConnectionSettings } from "./project/auth-connections/AuthConnectionSettings";
 import { SocialProviderSettings } from "./project/SocialProviderSettings";
 import { StorageSettingsForm } from "./project/StorageSettings";
+import { TelegramMiniAppSettings } from "./project/TelegramMiniAppSettings";
 import { UserTable } from "./project/UserTable";
 
 export function ProjectView({
@@ -36,6 +39,7 @@ export function ProjectView({
   usersQuery,
   socialProvidersQuery,
   authConnectionsQuery,
+  telegramMiniAppQuery,
   billingQuery,
   storageQuery,
   polarProductsQuery,
@@ -51,6 +55,9 @@ export function ProjectView({
   socialProviderPending,
   socialProviderVerifyPending,
   socialProviderError,
+  telegramConnectPending,
+  telegramDisconnectPending,
+  telegramMutationError,
   billingPending,
   billingVerifyPending,
   billingError,
@@ -70,6 +77,8 @@ export function ProjectView({
   onSetAuthConnectionDisabled,
   onRotateAuthConnectionCredential,
   onDeleteAuthConnection,
+  onConnectTelegram,
+  onDisconnectTelegram,
   onUpdateBilling,
   onVerifyBilling,
   onCreatePolarProduct,
@@ -80,6 +89,9 @@ export function ProjectView({
   usersQuery: ReturnType<typeof useQuery<ProjectUsersResponse>>;
   socialProvidersQuery: ReturnType<typeof useQuery<SocialProvidersResponse>>;
   authConnectionsQuery: ReturnType<typeof useQuery<AuthConnectionsResponse>>;
+  telegramMiniAppQuery: ReturnType<
+    typeof useQuery<TelegramMiniAppConnection>
+  >;
   billingQuery: ReturnType<typeof useQuery<BillingSettings>>;
   storageQuery: ReturnType<typeof useQuery<StorageSettings>>;
   polarProductsQuery: ReturnType<typeof useQuery<PolarProductsResponse>>;
@@ -95,6 +107,9 @@ export function ProjectView({
   socialProviderPending: SocialProviderId | null;
   socialProviderVerifyPending: SocialProviderId | null;
   socialProviderError: string | null;
+  telegramConnectPending: boolean;
+  telegramDisconnectPending: boolean;
+  telegramMutationError: string | null;
   billingPending: boolean;
   billingVerifyPending: boolean;
   billingError: string | null;
@@ -124,6 +139,8 @@ export function ProjectView({
     clientId: string
   ) => Promise<AuthConnectionCredential>;
   onDeleteAuthConnection: (clientId: string) => Promise<void>;
+  onConnectTelegram: (input: TelegramMiniAppConnectionInput) => Promise<void>;
+  onDisconnectTelegram: () => Promise<void>;
   onUpdateBilling: (patch: BillingSettingsPatch) => void;
   onVerifyBilling: (input: {
     accessToken?: string;
@@ -136,8 +153,12 @@ export function ProjectView({
   onUploadProjectIcon: (file: File) => void;
 }) {
   const users = usersQuery.data?.users ?? [];
-  const socialProviders = socialProvidersQuery.data?.providers ?? project.socialProviders;
-  const socialProviderCatalog = socialProvidersQuery.data?.catalog ?? [];
+  const socialProviders = (
+    socialProvidersQuery.data?.providers ?? project.socialProviders
+  ).filter((provider) => provider.provider !== "telegram");
+  const socialProviderCatalog = (
+    socialProvidersQuery.data?.catalog ?? []
+  ).filter((provider) => provider.id !== "telegram");
 
   return (
     <div className="space-y-10">
@@ -227,7 +248,27 @@ export function ProjectView({
 
       <section>
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="eyebrow">03 — Social sign-in</span>
+          <span className="eyebrow">03 — Telegram</span>
+          <span aria-hidden="true" className="h-px flex-1 bg-border" />
+        </div>
+
+        <Card padding={false}>
+          <TelegramMiniAppSettings
+            connection={telegramMiniAppQuery.data ?? null}
+            loading={telegramMiniAppQuery.isLoading}
+            loadError={telegramMiniAppQuery.isError}
+            connectPending={telegramConnectPending}
+            disconnectPending={telegramDisconnectPending}
+            mutationError={telegramMutationError}
+            onConnect={onConnectTelegram}
+            onDisconnect={onDisconnectTelegram}
+          />
+        </Card>
+      </section>
+
+      <section>
+        <div className="mb-4 flex items-baseline gap-3">
+          <span className="eyebrow">04 — Social sign-in</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
         </div>
 
@@ -255,7 +296,7 @@ export function ProjectView({
 
       <section>
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="eyebrow">04 — Billing</span>
+          <span className="eyebrow">05 — Billing</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
         </div>
 
@@ -290,7 +331,7 @@ export function ProjectView({
 
       <section>
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="eyebrow">05 — Storage</span>
+          <span className="eyebrow">06 — Storage</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
           <Link
             to="/projects/$projectSlug/files"
@@ -322,7 +363,7 @@ export function ProjectView({
 
       <section>
         <div className="mb-4 flex items-baseline gap-3">
-          <span className="eyebrow">06 — Users</span>
+          <span className="eyebrow">07 — Users</span>
           <span aria-hidden="true" className="h-px flex-1 bg-border" />
           {!usersQuery.isLoading && users.length > 0 ? (
             <span className="eyebrow text-muted-soft tabular">

@@ -5,6 +5,12 @@
 Migration in progress. No compatibility path in this document is intended to
 become permanent.
 
+ADR 0002 supersedes the earlier product-BFF portions of this migration. The
+current product integration is the public-client SDK in
+[`AUTH_SDK_DESIGN.md`](AUTH_SDK_DESIGN.md). Telegram Mini Apps follow the
+separate optional-plugin design in
+[`TELEGRAM_MINI_APP_AUTH.md`](TELEGRAM_MINI_APP_AUTH.md).
+
 ## Goal
 
 Make Better Auth the only owner of authentication protocol machinery:
@@ -55,6 +61,10 @@ Custom code is not appropriate for:
 ## Target Architecture
 
 ```text
+Product client (web or native)
+             |
+             | OIDC Authorization Code + PKCE
+             v
 Central auth realm
   Better Auth
     - OAuth 2.1 Provider
@@ -62,18 +72,21 @@ Central auth realm
     - realm-local users and authorization-server session
     - OAuth clients, grants, tokens, scopes, and resources
              |
-             | OIDC Authorization Code + PKCE
+             | access and rotating refresh tokens
              v
-Product backend / BFF
-  Better Auth
-    - Generic OAuth client for the central realm
-    - local product HttpOnly session
-    - central provider tokens kept server-side
+Product client
              |
-             | local Better Auth session cookie
+             | audience-bound bearer access token
              v
-Product frontend
+Product backend
+  resource-server verification only
 ```
+
+A Telegram Mini App first uses the SDK to prepare a PKCE transaction and submit
+Telegram's signed `initData` to the optional realm plugin through a top-level
+form. That plugin validates the launch proof, creates the normal Better Auth
+session, and redirects into the prepared authorization request; authorization
+codes, PKCE, and tokens remain owned by Better Auth.
 
 For machine-to-machine calls:
 
@@ -95,9 +108,9 @@ the immutable `issuer + sub` pair.
 ## Non-Negotiable Invariants
 
 - Central Better Auth session cookies never leave the auth origin.
-- Central access and refresh tokens never enter browser storage for web apps.
-- Product frontends receive only their product application's HttpOnly session
-  cookie.
+- Central Better Auth session cookies never enter product storage.
+- Public clients receive only OAuth credentials issued for their registered
+  client and explicit resource audience.
 - Every OAuth access token is bound to an explicit resource/audience.
 - Every protected business endpoint checks the required scope.
 - Browser, native/public, confidential web, MCP, and service clients are
@@ -126,6 +139,7 @@ the immutable `issuer + sub` pair.
 | Hosted login React application | Keep and simplify | UI is ours; protocol transitions must be delegated to Better Auth client plugins. |
 | Manual OAuth/OIDC metadata aliases | Keep only if routing requires them | A routing adapter is acceptable; metadata content must come from Better Auth helpers. |
 | Admin OAuth-client UI/API | Keep as a thin facade | The app calls the typed `OAuthClientManagement` port. Its isolated Better Auth plugin uses `ctx.context.adapter` with OAuth Provider model names; it does not use raw SQL, physical table names, or implement OAuth behavior. Replace the plugin with native provider management APIs when upstream closes the lifecycle gap. |
+| Telegram OIDC social provider | Replace | It adds a second Telegram login ceremony inside a Mini App that already has signed launch identity. Replace it with the realm-scoped Better Auth plugin in `TELEGRAM_MINI_APP_AUTH.md`. |
 | Billing, entitlement, profile, and storage APIs | Keep as business resources | They are platform capabilities, but their authorization must use Better Auth sessions or OAuth resource tokens at the correct boundary. |
 
 ## Phase 0: Freeze and Prove the Direction
@@ -137,27 +151,24 @@ the immutable `issuer + sub` pair.
   migration; do not design against `latest` implicitly.
 - [x] Add an architecture decision record stating:
   - central auth is an OAuth/OIDC authorization server;
-  - product web backends are confidential relying parties/BFFs;
-  - product frontends use local Better Auth sessions;
-  - direct public-client OAuth is reserved for native, CLI, MCP, or explicitly
-    approved browser-only applications.
+  - product web and native apps are public clients with mandatory PKCE;
+  - product backends are resource servers that verify access tokens;
+  - CLI and MCP use the matching standards-based public-client behavior.
 - [x] Build a minimal in-repo reference product before changing Amela.
-- [x] Prove with the pinned Better Auth version that Generic OAuth supports:
+- [x] Prove with the pinned Better Auth version that the OAuth provider supports:
   - [x] discovery against the realm-specific issuer;
   - [x] Authorization Code with PKCE;
   - [x] automatic issuer validation from discovery, including rejection of a
     mismatched `iss`;
   - [x] refresh-token rotation;
-  - [x] provider-token retrieval on the product backend;
   - [x] stable access to the central `sub` identity.
-- [x] Decide and document how the product Better Auth user/account model exposes
-  the central `issuer + sub` without treating email as an identity key.
+- [x] Decide and document that product data resolves users by the validated
+  central `issuer + sub`, never by email.
 
 ### Phase 0 exit gate
 
-- [x] The reference product can sign in through a real realm and establish a
-  local HttpOnly Better Auth session without exposing a central session or
-  token to browser JavaScript.
+- [x] The reference product can verify a realm-issued, audience-bound access
+  token without receiving or relaying the central Better Auth session cookie.
 
 ## Phase 1: Make Better Auth OAuth Provider Canonical
 
@@ -171,10 +182,8 @@ the immutable `issuer + sub` pair.
 - [x] Define explicit scopes for each current platform resource.
 - [x] Keep OIDC identity scopes separate from platform business scopes.
 - [x] Define distinct client profiles:
-  - confidential product web/BFF client: `authorization_code` and
-    `refresh_token`;
-  - public native/browser client: `authorization_code` with mandatory PKCE and
-    no client secret;
+  - public web/native client: `authorization_code` with mandatory PKCE,
+    `refresh_token`, and no client secret;
   - MCP client: dynamic/public behavior required by the MCP integration;
   - service client: `client_credentials` and no user grants.
 - [x] Provision admin-created realm clients through the isolated Better Auth
@@ -215,9 +224,11 @@ the immutable `issuer + sub` pair.
 - [x] Keep required 2FA enrollment in the Better Auth `postLogin` hook and
   signed continuation flow; optional passkey enrollment must not block OAuth
   authorization.
-- [x] Configure Telegram as a standard OIDC provider in Better Auth's hosted
-  social-login flow. A Mini App webview follows Telegram's authorization-code
-  redirect; raw `initData` is never relayed into a platform protocol.
+- [ ] Replace the temporary Telegram OIDC social provider with the optional,
+  realm-scoped Better Auth Mini App plugin. Only raw signed `initData` crosses
+  the Mini App boundary, via POST; the plugin validates it and delegates user
+  and session ownership to Better Auth. See
+  [`TELEGRAM_MINI_APP_AUTH.md`](TELEGRAM_MINI_APP_AUTH.md).
 - [x] Remove `createLoginSessionRedirect` from
   `apps/login/src/auth-client.ts`.
 - [x] Remove custom session-code and token exchange request validators.
@@ -227,7 +238,7 @@ the immutable `issuer + sub` pair.
 - [x] Remove Redis and memory login-code stores from API startup and shutdown.
 - [x] Remove the custom login-code unit and integration tests.
 - [x] Add a public-HTTP integration test for signed hosted login, required TOTP
-  enrollment, PKCE callback, local product session creation, refresh rotation,
+  enrollment, PKCE callback, refresh rotation, resource-server verification,
   and issuer-mismatch rejection.
 - [x] Replace them with Better Auth OAuth Provider integration tests through
   the public HTTP boundary.
@@ -252,10 +263,15 @@ the immutable `issuer + sub` pair.
 
 - [ ] No HTTP response, DTO, log entry, test fixture, or SDK API contains a
   Better Auth `sessionCookie` or `set-auth-token` credential for a product app.
-- [x] Hosted login completes through Better Auth `/oauth2/authorize` and
-  `/oauth2/token` only.
+- [x] Ordinary hosted login completes through Better Auth
+  `/oauth2/authorize` and `/oauth2/token` only.
 
-## Phase 3: Establish the Product-App Better Auth Pattern
+## Phase 3 (historical): Product-App Better Auth BFF Pattern
+
+This completed reference experiment is retained as migration history only. ADR
+0002 superseded it with the public-client SDK and resource-server backend
+defined in `AUTH_SDK_DESIGN.md`; none of the BFF tasks below is a current
+integration instruction.
 
 - [x] Create a confidential OAuth client for the reference product through the
   central Better Auth admin API.
@@ -278,8 +294,8 @@ the immutable `issuer + sub` pair.
   never join identities by email.
 - [ ] Verify local session creation, refresh, logout, account linking behavior,
   and central-session expiration/revocation semantics.
-- [ ] Document the approved direct-public-client pattern separately for apps
-  that genuinely cannot run a BFF.
+- [x] Document the replacement public-client pattern separately in ADR 0002 and
+  `AUTH_SDK_DESIGN.md`.
 
 ### Phase 3 exit gate
 
@@ -325,6 +341,11 @@ the immutable `issuer + sub` pair.
 
 ## Phase 5: Replace the SDK Packages
 
+This section records removal of the previous package experiments. The current
+replacement is the single `@nezdemkovski/auth` package in
+`packages/public/auth`; the historical package names below are not supported
+integration choices.
+
 ### `@nezdemkovski/auth-client`
 
 - [x] Stop adding features to the current implementation.
@@ -335,10 +356,9 @@ the immutable `issuer + sub` pair.
 - [x] Delete Telegram logic that extracts `set-auth-token`.
 - [x] Delete billing/profile methods that authenticate with a central session
   token.
-- [x] Replace product browser integration with the product application's normal
-  Better Auth client.
-- [ ] Deprecate the published `0.1.x` package after the reference product and
-  Amela no longer consume it.
+- [x] Replace product integration with `@nezdemkovski/auth/client`.
+- [x] Unpublish the obsolete experimental package versions; do not use them as
+  migration dependencies.
 
 Expected obsolete files:
 
@@ -352,7 +372,7 @@ Expected obsolete files:
 - [x] `packages/auth-client/src/telegram/core.ts`
 - [x] the current orchestration in `packages/auth-client/src/client.ts`
 
-### Better Auth product integration package
+### Historical Better Auth product integration package
 
 - [x] Create one small server-side integration package only if it removes
   repeated configuration across product apps.
@@ -408,16 +428,18 @@ Expected obsolete files:
 ## Phase 6: Migrate Amela as the First Real Consumer
 
 - [ ] Complete Phases 0-5 against the reference product first.
-- [ ] Provision separate Amela web/BFF and service clients.
-- [ ] Add Better Auth to the Amela backend as a Generic OAuth relying party.
-- [ ] Store the local Better Auth session in an HttpOnly cookie.
+- [ ] Provision separate Amela public application and optional service clients.
+- [ ] Verify realm-issued application tokens in the Amela backend as a
+  resource server.
 - [ ] Map Amela business users to the central realm `issuer + sub`.
-- [ ] Remove central auth access/session tokens from Amela browser state,
-  request headers, and WebSocket query parameters.
-- [ ] Replace custom frontend auth bootstrap with the local Better Auth client.
+- [ ] Remove the central Better Auth session token and all legacy persisted
+  tokens from Amela. Obtain short-lived application access tokens only through
+  the SDK for HTTP and WebSocket authentication.
+- [ ] Replace custom frontend auth with `@nezdemkovski/auth/client` and add the
+  isolated Telegram Mini App bootstrap defined in the canonical Telegram doc.
 - [ ] Move billing consumption to the service client with a service-only scope.
-- [ ] Verify email/password, social login, Telegram OIDC from the Mini App
-  webview, passkey, 2FA,
+- [ ] Verify email/password, ordinary social login, Telegram Mini App launch
+  bootstrap, passkey, 2FA,
   refresh, logout, billing checkout, usage consumption, and WebSocket auth.
 - [ ] Add rollback instructions that revert the deployment, not the protocol
   invariants.
@@ -457,13 +479,13 @@ Expected obsolete files:
   verifier, and expired code failures.
 - [ ] Consent accept, consent deny, repeated consent, and scope reduction.
 - [ ] Access-token expiry and refresh-token rotation.
-- [ ] Logout and token revocation behavior across central and product sessions.
+- [ ] Logout and OAuth token revocation behavior across clients.
 - [ ] User token with wrong audience or missing scope.
 - [ ] Service token with wrong audience, scope, client, or realm.
 - [ ] User token rejected by service-only endpoints.
 - [ ] Service token rejected by user-delegated endpoints.
-- [ ] Telegram OIDC, email/password, social, passkey, 2FA, verification, and
-  reset flows continue through Better Auth.
+- [ ] Telegram Mini App bootstrap, email/password, ordinary social, passkey,
+  2FA, verification, and reset flows continue through Better Auth.
 - [ ] Multi-replica production topology without process-local protocol state.
 - [ ] No credentials, tokens, cookies, or authorization codes appear in logs,
   audit payloads, URLs, frontend storage, or error responses.
@@ -486,8 +508,9 @@ Additional checks:
 - [x] Central Better Auth config includes the legacy `/token` disablement.
 - [x] Every resource verifier receives an explicit audience and scopes.
 - [ ] No product browser bundle contains a central client secret.
-- [ ] No web product stores central access or refresh tokens in local storage,
-  session storage, IndexedDB, AsyncStorage, or a JavaScript-readable cookie.
+- [ ] Web and native clients follow the storage policy in
+  `AUTH_SDK_DESIGN.md`; no central Better Auth session cookie is copied to a
+  product origin.
 
 ## Definition of Done
 
@@ -496,8 +519,8 @@ Additional checks:
   revocation, introspection, discovery, and OAuth client persistence.
 - [ ] The auth platform contains custom policy and business resources, but no
   parallel authentication protocol.
-- [ ] Product web apps use Better Auth as relying parties and expose only local
-  HttpOnly sessions to their browsers.
+- [ ] Product web and native apps use public OAuth clients with mandatory PKCE;
+  product backends verify audience-bound tokens as resource servers.
 - [ ] Machine integrations use Better Auth-issued, audience-bound,
   scope-limited client-credentials tokens.
 - [ ] Published packages are thin Better Auth configuration or platform
@@ -511,4 +534,5 @@ Additional checks:
 - [JWT plugin and OAuth Provider mode](https://better-auth.com/docs/plugins/jwt)
 - [Generic OAuth client](https://better-auth.com/docs/plugins/generic-oauth)
 - [Better Auth client](https://better-auth.com/docs/concepts/client)
-- [Telegram OIDC login](https://core.telegram.org/bots/telegram-login)
+- [Better Auth plugins](https://better-auth.com/docs/concepts/plugins)
+- [Telegram Mini App validation](https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app)

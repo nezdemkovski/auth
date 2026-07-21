@@ -20,7 +20,10 @@ Connecting a normal product should require:
 2. Enter the product name and app URL.
 3. Copy the issuer and client id.
 4. Install one npm package.
-5. Use the same hosted login for web, native apps, Telegram Mini Apps, and MCP.
+5. Use the same hosted login for ordinary web/native apps and MCP. A Telegram
+   Mini App uses Telegram's signed launch data to bootstrap the realm session,
+   then receives the same Better Auth-owned OAuth tokens as every other public
+   client.
 
 The normal setup values are:
 
@@ -86,7 +89,9 @@ used as implementation dependencies.
 
 ```mermaid
 flowchart LR
-  App["Product client\nWeb, Expo, Telegram"]
+  App["Product client\nWeb or Expo"]
+  Telegram["Telegram Mini App"]
+  TelegramPlugin["Optional realm plugin\nTelegram launch verification"]
   Auth["Realm\nBetter Auth OAuth/OIDC"]
   API["Product backend\nResource server"]
   Platform["Realm platform APIs\nBilling and storage"]
@@ -94,6 +99,10 @@ flowchart LR
 
   App -->|"Authorization Code + PKCE"| Auth
   Auth -->|"Access and rotating refresh tokens"| App
+  Telegram -->|"Signed initData bootstrap"| TelegramPlugin
+  TelegramPlugin -->|"Better Auth session"| Auth
+  Telegram -->|"Authorization Code + PKCE"| Auth
+  Auth -->|"Access and rotating refresh tokens"| Telegram
   App -->|"Bearer access token"| API
   API -->|"Optional client credentials"| Platform
   MCP -->|"OAuth discovery and hosted login"| Auth
@@ -164,9 +173,23 @@ the OAuth protocol.
 - Access token in memory only.
 - No dependency on `window`, browser tabs, cookies, or `localStorage`.
 
-Telegram Mini Apps use the web implementation. Native Amela builds use the
-Expo implementation. Both use the same realm, client API, hosted login, and
-token semantics.
+### Telegram Mini App integration
+
+Telegram is not another generic hosted social-login button. When the app is
+opened inside Telegram, the host has already supplied signed `initData` as the
+identity proof. The SDK submits that value once through a top-level form to an
+optional realm-scoped Better Auth server plugin. The plugin validates the
+Telegram signature and freshness, maps or creates the Better Auth user,
+establishes the normal realm session, and redirects into the already prepared
+Authorization Code + PKCE transaction. This avoids relying on third-party
+cookies in Telegram's embedded browser.
+
+The public SDK does not contain Telegram bot credentials or a second session
+protocol. Its browser runtime exposes `signInWithTelegramMiniApp({ initData })`,
+which prepares the ordinary PKCE transaction and submits the credential to the
+realm plugin with that trusted authorization callback. Amela owns only reading
+`initData` from its Telegram host. The replaceable plugin architecture and rollout are defined in
+[`TELEGRAM_MINI_APP_AUTH.md`](TELEGRAM_MINI_APP_AUTH.md).
 
 ## Server entry point
 
@@ -251,7 +274,9 @@ replaced, not completed.
 - Remove central session-cookie extraction and persistence.
 - Remove handwritten PKCE and refresh logic.
 - Use `getAccessToken()` for HTTP and WebSocket authentication.
-- Use the web runtime for the deployed web and Telegram Mini App.
+- Use the web runtime for the deployed web.
+- In the Telegram Mini App, bootstrap the realm session through the optional
+  Telegram plugin before continuing through the same web OAuth client.
 - Use the native runtime and deep link for iOS/Android.
 
 ### Backend
@@ -270,8 +295,8 @@ Use an expand, migrate, contract rollout:
 1. Finish and test the Better Auth public-client contract.
 2. Publish `@nezdemkovski/auth` v1.
 3. Migrate and release Amela against v1.
-4. Verify real web, Telegram, native, HTTP, WebSocket, billing, storage, and
-   logout behavior.
+4. Verify real web, Telegram Mini App bootstrap, native, HTTP, WebSocket,
+   billing, storage, and logout behavior.
 5. Keep the previous auth endpoints only long enough to allow an Amela image
    rollback.
 6. Delete the previous endpoints and deprecate the old packages after the new
@@ -294,7 +319,8 @@ The SDK and Amela migration are not complete until tests cover:
 - malformed and expired bearer tokens;
 - web callback and cross-tab behavior;
 - Expo system-browser callback and secure persistence;
-- Telegram Mini App hosted login;
+- Telegram Mini App launch-data validation, session bootstrap, OAuth
+  continuation, replay/expiry rejection, and realm isolation;
 - Amela HTTP and WebSocket authentication;
 - billing and storage resource boundaries;
 - MCP discovery and authorization;
@@ -315,7 +341,8 @@ The SDK and Amela migration are not complete until tests cover:
 ## Remaining rollout decisions
 
 1. The final Amela native deep-link URI and platform registration.
-2. Hosted-login behavior inside the Telegram Mini App webview.
+2. The exact Amela Telegram callback route and real Telegram payload
+   compatibility gate from [`TELEGRAM_MINI_APP_AUTH.md`](TELEGRAM_MINI_APP_AUTH.md).
 3. The final browser refresh-token persistence policy after real XSS and
    cross-tab testing.
 4. Whether service-token acquisition ships in `/server` v0.1 or the next minor.

@@ -8,7 +8,8 @@ import {
   fetchProjects,
   fetchSocialProviders,
   fetchStorageObjects,
-  fetchStorageSettings
+  fetchStorageSettings,
+  fetchTelegramMiniAppConnection
 } from "../api";
 import { adminQueryKeys } from "../queryKeys";
 
@@ -33,6 +34,11 @@ export const useProjectRouteQueries = (projectSlug?: string) => {
   const authConnectionsQuery = useQuery({
     queryKey: adminQueryKeys.authConnections(selected?.slug),
     queryFn: () => fetchAuthConnections(selected!.slug),
+    enabled: Boolean(selected?.slug)
+  });
+  const telegramMiniAppQuery = useQuery({
+    queryKey: adminQueryKeys.telegramMiniApp(selected?.slug),
+    queryFn: () => fetchTelegramMiniAppConnection(selected!.slug),
     enabled: Boolean(selected?.slug)
   });
   const billingQuery = useQuery({
@@ -66,6 +72,7 @@ export const useProjectRouteQueries = (projectSlug?: string) => {
     usersQuery,
     socialProvidersQuery,
     authConnectionsQuery,
+    telegramMiniAppQuery,
     billingQuery,
     storageQuery,
     storageObjectsQuery,

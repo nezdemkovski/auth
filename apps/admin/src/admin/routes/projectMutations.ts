@@ -4,7 +4,9 @@ import { useState } from "react";
 import {
   createAuthConnection,
   createPolarProduct,
+  connectTelegramMiniApp,
   deleteAuthConnection,
+  disconnectTelegramMiniApp,
   resendVerificationEmail,
   rotateAuthConnectionCredential,
   setAuthConnectionDisabled,
@@ -217,6 +219,37 @@ export const useProjectRouteMutations = () => {
       );
     }
   });
+  const telegramMiniAppConnect = useMutation({
+    mutationFn: connectTelegramMiniApp,
+    onSuccess: async (_data, variables) => {
+      notifySuccess("Telegram connected");
+      await queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.telegramMiniApp(variables.project)
+      });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Could not connect Telegram",
+        caught instanceof Error ? caught.message : undefined
+      );
+    }
+  });
+  const telegramMiniAppDisconnect = useMutation({
+    mutationFn: (input: { project: string }) =>
+      disconnectTelegramMiniApp(input.project),
+    onSuccess: async (_data, variables) => {
+      notifySuccess("Telegram disconnected");
+      await queryClient.invalidateQueries({
+        queryKey: adminQueryKeys.telegramMiniApp(variables.project)
+      });
+    },
+    onError: (caught) => {
+      notifyError(
+        "Could not disconnect Telegram",
+        caught instanceof Error ? caught.message : undefined
+      );
+    }
+  });
   const billingUpdate = useMutation({
     mutationFn: (input: { project: string; patch: BillingSettingsPatch }) =>
       updateBillingSettings(input),
@@ -324,6 +357,8 @@ export const useProjectRouteMutations = () => {
     authConnectionToggle,
     authConnectionCredentialRotate,
     authConnectionDelete,
+    telegramMiniAppConnect,
+    telegramMiniAppDisconnect,
     billingUpdate,
     billingVerify,
     storageUpdate,

@@ -8,7 +8,8 @@ import type {
   AuthClient,
   AuthClientConfiguration,
   AuthSession,
-  CreateAuthClient
+  CreateAuthClient,
+  SignInOptions
 } from "./index.js";
 import {
   authSessionFromUserInfo,
@@ -23,7 +24,8 @@ export type {
   AuthClientConfiguration,
   AuthSession,
   AuthUser,
-  SignInOptions
+  SignInOptions,
+  TelegramMiniAppSignInOptions
 } from "./index.js";
 
 type BrowserTransaction = {
@@ -41,6 +43,45 @@ type BrowserTokens = {
 };
 
 const CLOCK_SKEW_MS = 30_000;
+
+export const createTelegramMiniAppSignInRequest = (
+  issuer: string,
+  initData: string,
+  callbackURL: URL
+) => {
+  const credential = initData.trim();
+  if (!credential) {
+    throw new Error("Telegram Mini App initData is required");
+  }
+
+  return {
+    action: `${issuer.replace(/\/+$/, "")}/auth/telegram/miniapp/signin`,
+    fields: {
+      initData: credential,
+      callbackURL: callbackURL.toString()
+    }
+  };
+};
+
+const submitTelegramMiniAppSignIn = (
+  request: ReturnType<typeof createTelegramMiniAppSignInRequest>
+) => {
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = request.action;
+  form.hidden = true;
+
+  for (const [name, value] of Object.entries(request.fields)) {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = value;
+    form.append(input);
+  }
+
+  document.body.append(form);
+  form.submit();
+};
 
 const transactionFromStorage = (value: string | null): BrowserTransaction | null => {
   const parsed = parseStoredJson(value);
@@ -195,6 +236,38 @@ export const createAuthClient: CreateAuthClient = (
     return refreshInFlight;
   };
 
+  const prepareSignIn = async (options?: SignInOptions) => {
+    const authorizationServer = await discover();
+    if (!authorizationServer.authorization_endpoint) {
+      throw new Error("The authorization server has no authorization endpoint");
+    }
+    const codeVerifier = oauth.generateRandomCodeVerifier();
+    const codeChallenge = await oauth.calculatePKCECodeChallenge(codeVerifier);
+    const state = oauth.generateRandomState();
+    const redirectUri = defaultRedirectUri();
+    const authorizationUrl = new URL(authorizationServer.authorization_endpoint);
+    authorizationUrl.searchParams.set("client_id", normalized.clientId);
+    authorizationUrl.searchParams.set("redirect_uri", redirectUri);
+    authorizationUrl.searchParams.set("response_type", "code");
+    authorizationUrl.searchParams.set("scope", DEFAULT_AUTH_SCOPES.join(" "));
+    authorizationUrl.searchParams.set("resource", normalized.applicationResource);
+    authorizationUrl.searchParams.set("code_challenge", codeChallenge);
+    authorizationUrl.searchParams.set("code_challenge_method", "S256");
+    authorizationUrl.searchParams.set("state", state);
+    const transaction: BrowserTransaction = {
+      state,
+      codeVerifier,
+      redirectUri,
+      returnTo: safeReturnTo(options?.returnTo, new URL(window.location.href))
+    };
+    sessionStorage.setItem(transactionKey, JSON.stringify(transaction));
+    return authorizationUrl;
+  };
+
+  const startSignIn = async (options?: SignInOptions) => {
+    window.location.assign(await prepareSignIn(options));
+  };
+
   const api: AuthClient = {
     initialize: async () => {
       try {
@@ -211,32 +284,16 @@ export const createAuthClient: CreateAuthClient = (
         return null;
       }
     },
-    signIn: async (options) => {
-      const authorizationServer = await discover();
-      if (!authorizationServer.authorization_endpoint) {
-        throw new Error("The authorization server has no authorization endpoint");
-      }
-      const codeVerifier = oauth.generateRandomCodeVerifier();
-      const codeChallenge = await oauth.calculatePKCECodeChallenge(codeVerifier);
-      const state = oauth.generateRandomState();
-      const redirectUri = defaultRedirectUri();
-      const authorizationUrl = new URL(authorizationServer.authorization_endpoint);
-      authorizationUrl.searchParams.set("client_id", normalized.clientId);
-      authorizationUrl.searchParams.set("redirect_uri", redirectUri);
-      authorizationUrl.searchParams.set("response_type", "code");
-      authorizationUrl.searchParams.set("scope", DEFAULT_AUTH_SCOPES.join(" "));
-      authorizationUrl.searchParams.set("resource", normalized.applicationResource);
-      authorizationUrl.searchParams.set("code_challenge", codeChallenge);
-      authorizationUrl.searchParams.set("code_challenge_method", "S256");
-      authorizationUrl.searchParams.set("state", state);
-      const transaction: BrowserTransaction = {
-        state,
-        codeVerifier,
-        redirectUri,
-        returnTo: safeReturnTo(options?.returnTo, new URL(window.location.href))
-      };
-      sessionStorage.setItem(transactionKey, JSON.stringify(transaction));
-      window.location.assign(authorizationUrl);
+    signIn: startSignIn,
+    signInWithTelegramMiniApp: async ({ initData, returnTo }) => {
+      const authorizationUrl = await prepareSignIn({ returnTo });
+      submitTelegramMiniAppSignIn(
+        createTelegramMiniAppSignInRequest(
+          normalized.issuer,
+          initData,
+          authorizationUrl
+        )
+      );
     },
     handleCallback: async () => {
       const transaction = transactionFromStorage(

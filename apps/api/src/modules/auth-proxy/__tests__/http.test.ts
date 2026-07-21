@@ -10,8 +10,7 @@ import {
   DEFAULT_REALM_FEATURES,
   DEFAULT_REALM_SOCIAL_PROVIDERS,
   RealmAgentAuthMode,
-  RealmTwoFactorRequirement,
-  SocialProvider
+  RealmTwoFactorRequirement
 } from "@nezdemkovski/auth-realm";
 
 import {
@@ -124,33 +123,13 @@ describe("auth route feature gates", () => {
         requiredProject,
         "/api/demo/auth/telegram/miniapp/signin"
       )
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  test("keeps the removed Telegram Mini App endpoint closed", () => {
+  test("leaves optional plugin routes to the configured realm runtime", () => {
     expect(
       isEnabledAuthFeaturePath(project, "/api/demo/auth/telegram/miniapp/signin")
-    ).toBe(false);
-
-    const telegramProject: AuthProject = {
-      ...project,
-      socialProviders: {
-        ...project.socialProviders,
-        [SocialProvider.Telegram]: {
-          enabled: true,
-          clientId: "demo_bot",
-          clientSecret: "telegram-bot-token",
-          verifiedAt: null
-        }
-      }
-    };
-
-    expect(
-      isEnabledAuthFeaturePath(
-        telegramProject,
-        "/api/demo/auth/telegram/miniapp/signin"
-      )
-    ).toBe(false);
+    ).toBe(true);
   });
 
   test("keeps disabled feature endpoints closed", () => {

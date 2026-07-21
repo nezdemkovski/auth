@@ -1,6 +1,7 @@
 # ADR 0001: Better Auth Owns the Authentication Protocol
 
-- Status: Accepted
+- Status: Accepted for protocol ownership; product integration profile
+  superseded by [ADR 0002](0002-spa-integration-profile.md)
 - Date: 2026-07-13
 
 ## Context
@@ -24,6 +25,11 @@ makes the security model harder to reason about.
 
 Better Auth is the only owner of authentication and OAuth/OIDC protocol
 machinery.
+
+The BFF integration described below records the original decision. ADR 0002
+later replaced that product profile with public OAuth clients using mandatory
+PKCE and resource-server backends. The Better Auth protocol-ownership boundary
+remains accepted.
 
 The central realm is a Better Auth OAuth 2.1/OIDC provider. A product web
 backend is a confidential relying party with its own Better Auth instance and
@@ -60,6 +66,10 @@ Platform-owned code may not implement:
 - manual OAuth/JWT verification when the Better Auth resource client supports
   the flow.
 
+The original browser-token prohibition above is superseded by ADR 0002. It
+still forbids a platform-invented token protocol; it does not forbid a public
+OAuth client driven by a maintained standards implementation.
+
 ## Version Contract
 
 The migration is built and tested against exactly `better-auth@1.7.0-rc.1` and
@@ -80,8 +90,8 @@ the official Better Auth implementation.
 - The existing `@nezdemkovski/auth-client` state machine and login handoff must
   be removed once the Better Auth reference flow works. This removal is now
   complete in the repository.
-- Product applications need a small Better Auth server/BFF even when their UI
-  is a browser application.
+- The original BFF requirement is superseded by ADR 0002; current products use
+  the public-client SDK documented in `AUTH_SDK_DESIGN.md`.
 - A thin integration package is allowed only when it returns Better Auth
   configuration and platform identity types.
 - The deleted compatibility endpoints must not be restored for new consumers.

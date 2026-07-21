@@ -1,5 +1,10 @@
 # Registry Diff-Based Rebuilds Implementation Plan
 
+> Historical implementation plan. The registry optimization remains useful,
+> but references to Telegram OIDC describe the code at the time, not the
+> current target architecture. Telegram now follows
+> [`TELEGRAM_MINI_APP_AUTH.md`](../../TELEGRAM_MINI_APP_AUTH.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Stop rebuilding the full `betterAuth()` instance on every realm mutation. `AuthRegistry.updateProject`/`patchProject` must rebuild the Better Auth instance only when a field that actually feeds the auth configuration changes; metadata-only patches (e.g. `iconUrl`, app-owned `storage`) must swap the stored project record in place, keeping the existing `ProjectAuth` instance and database pool. `updateEmailContribution` keeps its eager all-realm rebuild (justified below) but gains a regression test locking its semantics.
@@ -14,7 +19,7 @@
 | `description` | AuthConfig | agentAuth `providerDescription` (256) and `realm.info` capability payload (279) |
 | `trustedOrigins` | AuthConfig | `trustedOrigins` option (230); also read by the billing plugin contribution |
 | `features` | AuthConfig | twoFactor post-login policy closure (198), `dynamicClientRegistration` (203), oauthProvider `enabled`/`resources` (206-208) |
-| `socialProviders` | AuthConfig | `buildSocialProviders` (231, 345-361), Telegram OIDC plugin (284, 363-373) |
+| `socialProviders` | AuthConfig | `buildSocialProviders` and the temporary Telegram OIDC composition present when this plan was written; Telegram is being removed from this field under the Mini App plugin migration |
 | `iconUrl` | Metadata | not read anywhere in auth options or any contribution |
 | `appUrl` | Metadata | not read by `buildProjectAuthOptions`; the apps/api billing contribution *does* read it, so apps/api promotes it (see below) |
 

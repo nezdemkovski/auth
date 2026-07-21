@@ -188,10 +188,6 @@ export const isEnabledAuthFeaturePath = (project: AuthProject, path: string) => 
     return false;
   }
 
-  if (authPath.startsWith("/telegram/")) {
-    return false;
-  }
-
   if (authPath.startsWith("/passkey/") && !project.features.passkey.enabled) {
     return false;
   }

@@ -144,6 +144,22 @@ describe("project auth options", () => {
     );
   });
 
+  test("includes optional plugin schema in migration options", () => {
+    const options = createProjectMigrationAuthOptions({
+      project: baseRealm,
+      database: undefined,
+      publicBaseUrl: "https://auth.example.com",
+      secret: "x".repeat(32),
+      trustedClientIpHeader: "x-demo-client-ip",
+      protocol,
+      pluginContributions: [() => [{ id: "demo-schema-contribution" }]]
+    });
+
+    expect(options.plugins?.map((plugin) => plugin.id)).toContain(
+      "demo-schema-contribution"
+    );
+  });
+
   test("configures Telegram through Better Auth Generic OAuth with OIDC and PKCE", () => {
     const disabledPluginIds = (createOptions(baseRealm).plugins ?? []).map(
       (plugin) => plugin.id

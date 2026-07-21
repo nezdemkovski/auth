@@ -56,6 +56,7 @@
         "@nezdemkovski/auth-platform-database": "workspace:*",
         "@nezdemkovski/auth-realm": "workspace:*",
         "@nezdemkovski/auth-storage": "workspace:*",
+        "@nezdemkovski/best-auth-telegram": "1.5.3",
         "@polar-sh/better-auth": "1.8.4",
         "@polar-sh/sdk": "0.48.1",
         "better-auth": "1.7.0-rc.1",
@@ -222,7 +223,7 @@
     },
     "packages/public/auth": {
       "name": "@nezdemkovski/auth",
-      "version": "0.1.0",
+      "version": "0.1.3",
       "dependencies": {
         "better-auth": "1.7.0-rc.1",
         "oauth4webapi": "3.8.6",
@@ -785,6 +786,8 @@
     "@nezdemkovski/auth-storage": ["@nezdemkovski/auth-storage@workspace:packages/domains/storage"],
 
     "@nezdemkovski/auth-ui": ["@nezdemkovski/auth-ui@workspace:packages/ui"],
+
+    "@nezdemkovski/best-auth-telegram": ["@nezdemkovski/best-auth-telegram@1.5.3", "", { "dependencies": { "zod": "4.3.6" }, "peerDependencies": { "@better-auth/core": "^1.7.0-rc.1", "better-auth": "^1.7.0-rc.1" } }, "sha512-c3nS6G9A+SLhD9XxsUu4ri6b3s4XPC4yoR26wNzN32T9VqfO3NV1ELOrI/WWGuDYT726uziP1cUHNbZLp0abJQ=="],
 
     "@noble/ciphers": ["@noble/ciphers@2.2.0", "", {}, "sha512-Z6pjIZ/8IJcCGzb2S/0Px5J81yij85xASuk1teLNeg75bfT07MV3a/O2Mtn1I2se43k3lkVEcFaR10N4cgQcZA=="],
 

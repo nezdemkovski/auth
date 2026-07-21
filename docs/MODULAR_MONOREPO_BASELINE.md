@@ -2,6 +2,11 @@
 
 Recorded on 2026-07-13 before the first package extraction.
 
+This file is a historical snapshot, not the current workspace inventory. The
+old `auth-contracts` and `auth-integration` public-package target was later
+superseded by the single `@nezdemkovski/auth` package in
+[`AUTH_SDK_DESIGN.md`](AUTH_SDK_DESIGN.md).
+
 ## Current Workspace Graph
 
 Turborepo discovers eight workspaces:
@@ -40,7 +45,7 @@ or Better Auth runtime code.
 These are temporary migration edges. They are not approved package dependency
 directions.
 
-## Accepted Target Packages
+## Target Packages Accepted at the Time
 
 | Package group | Responsibility | Visibility |
 | --- | --- | --- |

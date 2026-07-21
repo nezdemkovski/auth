@@ -19,7 +19,8 @@ export type {
   AuthClientConfiguration,
   AuthSession,
   AuthUser,
-  SignInOptions
+  SignInOptions,
+  TelegramMiniAppSignInOptions
 } from "./index.js";
 
 const CLOCK_SKEW_MS = 30_000;
@@ -158,6 +159,11 @@ export const createAuthClient: CreateAuthClient = (
       );
       await saveTokenResponse(next);
       await loadSession(next.accessToken);
+    },
+    signInWithTelegramMiniApp: async () => {
+      throw new Error(
+        "Telegram Mini App sign-in is available only in the browser runtime"
+      );
     },
     handleCallback: async () => session,
     getSession: () => session,

@@ -5,6 +5,7 @@ import {
   browserRedirectUri,
   safeReturnTo
 } from "../client/shared";
+import { createTelegramMiniAppSignInRequest } from "../client/web";
 
 describe("auth client boundary", () => {
   test("does not allow an external post-login redirect", () => {
@@ -49,5 +50,30 @@ describe("auth client boundary", () => {
         new URL("https://app.example/library")
       )
     ).toBe("https://app.example/custom/callback");
+  });
+
+  test("builds a top-level Telegram Mini App handoff to the realm plugin", () => {
+    expect(createTelegramMiniAppSignInRequest(
+      "https://auth.example.com/api/demo/",
+      " signed-init-data ",
+      new URL("https://auth.example.com/api/demo/oauth2/authorize?state=demo")
+    )).toEqual({
+      action: "https://auth.example.com/api/demo/auth/telegram/miniapp/signin",
+      fields: {
+        initData: "signed-init-data",
+        callbackURL:
+          "https://auth.example.com/api/demo/oauth2/authorize?state=demo"
+      }
+    });
+  });
+
+  test("does not build a Telegram Mini App handoff without a credential", () => {
+    expect(() =>
+      createTelegramMiniAppSignInRequest(
+        "https://auth.example.com/api/demo",
+        " ",
+        new URL("https://auth.example.com/api/demo/oauth2/authorize")
+      )
+    ).toThrow("initData is required");
   });
 });

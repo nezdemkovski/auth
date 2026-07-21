@@ -27,6 +27,7 @@ function ProjectRouteContent({ projectSlug }: { projectSlug?: string }) {
     usersQuery,
     socialProvidersQuery,
     authConnectionsQuery,
+    telegramMiniAppQuery,
     billingQuery,
     storageQuery,
     storageObjectsQuery,
@@ -59,6 +60,7 @@ function ProjectRouteContent({ projectSlug }: { projectSlug?: string }) {
       usersQuery={usersQuery}
       socialProvidersQuery={socialProvidersQuery}
       authConnectionsQuery={authConnectionsQuery}
+      telegramMiniAppQuery={telegramMiniAppQuery}
       billingQuery={billingQuery}
       storageQuery={storageQuery}
       polarProductsQuery={polarProductsQuery}
@@ -112,6 +114,21 @@ function ProjectRouteContent({ projectSlug }: { projectSlug?: string }) {
           ? mutations.socialProviderVerify.error instanceof Error
             ? mutations.socialProviderVerify.error.message
             : "Provider check failed"
+          : null
+      }
+      telegramConnectPending={mutations.telegramMiniAppConnect.isPending}
+      telegramDisconnectPending={
+        mutations.telegramMiniAppDisconnect.isPending
+      }
+      telegramMutationError={
+        mutations.telegramMiniAppConnect.isError
+          ? mutations.telegramMiniAppConnect.error instanceof Error
+            ? mutations.telegramMiniAppConnect.error.message
+            : "Could not connect Telegram"
+          : mutations.telegramMiniAppDisconnect.isError
+          ? mutations.telegramMiniAppDisconnect.error instanceof Error
+            ? mutations.telegramMiniAppDisconnect.error.message
+            : "Could not disconnect Telegram"
           : null
       }
       billingPending={mutations.billingUpdate.isPending}
@@ -211,6 +228,17 @@ function ProjectRouteContent({ projectSlug }: { projectSlug?: string }) {
         await mutations.authConnectionDelete.mutateAsync({
           project: selected.slug,
           clientId
+        });
+      }}
+      onConnectTelegram={async (connection) => {
+        await mutations.telegramMiniAppConnect.mutateAsync({
+          project: selected.slug,
+          ...connection
+        });
+      }}
+      onDisconnectTelegram={async () => {
+        await mutations.telegramMiniAppDisconnect.mutateAsync({
+          project: selected.slug
         });
       }}
       onUpdateBilling={(patch) =>

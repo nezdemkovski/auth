@@ -67,6 +67,7 @@ type ProjectMigrationOptions<TProject extends Realm> = {
   secret: string;
   trustedClientIpHeader: string;
   protocol: ProjectAuthProtocolOptions<TProject>;
+  pluginContributions?: ProjectAuthPluginContribution<TProject>[];
 };
 
 export const createProjectAuth = <TProject extends Realm>(

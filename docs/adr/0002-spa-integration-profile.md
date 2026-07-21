@@ -1,7 +1,12 @@
 # ADR 0002: SPA Integration Profile with Browser Tokens
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-07-14
+
+Telegram Mini Apps are an explicit exception to the generic hosted-login
+entry ceremony. They use the optional realm plugin defined in
+[`TELEGRAM_MINI_APP_AUTH.md`](../TELEGRAM_MINI_APP_AUTH.md) to validate signed
+launch data before continuing the same public-client OAuth flow.
 
 ## Context
 
@@ -14,7 +19,7 @@ browser application."
 That consequence contradicts the platform's product goal. The platform exists
 to make app integration Supabase-simple: install one SDK in a browser app,
 point it at the realm, done. Requiring every product — including static SPAs
-and Mini Apps without a backend — to run its own auth server, database, and
+and browser-only apps — to run its own auth server, database, and
 migrations is the single largest integration cost and reproduces the kind of
 setup burden the platform was built to remove.
 
@@ -129,12 +134,12 @@ storage on native.
 
 ## Consequences
 
-- New public browser SDK package (working name `@nezdemkovski/auth-spa`,
-  with a native/Expo entry) and optionally a small JWKS verification helper
-  for product backends.
+- One public package, `@nezdemkovski/auth`, exposes isolated `/client` and
+  `/server` entry points. Export conditions select web or native client code;
+  the server entry verifies realm-issued access tokens.
 - The admin "Connect your app" section creates an SPA connection (issuer +
   client id, no secret) as the only app option.
 - `docs/SDK.md` is rewritten around the single profile.
 - The reference product becomes an SPA + resource-server example.
 - `@nezdemkovski/auth-integration` and the legacy `auth-client`/`auth-server`
-  packages are deleted outright; Amela adopts Profile B directly.
+  packages are deleted outright; Amela adopts `@nezdemkovski/auth` directly.

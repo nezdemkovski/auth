@@ -16,9 +16,13 @@
 - Finish the `@nezdemkovski/auth` rollout from
   [`docs/AUTH_SDK_DESIGN.md`](docs/AUTH_SDK_DESIGN.md): add end-to-end PKCE,
   refresh rotation, browser and Expo callback tests; publish the single package;
-  migrate Amela frontend and backend; then verify web, Telegram, native,
-  WebSocket, billing, storage, and MCP behavior before removing compatibility
-  endpoints.
+  migrate Amela frontend and backend; then verify web, Telegram Mini App
+  bootstrap, native, WebSocket, billing, storage, and MCP behavior before
+  removing compatibility endpoints.
+- Finish the realm-scoped Telegram Mini App rollout from
+  [`docs/TELEGRAM_MINI_APP_AUTH.md`](docs/TELEGRAM_MINI_APP_AUTH.md): connect
+  Amela, verify signed `initData` bootstrap on real iOS and Android clients,
+  then remove the temporary Telegram OIDC code and hosted Telegram button.
 - Expand structured request logging to cover request/response metadata without
   leaking credentials, tokens, cookies, or PII.
 - Expand audit events to cover successful email verification/reset flows. Failed
@@ -142,7 +146,7 @@
   the API, and the package does not mint sessions or replace Better Auth's user
   model.
 - Per-realm Better Auth construction, lifecycle registry, auth policy,
-  Telegram OIDC, project database setup, OAuth metadata, and DPoP verification
+  project database setup, OAuth metadata, and DPoP verification
   extracted into private compiled `@nezdemkovski/auth-better-auth-runtime`;
   delivery and billing enter only through app-owned composition functions.
 - Realm metadata, feature policy, social-provider configuration, validation,

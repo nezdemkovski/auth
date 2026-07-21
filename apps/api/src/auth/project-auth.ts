@@ -44,6 +44,7 @@ export const createProjectMigrationAuthOptions = (options: {
   database: BetterAuthOptions["database"];
   publicBaseUrl: string;
   secret: string;
+  pluginContributions?: ProjectAuthPluginContribution[];
 }) => {
   return createRuntimeMigrationAuthOptions({
     ...options,

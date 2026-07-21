@@ -32,6 +32,7 @@ import type { AuthProject } from "../config/projects";
 import { AuthRegistry } from "../auth/registry";
 import { createOAuthResourceRegistryPort } from "../auth/oauth-resource";
 import { migrateDatabase } from "../db/migrate";
+import { prepareProjectSchema } from "../db/bootstrap";
 import { createAdminDatabase } from "../db/admin-pool";
 import { registerBillingUsageRoutes } from "../modules/billing-usage/http";
 import { registerBillingCustomerRoutes } from "../modules/billing-customer/http";
@@ -39,6 +40,11 @@ import { BillingCustomerService } from "../modules/billing-customer/core";
 import { registerOAuthResourceRoutes } from "../modules/oauth-resource/http";
 import { reconcileApplicationConnections } from "../modules/auth-connections/core";
 import { createBillingAuthPluginContribution } from "../modules/billing/better-auth";
+import {
+  createTelegramMiniAppAuthPluginContribution
+} from "../modules/telegram-mini-app/better-auth";
+import { TelegramMiniAppService } from "../modules/telegram-mini-app/core";
+import { createTelegramMiniAppStore } from "../modules/telegram-mini-app/store";
 import { loadEffectiveProjects } from "../application/project-catalog";
 import { MediaService } from "../modules/media/core";
 import { ErrorCode } from "../runtime/error-codes";
@@ -108,6 +114,15 @@ export const createApp = async (env: Env) => {
   const polarWebhookStore = createPolarWebhookStore(billingStoreOptions, {
     error: logError
   });
+  const telegramMiniAppStore = createTelegramMiniAppStore({
+    databaseUrl: env.databaseUrl,
+    adminProject,
+    adminDb,
+    encryptionSecret: env.secretEncryptionKey
+  });
+  const telegramMiniAppSettings = await telegramMiniAppStore.loadAll();
+  const telegramMiniAppContribution =
+    createTelegramMiniAppAuthPluginContribution(telegramMiniAppSettings);
   const registry = new AuthRegistry({
     databaseUrl: env.databaseUrl,
     publicBaseUrl: env.publicBaseUrl,
@@ -116,6 +131,7 @@ export const createApp = async (env: Env) => {
     trustProxyHeaders: env.trustProxyHeaders,
     projects: [adminProject, ...projects],
     pluginContributions: [
+      telegramMiniAppContribution,
       createBillingAuthPluginContribution({
         entitlements: polarEntitlementGrantStore,
         webhooks: polarWebhookStore
@@ -123,6 +139,20 @@ export const createApp = async (env: Env) => {
     ]
   });
   await registry.ready();
+  const telegramMiniAppService = new TelegramMiniAppService({
+    store: telegramMiniAppStore,
+    runtimeSettings: telegramMiniAppSettings,
+    applyRuntimeSettings: async (project) => {
+      await prepareProjectSchema({
+        databaseUrl: env.databaseUrl,
+        publicBaseUrl: env.publicBaseUrl,
+        secret: env.betterAuthSecret,
+        project,
+        pluginContributions: [telegramMiniAppContribution]
+      });
+      await registry.updateProject(project);
+    }
+  });
   await reconcileApplicationConnections(registry, env.publicBaseUrl);
   const oauthResourceRegistry = createOAuthResourceRegistryPort(registry);
   const oauthResourceAuthorizer = createOAuthResourceAuthorizer({
@@ -210,7 +240,8 @@ export const createApp = async (env: Env) => {
       managedStorage: env.storage,
       observabilityReporter,
       mediaService,
-      storageService
+      storageService,
+      telegramMiniAppService
     })
   );
 

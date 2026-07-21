@@ -140,6 +140,16 @@ export type SocialProviderPatch = {
   clientSecret?: string;
 };
 
+export type TelegramMiniAppConnection = {
+  enabled: boolean;
+  botUsername: string | null;
+};
+
+export type TelegramMiniAppConnectionInput = {
+  botUsername: string;
+  botToken: string;
+};
+
 export type DeliveryProvider = "none" | "cloudflare" | "resend";
 
 export type DeliverySettings = {

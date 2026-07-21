@@ -15,7 +15,7 @@ tokens with an explicit resource audience and least-privilege scope.
 | `DELETE /api/:realm/upload` | User-delegated platform resource | OAuth token for the exact upload resource with `storage:avatar:delete` | Converted. |
 | `GET /api/:realm/billing/usage/summary` | User-delegated platform resource | OAuth token for the exact billing resource with `billing:usage:read` | Converted. |
 | Billing usage `consume`, `reserve`, `commit`, and `release` | Service-only platform resource | Client Credentials token with `billing:usage:write` plus an explicit user subject | Converted. Browser cookies and user-delegated tokens cannot mutate authoritative quota state. |
-| Product-specific business operations | Product-owned business boundary | Product-local Better Auth session | Keep out of the auth platform unless the capability is genuinely shared. |
+| Product-specific business operations | Product-owned business boundary | Realm-issued OAuth access token verified by the product backend | Keep out of the auth platform unless the capability is genuinely shared. |
 
 ## Registered resources
 

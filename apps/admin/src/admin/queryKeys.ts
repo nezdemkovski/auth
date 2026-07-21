@@ -17,6 +17,11 @@ export const adminQueryKeys = {
     "auth-connections",
     project
   ],
+  telegramMiniApp: (project: string | undefined) => [
+    ...adminQueryKeys.root,
+    "telegram-mini-app",
+    project
+  ],
   billing: (project: string | undefined) => [
     ...adminQueryKeys.root,
     "billing",

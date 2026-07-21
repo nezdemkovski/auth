@@ -33,6 +33,7 @@ import {
 } from "@nezdemkovski/auth-realm";
 
 import type { AuthProject } from "../config/projects";
+import { ensureTelegramMiniAppConnectionTable } from "../modules/telegram-mini-app/store";
 import { randomBase64Url } from "../runtime/crypto";
 import { logError } from "../runtime/logger";
 import {
@@ -55,6 +56,9 @@ type ProjectSchemaOptions = Pick<
   "databaseUrl" | "publicBaseUrl" | "secret"
 > & {
   project: AuthProject;
+  pluginContributions?: Parameters<
+    typeof createProjectMigrationAuthOptions
+  >[0]["pluginContributions"];
 };
 
 const BOOTSTRAP_LOCK_KEY = "nezdemkovski-auth-bootstrap";
@@ -70,6 +74,7 @@ export const bootstrapProjects = async (options: BootstrapOptions) => {
 
     await bootstrapInitialAdmin(options);
     await ensureRealmTables(options);
+    await ensureTelegramMiniAppConnectionTable(options);
     await seedAdminRealmSettings({
       databaseUrl: options.databaseUrl,
       adminProject: options.adminProject,
@@ -196,7 +201,8 @@ const prepareProjectSchemaUnlocked = async (options: ProjectSchemaOptions) => {
         project: options.project,
         database: pool,
         publicBaseUrl: options.publicBaseUrl,
-        secret: options.secret
+        secret: options.secret,
+        pluginContributions: options.pluginContributions
       })
     );
     await ensureStorageObjectsTable(pool);

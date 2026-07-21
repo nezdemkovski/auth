@@ -16,6 +16,10 @@ export type SignInOptions = {
   returnTo?: string;
 };
 
+export type TelegramMiniAppSignInOptions = SignInOptions & {
+  initData: string;
+};
+
 export type AuthClientConfiguration = AuthConfiguration & {
   redirectUri?: string;
 };
@@ -23,6 +27,9 @@ export type AuthClientConfiguration = AuthConfiguration & {
 export type AuthClient = {
   initialize(): Promise<AuthSession | null>;
   signIn(options?: SignInOptions): Promise<void>;
+  signInWithTelegramMiniApp(
+    options: TelegramMiniAppSignInOptions
+  ): Promise<void>;
   handleCallback(): Promise<AuthSession | null>;
   getSession(): AuthSession | null;
   getAccessToken(): Promise<string | null>;

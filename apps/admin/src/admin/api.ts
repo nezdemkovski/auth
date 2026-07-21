@@ -7,4 +7,5 @@ export * from "./api/projects";
 export * from "./api/shared";
 export * from "./api/socialProviders";
 export * from "./api/storage";
+export * from "./api/telegramMiniApp";
 export * from "./api/users";

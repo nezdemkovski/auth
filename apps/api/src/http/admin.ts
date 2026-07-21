@@ -23,6 +23,9 @@ import { registerStorageRoutes } from "../modules/storage/http";
 import { UsersService } from "../modules/users/core";
 import { registerUserRoutes } from "../modules/users/http";
 import {
+  registerTelegramMiniAppRoutes
+} from "../modules/telegram-mini-app/http";
+import {
   isStateChangingMethod,
   isTrustedAdminRequest,
   type AdminApiOptions
@@ -97,6 +100,7 @@ export const createAdminApi = (options: AdminApiOptions) => {
     authConnectionService,
     projectService,
     storageService: options.storageService,
+    telegramMiniAppService: options.telegramMiniAppService,
     usersService
   };
 
@@ -121,6 +125,7 @@ export const createAdminApi = (options: AdminApiOptions) => {
   registerAuthConnectionRoutes(routeContext);
   registerBillingRoutes(routeContext);
   registerStorageRoutes(routeContext);
+  registerTelegramMiniAppRoutes(routeContext);
 
   registerUserRoutes(routeContext);
 

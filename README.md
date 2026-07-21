@@ -33,11 +33,13 @@ https://auth.nezdemkovski.cloud/api/<project>/.well-known/jwks.json
 apps/api                 Hono/Bun auth API
 apps/admin               Vite React admin dashboard
 apps/login               Vite React login experience
-apps/reference-product   Executable Better Auth product integration
-packages/auth-contracts  Platform business DTOs and runtime parsers
-packages/auth-integration Thin product-side Better Auth configuration
+apps/reference-product   Executable OAuth resource-server example
 packages/client-shared   Shared frontend theme and CSS
-packages/platform/oauth-client-management Realm-owned OAuth client control plane
+packages/domains/*       Private realm, identity, billing, storage, delivery,
+                         and observability capabilities
+packages/foundation/*    Private database and cryptography foundations
+packages/platform/*      Private Better Auth runtime and OAuth control planes
+packages/public/auth     The single public @nezdemkovski/auth SDK
 packages/ui              Shared React UI primitives
 charts/auth              OCI Helm chart for the full runtime stack
 ```
