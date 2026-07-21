@@ -20,6 +20,48 @@ const mockAdminObservability = async (page: Page) => {
   );
 };
 
+test("hosted login preserves Better Auth repeated signed parameters", async ({
+  page
+}) => {
+  await page.route("**/api/demo/login/config/login**", (route) =>
+    route.fulfill({
+      json: {
+        project: "demo",
+        projectName: "Demo App",
+        mode: "login",
+        features: {
+          passkey: { enabled: false },
+          twoFactor: { enabled: false, required: "optional" },
+          agentAuth: { enabled: false, mode: "read-only" }
+        },
+        socialProviders: [],
+        observability: {
+          enabled: false,
+          dsn: "",
+          environment: "test"
+        }
+      }
+    })
+  );
+
+  const params = new URLSearchParams({
+    ba_iat: "1784671200",
+    client_id: "demo-client",
+    sig: "demo-signature"
+  });
+  params.append("ba_param", "ba_iat");
+  params.append("ba_param", "ba_param");
+  params.append("ba_param", "client_id");
+
+  await page.goto(`http://127.0.0.1:5174/login/demo?${params}`);
+
+  await expect(page.getByText("Welcome back.")).toBeVisible();
+  await expect
+    .poll(() => new URL(page.url()).searchParams.getAll("ba_param"))
+    .toEqual(["ba_iat", "ba_param", "client_id"]);
+  expect(new URL(page.url()).searchParams.get("sig")).toBe("demo-signature");
+});
+
 test("hosted login fails visibly and removes credentials from the browser URL", async ({ page }) => {
   await page.route("**/api/demo/login/config/login**", (route) => route.abort("failed"));
 

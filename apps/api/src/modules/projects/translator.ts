@@ -1,7 +1,6 @@
 import type { AuthProject } from "../../config/projects";
 import {
   SOCIAL_PROVIDER_CATALOG,
-  SocialProvider,
   type SocialProviderId,
   type SocialProviderSummary
 } from "@nezdemkovski/auth-realm";
@@ -30,10 +29,7 @@ export const socialProviderCallbackUrl = (
   project: Pick<AuthProject, "slug">,
   provider: SocialProviderId
 ) => {
-  const callbackPath = provider === SocialProvider.Telegram
-    ? `/oauth2/callback/${provider}`
-    : `/callback/${provider}`;
-  return `${publicBaseUrl}/api/${project.slug}/auth${callbackPath}`;
+  return `${publicBaseUrl}/api/${project.slug}/auth/callback/${provider}`;
 };
 
 export const projectSetupResponse = (

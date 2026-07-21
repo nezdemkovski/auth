@@ -9,6 +9,7 @@ import {
 
 import "@nezdemkovski/auth-client-shared/style.css";
 import { LoginConfigError, LoginConfigLoader } from "./config-loader";
+import { parseOAuthSearch, stringifyOAuthSearch } from "./oauth-query";
 import { LoginPage } from "./pages/LoginPage";
 import { OAuthConsentPage } from "./pages/OAuthConsentPage";
 import { PasswordResetPage } from "./pages/PasswordResetPage";
@@ -46,7 +47,9 @@ const routeTree = rootRoute.addChildren([
 
 const loginRouter = createRouter({
   routeTree,
-  basepath: "/login"
+  basepath: "/login",
+  parseSearch: parseOAuthSearch,
+  stringifySearch: stringifyOAuthSearch
 });
 
 declare module "@tanstack/react-router" {
@@ -101,4 +104,3 @@ function OAuthConsentRoute() {
     </LoginConfigLoader>
   );
 }
-

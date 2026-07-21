@@ -18,8 +18,6 @@ describe("social provider response mapping", () => {
         ADMIN_REALM,
         SocialProvider.Telegram
       )
-    ).toBe(
-      "https://auth.example.com/api/admin/auth/oauth2/callback/telegram"
-    );
+    ).toBe("https://auth.example.com/api/admin/auth/callback/telegram");
   });
 });
