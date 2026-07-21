@@ -10,7 +10,6 @@ RUN bun install --frozen-lockfile --production --omit optional --omit peer
 
 FROM install AS build
 COPY --from=prune /app/out/full/ ./
-RUN bun build packages/auth-contracts/src/billing/contract.ts packages/auth-contracts/src/storage/contract.ts --outdir packages/auth-contracts/dist --root packages/auth-contracts/src --target browser --packages external
 RUN bun build packages/foundation/platform-crypto/src/index.ts --outdir packages/foundation/platform-crypto/dist --target bun --packages external
 RUN bun build packages/foundation/platform-database/src/index.ts --outdir packages/foundation/platform-database/dist --target bun --packages external
 RUN bun build packages/domains/delivery/src/index.ts --outdir packages/domains/delivery/dist --target bun --packages external
@@ -40,8 +39,6 @@ COPY --from=install /app/packages/platform/oauth-client-management/node_modules 
 COPY --from=install /app/packages/platform/better-auth-runtime/node_modules ./packages/platform/better-auth-runtime/node_modules
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build /app/apps/api/src ./apps/api/src
-COPY --from=build /app/packages/auth-contracts/package.json ./packages/auth-contracts/package.json
-COPY --from=build /app/packages/auth-contracts/dist ./packages/auth-contracts/dist
 COPY --from=build /app/packages/domains/delivery/package.json ./packages/domains/delivery/package.json
 COPY --from=build /app/packages/domains/delivery/dist ./packages/domains/delivery/dist
 COPY --from=build /app/packages/foundation/platform-database/package.json ./packages/foundation/platform-database/package.json

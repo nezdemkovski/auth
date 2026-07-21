@@ -114,6 +114,10 @@ describe("repository security controls", () => {
     expect(workflow).not.toContain("auth-contracts-v*");
     expect(workflow).not.toContain("auth-integration-v*");
     expect(workflow).toContain("npm pack");
+
+    const apiDockerfile = await read("apps/api/Dockerfile");
+    expect(apiDockerfile).not.toContain("packages/auth-contracts");
+    expect(apiDockerfile).not.toContain("packages/auth-integration");
   });
 
   test("enforces an acyclic modular workspace dependency policy", async () => {
