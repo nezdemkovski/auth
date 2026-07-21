@@ -3,6 +3,7 @@ export {
   OAUTH_SCOPES,
   oauthResourceDefinitions,
   oauthResourceIdentifier,
+  oauthResourceMetadataScopes,
   oauthResourceMetadataUrl,
   oauthResourceScopes,
   oauthTokenKindClaim

@@ -3,7 +3,7 @@ import type { ResourceRequestInput } from "better-auth/oauth2";
 
 import {
   oauthResourceIdentifier,
-  oauthResourceScopes,
+  oauthResourceMetadataScopes,
   oauthTokenKindClaim
 } from "./config";
 import {
@@ -34,7 +34,7 @@ export const readOAuthResourceMetadata = async <TRegistered>(
       registration.projectSlug,
       options.resource
     ),
-    scopes_supported: oauthResourceScopes(options.resource)
+    scopes_supported: oauthResourceMetadataScopes(options.resource)
   });
 };
 

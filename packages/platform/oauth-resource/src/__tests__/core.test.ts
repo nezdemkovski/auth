@@ -189,4 +189,26 @@ describe("OAuth resource authorization", () => {
       })
     ).rejects.toMatchObject({ kind: "unknown_project" });
   });
+
+  test("keeps authorization-server identity scopes out of app resource metadata", async () => {
+    const { registry } = createRegistered({});
+
+    await expect(
+      readOAuthResourceMetadata({
+        registry,
+        publicBaseUrl,
+        projectSlug: "demo",
+        resource: OAuthResource.Application
+      })
+    ).resolves.toEqual({
+      resource: "https://auth.example.com/api/demo/app",
+      scopes_supported: [
+        OAuthScope.StorageAvatarWrite,
+        OAuthScope.StorageAvatarDelete,
+        OAuthScope.BillingUsageRead,
+        OAuthScope.BillingCheckoutCreate,
+        OAuthScope.BillingPortalRead
+      ]
+    });
+  });
 });

@@ -7,6 +7,7 @@ import {
   OAuthTokenKind,
   oauthResourceDefinitions,
   oauthResourceIdentifier,
+  oauthResourceMetadataScopes,
   oauthResourceMetadataUrl,
   oauthResourceScopes,
   oauthTokenKindClaim
@@ -28,6 +29,13 @@ describe("OAuth platform resources", () => {
     expect(oauthResourceScopes(OAuthResource.Billing)).toEqual([
       OAuthScope.BillingUsageRead,
       OAuthScope.BillingUsageWrite,
+      OAuthScope.BillingCheckoutCreate,
+      OAuthScope.BillingPortalRead
+    ]);
+    expect(oauthResourceMetadataScopes(OAuthResource.Application)).toEqual([
+      OAuthScope.StorageAvatarWrite,
+      OAuthScope.StorageAvatarDelete,
+      OAuthScope.BillingUsageRead,
       OAuthScope.BillingCheckoutCreate,
       OAuthScope.BillingPortalRead
     ]);

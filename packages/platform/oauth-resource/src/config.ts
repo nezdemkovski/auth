@@ -41,6 +41,12 @@ export const oauthResourceScopes = (resource: OAuthResource) => {
   return [];
 };
 
+export const oauthResourceMetadataScopes = (resource: OAuthResource) => {
+  return oauthResourceScopes(resource).filter(
+    (scope) => !OAUTH_DYNAMIC_CLIENT_SCOPES.includes(scope)
+  );
+};
+
 export const oauthTokenKindClaim = (publicBaseUrl: string) => {
   return `${new URL(publicBaseUrl).origin}/claims/token-kind`;
 };
