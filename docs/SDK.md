@@ -1,229 +1,112 @@
-# Better Auth Product Integration
+# Product integration
 
-Product applications use Better Auth directly. This repository publishes only
-the platform-specific pieces that Better Auth cannot know:
+A normal product installs one package and copies two values from its realm:
 
-```text
-@nezdemkovski/auth-integration  Thin server-side provider config and identity helpers
-@nezdemkovski/auth-contracts    Stable DTOs for platform-owned business resources
+```bash
+bun add @nezdemkovski/auth
 ```
-
-There is intentionally no product auth client or token-verification wrapper.
-The former `@nezdemkovski/auth-client@0.1.0` and
-`@nezdemkovski/auth-server@0.1.0` implement a parallel session and token state
-machine and must not be used for new integrations.
-
-## Golden path
-
-Create a realm in the admin and provide only the app name, web-app URL, and
-backend URL. Realm creation registers the Better Auth callback and returns the
-only three values the product backend needs:
 
 ```dotenv
 AUTH_ISSUER=https://auth.example.com/api/demo
 AUTH_CLIENT_ID=...
-AUTH_CLIENT_SECRET=...
 ```
 
-Copy the block immediately because the client secret is shown once. The realm
-is then ready for hosted user login, product sessions, and standards-based MCP
-client discovery. The auth platform configures OAuth/OIDC details internally;
-the product does not choose profiles, scopes, resources, or registration modes
-during onboarding.
+There is no client secret for user login. The SDK derives discovery URLs,
+scopes, resource audience, JWKS, PKCE, refresh, and revocation details from the
+issuer.
 
-## Product server
+## Application client
 
-Install Better Auth and the thin integration package:
-
-```bash
-bun add better-auth @nezdemkovski/auth-integration
-```
-
-Configure the central realm as a Generic OAuth provider in the product's own
-Better Auth instance:
+The same import works in a browser and Expo. Package export conditions select
+the correct implementation.
 
 ```ts
-import { createAuthPlatformProvider } from "@nezdemkovski/auth-integration";
-import { betterAuth } from "better-auth";
-import { genericOAuth } from "better-auth/plugins";
+import { createAuthClient } from "@nezdemkovski/auth/client";
 
-export const auth = betterAuth({
-  baseURL: "https://demo.example.com",
-  database,
-  plugins: [
-    genericOAuth({
-      config: [
-        createAuthPlatformProvider({
-          issuer: "https://auth.example.com/api/demo",
-          clientId: env.AUTH_CLIENT_ID,
-          clientSecret: env.AUTH_CLIENT_SECRET
-        })
-      ]
-    })
-  ]
+const auth = createAuthClient({
+  issuer: env.AUTH_ISSUER,
+  clientId: env.AUTH_CLIENT_ID
 });
+
+await auth.initialize();
+await auth.signIn({ returnTo: "/chats" });
+await auth.handleCallback();
+
+const session = auth.getSession();
+const accessToken = await auth.getAccessToken();
 ```
 
-Mount `auth.handler` under the product application's Better Auth route. Better
-Auth owns authorization-code exchange, PKCE, provider token storage, refresh,
-account linking, and the product's HttpOnly session cookie.
+Send the access token to the product backend as `Authorization: Bearer ...`.
+The browser implementation keeps access tokens in memory and uses standard
+OIDC Authorization Code with PKCE. Expo opens the hosted realm login and keeps
+the refresh credential in SecureStore.
 
-## Product browser
+## Product backend
 
-The browser talks only to the product application's Better Auth client:
+The backend is a resource server. It does not create another auth instance or
+another product session.
 
 ```ts
-import { createAuthClient } from "better-auth/client";
+import { createAuthServer } from "@nezdemkovski/auth/server";
 
-const authClient = createAuthClient({
-  baseURL: "https://demo.example.com"
+const auth = createAuthServer({
+  issuer: env.AUTH_ISSUER,
+  clientId: env.AUTH_CLIENT_ID
 });
 
-await authClient.signIn.social({
-  provider: "auth-platform",
-  callbackURL: "https://demo.example.com/signed-in"
-});
+const identity = await auth.verifyRequest(request);
 ```
 
-Do not store or relay central access tokens, refresh tokens, session cookies, or
-PKCE state in product browser code.
+`identity.issuer + identity.subject` is the stable user identity. Email and
+name are profile fields and must not be used as cross-system identifiers.
 
-Telegram is configured once on the central realm as an OIDC social provider.
-Products do not install a Telegram auth SDK or handle Mini App `initData`.
-Starting Telegram from the hosted login page uses the same
-`signIn.social({ provider: "telegram" })` Better Auth flow as every other
-central provider, including when the product is open inside a Mini App webview.
-The realm callback registered with Telegram is:
+The server SDK uses Better Auth's official resource-server verifier and checks
+signature, issuer, application audience, expiry, client id, and user token
+kind.
 
-```text
-https://auth.example.com/api/<realm>/auth/oauth2/callback/telegram
-```
+## Billing and storage
 
-## Stable central identity
-
-On the product server, read the linked provider account and extract its stable
-central identity:
+Billing and avatar operations are separate modules in the same npm package. They
+reuse the application access token and keep endpoint details out of the product:
 
 ```ts
-import { readAuthPlatformIdentity } from "@nezdemkovski/auth-integration";
+import { createBillingClient } from "@nezdemkovski/auth/billing";
+import { createStorageClient } from "@nezdemkovski/auth/storage";
 
-const identity = readAuthPlatformIdentity(accounts, {
-  issuer: "https://auth.example.com/api/demo"
-});
+const billing = createBillingClient({ issuer: env.AUTH_ISSUER, auth });
+const storage = createStorageClient({ issuer: env.AUTH_ISSUER, auth });
+
+await billing.getUsageSummary("messages");
+const checkoutUrl = await billing.createCheckout("pro");
+const portalUrl = await billing.createPortal();
+await storage.uploadAvatar(file);
 ```
 
-Persist the `issuer + subject` pair. Email is mutable profile data and is not a
-cross-system identity key.
+User-facing reads and avatar operations use the same application access token.
+The SDK requests their scopes internally; the product does not configure
+audiences or scopes.
 
-## Calling platform resources
+## Optional server credentials
 
-Any platform capability retained for cross-product use must be registered as an
-OAuth resource with explicit scopes. Its resource server verifies tokens with
-Better Auth's official client:
+User login never needs a secret. A backend needs a separate service credential
+only for machine-only operations such as consuming billing quota:
 
-```bash
-bun add @better-auth/oauth-provider@1.7.0-rc.1
+```dotenv
+AUTH_SERVICE_CLIENT_ID=...
+AUTH_SERVICE_CLIENT_SECRET=...
 ```
 
-```ts
-import { oauthProviderResourceClient } from "@better-auth/oauth-provider/resource-client";
-
-const { verifyAccessTokenRequest } = oauthProviderResourceClient().getActions();
-
-const claims = await verifyAccessTokenRequest(request, {
-  jwksUrl: "https://auth.example.com/api/demo/.well-known/jwks.json",
-  verifyOptions: {
-    issuer: "https://auth.example.com/api/demo",
-    audience: "https://auth.example.com/api/demo/upload"
-  },
-  scopes: ["storage:avatar:write"]
-});
-```
-
-Use `verifyAccessTokenRequest` for new integrations so DPoP-bound requests can
-also be enforced. After protocol verification, application code owns only its
-domain authorization decisions. Do not use this example until the exact
-resource and scopes have been registered in the central realm; there is no
-session-token compatibility fallback.
-
-The upload resource publishes discovery metadata at
-`/.well-known/oauth-protected-resource/api/<realm>/upload`. OAuth clients must
-also be linked to that Better Auth resource before requesting its audience.
-
-## Service-only billing mutations
-
-Quota mutation is a backend-to-backend operation. Provision a confidential
-Better Auth client with only the `client_credentials` grant, the
-`billing:usage:write` scope, and a link to the realm's billing resource. Keep
-its secret in the product backend; never send the secret or resulting token to
-the browser.
-
-Request the standard Better Auth M2M token:
-
-```ts
-const credentials = Buffer.from(
-  `${env.AUTH_SERVICE_CLIENT_ID}:${env.AUTH_SERVICE_CLIENT_SECRET}`
-).toString("base64");
-const tokenResponse = await fetch(
-  "https://auth.example.com/api/demo/auth/oauth2/token",
-  {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${credentials}`,
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: new URLSearchParams({
-      grant_type: "client_credentials",
-      scope: "billing:usage:write",
-      resource: "https://auth.example.com/api/demo/billing"
-    })
-  }
-);
-const { access_token: accessToken } = await tokenResponse.json();
-```
-
-Then pass the central `issuer + subject` mapping already stored by the product
-backend. The M2M token's own `sub` identifies the service client; it never
-impersonates the user:
-
-```ts
-await fetch("https://auth.example.com/api/demo/billing/usage/consume", {
-  method: "POST",
-  headers: {
-    Authorization: `Bearer ${accessToken}`,
-    "Content-Type": "application/json",
-    "Idempotency-Key": crypto.randomUUID()
-  },
-  body: JSON.stringify({
-    subject: centralIdentity.subject,
-    key: "generation_credits",
-    amount: 1
-  })
-});
-```
-
-The same contract applies to `reserve`, `commit`, and `release`. User session
-cookies and user-delegated OAuth tokens are deliberately rejected on all four
-mutation routes.
-
-## Business contracts
-
-`@nezdemkovski/auth-contracts` contains parsers for platform business resource
-DTOs such as billing usage and avatar responses. Import the capability-specific
-contract from `@nezdemkovski/auth-contracts/billing` or
-`@nezdemkovski/auth-contracts/storage`; the package deliberately has no root
-export and does not copy Better Auth OAuth, token, session, user, or error
-response types.
+Those credentials use Better Auth's standard `client_credentials` grant,
+belong to one realm, and must never enter browser or native code.
 
 ## Publishing
 
-Packages are versioned independently and published from immutable tags:
+The package is released from an immutable matching tag:
 
 ```text
-auth-integration-v0.1.0
-auth-contracts-v0.3.0
+auth-v0.1.2
 ```
 
-The workflow validates that the tag matches the selected package manifest,
-runs the complete repository test suite, builds that package, refuses an
-existing npm version, and publishes through npm trusted publishing.
+The release workflow runs the repository tests, builds the package, checks its
+tarball, refuses an existing version, and publishes through npm trusted
+publishing.

@@ -27,11 +27,27 @@ describe("OAuth platform resources", () => {
     ]);
     expect(oauthResourceScopes(OAuthResource.Billing)).toEqual([
       OAuthScope.BillingUsageRead,
-      OAuthScope.BillingUsageWrite
+      OAuthScope.BillingUsageWrite,
+      OAuthScope.BillingCheckoutCreate,
+      OAuthScope.BillingPortalRead
     ]);
     expect(
       oauthResourceDefinitions("https://auth.example.com", "demo")
     ).toEqual([
+      {
+        identifier: "https://auth.example.com/api/demo/app",
+        allowedScopes: [
+          OAuthScope.OpenId,
+          OAuthScope.Profile,
+          OAuthScope.Email,
+          OAuthScope.OfflineAccess,
+          OAuthScope.StorageAvatarWrite,
+          OAuthScope.StorageAvatarDelete,
+          OAuthScope.BillingUsageRead,
+          OAuthScope.BillingCheckoutCreate,
+          OAuthScope.BillingPortalRead
+        ]
+      },
       {
         identifier: "https://auth.example.com/api/demo/upload",
         allowedScopes: [
@@ -43,7 +59,9 @@ describe("OAuth platform resources", () => {
         identifier: "https://auth.example.com/api/demo/billing",
         allowedScopes: [
           OAuthScope.BillingUsageRead,
-          OAuthScope.BillingUsageWrite
+          OAuthScope.BillingUsageWrite,
+          OAuthScope.BillingCheckoutCreate,
+          OAuthScope.BillingPortalRead
         ]
       }
     ]);

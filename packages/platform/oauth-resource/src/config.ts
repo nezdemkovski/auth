@@ -13,11 +13,29 @@ export const OAUTH_DYNAMIC_CLIENT_SCOPES = [
 ];
 
 export const oauthResourceScopes = (resource: OAuthResource) => {
+  if (resource === OAuthResource.Application) {
+    return [
+      OAuthScope.OpenId,
+      OAuthScope.Profile,
+      OAuthScope.Email,
+      OAuthScope.OfflineAccess,
+      OAuthScope.StorageAvatarWrite,
+      OAuthScope.StorageAvatarDelete,
+      OAuthScope.BillingUsageRead,
+      OAuthScope.BillingCheckoutCreate,
+      OAuthScope.BillingPortalRead
+    ];
+  }
   if (resource === OAuthResource.Storage) {
     return [OAuthScope.StorageAvatarWrite, OAuthScope.StorageAvatarDelete];
   }
   if (resource === OAuthResource.Billing) {
-    return [OAuthScope.BillingUsageRead, OAuthScope.BillingUsageWrite];
+    return [
+      OAuthScope.BillingUsageRead,
+      OAuthScope.BillingUsageWrite,
+      OAuthScope.BillingCheckoutCreate,
+      OAuthScope.BillingPortalRead
+    ];
   }
 
   return [];
@@ -32,6 +50,9 @@ export const oauthResourceIdentifier = (
   projectSlug: string,
   resource: OAuthResource
 ) => {
+  if (resource === OAuthResource.Application) {
+    return `${publicBaseUrl}/api/${projectSlug}/app`;
+  }
   if (resource === OAuthResource.Storage) {
     return `${publicBaseUrl}/api/${projectSlug}/upload`;
   }

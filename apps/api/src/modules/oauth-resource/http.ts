@@ -25,6 +25,10 @@ export const registerOAuthResourceRoutes = (
 ) => {
   const metadataRoutes = [
     {
+      path: "/.well-known/oauth-protected-resource/api/:project/app",
+      resource: OAuthResource.Application
+    },
+    {
       path: "/.well-known/oauth-protected-resource/api/:project/upload",
       resource: OAuthResource.Storage
     },

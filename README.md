@@ -192,33 +192,30 @@ The local compose stack includes RustFS for development. It creates an
 
 ## Product Login
 
-Product applications run their own Better Auth instance and configure the
-central realm as a Generic OAuth provider. The product backend starts the
-authorization-code flow with PKCE, the central hosted UI preserves Better
-Auth's signed OAuth query, and Better Auth completes the callback into the
-product application's own HttpOnly session cookie.
+Product applications install `@nezdemkovski/auth`. Browser and Expo clients use
+the central realm as a public OAuth client with Authorization Code + PKCE; the
+product backend uses the server entry point as a resource server. Products do
+not create a second Better Auth instance or a parallel session protocol.
 
-The central realm session cookie stays on the auth origin. Product browser code
-does not store central access tokens, refresh tokens, PKCE state, or a copied
-central session credential.
+The central realm session cookie stays on the auth origin. The SDK keeps access
+tokens in memory, owns refresh/revocation mechanics, and never copies a central
+Better Auth session credential into the product.
 
 ## Authentication Connections and MCP
 
-Creating a realm is the normal integration path. The admin enters an app name,
-web-app origin, and backend origin. The server creates the isolated realm,
-enables its Better Auth OAuth/OIDC provider, registers the product callback,
-and returns one copy-ready backend environment block:
+Creating a realm is the normal integration path. The admin enters an app name
+and app URL. The server creates the isolated realm, enables its Better Auth
+OAuth/OIDC provider, registers the product callback, and returns one copy-ready
+environment block:
 
 ```dotenv
 AUTH_ISSUER=https://auth.example.com/api/demo
 AUTH_CLIENT_ID=...
-AUTH_CLIENT_SECRET=...
 ```
 
-The secret is returned once. OAuth profiles, callback paths, scopes, resources,
-PKCE, consent policy, and MCP client discovery are server-owned defaults rather
-than onboarding choices. A realm has one primary product-backend integration;
-new keys rotate that integration instead of creating competing profiles.
+OAuth profiles, callback paths, scopes, resources, PKCE, consent policy, and
+MCP client discovery are server-owned defaults rather than onboarding choices.
+A normal application login never has a client secret.
 
 MCP authentication uses Better Auth's OAuth Provider together with its CIMD
 plugin. Standards-aware MCP clients identify themselves through a verified
@@ -228,8 +225,8 @@ Registration disabled. The product still owns its actual MCP tools and
 publishes protected-resource metadata that points to the realm as its
 authorization server.
 
-Rare trusted backend-to-backend access is kept separately under the collapsed
-Backend API keys section. Those credentials belong to the realm, use the
+Rare trusted backend-to-backend access is kept separately under Advanced
+server access. Those credentials belong to the realm, use the
 Better Auth `client_credentials` flow, receive only named permissions, and are
 never exposed to browser code.
 

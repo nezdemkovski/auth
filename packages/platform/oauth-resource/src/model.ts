@@ -9,10 +9,13 @@ export enum OAuthScope {
   StorageAvatarWrite = "storage:avatar:write",
   StorageAvatarDelete = "storage:avatar:delete",
   BillingUsageRead = "billing:usage:read",
-  BillingUsageWrite = "billing:usage:write"
+  BillingUsageWrite = "billing:usage:write",
+  BillingCheckoutCreate = "billing:checkout:create",
+  BillingPortalRead = "billing:portal:read"
 }
 
 export enum OAuthResource {
+  Application = "app",
   Storage = "storage",
   Billing = "billing"
 }

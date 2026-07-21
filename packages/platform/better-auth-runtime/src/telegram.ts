@@ -82,7 +82,8 @@ export const telegramOidcUser = async (
       email: `telegram-${id}@telegram.invalid`,
       emailVerified: false,
       name: telegramStringClaim(claims.name) ?? `Telegram user ${id}`,
-      image: telegramStringClaim(claims.picture) ?? undefined
+      image: telegramStringClaim(claims.picture) ?? undefined,
+      telegramId: id
     };
   } catch {
     return null;

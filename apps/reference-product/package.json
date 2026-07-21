@@ -14,9 +14,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@better-auth/memory-adapter": "1.7.0-rc.1",
-    "@nezdemkovski/auth-integration": "workspace:*",
-    "better-auth": "1.7.0-rc.1",
+    "@nezdemkovski/auth": "workspace:*",
     "hono": "4.12.27"
   }
 }

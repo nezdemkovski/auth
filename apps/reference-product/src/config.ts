@@ -1,14 +1,11 @@
 export type ReferenceProductConfig = {
   port: number;
   origin: string;
-  secret: string;
   authIssuer: string;
   authClientId: string;
-  authClientSecret: string;
 };
 
 const DEFAULT_PORT = 3010;
-const MIN_SECRET_LENGTH = 32;
 
 export const loadReferenceProductConfig = (
   source: NodeJS.ProcessEnv = process.env
@@ -18,18 +15,11 @@ export const loadReferenceProductConfig = (
     throw new Error("PORT must be a positive integer");
   }
 
-  const secret = required(source.BETTER_AUTH_SECRET, "BETTER_AUTH_SECRET");
-  if (secret.length < MIN_SECRET_LENGTH) {
-    throw new Error(`BETTER_AUTH_SECRET must be at least ${MIN_SECRET_LENGTH} characters`);
-  }
-
   return {
     port,
     origin: normalizeOrigin(source.APP_ORIGIN ?? `http://127.0.0.1:${port}`),
-    secret,
     authIssuer: normalizeIssuer(required(source.AUTH_ISSUER, "AUTH_ISSUER")),
-    authClientId: required(source.AUTH_CLIENT_ID, "AUTH_CLIENT_ID"),
-    authClientSecret: required(source.AUTH_CLIENT_SECRET, "AUTH_CLIENT_SECRET")
+    authClientId: required(source.AUTH_CLIENT_ID, "AUTH_CLIENT_ID")
   };
 };
 

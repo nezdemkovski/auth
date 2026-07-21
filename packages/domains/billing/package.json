@@ -23,7 +23,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@nezdemkovski/auth-contracts": "workspace:*",
+    "@nezdemkovski/auth": "workspace:*",
     "@nezdemkovski/auth-platform-crypto": "workspace:*",
     "@nezdemkovski/auth-platform-database": "workspace:*",
     "@polar-sh/sdk": "0.48.1",

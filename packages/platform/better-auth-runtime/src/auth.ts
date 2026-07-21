@@ -206,10 +206,27 @@ const buildProjectAuthOptions = <TProject extends Realm>(options: {
     resources: project.features.oauthProvider.enabled
       ? oauthConfig.resources(project)
       : [],
-    customAccessTokenClaims: ({ user }) => ({
-      ...(user === undefined
+    customAccessTokenClaims: ({ user, scopes }) => ({
+      ...(user == null
         ? oauthConfig.serviceAccessTokenClaims
-        : oauthConfig.userAccessTokenClaims)
+        : {
+            ...oauthConfig.userAccessTokenClaims,
+            ...(scopes.includes("profile")
+              ? {
+                  name: user.name,
+                  image: user.image
+                }
+              : {}),
+            ...(scopes.includes("email")
+              ? {
+                  email: user.email,
+                  email_verified: user.emailVerified === true
+                }
+              : {}),
+            ...(typeof user.telegramId === "string" && user.telegramId
+              ? { telegram_id: user.telegramId }
+              : {})
+          })
     }),
     resourceSeedMode: "overwrite",
     enforcePerClientResources: true,
@@ -236,7 +253,17 @@ const buildProjectAuthOptions = <TProject extends Realm>(options: {
     ...(emailHandlers.emailVerification
       ? { emailVerification: emailHandlers.emailVerification }
       : {}),
-    ...(emailHandlers.user ? { user: emailHandlers.user } : {}),
+    user: projectUserOptions(emailHandlers.user),
+    databaseHooks: {
+      account: {
+        create: {
+          after: syncTelegramIdentity
+        },
+        update: {
+          after: syncTelegramIdentity
+        }
+      }
+    },
     plugins: [
       admin({
         defaultRole: AuthUserRole.User,
@@ -336,6 +363,33 @@ const buildProjectAuthOptions = <TProject extends Realm>(options: {
       enabled: false
     }
   };
+};
+
+const projectUserOptions = (
+  emailUser: BetterAuthOptions["user"]
+): NonNullable<BetterAuthOptions["user"]> => ({
+  ...emailUser,
+  additionalFields: {
+    ...emailUser?.additionalFields,
+    telegramId: {
+      type: "string",
+      required: false,
+      input: false
+    }
+  }
+});
+
+const syncTelegramIdentity: NonNullable<
+  NonNullable<
+    NonNullable<BetterAuthOptions["databaseHooks"]>["account"]
+  >["create"]
+>["after"] = async (account, context) => {
+  if (account.providerId !== "telegram" || !context) {
+    return;
+  }
+  await context.context.internalAdapter.updateUser(account.userId, {
+    telegramId: account.accountId
+  });
 };
 
 export const projectAuthSecret = (rootSecret: string, projectSlug: string) => {

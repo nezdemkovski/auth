@@ -34,7 +34,10 @@ import { createOAuthResourceRegistryPort } from "../auth/oauth-resource";
 import { migrateDatabase } from "../db/migrate";
 import { createAdminDatabase } from "../db/admin-pool";
 import { registerBillingUsageRoutes } from "../modules/billing-usage/http";
+import { registerBillingCustomerRoutes } from "../modules/billing-customer/http";
+import { BillingCustomerService } from "../modules/billing-customer/core";
 import { registerOAuthResourceRoutes } from "../modules/oauth-resource/http";
+import { reconcileApplicationConnections } from "../modules/auth-connections/core";
 import { createBillingAuthPluginContribution } from "../modules/billing/better-auth";
 import { loadEffectiveProjects } from "../application/project-catalog";
 import { MediaService } from "../modules/media/core";
@@ -120,6 +123,7 @@ export const createApp = async (env: Env) => {
     ]
   });
   await registry.ready();
+  await reconcileApplicationConnections(registry, env.publicBaseUrl);
   const oauthResourceRegistry = createOAuthResourceRegistryPort(registry);
   const oauthResourceAuthorizer = createOAuthResourceAuthorizer({
     registry: oauthResourceRegistry,
@@ -219,6 +223,11 @@ export const createApp = async (env: Env) => {
     registry,
     authorizer: oauthResourceAuthorizer,
     ...billingStoreOptions
+  });
+  registerBillingCustomerRoutes(app, {
+    registry,
+    authorizer: oauthResourceAuthorizer,
+    service: new BillingCustomerService()
   });
   registerOAuthResourceRoutes(app, {
     resourceRegistry: oauthResourceRegistry,

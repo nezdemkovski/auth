@@ -1,4 +1,4 @@
-import type { BillingUsageSummary } from "@nezdemkovski/auth-contracts/billing";
+import type { BillingUsageSummary } from "@nezdemkovski/auth/billing";
 import { randomBase64Url } from "@nezdemkovski/auth-platform-crypto";
 import {
   isPostgresUniqueViolation,
@@ -24,7 +24,7 @@ import {
   billingUsageReservations
 } from "./tables";
 
-export type { BillingUsageSummary } from "@nezdemkovski/auth-contracts/billing";
+export type { BillingUsageSummary } from "@nezdemkovski/auth/billing";
 
 export enum BillingUsageReservationStatus {
   Pending = "pending",

@@ -13,14 +13,12 @@
   isolated `auth-oauth-client-management` plugin when upstream exposes
   ownerless list/get/update, secret rotation, disable, and delete operations;
   keep the admin API contract unchanged during that swap.
-- Execute ADR-0002 ([`docs/adr/0002-spa-integration-profile.md`](docs/adr/0002-spa-integration-profile.md)):
-  verify refresh-token rotation for public clients in the pinned Better Auth
-  and token-endpoint CORS, build `@nezdemkovski/auth-spa` (web + Expo entries,
-  [`docs/SPA_SDK_DESIGN.md`](docs/SPA_SDK_DESIGN.md)), flip the admin Connect
-  flow to public SPA clients, rebuild the reference product as the SPA +
-  resource-server example, and delete `@nezdemkovski/auth-integration` plus
-  the legacy `auth-client`/`auth-server` packages. Amela then integrates
-  fresh on the SPA profile with the service-only billing contract.
+- Finish the `@nezdemkovski/auth` rollout from
+  [`docs/AUTH_SDK_DESIGN.md`](docs/AUTH_SDK_DESIGN.md): add end-to-end PKCE,
+  refresh rotation, browser and Expo callback tests; publish the single package;
+  migrate Amela frontend and backend; then verify web, Telegram, native,
+  WebSocket, billing, storage, and MCP behavior before removing compatibility
+  endpoints.
 - Expand structured request logging to cover request/response metadata without
   leaking credentials, tokens, cookies, or PII.
 - Expand audit events to cover successful email verification/reset flows. Failed
@@ -197,16 +195,16 @@
   local development.
 - Hosted OAuth login delegates authorization codes, PKCE, sessions, and token
   lifecycle to Better Auth without a platform login-code store.
-- Reference product signs in through central Better Auth and establishes its
-  own local HttpOnly Better Auth session.
+- Reference product demonstrates the product resource-server boundary using
+  `@nezdemkovski/auth/server` without a second auth system.
 - Avatar storage and billing usage are explicit Better Auth OAuth resources
   with Protected Resource Metadata, audience-bound access tokens, and
   least-privilege scopes.
 - Billing quota mutations use Better Auth `client_credentials` and reject both
   central session cookies and user-delegated OAuth tokens.
-- Thin `@nezdemkovski/auth-integration` and business-only
-  `@nezdemkovski/auth-contracts` packages replace the legacy auth state-machine
-  SDK design.
+- A single `@nezdemkovski/auth` package exposes isolated `/client`, `/server`,
+  `/billing`, and `/storage` entry points; the previous public packages were
+  unpublished and removed from the workspace.
 - Polar billing provider support:
   encrypted provider settings, connection verification, product listing,
   product creation, product/price/benefit mapping, and Better Auth Polar plugin

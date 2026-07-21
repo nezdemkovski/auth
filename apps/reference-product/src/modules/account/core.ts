@@ -1,55 +1,34 @@
 import {
-  readAuthPlatformIdentity,
-  type AuthPlatformIdentity
-} from "@nezdemkovski/auth-integration";
-
-import type { ReferenceProductAuth } from "../../auth/product-auth";
+  extractBearerToken,
+  type AuthIdentity,
+  type AuthServer
+} from "@nezdemkovski/auth/server";
 
 export type ProductAccount = {
   user: {
     id: string;
-    name: string;
-    email: string;
-    image?: string | null;
+    name?: string;
+    email?: string;
+    image?: string;
   };
-  identity: AuthPlatformIdentity;
+  identity: AuthIdentity;
 };
 
-export class CentralIdentityMissingError extends Error {
-  constructor() {
-    super("The local session has no linked central auth account");
-    this.name = "CentralIdentityMissingError";
-  }
-}
-
 export const readProductAccount = async (options: {
-  auth: ReferenceProductAuth;
-  headers: Headers;
-  authIssuer: string;
+  auth: AuthServer;
+  request: Request;
 }): Promise<ProductAccount | null> => {
-  const session = await options.auth.api.getSession({
-    headers: options.headers
-  });
-  if (!session) {
+  if (!extractBearerToken(options.request.headers.get("authorization"))) {
     return null;
   }
-
-  const accounts = await options.auth.api.listUserAccounts({
-    headers: options.headers
-  });
-  const identity = readAuthPlatformIdentity(accounts, {
-    issuer: options.authIssuer
-  });
-  if (!identity) {
-    throw new CentralIdentityMissingError();
-  }
+  const identity = await options.auth.verifyRequest(options.request);
 
   return {
     user: {
-      id: session.user.id,
-      name: session.user.name,
-      email: session.user.email,
-      image: session.user.image
+      id: identity.subject,
+      ...(identity.name ? { name: identity.name } : {}),
+      ...(identity.email ? { email: identity.email } : {}),
+      ...(identity.image ? { image: identity.image } : {})
     },
     identity
   };

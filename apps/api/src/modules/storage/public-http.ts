@@ -50,7 +50,7 @@ export const registerPublicStorageRoutes = (
     const access = await options.authorizer.authorizeUser({
       projectSlug: c.req.param("project"),
       request: c.req.raw,
-      resource: OAuthResource.Storage,
+      resource: OAuthResource.Application,
       scopes: [OAuthScope.StorageAvatarWrite]
     });
     if (!access.ok) {
@@ -96,7 +96,7 @@ export const registerPublicStorageRoutes = (
     const access = await options.authorizer.authorizeUser({
       projectSlug: c.req.param("project"),
       request: c.req.raw,
-      resource: OAuthResource.Storage,
+      resource: OAuthResource.Application,
       scopes: [OAuthScope.StorageAvatarDelete]
     });
     if (!access.ok) {

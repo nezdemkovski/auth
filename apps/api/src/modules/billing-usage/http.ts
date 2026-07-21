@@ -1,5 +1,4 @@
-import type { Context, Hono } from "hono";
-import { cors } from "hono/cors";
+import type { Hono } from "hono";
 import {
   mutateBillingUsage,
   parseBillingUsageMutationInput,
@@ -11,13 +10,14 @@ import {
   OAuthResource,
   OAuthScope,
   type OAuthResourceAuthorizer,
-  type OAuthResourceFailureResponse
 } from "@nezdemkovski/auth-oauth-resource";
 
 import type { AuthRegistry, RegisteredProject } from "../../auth/registry";
 import type { AuthProject } from "../../config/projects";
 import type { AdminDatabase } from "../../db/admin-pool";
 import { ErrorCode } from "../../runtime/error-codes";
+import { createPublicBillingCors } from "../billing/cors";
+import { oauthFailureResponse } from "../oauth-resource/response";
 import {
   billingUsageFailureResponse,
   billingUsageMutationResponse
@@ -36,35 +36,20 @@ type PublicBillingOptions = {
   authorizer: OAuthResourceAuthorizer<RegisteredProject>;
 };
 
-type BillingContext = Context<{ Variables: BillingVariables }>;
-
 export const registerBillingUsageRoutes = (
   app: Hono<{ Variables: BillingVariables }>,
   options: PublicBillingOptions
 ) => {
   app.use(
     "/api/:project/billing/*",
-    cors({
-      origin: (origin, c) => {
-        const project = c.req.param("project");
-        if (!project) {
-          return "";
-        }
-
-        return options.registry.isTrustedOrigin(project, origin) ? origin : "";
-      },
-      allowHeaders: ["Content-Type", "Authorization", "Idempotency-Key"],
-      allowMethods: ["GET", "POST", "OPTIONS"],
-      credentials: false,
-      maxAge: 600
-    })
+    createPublicBillingCors(options.registry)
   );
 
   app.get("/api/:project/billing/usage/summary", async (c) => {
     const access = await options.authorizer.authorizeUser({
       projectSlug: c.req.param("project"),
       request: c.req.raw,
-      resource: OAuthResource.Billing,
+      resource: OAuthResource.Application,
       scopes: [OAuthScope.BillingUsageRead]
     });
     if (!access.ok) {
@@ -134,15 +119,4 @@ export const registerBillingUsageRoutes = (
       return c.json(failure.body, failure.status);
     }
   });
-};
-
-const oauthFailureResponse = (
-  c: BillingContext,
-  failure: OAuthResourceFailureResponse
-) => {
-  if (failure.wwwAuthenticate) {
-    c.header("WWW-Authenticate", failure.wwwAuthenticate);
-  }
-
-  return c.json({ error: failure.error }, failure.status);
 };

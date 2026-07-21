@@ -10,8 +10,16 @@ const primaryApp = {
     profile: OAuthClientProfile.Public,
     redirectUris: ["https://demo.example.com/auth/callback"],
     postLogoutRedirectUris: ["https://demo.example.com"],
-    scopes: ["openid", "profile", "email", "offline_access"],
-    resources: [],
+    scopes: [
+      "openid",
+      "profile",
+      "email",
+      "offline_access",
+      "storage:avatar:write",
+      "storage:avatar:delete",
+      "billing:usage:read"
+    ],
+    resources: ["https://auth.example.com/api/demo/app"],
     disabled: false,
     public: true,
     skipConsent: true,

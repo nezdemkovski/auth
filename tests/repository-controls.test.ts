@@ -71,48 +71,48 @@ describe("repository security controls", () => {
     );
   });
 
-  test("publishes only protocol-thin integration and business contract packages", async () => {
-    const contractManifest = await Bun.file(rootFile("packages/auth-contracts/package.json")).json();
-    const integrationManifest = await Bun.file(rootFile("packages/auth-integration/package.json")).json();
+  test("publishes one auth package with explicit client and server boundaries", async () => {
+    const authManifest = await Bun.file(
+      rootFile("packages/public/auth/package.json")
+    ).json();
     const apiManifest = await Bun.file(rootFile("apps/api/package.json")).json();
-    const integrationIndex = await read("packages/auth-integration/src/index.ts");
 
     expect(await Bun.file(rootFile("packages/auth-client/package.json")).exists()).toBe(false);
     expect(await Bun.file(rootFile("packages/auth-server/package.json")).exists()).toBe(false);
-    expect(integrationManifest.peerDependencies["better-auth"]).toBe("1.7.0-rc.1");
-    expect(integrationManifest.dependencies).toBeUndefined();
-    expect(contractManifest.files).not.toContain("dist");
-    expect(contractManifest.files).not.toContain("src");
-    expect(integrationManifest.files).not.toContain("dist");
-    expect(integrationManifest.exports["."].bun).toBeUndefined();
-    expect(contractManifest.exports["."]).toBeUndefined();
-    expect(Object.keys(contractManifest.exports)).toEqual([
+    expect(await Bun.file(rootFile("packages/auth-contracts/package.json")).exists()).toBe(false);
+    expect(await Bun.file(rootFile("packages/auth-integration/package.json")).exists()).toBe(false);
+    expect(authManifest.name).toBe("@nezdemkovski/auth");
+    expect(authManifest.files).toEqual(["dist", "README.md"]);
+    expect(Object.keys(authManifest.exports)).toEqual([
+      "./client",
+      "./server",
       "./billing",
       "./storage"
     ]);
-    expect(contractManifest.exports["./billing"].bun).toBeUndefined();
-    expect(contractManifest.exports["./storage"].bun).toBeUndefined();
-    expect(
-      await Bun.file(rootFile("packages/auth-contracts/src/index.ts")).exists()
-    ).toBe(false);
+    expect(authManifest.exports["./client"].types).toBe(
+      "./dist/client/index.d.ts"
+    );
+    expect(authManifest.exports["./client"]["react-native"]).toBe(
+      "./dist/client/native.js"
+    );
+    expect(authManifest.exports["./client"].browser).toBe(
+      "./dist/client/web.js"
+    );
+    expect(authManifest.exports["./server"].browser).toBeUndefined();
     expect(
       apiManifest.dependencies["@nezdemkovski/auth-contracts"]
     ).toBeUndefined();
-    expect(integrationIndex).not.toContain("fetch(");
-    expect(integrationIndex).not.toContain("session");
-    expect(integrationIndex).not.toContain("token");
-
-    for (const manifest of [contractManifest, integrationManifest]) {
-      expect(manifest.private).not.toBe(true);
-      expect(manifest.publishConfig.access).toBe("public");
-      expect(manifest.repository.url).toBe("git+https://github.com/nezdemkovski/auth.git");
-    }
+    expect(authManifest.private).not.toBe(true);
+    expect(authManifest.publishConfig.access).toBe("public");
+    expect(authManifest.repository.url).toBe(
+      "git+https://github.com/nezdemkovski/auth.git"
+    );
 
     const workflow = await read(".github/workflows/publish-sdk.yml");
-    expect(workflow).toContain("auth-contracts-v*");
-    expect(workflow).toContain("auth-integration-v*");
-    expect(workflow).not.toContain("packages/auth-client");
-    expect(workflow).not.toContain("packages/auth-server");
+    expect(workflow).toContain('"auth-v*"');
+    expect(workflow).toContain('package_dir="packages/public/auth"');
+    expect(workflow).not.toContain("auth-contracts-v*");
+    expect(workflow).not.toContain("auth-integration-v*");
     expect(workflow).toContain("npm pack");
   });
 
@@ -133,8 +133,7 @@ describe("repository security controls", () => {
       ["apps/api", "app"],
       ["apps/login", "app"],
       ["apps/reference-product", "app"],
-      ["packages/auth-contracts", "public"],
-      ["packages/auth-integration", "public"],
+      ["packages/public/auth", "public"],
       ["packages/client-shared", "frontend"],
       ["packages/domains/billing", "domain"],
       ["packages/domains/delivery", "domain"],

@@ -16,6 +16,7 @@ export type OAuthClientRegistration = Pick<
   | "scope"
   | "type"
   | "skip_consent"
+  | "enable_end_session"
   | "require_pkce"
 >;
 
@@ -47,6 +48,7 @@ export const oauthClientRegistration = (
       scope: input.scopes.join(" "),
       type: "native",
       skip_consent: input.skipConsent ?? false,
+      enable_end_session: true,
       require_pkce: true
     };
   }

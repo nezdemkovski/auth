@@ -49,7 +49,8 @@ describe("Telegram OIDC", () => {
       email: "telegram-telegram-subject@telegram.invalid",
       emailVerified: false,
       name: "Demo User",
-      image: "https://demo.example.com/avatar.png"
+      image: "https://demo.example.com/avatar.png",
+      telegramId: "telegram-subject"
     });
   });
 

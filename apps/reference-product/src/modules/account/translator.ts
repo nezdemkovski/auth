@@ -3,8 +3,8 @@ import type { ProductAccount } from "./core";
 export type ProductAccountResponse = {
   user: {
     id: string;
-    name: string;
-    email: string;
+    name: string | null;
+    email: string | null;
     image: string | null;
   };
   identity: {
@@ -19,8 +19,8 @@ export const productAccountResponse = (
   return {
     user: {
       id: account.user.id,
-      name: account.user.name,
-      email: account.user.email,
+      name: account.user.name ?? null,
+      email: account.user.email ?? null,
       image: account.user.image ?? null
     },
     identity: {

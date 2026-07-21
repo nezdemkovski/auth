@@ -44,6 +44,7 @@ describe("OAuth client profiles", () => {
       grant_types: ["authorization_code", "refresh_token"],
       type: "native",
       skip_consent: false,
+      enable_end_session: true,
       require_pkce: true
     });
     expect(

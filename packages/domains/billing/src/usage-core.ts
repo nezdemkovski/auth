@@ -1,4 +1,4 @@
-import type { BillingUsageSummary } from "@nezdemkovski/auth-contracts/billing";
+import type { BillingUsageSummary } from "@nezdemkovski/auth/billing";
 import type { AdminDatabaseOptions } from "@nezdemkovski/auth-platform-database";
 
 import type { BillingRealm } from "./model";

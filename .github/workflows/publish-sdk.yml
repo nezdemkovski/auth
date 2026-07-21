@@ -3,8 +3,7 @@ name: Publish Auth Package
 on:
   push:
     tags:
-      - "auth-contracts-v*"
-      - "auth-integration-v*"
+      - "auth-v*"
 
 permissions:
   contents: read
@@ -43,20 +42,8 @@ jobs:
         id: package
         shell: bash
         run: |
-          case "$GITHUB_REF_NAME" in
-            auth-contracts-v*)
-              package_dir="packages/auth-contracts"
-              version="${GITHUB_REF_NAME#auth-contracts-v}"
-              ;;
-            auth-integration-v*)
-              package_dir="packages/auth-integration"
-              version="${GITHUB_REF_NAME#auth-integration-v}"
-              ;;
-            *)
-              echo "Unsupported package tag: $GITHUB_REF_NAME"
-              exit 1
-              ;;
-          esac
+          package_dir="packages/public/auth"
+          version="${GITHUB_REF_NAME#auth-v}"
 
           package_name="$(node -p "require('./${package_dir}/package.json').name")"
           package_version="$(node -p "require('./${package_dir}/package.json').version")"

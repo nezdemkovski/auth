@@ -24,7 +24,12 @@ const APPLICATION_SCOPES = [
   OAuthScope.OpenId,
   OAuthScope.Profile,
   OAuthScope.Email,
-  OAuthScope.OfflineAccess
+  OAuthScope.OfflineAccess,
+  OAuthScope.StorageAvatarWrite,
+  OAuthScope.StorageAvatarDelete,
+  OAuthScope.BillingUsageRead,
+  OAuthScope.BillingCheckoutCreate,
+  OAuthScope.BillingPortalRead
 ];
 
 type AuthConnectionServiceOptions = {
@@ -32,6 +37,37 @@ type AuthConnectionServiceOptions = {
   enableOAuthProvider: (
     registered: RegisteredProject
   ) => Promise<RegisteredProject>;
+};
+
+type ApplicationConnectionRegistry = {
+  list(): Array<{
+    slug: string;
+    appUrl: string;
+    features: { oauthProvider: { enabled: boolean } };
+  }>;
+  get(slug: string): {
+    project: { slug: string; appUrl: string };
+    auth: {
+      oauthClientManagement: {
+        list(): Promise<
+          Array<{
+            clientId: string;
+            name: string;
+            profile: OAuthClientProfile;
+            skipConsent: boolean;
+            redirectUris: string[];
+            postLogoutRedirectUris: string[];
+            scopes: string[];
+            resources: string[];
+          }>
+        >;
+        update(
+          clientId: string,
+          input: UpdateManagedOAuthClientInput
+        ): Promise<unknown>;
+      };
+    };
+  } | null;
 };
 
 export class AuthConnectionServiceError extends Error {
@@ -159,6 +195,56 @@ export class AuthConnectionService {
   }
 }
 
+export const reconcileApplicationConnections = async (
+  registry: ApplicationConnectionRegistry,
+  publicBaseUrl: string
+) => {
+  for (const project of registry.list()) {
+    if (!project.features.oauthProvider.enabled) {
+      continue;
+    }
+    const registered = registry.get(project.slug);
+    if (!registered) {
+      continue;
+    }
+    const clients = await registered.auth.oauthClientManagement.list();
+    for (const application of clients.filter(isApplicationConnectionClient)) {
+      const desired = authConnectionClientInput(
+        {
+          kind: AuthConnectionKind.Application,
+          name: application.name,
+          appUrl: project.appUrl
+        },
+        registered,
+        publicBaseUrl
+      );
+      if (
+        arraysEqual(application.redirectUris, desired.redirectUris) &&
+        arraysEqual(
+          application.postLogoutRedirectUris,
+          desired.postLogoutRedirectUris
+        ) &&
+        arraysEqual(application.scopes, desired.scopes) &&
+        arraysEqual(application.resources, desired.resources)
+      ) {
+        continue;
+      }
+      await registered.auth.oauthClientManagement.update(application.clientId, {
+        name: desired.name,
+        redirectUris: desired.redirectUris,
+        postLogoutRedirectUris: desired.postLogoutRedirectUris,
+        scopes: desired.scopes,
+        resources: desired.resources,
+        skipConsent: desired.skipConsent
+      });
+    }
+  }
+};
+
+const arraysEqual = (left: string[], right: string[]) =>
+  left.length === right.length &&
+  left.every((value, index) => value === right[index]);
+
 export const authConnectionClientInput = (
   input: CreateAuthConnectionInput,
   registered: {
@@ -170,12 +256,21 @@ export const authConnectionClientInput = (
     return {
       name: input.name,
       profile: OAuthClientProfile.Public,
-      redirectUris: [`${input.appUrl}${APPLICATION_CALLBACK_PATH}`],
+      redirectUris: [
+        `${input.appUrl}${APPLICATION_CALLBACK_PATH}`,
+        `${registered.project.slug}://${APPLICATION_CALLBACK_PATH.slice(1)}`
+      ],
       postLogoutRedirectUris: registered.project.appUrl
         ? [registered.project.appUrl]
         : [],
       scopes: APPLICATION_SCOPES,
-      resources: [],
+      resources: [
+        oauthResourceIdentifier(
+          publicBaseUrl,
+          registered.project.slug,
+          OAuthResource.Application
+        )
+      ],
       skipConsent: true
     };
   }

@@ -1,6 +1,10 @@
 # SPA SDK Design
 
-Status: draft companion to [ADR 0002](adr/0002-spa-integration-profile.md).
+Status: superseded by [`AUTH_SDK_DESIGN.md`](AUTH_SDK_DESIGN.md).
+
+This document is retained as historical context for ADR 0002. Its proposed
+`@nezdemkovski/auth-spa` package name and SPA-only public API are no longer the
+implementation target.
 
 ## Goal
 
