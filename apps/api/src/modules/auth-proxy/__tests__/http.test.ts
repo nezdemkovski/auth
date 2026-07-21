@@ -232,6 +232,40 @@ describe("auth route feature gates", () => {
 });
 
 describe("auth proxy HTTP boundary", () => {
+  test("exposes discovery only to registered browser origins", async () => {
+    const oauthProject: AuthProject = {
+      ...project,
+      features: {
+        ...project.features,
+        oauthProvider: {
+          enabled: true,
+          dynamicClientRegistration: false
+        }
+      }
+    };
+    const app = createAuthProxyApp(
+      createRegistry(createRegisteredProject(oauthProject))
+    );
+
+    const trustedResponse = await app.request(
+      "/api/demo/.well-known/openid-configuration",
+      { headers: { Origin: "https://demo.example.com" } }
+    );
+    const untrustedResponse = await app.request(
+      "/api/demo/.well-known/openid-configuration",
+      { headers: { Origin: "https://other.example.com" } }
+    );
+
+    expect(trustedResponse.status).toBe(200);
+    expect(trustedResponse.headers.get("access-control-allow-origin")).toBe(
+      "https://demo.example.com"
+    );
+    expect(untrustedResponse.status).toBe(200);
+    expect(untrustedResponse.headers.has("access-control-allow-origin")).toBe(
+      false
+    );
+  });
+
   test("maps the public JWKS alias to the canonical Better Auth path", async () => {
     const handledPaths: string[] = [];
     const app = createAuthProxyApp(

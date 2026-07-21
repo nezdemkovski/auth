@@ -32,6 +32,23 @@ export type AuthProxyRegisteredProject = {
 };
 
 export const registerAuthProxyRoutes = <TEnv extends Env>(app: Hono<TEnv>, options: { registry: AuthProxyRegistry }) => {
+  const trustedRealmCors = cors({
+    origin: (origin, c) => {
+      const project = c.req.param("project");
+      if (!project) {
+        return "";
+      }
+
+      return options.registry.isTrustedOrigin(project, origin) ? origin : "";
+    },
+    allowHeaders: ["Content-Type", "Authorization"],
+    allowMethods: ["GET", "POST", "OPTIONS"],
+    credentials: true,
+    maxAge: 600
+  });
+
+  app.use("/api/:project/.well-known/*", trustedRealmCors);
+
   app.get("/api/:project/.well-known/jwks.json", async (c) => {
     const projectSlug = c.req.param("project");
     const registered = options.registry.get(projectSlug);
@@ -95,23 +112,7 @@ export const registerAuthProxyRoutes = <TEnv extends Env>(app: Hono<TEnv>, optio
     );
   });
 
-  app.use(
-    "/api/:project/auth/*",
-    cors({
-      origin: (origin, c) => {
-        const project = c.req.param("project");
-        if (!project) {
-          return "";
-        }
-
-        return options.registry.isTrustedOrigin(project, origin) ? origin : "";
-      },
-      allowHeaders: ["Content-Type", "Authorization"],
-      allowMethods: ["GET", "POST", "OPTIONS"],
-      credentials: true,
-      maxAge: 600
-    })
-  );
+  app.use("/api/:project/auth/*", trustedRealmCors);
 
   app.on(["GET", "POST"], "/api/:project/auth/*", async (c) => {
     const registered = options.registry.get(c.req.param("project"));
