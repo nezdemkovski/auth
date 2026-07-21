@@ -585,28 +585,34 @@ describe("billing usage integration", () => {
         email: "billing-user@integration.test",
         password: "correct horse battery staple"
       });
-      const billingResource = oauthResourceIdentifier(
+      const applicationResource = oauthResourceIdentifier(
         integrationPublicBaseUrl,
         project.slug,
-        OAuthResource.Billing
+        OAuthResource.Application
       );
-      const billingMetadataUrl = oauthResourceMetadataUrl(
+      const applicationMetadataUrl = oauthResourceMetadataUrl(
+        integrationPublicBaseUrl,
+        project.slug,
+        OAuthResource.Application
+      );
+      const serviceBillingResource = oauthResourceIdentifier(
         integrationPublicBaseUrl,
         project.slug,
         OAuthResource.Billing
       );
 
-      const metadata = await app.request(billingMetadataUrl);
+      const metadata = await app.request(applicationMetadataUrl);
       expect(metadata.status).toBe(200);
       expect(await metadata.json()).toMatchObject({
-        resource: billingResource,
+        resource: applicationResource,
         authorization_servers: [
           `${integrationPublicBaseUrl}/api/${project.slug}`
         ],
-        scopes_supported: [
+        scopes_supported: expect.arrayContaining([
           OAuthScope.BillingUsageRead,
-          OAuthScope.BillingUsageWrite
-        ]
+          OAuthScope.BillingCheckoutCreate,
+          OAuthScope.BillingPortalRead
+        ])
       });
 
       const sessionOnly = await app.request(
@@ -621,7 +627,7 @@ describe("billing usage integration", () => {
       );
       expect(sessionOnly.status).toBe(401);
       expect(sessionOnly.headers.get("www-authenticate")).toContain(
-        `resource_metadata="${billingMetadataUrl}"`
+        `resource_metadata="${applicationMetadataUrl}"`
       );
 
       const wrongAudienceToken = await createIntegrationUserResourceToken({
@@ -656,7 +662,7 @@ describe("billing usage integration", () => {
         registry,
         projectSlug: project.slug,
         userCookie: cookie,
-        resource: billingResource,
+        resource: applicationResource,
         scopes: [OAuthScope.BillingUsageRead]
       });
       const userWriteToken = await createIntegrationUserResourceToken({
@@ -664,21 +670,21 @@ describe("billing usage integration", () => {
         registry,
         projectSlug: project.slug,
         userCookie: cookie,
-        resource: billingResource,
+        resource: serviceBillingResource,
         scopes: [OAuthScope.BillingUsageWrite]
       });
       const service = await createIntegrationServiceResourceToken({
         app,
         registry,
         projectSlug: project.slug,
-        resource: billingResource,
+        resource: serviceBillingResource,
         scopes: [OAuthScope.BillingUsageRead, OAuthScope.BillingUsageWrite]
       });
       const readOnlyService = await createIntegrationServiceResourceToken({
         app,
         registry,
         projectSlug: project.slug,
-        resource: billingResource,
+        resource: serviceBillingResource,
         scopes: [OAuthScope.BillingUsageRead]
       });
       const storageService = await createIntegrationServiceResourceToken({

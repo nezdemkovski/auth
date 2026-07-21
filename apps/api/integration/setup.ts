@@ -229,7 +229,7 @@ export const signInIntegrationUser = async (options: {
   return { cookie };
 };
 
-export const createIntegrationUserResourceToken = async (options: {
+export const createIntegrationUserResourceCredential = async (options: {
   app: Awaited<ReturnType<typeof createIntegrationApp>>["app"];
   registry: Awaited<ReturnType<typeof createIntegrationApp>>["registry"];
   projectSlug: string;
@@ -314,7 +314,22 @@ export const createIntegrationUserResourceToken = async (options: {
     );
   }
 
-  return token.access_token;
+  return {
+    accessToken: token.access_token,
+    clientId: client.clientId
+  };
+};
+
+export const createIntegrationUserResourceToken = async (options: {
+  app: Awaited<ReturnType<typeof createIntegrationApp>>["app"];
+  registry: Awaited<ReturnType<typeof createIntegrationApp>>["registry"];
+  projectSlug: string;
+  userCookie: string;
+  resource: string;
+  scopes: OAuthScope[];
+}) => {
+  const credential = await createIntegrationUserResourceCredential(options);
+  return credential.accessToken;
 };
 
 export const createIntegrationServiceResourceToken = async (options: {

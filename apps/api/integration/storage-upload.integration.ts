@@ -86,17 +86,17 @@ describe("storage upload integration", () => {
         email: "avatar-user@integration.test",
         password: "correct horse battery staple"
       });
-      const storageResource = oauthResourceIdentifier(
+      const applicationResource = oauthResourceIdentifier(
         integrationPublicBaseUrl,
         project.slug,
-        OAuthResource.Storage
+        OAuthResource.Application
       );
       const resourceToken = await createIntegrationUserResourceToken({
         app,
         registry,
         projectSlug: project.slug,
         userCookie: user.cookie,
-        resource: storageResource,
+        resource: applicationResource,
         scopes: [
           OAuthScope.StorageAvatarWrite,
           OAuthScope.StorageAvatarDelete
@@ -205,7 +205,7 @@ describe("storage upload integration", () => {
         resource: oauthResourceIdentifier(
           integrationPublicBaseUrl,
           project.slug,
-          OAuthResource.Storage
+          OAuthResource.Application
         ),
         scopes: [OAuthScope.StorageAvatarWrite]
       });
@@ -263,12 +263,12 @@ describe("storage upload integration", () => {
       const resource = oauthResourceIdentifier(
         integrationPublicBaseUrl,
         project.slug,
-        OAuthResource.Storage
+        OAuthResource.Application
       );
       const metadataUrl = oauthResourceMetadataUrl(
         integrationPublicBaseUrl,
         project.slug,
-        OAuthResource.Storage
+        OAuthResource.Application
       );
 
       const metadata = await app.request(metadataUrl);
@@ -278,10 +278,10 @@ describe("storage upload integration", () => {
         authorization_servers: [
           `${integrationPublicBaseUrl}/api/${project.slug}`
         ],
-        scopes_supported: [
+        scopes_supported: expect.arrayContaining([
           OAuthScope.StorageAvatarWrite,
           OAuthScope.StorageAvatarDelete
-        ]
+        ])
       });
 
       const sessionOnly = await app.request(`/api/${project.slug}/upload`, {
@@ -329,7 +329,7 @@ describe("storage upload integration", () => {
         resource: oauthResourceIdentifier(
           integrationPublicBaseUrl,
           otherProject.slug,
-          OAuthResource.Storage
+          OAuthResource.Application
         ),
         scopes: [OAuthScope.StorageAvatarWrite]
       });
