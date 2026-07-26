@@ -1,16 +1,18 @@
 import { describe, expect, test } from "bun:test";
 
-import { normalizeAuthConfiguration } from "../shared/config";
 import {
   AuthVerificationError,
   extractBearerToken,
   identityFromClaims
 } from "../server";
 
-const configuration = normalizeAuthConfiguration({
+const configuration = {
   issuer: "https://auth.example.com/api/demo",
-  clientId: "demo-client"
-});
+  clientId: "demo-client",
+  resource: "https://auth.example.com/api/demo/app",
+  jwksUrl: "https://auth.example.com/api/demo/auth/.well-known/jwks.json",
+  tokenKindClaim: "https://auth.example.com/claims/token-kind"
+};
 
 describe("auth server boundary", () => {
   test("accepts only a strict bearer authorization header", () => {
@@ -62,5 +64,25 @@ describe("auth server boundary", () => {
         configuration
       )
     ).toThrow("another client");
+  });
+
+  test("accepts any OAuth client only for an explicit resource server", () => {
+    const identity = identityFromClaims(
+      {
+        sub: "user-1",
+        client_id: "dynamic-mcp-client",
+        scope: "openid profile",
+        "https://auth.example.com/claims/token-kind": "user"
+      },
+      {
+        issuer: configuration.issuer,
+        resource: "https://openmarkers.example/mcp",
+        jwksUrl: configuration.jwksUrl,
+        tokenKindClaim: configuration.tokenKindClaim
+      }
+    );
+
+    expect(identity.clientId).toBe("dynamic-mcp-client");
+    expect(identity.subject).toBe("user-1");
   });
 });

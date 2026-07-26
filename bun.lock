@@ -223,7 +223,7 @@
     },
     "packages/public/auth": {
       "name": "@nezdemkovski/auth",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "dependencies": {
         "better-auth": "1.7.0-rc.1",
         "oauth4webapi": "3.8.6",

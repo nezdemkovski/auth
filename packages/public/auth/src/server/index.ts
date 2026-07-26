@@ -6,9 +6,22 @@ import {
 } from "better-auth/oauth2";
 
 import {
-  normalizeAuthConfiguration,
-  type AuthConfiguration
+  normalizeAuthConfiguration
 } from "../shared/config.js";
+
+export type AuthServerConfiguration = {
+  issuer: string;
+  clientId?: string;
+  resource?: string;
+};
+
+type NormalizedAuthServerConfiguration = {
+  issuer: string;
+  clientId?: string;
+  resource: string;
+  jwksUrl: string;
+  tokenKindClaim: string;
+};
 
 export type AuthIdentity = {
   issuer: string;
@@ -39,7 +52,7 @@ type Claims = Record<string, unknown>;
 
 export const identityFromClaims = (
   claims: Claims,
-  configuration: ReturnType<typeof normalizeAuthConfiguration>
+  configuration: NormalizedAuthServerConfiguration
 ): AuthIdentity => {
   const subject = claims.sub;
   const clientId = claims.client_id ?? claims.azp;
@@ -47,7 +60,10 @@ export const identityFromClaims = (
   if (typeof subject !== "string" || !subject) {
     throw new AuthVerificationError("Access token has no subject");
   }
-  if (clientId !== configuration.clientId) {
+  if (typeof clientId !== "string" || !clientId) {
+    throw new AuthVerificationError("Access token has no client id");
+  }
+  if (configuration.clientId && clientId !== configuration.clientId) {
     throw new AuthVerificationError("Access token belongs to another client");
   }
   if (tokenKind !== "user") {
@@ -62,7 +78,7 @@ export const identityFromClaims = (
   return {
     issuer: configuration.issuer,
     subject,
-    clientId: configuration.clientId,
+    clientId,
     scopes,
     ...(typeof claims.name === "string" ? { name: claims.name } : {}),
     ...(typeof claims.email === "string" ? { email: claims.email } : {}),
@@ -76,13 +92,45 @@ export const identityFromClaims = (
   };
 };
 
-export const createAuthServer = (configuration: AuthConfiguration): AuthServer => {
-  const normalized = normalizeAuthConfiguration(configuration);
+const normalizeAuthServerConfiguration = (
+  configuration: AuthServerConfiguration
+): NormalizedAuthServerConfiguration => {
+  const issuer = configuration.issuer.trim().replace(/\/+$/, "");
+  const clientId = configuration.clientId?.trim();
+  const resource = configuration.resource?.trim().replace(/\/+$/, "");
+  if (!clientId && !resource) {
+    throw new Error("AUTH_CLIENT_ID or an explicit resource is required");
+  }
+  if (!resource && clientId) {
+    const normalized = normalizeAuthConfiguration({ issuer, clientId });
+    return {
+      issuer: normalized.issuer,
+      clientId: normalized.clientId,
+      resource: normalized.applicationResource,
+      jwksUrl: normalized.jwksUrl,
+      tokenKindClaim: normalized.tokenKindClaim
+    };
+  }
+  const issuerUrl = new URL(issuer);
+  new URL(resource ?? "");
+  return {
+    issuer,
+    ...(clientId ? { clientId } : {}),
+    resource: resource ?? "",
+    jwksUrl: `${issuer}/auth/.well-known/jwks.json`,
+    tokenKindClaim: `${issuerUrl.origin}/claims/token-kind`
+  };
+};
+
+export const createAuthServer = (
+  configuration: AuthServerConfiguration
+): AuthServer => {
+  const normalized = normalizeAuthServerConfiguration(configuration);
   const verification = {
     jwksUrl: normalized.jwksUrl,
     verifyOptions: {
       issuer: normalized.issuer,
-      audience: normalized.applicationResource
+      audience: normalized.resource
     }
   };
 

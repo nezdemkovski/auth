@@ -14,6 +14,21 @@ const auth = createAuthClient({
 Use `@nezdemkovski/auth/server` in an application backend to verify the access
 tokens issued for that same realm.
 
+An OAuth resource such as MCP can accept user tokens from dynamically
+registered clients by declaring its audience instead of an application client:
+
+```ts
+import { createAuthServer } from "@nezdemkovski/auth/server";
+
+const mcpAuth = createAuthServer({
+  issuer: process.env.AUTH_ISSUER!,
+  resource: "https://app.example.com/mcp"
+});
+```
+
+Audience, issuer, signature, and user-token checks still apply; only the client
+id is intentionally not pinned for this resource-server mode.
+
 Billing and avatar operations live under `@nezdemkovski/auth/billing` and
 `@nezdemkovski/auth/storage`. They reuse the same client without exposing OAuth
 scopes, resource URLs, or Better Auth internals to the product.
