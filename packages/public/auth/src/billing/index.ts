@@ -25,13 +25,38 @@ export type BillingUsageResult = {
   summary: BillingUsageSummary;
 };
 
+export type BillingUsageReservationResult = BillingUsageResult & {
+  reservationId: string | null;
+};
+
+export type BillingUsageReleaseResult = {
+  released: boolean;
+  summary: BillingUsageSummary;
+};
+
+export type BillingUsageRequest = {
+  subject: string;
+  key: string;
+  idempotencyKey: string;
+  amount?: number;
+};
+
+export type BillingUsageReservationRequest = {
+  subject: string;
+  reservationId: string;
+};
+
 export type BillingService = {
-  consumeUsage(input: {
-    subject: string;
-    key: string;
-    idempotencyKey: string;
-    amount?: number;
-  }): Promise<BillingUsageResult>;
+  consumeUsage(input: BillingUsageRequest): Promise<BillingUsageResult>;
+  reserveUsage(
+    input: BillingUsageRequest
+  ): Promise<BillingUsageReservationResult>;
+  commitUsage(
+    input: BillingUsageReservationRequest
+  ): Promise<BillingUsageResult>;
+  releaseUsage(
+    input: BillingUsageReservationRequest
+  ): Promise<BillingUsageReleaseResult>;
 };
 
 export type BillingServiceConfiguration = {
@@ -90,6 +115,33 @@ export const parseBillingUsageResult = (
   }
   const summary = parseBillingUsageSummary(value.summary);
   return summary ? { allowed: value.allowed, summary } : null;
+};
+
+export const parseBillingUsageReservationResult = (
+  value: unknown
+): BillingUsageReservationResult | null => {
+  const result = parseBillingUsageResult(value);
+  if (
+    !result ||
+    !isRecord(value) ||
+    !(
+      value.reservationId === null ||
+      typeof value.reservationId === "string"
+    )
+  ) {
+    return null;
+  }
+  return { ...result, reservationId: value.reservationId };
+};
+
+export const parseBillingUsageReleaseResult = (
+  value: unknown
+): BillingUsageReleaseResult | null => {
+  if (!isRecord(value) || value.released !== true) {
+    return null;
+  }
+  const summary = parseBillingUsageSummary(value.summary);
+  return summary ? { released: true, summary } : null;
 };
 
 const responseUrl = (value: unknown) => {
@@ -192,34 +244,55 @@ export const createBillingService = (
     return accessToken.value;
   };
 
-  const consumeUsage = async (
-    input: Parameters<BillingService["consumeUsage"]>[0],
+  const mutateUsage = async <T>(
+    operation: "consume" | "reserve" | "commit" | "release",
+    input: BillingUsageRequest | BillingUsageReservationRequest,
+    parse: (value: unknown) => T | null,
     retry = true
-  ): Promise<BillingUsageResult> => {
-    const response = await fetcher(`${normalized.issuer}/billing/usage/consume`, {
+  ): Promise<T> => {
+    const headers = new Headers({
+      Authorization: `Bearer ${await getAccessToken()}`,
+      "Content-Type": "application/json"
+    });
+    if ("idempotencyKey" in input) {
+      headers.set("Idempotency-Key", input.idempotencyKey);
+    }
+    const response = await fetcher(`${normalized.issuer}/billing/usage/${operation}`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${await getAccessToken()}`,
-        "Content-Type": "application/json",
-        "Idempotency-Key": input.idempotencyKey
-      },
-      body: JSON.stringify({
-        subject: input.subject,
-        key: input.key,
-        amount: input.amount ?? 1
-      })
+      headers,
+      body: JSON.stringify(
+        "reservationId" in input
+          ? {
+              subject: input.subject,
+              reservationId: input.reservationId
+            }
+          : {
+              subject: input.subject,
+              key: input.key,
+              amount: input.amount ?? 1
+            }
+      )
     });
     if (response.status === 401 && retry) {
       accessToken = null;
-      return consumeUsage(input, false);
+      return mutateUsage(operation, input, parse, false);
     }
     const body: unknown = await response.json().catch(() => null);
-    const result = parseBillingUsageResult(body);
+    const result = parse(body);
     if ((response.ok || response.status === 402) && result) {
       return result;
     }
     throw new Error(`Billing usage request failed with status ${response.status}`);
   };
 
-  return { consumeUsage: (input) => consumeUsage(input) };
+  return {
+    consumeUsage: (input) =>
+      mutateUsage("consume", input, parseBillingUsageResult),
+    reserveUsage: (input) =>
+      mutateUsage("reserve", input, parseBillingUsageReservationResult),
+    commitUsage: (input) =>
+      mutateUsage("commit", input, parseBillingUsageResult),
+    releaseUsage: (input) =>
+      mutateUsage("release", input, parseBillingUsageReleaseResult)
+  };
 };

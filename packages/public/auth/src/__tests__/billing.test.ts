@@ -8,7 +8,7 @@ const accessTokenSource = {
 };
 
 describe("billing service client", () => {
-  test("uses client credentials and sends the user subject separately", async () => {
+  test("uses client credentials for the complete reservation lifecycle", async () => {
     const requests: Request[] = [];
     const fakeFetch: typeof fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -28,6 +28,31 @@ describe("billing service client", () => {
             access_token: "service-access-token",
             token_type: "Bearer",
             expires_in: 300
+          });
+        }
+        if (request.url.endsWith("/billing/usage/reserve")) {
+          return Response.json({
+            allowed: true,
+            reservationId: "reservation-123456",
+            summary: {
+              key: "messages",
+              used: 1,
+              limit: 10,
+              remaining: 9,
+              unlimited: false
+            }
+          });
+        }
+        if (request.url.endsWith("/billing/usage/release")) {
+          return Response.json({
+            released: true,
+            summary: {
+              key: "messages",
+              used: 0,
+              limit: 10,
+              remaining: 10,
+              unlimited: false
+            }
           });
         }
         return Response.json({
@@ -66,6 +91,32 @@ describe("billing service client", () => {
       key: "messages",
       amount: 1
     });
+
+    const reservation = await billing.reserveUsage({
+      subject: "user-1",
+      key: "messages",
+      idempotencyKey: "message-reserve-0001"
+    });
+    expect(reservation.reservationId).toBe("reservation-123456");
+    expect(requests[3]?.headers.get("idempotency-key")).toBe(
+      "message-reserve-0001"
+    );
+
+    await billing.commitUsage({
+      subject: "user-1",
+      reservationId: "reservation-123456"
+    });
+    expect(await requests[4]?.json()).toEqual({
+      subject: "user-1",
+      reservationId: "reservation-123456"
+    });
+
+    const released = await billing.releaseUsage({
+      subject: "user-1",
+      reservationId: "reservation-123456"
+    });
+    expect(released.released).toBe(true);
+    expect(requests[5]?.url).toEndWith("/billing/usage/release");
   });
 });
 
