@@ -109,9 +109,11 @@ describe("authentication connection policy", () => {
               }
             }
           }
-        })
+        }),
+        removeProject: async () => {}
       },
-      "https://auth.example.com"
+      "https://auth.example.com",
+      () => {}
     );
 
     expect(updates).toEqual([
@@ -140,5 +142,84 @@ describe("authentication connection policy", () => {
         }
       }
     ]);
+  });
+
+  test("quarantines a failing realm while continuing to reconcile others", async () => {
+    const failures: Array<{
+      projectSlug: string;
+      clientId: string | null;
+      message: string;
+    }> = [];
+    const removedProjects: string[] = [];
+    const updates: string[] = [];
+    const legacyProject = {
+      slug: "legacy",
+      appUrl: "",
+      features: { oauthProvider: { enabled: true } }
+    };
+    const demoProject = {
+      slug: "demo",
+      appUrl: "https://demo.example.com",
+      features: { oauthProvider: { enabled: true } }
+    };
+
+    await reconcileApplicationConnections(
+      {
+        list: () => [legacyProject, demoProject],
+        get: (slug) => {
+          const project =
+            slug === legacyProject.slug ? legacyProject : demoProject;
+          return {
+            project,
+            auth: {
+              oauthClientManagement: {
+                list: async () => [
+                  {
+                    clientId: `${slug}-client`,
+                    name: "Demo App",
+                    profile: OAuthClientProfile.Public,
+                    skipConsent: true,
+                    redirectUris: ["https://old.example.com/auth/callback"],
+                    postLogoutRedirectUris: ["https://old.example.com"],
+                    scopes: [OAuthScope.OpenId],
+                    resources: []
+                  }
+                ],
+                update: async (clientId) => {
+                  if (slug === legacyProject.slug) {
+                    throw new Error("[body.update.redirectUris.0] Invalid URL");
+                  }
+                  updates.push(clientId);
+                }
+              }
+            }
+          };
+        },
+        removeProject: async (slug) => {
+          removedProjects.push(slug);
+        }
+      },
+      "https://auth.example.com",
+      (failure) => {
+        failures.push({
+          projectSlug: failure.projectSlug,
+          clientId: failure.clientId,
+          message:
+            failure.error instanceof Error
+              ? failure.error.message
+              : String(failure.error)
+        });
+      }
+    );
+
+    expect(failures).toEqual([
+      {
+        projectSlug: "legacy",
+        clientId: "legacy-client",
+        message: "[body.update.redirectUris.0] Invalid URL"
+      }
+    ]);
+    expect(removedProjects).toEqual(["legacy"]);
+    expect(updates).toEqual(["demo-client"]);
   });
 });

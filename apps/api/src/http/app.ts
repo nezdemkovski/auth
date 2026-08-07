@@ -153,7 +153,17 @@ export const createApp = async (env: Env) => {
       await registry.updateProject(project);
     }
   });
-  await reconcileApplicationConnections(registry, env.publicBaseUrl);
+  await reconcileApplicationConnections(
+    registry,
+    env.publicBaseUrl,
+    ({ projectSlug, clientId, error }) => {
+      logError("application_connection_reconciliation_failed", {
+        projectSlug,
+        clientId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  );
   const oauthResourceRegistry = createOAuthResourceRegistryPort(registry);
   const oauthResourceAuthorizer = createOAuthResourceAuthorizer({
     registry: oauthResourceRegistry,

@@ -68,6 +68,13 @@ type ApplicationConnectionRegistry = {
       };
     };
   } | null;
+  removeProject(slug: string): Promise<void>;
+};
+
+type ApplicationConnectionReconciliationFailure = {
+  projectSlug: string;
+  clientId: string | null;
+  error: unknown;
 };
 
 export class AuthConnectionServiceError extends Error {
@@ -197,7 +204,10 @@ export class AuthConnectionService {
 
 export const reconcileApplicationConnections = async (
   registry: ApplicationConnectionRegistry,
-  publicBaseUrl: string
+  publicBaseUrl: string,
+  reportFailure: (
+    failure: ApplicationConnectionReconciliationFailure
+  ) => void
 ) => {
   for (const project of registry.list()) {
     if (!project.features.oauthProvider.enabled) {
@@ -207,36 +217,56 @@ export const reconcileApplicationConnections = async (
     if (!registered) {
       continue;
     }
-    const clients = await registered.auth.oauthClientManagement.list();
+    let clients;
+    try {
+      clients = await registered.auth.oauthClientManagement.list();
+    } catch (error) {
+      reportFailure({ projectSlug: project.slug, clientId: null, error });
+      await registry.removeProject(project.slug);
+      continue;
+    }
     for (const application of clients.filter(isApplicationConnectionClient)) {
-      const desired = authConnectionClientInput(
-        {
-          kind: AuthConnectionKind.Application,
-          name: application.name,
-          appUrl: project.appUrl
-        },
-        registered,
-        publicBaseUrl
-      );
-      if (
-        arraysEqual(application.redirectUris, desired.redirectUris) &&
-        arraysEqual(
-          application.postLogoutRedirectUris,
-          desired.postLogoutRedirectUris
-        ) &&
-        arraysEqual(application.scopes, desired.scopes) &&
-        arraysEqual(application.resources, desired.resources)
-      ) {
-        continue;
+      try {
+        const desired = authConnectionClientInput(
+          {
+            kind: AuthConnectionKind.Application,
+            name: application.name,
+            appUrl: project.appUrl
+          },
+          registered,
+          publicBaseUrl
+        );
+        if (
+          arraysEqual(application.redirectUris, desired.redirectUris) &&
+          arraysEqual(
+            application.postLogoutRedirectUris,
+            desired.postLogoutRedirectUris
+          ) &&
+          arraysEqual(application.scopes, desired.scopes) &&
+          arraysEqual(application.resources, desired.resources)
+        ) {
+          continue;
+        }
+        await registered.auth.oauthClientManagement.update(
+          application.clientId,
+          {
+            name: desired.name,
+            redirectUris: desired.redirectUris,
+            postLogoutRedirectUris: desired.postLogoutRedirectUris,
+            scopes: desired.scopes,
+            resources: desired.resources,
+            skipConsent: desired.skipConsent
+          }
+        );
+      } catch (error) {
+        reportFailure({
+          projectSlug: project.slug,
+          clientId: application.clientId,
+          error
+        });
+        await registry.removeProject(project.slug);
+        break;
       }
-      await registered.auth.oauthClientManagement.update(application.clientId, {
-        name: desired.name,
-        redirectUris: desired.redirectUris,
-        postLogoutRedirectUris: desired.postLogoutRedirectUris,
-        scopes: desired.scopes,
-        resources: desired.resources,
-        skipConsent: desired.skipConsent
-      });
     }
   }
 };
